@@ -135,7 +135,13 @@
             "clearImage": "Eliminar imagen",
             "clearBanner": "Eliminar banner",
             "save": "Guardar",
-            "noteImages": "Imagen de perfil máx. 2 MB. Banner máx. 5 MB, PNG/APNG/GIF/JPEG/WEBP."
+            "noteImages": "Imagen de perfil máx. 2 MB. Banner máx. 5 MB, PNG/APNG/GIF/JPEG/WEBP.",
+            "dangerZone": "Zona peligrosa",
+            "deleteAccount": "Eliminar cuenta",
+            "deleteAccountNote": "Esta acción es irreversible. Todos tus datos serán eliminados permanentemente.",
+            "deleteAccountConfirm": "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
+            "deleteAccountPrompt": "Introduce tu contraseña para confirmar la eliminación:",
+            "deleteAccountError": "No se pudo eliminar la cuenta. Verifica tu contraseña."
         },
         "ui": {
             "theme": "Tema",

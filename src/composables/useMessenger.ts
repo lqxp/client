@@ -2968,6 +2968,15 @@ export function useMessenger() {
     logoutLocal();
   }
 
+  async function deleteAccount(password) {
+    if (!state.authToken) throw new Error("Not authenticated.");
+    await apiRequest("/api/auth/delete", {
+      method: "POST",
+      body: JSON.stringify({ password })
+    });
+    logoutLocal();
+  }
+
   function findMessageById(roomId, messageId) {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     const target = String(messageId || "");
@@ -3607,6 +3616,7 @@ export function useMessenger() {
     recoverAccount,
     refreshSession,
     logoutAccount,
+    deleteAccount,
     downloadRecoveryWords,
     loadAdminOverview,
     setAdminFeature,

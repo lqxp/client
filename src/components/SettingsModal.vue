@@ -159,6 +159,20 @@ function onLogout() {
   close();
 }
 
+function onDeleteAccount() {
+  const confirmed = confirm(t('settings.profile.deleteAccountConfirm'));
+  if (!confirmed) return;
+  const password = prompt(t('settings.profile.deleteAccountPrompt'));
+  if (!password) return;
+  props.messenger.deleteAccount(password)
+    .then(() => {
+      close();
+    })
+    .catch((err: any) => {
+      alert(err?.message || t('settings.profile.deleteAccountError'));
+    });
+}
+
 function targetChecked(event: Event) {
   return Boolean((event.target as HTMLInputElement | null)?.checked);
 }
@@ -497,6 +511,20 @@ onBeforeUnmount(() => {
         <p class="settings-note">
           {{ t('settings.profile.noteImages') }}
         </p>
+
+        <div class="settings-group settings-group--danger">
+          <h4>{{ t('settings.profile.dangerZone') }}</h4>
+          <p class="settings-note">{{ t('settings.profile.deleteAccountNote') }}</p>
+          <div class="settings-actions">
+            <button
+              type="button"
+              class="btn settings-btn settings-btn--danger"
+              @click="onDeleteAccount"
+            >
+              {{ t('settings.profile.deleteAccount') }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'ui'" class="settings-page">

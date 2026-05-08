@@ -135,7 +135,13 @@
             "clearImage": "Supprimer l'image",
             "clearBanner": "Supprimer la bannière",
             "save": "Enregistrer",
-            "noteImages": "Image de profil max 2 Mo. Bannière max 5 Mo, PNG/APNG/GIF/JPEG/WEBP."
+            "noteImages": "Image de profil max 2 Mo. Bannière max 5 Mo, PNG/APNG/GIF/JPEG/WEBP.",
+            "dangerZone": "Zone dangereuse",
+            "deleteAccount": "Supprimer le compte",
+            "deleteAccountNote": "Cette action est irréversible. Toutes vos données seront définitivement supprimées.",
+            "deleteAccountConfirm": "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
+            "deleteAccountPrompt": "Entrez votre mot de passe pour confirmer la suppression :",
+            "deleteAccountError": "Impossible de supprimer le compte. Vérifiez votre mot de passe."
         },
         "ui": {
             "theme": "Thème",

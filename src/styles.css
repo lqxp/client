@@ -5081,6 +5081,20 @@ textarea {
   stroke-linejoin: round;
 }
 
+/* Danger zone in settings */
+.settings-group--danger {
+  border-color: rgba(255, 107, 112, 0.25);
+  background: rgba(255, 107, 112, 0.04);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 24px;
+}
+
+.settings-group--danger h4 {
+  color: var(--red);
+  margin: 0 0 12px;
+}
+
 /* Room settings */
 .room-edit {
   min-width: 0;
