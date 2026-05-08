@@ -320,15 +320,15 @@ function loadPersisted() {
     const profile = loadPersistedProfile();
     const rooms = Array.isArray(raw.rooms)
       ? raw.rooms
-          .filter((r) => r && typeof r === "object" && typeof r.roomId === "string")
-          .slice(0, MAX_ROOMS_SHOWN)
-          .map((r) => ({
-            roomId: sanitizeRoomId(r.roomId),
-            lastPreview: String(r.lastPreview || ""),
-            lastTimestamp: Number(r.lastTimestamp) || 0,
-            lastSender: String(r.lastSender || "")
-          }))
-          .filter((r) => isValidRoomId(r.roomId))
+        .filter((r) => r && typeof r === "object" && typeof r.roomId === "string")
+        .slice(0, MAX_ROOMS_SHOWN)
+        .map((r) => ({
+          roomId: sanitizeRoomId(r.roomId),
+          lastPreview: String(r.lastPreview || ""),
+          lastTimestamp: Number(r.lastTimestamp) || 0,
+          lastSender: String(r.lastSender || "")
+        }))
+        .filter((r) => isValidRoomId(r.roomId))
       : [];
 
     const messagesByRoom = {};
@@ -639,19 +639,19 @@ function normalizeMessage(message, fallbackRoomId) {
   const voiceDuration = parseVoiceLabel(message.text);
   const attachment = message.attachment && typeof message.attachment === "object"
     ? {
-        filename: String(message.attachment.filename || "file"),
-        mimeType: String(message.attachment.mimeType || "application/octet-stream"),
-        size: Number(message.attachment.size) || 0,
-        dataB64: String(message.attachment.dataB64 || "")
-      }
+      filename: String(message.attachment.filename || "file"),
+      mimeType: String(message.attachment.mimeType || "application/octet-stream"),
+      size: Number(message.attachment.size) || 0,
+      dataB64: String(message.attachment.dataB64 || "")
+    }
     : null;
   const encrypted = message.encrypted && typeof message.encrypted === "object"
     ? {
-        v: Number(message.encrypted.v) || 0,
-        alg: String(message.encrypted.alg || ""),
-        iv: String(message.encrypted.iv || ""),
-        ciphertext: String(message.encrypted.ciphertext || "")
-      }
+      v: Number(message.encrypted.v) || 0,
+      alg: String(message.encrypted.alg || ""),
+      iv: String(message.encrypted.iv || ""),
+      ciphertext: String(message.encrypted.ciphertext || "")
+    }
     : null;
 
   let kind = "text";
@@ -669,12 +669,12 @@ function normalizeMessage(message, fallbackRoomId) {
 
   const preview = message.preview && typeof message.preview === "object"
     ? {
-        url: String(message.preview.url || ""),
-        title: String(message.preview.title || "").slice(0, 300),
-        description: String(message.preview.description || "").slice(0, 500),
-        image: String(message.preview.image || ""),
-        siteName: String(message.preview.siteName || "").slice(0, 80)
-      }
+      url: String(message.preview.url || ""),
+      title: String(message.preview.title || "").slice(0, 300),
+      description: String(message.preview.description || "").slice(0, 500),
+      image: String(message.preview.image || ""),
+      siteName: String(message.preview.siteName || "").slice(0, 80)
+    }
     : null;
 
   return {
@@ -1306,11 +1306,11 @@ export function useMessenger() {
         text: String(decrypted?.text || ""),
         attachment: decrypted?.attachment && typeof decrypted.attachment === "object"
           ? {
-              filename: String(decrypted.attachment.filename || "file"),
-              mimeType: String(decrypted.attachment.mimeType || "application/octet-stream"),
-              size: Number(decrypted.attachment.size) || 0,
-              dataB64: String(decrypted.attachment.dataB64 || "")
-            }
+            filename: String(decrypted.attachment.filename || "file"),
+            mimeType: String(decrypted.attachment.mimeType || "application/octet-stream"),
+            size: Number(decrypted.attachment.size) || 0,
+            dataB64: String(decrypted.attachment.dataB64 || "")
+          }
           : null,
         preview: message.preview || null,
         locked: false
@@ -1406,15 +1406,15 @@ export function useMessenger() {
 
   function previewSound(key: string) {
     switch (key) {
-      case "join":      playJoinSound(true); break;
-      case "leave":     playLeaveSound(true); break;
-      case "mute":      playMuteSound(true); break;
-      case "unmute":    playUnmuteSound(true); break;
-      case "cameraOn":  playCameraOnSound(true); break;
+      case "join": playJoinSound(true); break;
+      case "leave": playLeaveSound(true); break;
+      case "mute": playMuteSound(true); break;
+      case "unmute": playUnmuteSound(true); break;
+      case "cameraOn": playCameraOnSound(true); break;
       case "cameraOff": playCameraOffSound(true); break;
-      case "screenOn":  playScreenOnSound(true); break;
+      case "screenOn": playScreenOnSound(true); break;
       case "screenOff": playScreenOffSound(true); break;
-      case "message":   playMessageNotificationSound(); break;
+      case "message": playMessageNotificationSound(); break;
     }
   }
 
@@ -1546,7 +1546,7 @@ export function useMessenger() {
       if (!AudioCtx) return null;
       if (!notificationAudioContext) notificationAudioContext = new AudioCtx();
       if (notificationAudioContext.state === "suspended") {
-        notificationAudioContext.resume().catch(() => {});
+        notificationAudioContext.resume().catch(() => { });
       }
       return notificationAudioContext;
     } catch {
@@ -1618,7 +1618,7 @@ export function useMessenger() {
             });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
       return;
     }
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
@@ -1750,7 +1750,7 @@ export function useMessenger() {
       monitorSource.connect(analyser);
       outboundSource.connect(gate);
       gate.connect(destination);
-      context.resume?.().catch?.(() => {});
+      context.resume?.().catch?.(() => { });
       state.callAnalyser = { context, analyser, gate, monitorStream };
       state.callAnalyserData = new Uint8Array(analyser.fftSize);
       return destination.stream;
@@ -1771,7 +1771,7 @@ export function useMessenger() {
     const context = state.callAnalyser?.context;
     state.callAnalyser = null;
     state.callAnalyserData = null;
-    if (context) context.close().catch(() => {});
+    if (context) context.close().catch(() => { });
   }
 
   function isAboveMicrophoneThreshold() {
@@ -1849,7 +1849,7 @@ export function useMessenger() {
     const context = micTestAnalyser?.context;
     micTestAnalyser = null;
     micTestAnalyserData = null;
-    if (context) context.close().catch(() => {});
+    if (context) context.close().catch(() => { });
     state.micTestActive = false;
     state.micTestLoading = false;
     state.micTestLevel = 0;
@@ -1889,7 +1889,7 @@ export function useMessenger() {
       micTestAudio.srcObject = stream;
       micTestAudio.volume = 0.75;
       await applyAudioOutput(micTestAudio);
-      micTestAudio.play().catch(() => {});
+      micTestAudio.play().catch(() => { });
 
       state.micTestActive = true;
       const tick = () => {
@@ -3549,6 +3549,12 @@ export function useMessenger() {
     reader.readAsText(file);
   }
 
+  function logout() {
+    localStorage.clear();
+    document.cookie = "";
+    window.location.reload();
+  }
+
   installRealtimeLifecycleHandlers();
 
   singleton = {
@@ -3676,7 +3682,8 @@ export function useMessenger() {
     setRoomNote,
     setLocalRoomName,
     clearLocalRoomName,
-    clearAllData
+    clearAllData,
+    logout
   };
 
   return singleton;

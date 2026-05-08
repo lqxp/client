@@ -348,6 +348,22 @@ onBeforeUnmount(() => {
           </svg>
         </button>
       </nav>
+
+      <div class="settings__disconnect">
+        <button
+          v-if="messenger.state.authToken"
+          type="button"
+          class="settings__disconnect-btn"
+          @click="messenger.logoutAccount(); close()"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path d="M9 12h12" />
+            <path d="m17 8 4 4-4 4" />
+            <path d="M9 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
+          </svg>
+          {{ t('settings.security.logout') }}
+        </button>
+      </div>
     </aside>
 
     <main class="settings__main">
@@ -975,28 +991,6 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.about.connection') }}</h4>
-          <div class="settings-actions">
-            <button
-              v-if="messenger.state.connected"
-              type="button"
-              class="btn settings-btn settings-btn--danger"
-              @click="messenger.disconnect(); close()"
-            >
-              {{ t('settings.about.disconnect') }}
-            </button>
-            <button
-              v-else
-              type="button"
-              class="btn settings-btn btn--primary"
-              @click="messenger.connect(); close()"
-            >
-              {{ t('settings.about.connect') }}
-            </button>
-          </div>
-        </div>
-
         <div class="settings-group">
           <h4>{{ t('settings.about.title') }}</h4>
           <dl class="settings-kv">
