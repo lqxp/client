@@ -111,6 +111,7 @@
             "profile": "Profile",
             "ui": "UI & Appearance",
             "language": "Language",
+            "rooms": "Rooms",
             "security": "Security",
             "privacy": "Privacy",
             "notifications": "Notifications",
@@ -161,6 +162,13 @@
             "currentLanguage": "Current language",
             "browserLanguage": "Browser language",
             "note": "Changes apply immediately and are saved on this device."
+        },
+        "rooms": {
+            "savedRooms": "Saved rooms",
+            "note": "Locally rename rooms and add private notes. These changes are stored only on this device.",
+            "notePlaceholder": "Private note...",
+            "resetName": "Reset name",
+            "noRooms": "No saved rooms."
         },
         "security": {
             "account": "Account",
@@ -244,6 +252,9 @@
         },
         "about": {
             "title": "About",
+            "connection": "Connection",
+            "connect": "Connect",
+            "disconnect": "Disconnect",
             "session": "Session",
             "status": "Status",
             "joinedRooms": "Joined rooms",

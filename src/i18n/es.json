@@ -111,6 +111,7 @@
             "profile": "Perfil",
             "ui": "Interfaz y apariencia",
             "language": "Idioma",
+            "rooms": "Salas",
             "security": "Seguridad",
             "privacy": "Privacidad",
             "notifications": "Notificaciones",
@@ -161,6 +162,13 @@
             "currentLanguage": "Idioma actual",
             "browserLanguage": "Idioma del navegador",
             "note": "Los cambios se aplican de inmediato y se guardan en este dispositivo."
+        },
+        "rooms": {
+            "savedRooms": "Salas guardadas",
+            "note": "Renombra localmente las salas y añade notas privadas. Estos cambios se almacenan solo en este dispositivo.",
+            "notePlaceholder": "Nota privada...",
+            "resetName": "Restablecer nombre",
+            "noRooms": "No hay salas guardadas."
         },
         "security": {
             "account": "Cuenta",
@@ -244,6 +252,9 @@
         },
         "about": {
             "title": "Acerca de",
+            "connection": "Conexión",
+            "connect": "Conectar",
+            "disconnect": "Desconectar",
             "session": "Sesión",
             "status": "Estado",
             "joinedRooms": "Salas unidas",

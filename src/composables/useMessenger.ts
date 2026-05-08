@@ -24,6 +24,8 @@ const MAX_ROOMS_SHOWN = 100;
 const MAX_HISTORY_PER_ROOM = 500;
 const ROOM_ID_MIN_LENGTH = 8;
 const ROOM_ID_MAX_LENGTH = 64;
+const MAX_ROOM_NOTE_LENGTH = 512;
+const MAX_LOCAL_ROOM_NAME_LENGTH = 64;
 const MESSAGE_LIMIT = 2000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -390,6 +392,8 @@ function loadPersisted() {
       reconnectMinDelayMs: Math.max(250, Math.min(60000, Number(raw.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs)),
       reconnectMaxDelayMs: Math.max(1000, Math.min(120000, Number(raw.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs)),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
+      roomNotes: sanitizeRoomNotes(raw.roomNotes),
+      localRoomNames: sanitizeLocalRoomNames(raw.localRoomNames),
       profile
     };
   } catch {
@@ -423,6 +427,8 @@ function loadPersisted() {
       reconnectMinDelayMs: RECONNECT_DEFAULTS.minDelayMs,
       reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
       callUserVolumes: {},
+      roomNotes: {},
+      localRoomNames: {},
       profile: loadPersistedProfile()
     };
   }
@@ -443,6 +449,29 @@ function sanitizeCallUserVolumes(raw) {
     const key = sanitizeUsername(name);
     if (!key) continue;
     next[key] = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  }
+  return next;
+}
+
+function sanitizeRoomNotes(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const next = {};
+  for (const [roomId, note] of Object.entries(raw)) {
+    const id = sanitizeRoomId(roomId);
+    if (!isValidRoomId(id)) continue;
+    next[id] = String(note || "").trim().slice(0, MAX_ROOM_NOTE_LENGTH);
+  }
+  return next;
+}
+
+function sanitizeLocalRoomNames(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const next = {};
+  for (const [roomId, name] of Object.entries(raw)) {
+    const id = sanitizeRoomId(roomId);
+    if (!isValidRoomId(id)) continue;
+    const clean = String(name || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    if (clean) next[id] = clean;
   }
   return next;
 }
@@ -493,7 +522,9 @@ function savePersisted(state) {
         autoReconnectEnabled: state.autoReconnectEnabled,
         reconnectMinDelayMs: state.reconnectMinDelayMs,
         reconnectMaxDelayMs: state.reconnectMaxDelayMs,
-        callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes)
+        callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
+        roomNotes: sanitizeRoomNotes(state.roomNotes),
+        localRoomNames: sanitizeLocalRoomNames(state.localRoomNames)
       })
     );
   } catch {
@@ -853,6 +884,8 @@ export function useMessenger() {
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
     reconnectMaxDelayMs: Math.max(persisted.reconnectMinDelayMs, persisted.reconnectMaxDelayMs),
     callUserVolumes: persisted.callUserVolumes,
+    roomNotes: persisted.roomNotes,
+    localRoomNames: persisted.localRoomNames,
     audioDevicesLoading: false,
     audioDevicesPermission: "unknown",
     micTestActive: false,
@@ -1299,7 +1332,46 @@ export function useMessenger() {
   function displayRoomName(roomId) {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
-    return state.streamerMode ? "Hidden channel" : id;
+    if (state.streamerMode) return "Hidden channel";
+    const localName = state.localRoomNames[id];
+    if (localName) return localName;
+    return id;
+  }
+
+  function roomNote(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return id ? String(state.roomNotes[id] || "") : "";
+  }
+
+  function setRoomNote(roomId, note) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    const clean = String(note || "").trim().slice(0, MAX_ROOM_NOTE_LENGTH);
+    if (clean) {
+      state.roomNotes[id] = clean;
+    } else {
+      delete state.roomNotes[id];
+    }
+    persist();
+  }
+
+  function setLocalRoomName(roomId, name) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    const clean = String(name || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    if (clean && clean !== id) {
+      state.localRoomNames[id] = clean;
+    } else {
+      delete state.localRoomNames[id];
+    }
+    persist();
+  }
+
+  function clearLocalRoomName(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    delete state.localRoomNames[id];
+    persist();
   }
 
   function setDeleteMessagesOnLeave(value) {
@@ -3600,6 +3672,10 @@ export function useMessenger() {
     exportData,
     importData,
     changeUsername,
+    roomNote,
+    setRoomNote,
+    setLocalRoomName,
+    clearLocalRoomName,
     clearAllData
   };
 

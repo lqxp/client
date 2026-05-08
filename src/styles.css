@@ -5043,3 +5043,50 @@ textarea {
     gap: 4px;
   }
 }
+
+/* Room settings */
+.room-edit {
+  min-width: 0;
+  flex: 1;
+}
+
+.room-edit strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.room-edit small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line-strong);
+}
+
+.room-edit-fields .settings-input {
+  min-height: 38px;
+  font-size: 14px;
+}
+
+.room-edit-fields .settings-btn {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}

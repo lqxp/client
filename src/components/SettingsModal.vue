@@ -54,6 +54,7 @@ const allSections = computed(() => [
   { id: "profile", label: t("settings.sections.profile") },
   { id: "ui", label: t("settings.sections.ui") },
   { id: "language", label: t("settings.sections.language") },
+  { id: "rooms", label: t("settings.sections.rooms") },
   { id: "security", label: t("settings.sections.security") },
   { id: "privacy", label: t("settings.sections.privacy") },
   { id: "notifications", label: t("settings.sections.notifications") },
@@ -293,6 +294,12 @@ onBeforeUnmount(() => {
             <path d="M14 15h6" />
             <path d="m17 5 4 10" />
             <path d="m13 15 4-10" />
+          </svg>
+          <svg v-else-if="section.id === 'rooms'" viewBox="0 0 24 24">
+            <path d="M3 7v14" />
+            <path d="M3 7l9-4 9 4" />
+            <path d="M21 7v14" />
+            <path d="m9 22 3-10 3 10" />
           </svg>
           <svg v-else-if="section.id === 'security'" viewBox="0 0 24 24">
             <rect x="5" y="10" width="14" height="10" rx="2" />
@@ -538,6 +545,48 @@ onBeforeUnmount(() => {
             </div>
           </dl>
           <p class="settings-note">{{ t('settings.language.note') }}</p>
+        </div>
+      </section>
+
+      <section v-else-if="activeSection === 'rooms'" class="settings-page">
+        <div class="settings-group">
+          <h4>{{ t('settings.rooms.savedRooms') }}</h4>
+          <p class="settings-note">{{ t('settings.rooms.note') }}</p>
+          <div v-if="messenger.state.rooms.length" class="admin-list">
+            <div v-for="room in messenger.state.rooms" :key="room.roomId" class="admin-row">
+              <div class="room-edit">
+                <strong>{{ room.roomId }}</strong>
+                <small v-if="messenger.roomNote(room.roomId)">{{ messenger.roomNote(room.roomId) }}</small>
+              </div>
+              <div class="room-edit-fields">
+                <input
+                  type="text"
+                  :value="messenger.state.localRoomNames[room.roomId] || ''"
+                  :placeholder="room.roomId"
+                  maxlength="64"
+                  class="settings-input"
+                  @change="messenger.setLocalRoomName(room.roomId, ($event.target as HTMLInputElement).value)"
+                />
+                <input
+                  type="text"
+                  :value="messenger.roomNote(room.roomId)"
+                  :placeholder="t('settings.rooms.notePlaceholder')"
+                  maxlength="512"
+                  class="settings-input"
+                  @change="messenger.setRoomNote(room.roomId, ($event.target as HTMLInputElement).value)"
+                />
+                <button
+                  v-if="messenger.state.localRoomNames[room.roomId]"
+                  type="button"
+                  class="btn settings-btn"
+                  @click="messenger.clearLocalRoomName(room.roomId)"
+                >
+                  {{ t('settings.rooms.resetName') }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="settings-note">{{ t('settings.rooms.noRooms') }}</p>
         </div>
       </section>
 
@@ -926,6 +975,28 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else class="settings-page">
+        <div class="settings-group">
+          <h4>{{ t('settings.about.connection') }}</h4>
+          <div class="settings-actions">
+            <button
+              v-if="messenger.state.connected"
+              type="button"
+              class="btn settings-btn settings-btn--danger"
+              @click="messenger.disconnect(); close()"
+            >
+              {{ t('settings.about.disconnect') }}
+            </button>
+            <button
+              v-else
+              type="button"
+              class="btn settings-btn btn--primary"
+              @click="messenger.connect(); close()"
+            >
+              {{ t('settings.about.connect') }}
+            </button>
+          </div>
+        </div>
+
         <div class="settings-group">
           <h4>{{ t('settings.about.title') }}</h4>
           <dl class="settings-kv">
