@@ -2806,23 +2806,67 @@ export function useMessenger() {
     const clean = sanitizeUsername(newName);
     const validation = validateUsername(clean);
     if (validation) { state.lastError = validation; return false; }
-    if (clean === sanitizeUsername(state.username)) return true;
+
+    const previous = sanitizeUsername(state.username);
+    if (clean === previous) return true;
+
     try {
       const data = await apiRequest("/api/auth/username", {
         method: "POST",
         body: JSON.stringify({ username: clean })
       });
+
       if (data?.user) {
-        state.username = sanitizeUsername(data.user.username);
+        const next = sanitizeUsername(data.user.username);
+        state.username = next;
         state.userId = String(data.user.id || state.userId || "");
         state.admin = Boolean(data.user.admin);
+
+        if (previous && next && previous !== next) {
+          for (const roomId of Object.keys(state.usersByRoom)) {
+            state.usersByRoom[roomId] = (state.usersByRoom[roomId] || []).map((user) =>
+              sanitizeUsername(user) === previous ? next : sanitizeUsername(user)
+            );
+          }
+
+          for (const roomId of Object.keys(state.voiceMembersByRoom)) {
+            state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).map((user) =>
+              sanitizeUsername(user) === previous ? next : sanitizeUsername(user)
+            );
+          }
+
+          for (const roomId of Object.keys(state.callClientsByRoom)) {
+            const byUser = state.callClientsByRoom[roomId] || {};
+            if (byUser[previous]) {
+              byUser[next] = byUser[previous];
+              delete byUser[previous];
+            }
+          }
+
+          if (state.profilesByUser[previous]) {
+            state.profilesByUser[next] = state.profilesByUser[previous];
+            delete state.profilesByUser[previous];
+          }
+          if (state.statusesByUser[previous]) {
+            state.statusesByUser[next] = state.statusesByUser[previous];
+            delete state.statusesByUser[previous];
+          }
+          if (state.clientPlatformsByUser[previous]) {
+            state.clientPlatformsByUser[next] = state.clientPlatformsByUser[previous];
+            delete state.clientPlatformsByUser[previous];
+          }
+          if (state.remoteCallMediaByUser[previous]) {
+            state.remoteCallMediaByUser[next] = state.remoteCallMediaByUser[previous];
+            delete state.remoteCallMediaByUser[previous];
+          }
+          if (state.remoteCallStreamsByUser[previous]) {
+            state.remoteCallStreamsByUser[next] = state.remoteCallStreamsByUser[previous];
+            delete state.remoteCallStreamsByUser[previous];
+          }
+        }
       }
-      const wasConnected = state.connected;
+
       persist();
-      if (wasConnected) {
-        disconnect();
-        setTimeout(connect, 100);
-      }
       return true;
     } catch (error) {
       state.lastError = error?.message || "Username change failed.";
