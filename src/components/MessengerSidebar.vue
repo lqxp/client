@@ -12,6 +12,9 @@ const emit = defineEmits(["conversation-selected"]);
 const composeRef = ref(null);
 const statusMenuOpen = ref(false);
 const isMobile = ref(false);
+const roomContextOpen = ref(false);
+const roomContextRoomId = ref("");
+const roomContextPos = ref({ x: 0, y: 0 });
 
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
@@ -59,6 +62,50 @@ function removeConversation(event, roomId) {
   props.messenger.removeRoom(roomId);
 }
 
+function roomIcon(roomId) {
+  return props.messenger.roomIcon?.(roomId) || "";
+}
+
+function onRoomContext(event, roomId) {
+  event.preventDefault();
+  event.stopPropagation();
+  roomContextRoomId.value = roomId;
+  roomContextPos.value = { x: event.clientX, y: event.clientY };
+  roomContextOpen.value = true;
+}
+
+function closeRoomContext() {
+  roomContextOpen.value = false;
+  roomContextRoomId.value = "";
+}
+
+function renameRoomFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  const current = props.messenger.displayRoomName(roomId);
+  const next = window.prompt(t("sidebar.promptLocalRoomName"), current || roomId);
+  if (next === null) return;
+  props.messenger.setLocalRoomName(roomId, next);
+  closeRoomContext();
+}
+
+function setRoomIconFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  const current = roomIcon(roomId);
+  const next = window.prompt(t("sidebar.promptLocalRoomIcon"), current || "");
+  if (next === null) return;
+  props.messenger.setLocalRoomIcon(roomId, next);
+  closeRoomContext();
+}
+
+function clearRoomIconFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  props.messenger.clearLocalRoomIcon(roomId);
+  closeRoomContext();
+}
+
 function openConversation(roomId) {
   props.messenger.selectConversation(roomId);
   emit("conversation-selected", roomId);
@@ -84,6 +131,7 @@ function setStatus(value) {
 
 function onDocumentClick() {
   statusMenuOpen.value = false;
+  closeRoomContext();
 }
 
 function syncMobile() {
@@ -155,9 +203,11 @@ onBeforeUnmount(() => {
           tabindex="0"
           @click="openConversation(c.roomId)"
           @keydown.enter.prevent="openConversation(c.roomId)"
+          @contextmenu="onRoomContext($event, c.roomId)"
         >
           <span class="avatar avatar--lg" :class="`avatar--${c.accent}`">
-            {{ initialsOf(c.name) }}
+            <span v-if="roomIcon(c.roomId)" class="conv__icon">{{ roomIcon(c.roomId) }}</span>
+            <template v-else>{{ initialsOf(c.name) }}</template>
           </span>
 
           <span class="conv__head">
@@ -188,6 +238,18 @@ onBeforeUnmount(() => {
       <div v-else class="conv--empty">
         {{ t('app.noConversationHint') }}
       </div>
+    </div>
+
+    <div
+      v-if="roomContextOpen"
+      class="room-context"
+      role="menu"
+      :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }"
+      @click.stop
+    >
+      <button type="button" role="menuitem" @click="setRoomIconFromContext">{{ t('sidebar.contextChangeIcon') }}</button>
+      <button type="button" role="menuitem" @click="clearRoomIconFromContext">{{ t('sidebar.contextClearIcon') }}</button>
+      <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameLocal') }}</button>
     </div>
 
     <div class="side__foot" @click.stop>
@@ -264,3 +326,33 @@ onBeforeUnmount(() => {
     </div>
   </aside>
 </template>
+
+<style scoped>
+.conv__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.room-context {
+  position: fixed;
+  z-index: 120;
+  min-width: 190px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+}
+
+.room-context button {
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text);
+}
+
+.room-context button:hover {
+  background: var(--surface-hover);
+}
+</style>

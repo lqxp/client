@@ -26,6 +26,7 @@ const ROOM_ID_MIN_LENGTH = 8;
 const ROOM_ID_MAX_LENGTH = 64;
 const MAX_ROOM_NOTE_LENGTH = 512;
 const MAX_LOCAL_ROOM_NAME_LENGTH = 64;
+const MAX_LOCAL_ROOM_ICON_LENGTH = 8;
 const MESSAGE_LIMIT = 2000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -394,6 +395,7 @@ function loadPersisted() {
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
       localRoomNames: sanitizeLocalRoomNames(raw.localRoomNames),
+      localRoomIcons: sanitizeLocalRoomIcons(raw.localRoomIcons),
       profile
     };
   } catch {
@@ -429,6 +431,7 @@ function loadPersisted() {
       callUserVolumes: {},
       roomNotes: {},
       localRoomNames: {},
+      localRoomIcons: {},
       profile: loadPersistedProfile()
     };
   }
@@ -471,6 +474,22 @@ function sanitizeLocalRoomNames(raw) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
     const clean = String(name || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    if (clean) next[id] = clean;
+  }
+  return next;
+}
+
+function sanitizeLocalRoomIcon(value) {
+  return String(value || "").trim().slice(0, MAX_LOCAL_ROOM_ICON_LENGTH);
+}
+
+function sanitizeLocalRoomIcons(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const next = {};
+  for (const [roomId, icon] of Object.entries(raw)) {
+    const id = sanitizeRoomId(roomId);
+    if (!isValidRoomId(id)) continue;
+    const clean = sanitizeLocalRoomIcon(icon);
     if (clean) next[id] = clean;
   }
   return next;
@@ -524,7 +543,8 @@ function savePersisted(state) {
         reconnectMaxDelayMs: state.reconnectMaxDelayMs,
         callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
         roomNotes: sanitizeRoomNotes(state.roomNotes),
-        localRoomNames: sanitizeLocalRoomNames(state.localRoomNames)
+        localRoomNames: sanitizeLocalRoomNames(state.localRoomNames),
+        localRoomIcons: sanitizeLocalRoomIcons(state.localRoomIcons)
       })
     );
   } catch {
@@ -886,6 +906,7 @@ export function useMessenger() {
     callUserVolumes: persisted.callUserVolumes,
     roomNotes: persisted.roomNotes,
     localRoomNames: persisted.localRoomNames,
+    localRoomIcons: persisted.localRoomIcons,
     audioDevicesLoading: false,
     audioDevicesPermission: "unknown",
     micTestActive: false,
@@ -1343,6 +1364,11 @@ export function useMessenger() {
     return id ? String(state.roomNotes[id] || "") : "";
   }
 
+  function roomIcon(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return id ? sanitizeLocalRoomIcon(state.localRoomIcons[id]) : "";
+  }
+
   function setRoomNote(roomId, note) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
@@ -1371,6 +1397,25 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     delete state.localRoomNames[id];
+    persist();
+  }
+
+  function setLocalRoomIcon(roomId, icon) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    const clean = sanitizeLocalRoomIcon(icon);
+    if (clean) {
+      state.localRoomIcons[id] = clean;
+    } else {
+      delete state.localRoomIcons[id];
+    }
+    persist();
+  }
+
+  function clearLocalRoomIcon(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    delete state.localRoomIcons[id];
     persist();
   }
 
@@ -1959,6 +2004,8 @@ export function useMessenger() {
     delete state.messagesByRoom[id];
     delete state.usersByRoom[id];
     delete state.unreadByRoom[id];
+    delete state.localRoomNames[id];
+    delete state.localRoomIcons[id];
     state.joinedRooms = state.joinedRooms.filter((r) => r !== id);
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
     if (state.activeRoom === id) state.activeRoom = "";
@@ -2447,6 +2494,22 @@ export function useMessenger() {
     return [...platforms].map(sanitizePlatform).filter(Boolean).sort();
   }
 
+  function mutualRoomsWith(username) {
+    const target = sanitizeUsername(username);
+    const me = sanitizeUsername(state.username);
+    if (!target || !me) return [];
+    const matches = [];
+    for (const room of state.rooms) {
+      const roomId = sanitizeRoomId(room?.roomId);
+      if (!roomId || !isValidRoomId(roomId)) continue;
+      const users = new Set((state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean));
+      if (users.has(me) && users.has(target)) {
+        matches.push({ roomId, name: displayRoomName(roomId), icon: roomIcon(roomId) });
+      }
+    }
+    return matches;
+  }
+
   function connectKnownCallPeers(roomId) {
     if (!callManager) return;
     const me = sanitizeUsername(state.username);
@@ -2890,6 +2953,7 @@ export function useMessenger() {
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.statusesByUser = {};
+    state.localRoomIcons = {};
     state.profile = normalizeProfile(null);
     state.status = "online";
     state.activeRoom = "";
@@ -3650,6 +3714,7 @@ export function useMessenger() {
     presenceStatusLabel,
     profileImageSrc,
     platformsForUser,
+    mutualRoomsWith,
     platformLabel,
     platformIcon,
     showToast,
@@ -3736,6 +3801,9 @@ export function useMessenger() {
     setRoomNote,
     setLocalRoomName,
     clearLocalRoomName,
+    roomIcon,
+    setLocalRoomIcon,
+    clearLocalRoomIcon,
     clearAllData,
     logout
   };

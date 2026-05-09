@@ -34,6 +34,11 @@
         "joined": "Joined",
         "removeConversation": "Remove {room}",
         "removeConversationConfirm": "Remove conversation \"{room}\" and its messages?",
+        "contextChangeIcon": "Change icon",
+        "contextClearIcon": "Remove icon",
+        "contextRenameLocal": "Rename locally",
+        "promptLocalRoomName": "Local room name",
+        "promptLocalRoomIcon": "Local icon (emoji)",
         "anonymous": "anonymous"
     },
     "thread": {
@@ -306,6 +311,9 @@
     "profile": {
         "close": "Close profile",
         "about": "About",
+        "clientPlatforms": "Client platforms",
+        "mutualRooms": "Mutual rooms",
+        "noMutualRooms": "No visible mutual rooms.",
         "noDescription": "No profile description.",
         "inVoiceChat": "In voice chat"
     },

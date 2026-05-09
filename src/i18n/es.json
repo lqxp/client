@@ -34,6 +34,11 @@
         "joined": "Unido",
         "removeConversation": "Eliminar {room}",
         "removeConversationConfirm": "¿Eliminar la conversación \"{room}\" y sus mensajes?",
+        "contextChangeIcon": "Cambiar icono",
+        "contextClearIcon": "Quitar icono",
+        "contextRenameLocal": "Renombrar localmente",
+        "promptLocalRoomName": "Nombre local de la sala",
+        "promptLocalRoomIcon": "Icono local (emoji)",
         "anonymous": "anónimo"
     },
     "thread": {
@@ -306,6 +311,9 @@
     "profile": {
         "close": "Cerrar perfil",
         "about": "Acerca de",
+        "clientPlatforms": "Plataformas del cliente",
+        "mutualRooms": "Salas en común",
+        "noMutualRooms": "No hay salas en común visibles.",
         "noDescription": "Sin descripción de perfil.",
         "inVoiceChat": "En chat de voz"
     },

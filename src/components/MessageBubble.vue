@@ -133,6 +133,35 @@ function codeBlockLabel(value) {
   return label.slice(0, 40);
 }
 
+function twemojiSvgUrl(emoji) {
+  const codepoints = [];
+  for (const symbol of Array.from(String(emoji || ""))) {
+    const cp = symbol.codePointAt(0);
+    if (!cp) continue;
+    // Twemoji filenames generally strip the emoji-variation selector FE0F.
+    if (cp === 0xfe0f) continue;
+    codepoints.push(cp.toString(16));
+  }
+  if (!codepoints.length) return "";
+  const key = codepoints.join("-");
+  const base = String(import.meta.env.BASE_URL || "./");
+  return `${base}twemoji/svg/${key}.svg`;
+}
+
+function renderDiscordEmoji(value, options: { assumeHtml?: boolean } = {}) {
+  const raw = String(value || "");
+  const assumeHtml = Boolean(options.assumeHtml);
+  if (!raw) return "";
+  const source = assumeHtml ? raw : escapeHtml(raw);
+  const emojiRegex = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/gu;
+  return source.replace(emojiRegex, (emoji) => {
+    const url = twemojiSvgUrl(emoji);
+    if (!url) return emoji;
+    const safeAlt = escapeHtml(emoji);
+    return `<img class="twemoji" data-twemoji="1" draggable="false" alt="${safeAlt}" src="${url}" onerror="this.replaceWith(document.createTextNode('${safeAlt}'))"/>`;
+  });
+}
+
 function isKnownMention(username) {
   return validMentionUsers.value.has(String(username || "").trim().toLowerCase());
 }
@@ -229,7 +258,7 @@ function markdown(value) {
     .replace(/\n/g, "<br>");
 
   for (const [token, value] of tokens) html = html.replaceAll(token, value);
-  return html;
+  return renderDiscordEmoji(html, { assumeHtml: true });
 }
 
 async function copyText(text) {
@@ -354,21 +383,21 @@ function onDelete() {
         {{ message.username }}
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
-      <div class="jumbo__glyph">{{ message.text }}</div>
+      <div class="jumbo__glyph" v-html="renderDiscordEmoji(message.text)"></div>
       <span v-if="showTimestamp && !isDiscordStyle" class="jumbo__time">
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
       <div v-if="message.reactions.length" class="reactions reactions--standalone">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
           type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
-          <span>{{ reaction.emoji }}</span>
+          <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
       </div>
       <div class="bubble-actions" :style="discordActionsStyle">
         <div class="pick">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
-            @click="messenger.toggleReaction(message, emoji)">{{ emoji }}</button>
+            @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
           <button type="button" aria-label="Reply" @click="messenger.startReply(message)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
@@ -402,7 +431,7 @@ function onDelete() {
       <div class="bubble-actions" :style="discordActionsStyle">
         <div class="pick" role="group" aria-label="React">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
-            @click="messenger.toggleReaction(message, emoji)">{{ emoji }}</button>
+            @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
           <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
@@ -449,7 +478,7 @@ function onDelete() {
             <circle cx="12" cy="13" r="3.5" />
           </svg>
         </span>
-        <span class="reply-ref__text">{{ replyText }}</span>
+        <span class="reply-ref__text" v-html="renderDiscordEmoji(replyText)"></span>
         <span v-if="replyEdited" class="reply-ref__edited">(edited)</span>
       </button>
 
@@ -460,7 +489,7 @@ function onDelete() {
         @click="onReplyClick"
       >
         <span class="reply-card__author">{{ replyLabel }}</span>
-        <span class="reply-card__text">{{ replyText }}</span>
+        <span class="reply-card__text" v-html="renderDiscordEmoji(replyText)"></span>
       </button>
 
       <div v-if="showAuthor" class="bubble__author">
@@ -587,7 +616,7 @@ function onDelete() {
       >
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
           type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
-          <span>{{ reaction.emoji }}</span>
+          <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
       </div>
@@ -1076,5 +1105,18 @@ function onDelete() {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1;
+}
+:deep(.twemoji) {
+  display: inline-block;
+  width: 1.12em;
+  height: 1.12em;
+  vertical-align: -0.18em;
+  object-fit: contain;
+}
+
+:global(:root[data-message-style="discord"] .pick .twemoji),
+:global(:root[data-message-style="discord"] .reaction .twemoji) {
+  width: 1.05em;
+  height: 1.05em;
 }
 </style>

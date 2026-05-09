@@ -30,6 +30,7 @@ const statusLabel = computed(() => {
   }
 });
 const platforms = computed(() => props.messenger.platformsForUser?.(props.username) || []);
+const mutualRooms = computed(() => props.messenger.mutualRoomsWith?.(props.username) || []);
 
 function initialsFor(name: string) {
   const clean = String(name || "?").trim();
@@ -66,7 +67,7 @@ function initialsFor(name: string) {
             ></span>
             {{ statusLabel }}<template v-if="profile.pronouns"> · {{ profile.pronouns }}</template><template v-if="isSelf"> · {{ t('members.you') }}</template>
           </small>
-          <div v-if="platforms.length" class="profile-card__platforms" aria-label="Client platforms">
+          <div v-if="platforms.length" class="profile-card__platforms" :aria-label="t('profile.clientPlatforms')">
             <span
               v-for="platform in platforms"
               :key="platform"
@@ -79,6 +80,17 @@ function initialsFor(name: string) {
           <h4>{{ t('profile.about') }}</h4>
           <p v-if="profile.description" class="profile-card__description">{{ profile.description }}</p>
           <p v-else class="profile-card__empty">{{ t('profile.noDescription') }}</p>
+        </div>
+
+        <div class="profile-card__section">
+          <h4>{{ t('profile.mutualRooms') }}</h4>
+          <ul v-if="mutualRooms.length" class="profile-card__mutual-list">
+            <li v-for="room in mutualRooms" :key="room.roomId" class="profile-card__mutual-item">
+              <span class="profile-card__mutual-icon">{{ room.icon || '•' }}</span>
+              <span class="profile-card__mutual-name">{{ room.name }}</span>
+            </li>
+          </ul>
+          <p v-else class="profile-card__empty">{{ t('profile.noMutualRooms') }}</p>
         </div>
       </div>
     </section>

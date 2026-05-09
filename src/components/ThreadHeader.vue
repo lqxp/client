@@ -19,6 +19,7 @@ const initials = computed(() => {
   return n.slice(0, 2).toUpperCase() || "?";
 });
 
+const roomIcon = computed(() => props.messenger.roomIcon?.(props.messenger.state.activeRoom) || "");
 const callActiveHere = computed(() =>
   props.messenger.state.inCall && props.messenger.state.callRoom === props.messenger.state.activeRoom
 );
@@ -67,7 +68,10 @@ function removeHere() {
     </button>
 
     <div class="thread__who">
-      <span class="avatar avatar--md" :class="`avatar--${accent}`">{{ initials }}</span>
+      <span class="avatar avatar--md" :class="`avatar--${accent}`">
+        <template v-if="roomIcon">{{ roomIcon }}</template>
+        <template v-else>{{ initials }}</template>
+      </span>
       <div>
         <div class="thread__name">{{ name }}</div>
         <div class="thread__sub">
