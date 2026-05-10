@@ -55,7 +55,9 @@
         "copyTokenSuccess": "Token du salon copié.",
         "copyTokenError": "Impossible de copier le token du salon.",
         "leaveRoomDeletesLocal": "Les messages locaux seront supprimés.",
-        "leaveRoomConfirm": "Quitter \"{room}\" ?{suffix}"
+        "leaveRoomConfirm": "Quitter \"{room}\" ?{suffix}",
+        "typingOne": "{user} est en train d’écrire…",
+        "typingMany": "{count} personnes écrivent…"
     },
     "composer": {
         "placeholder": "Message",
@@ -234,6 +236,7 @@
         "advanced": {
             "connection": "Connexion",
             "autoReconnect": "Se reconnecter automatiquement au chat",
+            "disableTypingSend": "Désactiver l’envoi de l’indicateur d’écriture",
             "serverClears": "Laisser le serveur vider le cache local des messages",
             "serverClearsNote": "Activé par défaut. Lorsque désactivé, la reconnexion conserve les messages en cache même si l'historique serveur est vide après un rafraîchissement.",
             "uploads": "Envois",

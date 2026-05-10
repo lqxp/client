@@ -47,6 +47,9 @@ const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const E2EE_MESSAGE_PLACEHOLDER = "Encrypted message";
 const LINK_PREVIEW_URL_RE = /https?:\/\/[^\s<>"'`\\]+/i;
 const pendingLinkPreviewRequests = new Set<string>();
+const TYPING_IDLE_MS = 2800;
+const TYPING_REMOTE_TTL_MS = 4500;
+const TYPING_HEARTBEAT_MS = 4000;
 
 function inferWebSocketUrl() {
   return appRuntimeConfig.wsUrl;
@@ -373,6 +376,7 @@ function loadPersisted() {
       deleteMessagesOnLeave: Boolean(raw.deleteMessagesOnLeave),
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       streamerMode: Boolean(raw.streamerMode),
+      typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
       messageSoundEnabled: Boolean(raw.messageSoundEnabled),
       callSoundsEnabled: raw.callSoundsEnabled !== false,
       soundFlags: {
@@ -419,6 +423,7 @@ function loadPersisted() {
       deleteMessagesOnLeave: false,
       autoArchiveUploads: false,
       streamerMode: false,
+      typingIndicatorsEnabled: true,
       messageSoundEnabled: false,
       callSoundsEnabled: true,
       soundFlags: { join: true, leave: true, mute: true, unmute: true, cameraOn: true, cameraOff: true, screenOn: true, screenOff: true, message: true },
@@ -539,6 +544,7 @@ function savePersisted(state) {
         deleteMessagesOnLeave: state.deleteMessagesOnLeave,
         autoArchiveUploads: state.autoArchiveUploads,
         streamerMode: state.streamerMode,
+        typingIndicatorsEnabled: state.typingIndicatorsEnabled,
         messageSoundEnabled: state.messageSoundEnabled,
         callSoundsEnabled: state.callSoundsEnabled,
         soundFlags: { ...state.soundFlags },
@@ -901,6 +907,7 @@ export function useMessenger() {
     deleteMessagesOnLeave: persisted.deleteMessagesOnLeave,
     autoArchiveUploads: persisted.autoArchiveUploads,
     streamerMode: persisted.streamerMode,
+    typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
     messageSoundEnabled: persisted.messageSoundEnabled,
     callSoundsEnabled: persisted.callSoundsEnabled,
     soundFlags: { ...persisted.soundFlags },
@@ -940,6 +947,7 @@ export function useMessenger() {
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
     speakingByRoom: {},     // { roomId: { username: lastChunkTimestamp } } — recent speakers
+    typingByRoom: {},       // { roomId: { username: lastTypingTimestamp } }
     callAnalyser: null,
     callAnalyserData: null,
 
@@ -966,6 +974,10 @@ export function useMessenger() {
   let callGateTimer: ReturnType<typeof setInterval> | null = null;
   let callGateOpenUntil = 0;
   const localClientId = getPersistentClientId();
+  const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let typingIdleTimer: ReturnType<typeof setTimeout> | null = null;
+  let typingActiveRoomId = "";
+  let typingLastSentAt = 0;
   function currentLocalPlatform() {
     return detectClientPlatform();
   }
@@ -1051,6 +1063,15 @@ export function useMessenger() {
   });
 
   const memberRoster = computed(() => [...new Set((state.usersByRoom[state.activeRoom] || []).map(sanitizeUsername).filter(Boolean))]);
+  const typingUsers = computed(() => {
+    const roomId = sanitizeRoomId(state.activeRoom);
+    const roomTyping = state.typingByRoom[roomId] || {};
+    return Object.entries(roomTyping)
+      .filter(([, at]) => Date.now() - Number(at || 0) <= TYPING_REMOTE_TTL_MS)
+      .map(([username]) => username)
+      .filter((username) => username !== sanitizeUsername(state.username))
+      .sort();
+  });
   const myProfile = computed(() => normalizeProfile(state.profile));
   const myStatus = computed(() => sanitizePresenceStatus(state.status));
 
@@ -1473,6 +1494,12 @@ export function useMessenger() {
   function setMessageSoundEnabled(value) {
     state.messageSoundEnabled = Boolean(value);
     if (state.messageSoundEnabled) ensureNotificationAudio();
+    persist();
+  }
+
+  function setTypingIndicatorsEnabled(value) {
+    state.typingIndicatorsEnabled = Boolean(value);
+    setTyping(false);
     persist();
   }
 
@@ -2052,6 +2079,67 @@ export function useMessenger() {
     persist();
   }
 
+  function markUserTyping(roomId, username, typing) {
+    const id = sanitizeRoomId(roomId);
+    const user = sanitizeUsername(username);
+    if (!id || !user) return;
+    if (!state.typingByRoom[id]) state.typingByRoom[id] = {};
+
+    const timerKey = `${id}:${user}`;
+    const prevTimer = typingExpiryTimers.get(timerKey);
+    if (prevTimer) {
+      clearTimeout(prevTimer);
+      typingExpiryTimers.delete(timerKey);
+    }
+
+    if (!typing) {
+      delete state.typingByRoom[id][user];
+      if (!Object.keys(state.typingByRoom[id]).length) delete state.typingByRoom[id];
+      return;
+    }
+
+    state.typingByRoom[id][user] = Date.now();
+    const timer = setTimeout(() => {
+      if (!state.typingByRoom[id]) return;
+      delete state.typingByRoom[id][user];
+      if (!Object.keys(state.typingByRoom[id]).length) delete state.typingByRoom[id];
+      typingExpiryTimers.delete(timerKey);
+    }, TYPING_REMOTE_TTL_MS);
+    typingExpiryTimers.set(timerKey, timer);
+  }
+
+  function setTyping(active) {
+    const roomId = sanitizeRoomId(state.activeRoom);
+    const canBroadcast = Boolean(state.typingIndicatorsEnabled && state.connected && state.identified && roomId && state.joinedRooms.includes(roomId));
+
+    if (!active || !canBroadcast || !String(state.messageInput || "").trim()) {
+      if (typingIdleTimer) {
+        clearTimeout(typingIdleTimer);
+        typingIdleTimer = null;
+      }
+      if (typingActiveRoomId) send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
+      typingActiveRoomId = "";
+      typingLastSentAt = 0;
+      return;
+    }
+
+    if (typingActiveRoomId && typingActiveRoomId !== roomId) {
+      send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
+      typingActiveRoomId = "";
+      typingLastSentAt = 0;
+    }
+
+    const now = Date.now();
+    if (!typingActiveRoomId || now - typingLastSentAt >= TYPING_HEARTBEAT_MS) {
+      send({ op: 31, d: { gameId: roomId, typing: true } });
+      typingActiveRoomId = roomId;
+      typingLastSentAt = now;
+    }
+
+    if (typingIdleTimer) clearTimeout(typingIdleTimer);
+    typingIdleTimer = setTimeout(() => setTyping(false), TYPING_IDLE_MS);
+  }
+
   function clearHeartbeat() {
     if (state.heartbeatTimer) {
       clearInterval(state.heartbeatTimer);
@@ -2083,7 +2171,16 @@ export function useMessenger() {
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.statusesByUser = {};
+    state.typingByRoom = {};
     state.ws = null;
+    if (typingIdleTimer) {
+      clearTimeout(typingIdleTimer);
+      typingIdleTimer = null;
+    }
+    for (const timer of typingExpiryTimers.values()) clearTimeout(timer);
+    typingExpiryTimers.clear();
+    typingActiveRoomId = "";
+    typingLastSentAt = 0;
     if (message) state.systemBanner = message;
   }
 
@@ -2132,6 +2229,7 @@ export function useMessenger() {
       showToast(validation);
       return;
     }
+    if (state.activeRoom && state.activeRoom !== id) setTyping(false);
     state.activeRoom = id;
     state.unreadByRoom[id] = 0;
     if (state.editingMessage?.roomId !== id) cancelEditMessage();
@@ -2157,7 +2255,10 @@ export function useMessenger() {
     state.joinedRooms = state.joinedRooms.filter((r) => r !== id);
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
     delete state.usersByRoom[id];
-    if (state.activeRoom === id) state.activeRoom = "";
+    if (state.activeRoom === id) {
+      setTyping(false);
+      state.activeRoom = "";
+    }
     persist();
   }
 
@@ -2345,6 +2446,8 @@ export function useMessenger() {
           send({ op: 7, d });
           state.messageInput = "";
           state.replyingTo = null;
+          setTyping(false);
+
         })
         .catch((error) => {
           state.lastError = error?.message || "Message encryption failed.";
@@ -3371,6 +3474,11 @@ export function useMessenger() {
           });
         }
         break;
+      case 31:
+        if (d?.gameId && d?.username) {
+          markUserTyping(d.gameId, d.username, Boolean(d.typing));
+        }
+        break;
       case 13:
         {
           const key = sanitizeUsername(d?.username || d?.user);
@@ -3585,7 +3693,9 @@ export function useMessenger() {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       autoArchiveUploads: state.autoArchiveUploads,
       streamerMode: state.streamerMode,
+      typingIndicatorsEnabled: state.typingIndicatorsEnabled,
       messageSoundEnabled: state.messageSoundEnabled,
+
       callSoundsEnabled: state.callSoundsEnabled,
       soundFlags: { ...state.soundFlags },
       themeMode: state.themeMode,
@@ -3675,6 +3785,7 @@ export function useMessenger() {
         if (typeof data.deleteMessagesOnLeave === "boolean") state.deleteMessagesOnLeave = data.deleteMessagesOnLeave;
         if (typeof data.streamerMode === "boolean") state.streamerMode = data.streamerMode;
         if (typeof data.messageSoundEnabled === "boolean") state.messageSoundEnabled = data.messageSoundEnabled;
+        if (typeof data.typingIndicatorsEnabled === "boolean") state.typingIndicatorsEnabled = data.typingIndicatorsEnabled;
         if (typeof data.themeMode === "string") setThemeMode(data.themeMode);
         if (typeof data.callSoundsEnabled === "boolean") setCallSoundsEnabled(data.callSoundsEnabled);
         if (data.soundFlags && typeof data.soundFlags === "object") {
@@ -3734,6 +3845,7 @@ export function useMessenger() {
     conversations,
     activeConversation,
     memberRoster,
+    typingUsers,
     myProfile,
     myStatus,
     accentFor,
@@ -3780,6 +3892,7 @@ export function useMessenger() {
     setDeleteMessagesOnLeave,
     setStreamerMode,
     setMessageSoundEnabled,
+    setTypingIndicatorsEnabled,
     setCallSoundsEnabled,
     setSoundEnabled,
     previewSound,
@@ -3805,6 +3918,7 @@ export function useMessenger() {
     selectConversation,
     leaveRoom,
     sendChat,
+    setTyping,
     sendAttachment,
     startRecordingVoiceMemo,
     stopRecordingVoiceMemo,

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from "vue";
+import { computed, inject, onBeforeUnmount, watch } from "vue";
+import { useI18n } from "@/composables/useI18n";
 import MessageBubble from "./MessageBubble.vue";
 
 const props = defineProps({
   messenger: { type: Object, required: true }
 });
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const RUN_GAP_MS = 3 * 60 * 1000;
 const BANNER_TIMEOUT_MS = 4500;
@@ -33,6 +36,13 @@ watch(
 
 onBeforeUnmount(() => {
   if (bannerTimer) clearTimeout(bannerTimer);
+});
+
+const typingLabel = computed(() => {
+  const users = props.messenger.typingUsers?.value || [];
+  if (!users.length) return "";
+  if (users.length === 1) return t("thread.typingOne", { user: users[0] });
+  return t("thread.typingMany", { count: String(users.length) });
 });
 
 const decorated = computed(() => {
@@ -85,5 +95,7 @@ const decorated = computed(() => {
         :show-avatar="entry.showAvatar"
       />
     </template>
+
+    <div v-if="typingLabel" class="typing-indicator" aria-live="polite">{{ typingLabel }}</div>
   </section>
 </template>

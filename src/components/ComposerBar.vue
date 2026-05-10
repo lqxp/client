@@ -166,6 +166,7 @@ async function onPaste(event: ClipboardEvent) {
 function send() {
   if (!canSend.value) return;
   props.messenger.sendChat();
+  props.messenger.setTyping?.(false);
 }
 
 function syncCursor() {
@@ -173,6 +174,7 @@ function syncCursor() {
   cursorPosition.value = input?.selectionStart ?? String(props.messenger.state.messageInput || "").length;
   mentionIndex.value = 0;
   mentionSuppressedStart.value = -1;
+  props.messenger.setTyping?.(Boolean(String(props.messenger.state.messageInput || "").trim()));
   syncComposerHeight();
 }
 

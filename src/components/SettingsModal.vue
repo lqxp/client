@@ -56,7 +56,6 @@ const allSections = computed(() => [
   { id: "language", label: t("settings.sections.language") },
   { id: "rooms", label: t("settings.sections.rooms") },
   { id: "security", label: t("settings.sections.security") },
-  { id: "privacy", label: t("settings.sections.privacy") },
   { id: "notifications", label: t("settings.sections.notifications") },
   { id: "calls", label: t("settings.sections.calls") },
   { id: "advanced", label: t("settings.sections.advanced") },
@@ -319,10 +318,6 @@ onBeforeUnmount(() => {
             <rect x="5" y="10" width="14" height="10" rx="2" />
             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
             <path d="M12 14v2.5" />
-          </svg>
-          <svg v-else-if="section.id === 'privacy'" viewBox="0 0 24 24">
-            <path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z" />
-            <path d="M9.5 12.5 11 14l3.5-4" />
           </svg>
           <svg v-else-if="section.id === 'notifications'" viewBox="0 0 24 24">
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
@@ -661,27 +656,6 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section v-else-if="activeSection === 'privacy'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.privacy.title') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.privacy.deleteOnLeave') }}</span>
-            <input type="checkbox" :checked="messenger.state.deleteMessagesOnLeave"
-              @change="messenger.setDeleteMessagesOnLeave(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.privacy.streamerMode') }}</span>
-            <input type="checkbox" :checked="messenger.state.streamerMode"
-              @change="messenger.setStreamerMode(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.privacy.streamerNote') }}
-          </p>
-        </div>
-      </section>
-
       <section v-else-if="activeSection === 'notifications'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.notifications.messages') }}</h4>
@@ -898,6 +872,31 @@ onBeforeUnmount(() => {
           </label>
           <p class="settings-note">
             {{ t('settings.advanced.autoArchiveNote') }}
+          </p>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.privacy.title') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.privacy.deleteOnLeave') }}</span>
+            <input type="checkbox" :checked="messenger.state.deleteMessagesOnLeave"
+              @change="messenger.setDeleteMessagesOnLeave(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <label class="settings-check">
+            <span>{{ t('settings.privacy.streamerMode') }}</span>
+            <input type="checkbox" :checked="messenger.state.streamerMode"
+              @change="messenger.setStreamerMode(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <label class="settings-check">
+            <span>{{ t('settings.advanced.disableTypingSend') }}</span>
+            <input type="checkbox" :checked="!messenger.state.typingIndicatorsEnabled"
+              @change="messenger.setTypingIndicatorsEnabled(!targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">
+            {{ t('settings.privacy.streamerNote') }}
           </p>
         </div>
       </section>

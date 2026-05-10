@@ -55,7 +55,9 @@
         "copyTokenSuccess": "Room token copied.",
         "copyTokenError": "Could not copy room token.",
         "leaveRoomDeletesLocal": "Local messages will be deleted.",
-        "leaveRoomConfirm": "Leave \"{room}\"?{suffix}"
+        "leaveRoomConfirm": "Leave \"{room}\"?{suffix}",
+        "typingOne": "{user} is typing…",
+        "typingMany": "{count} people are typing…"
     },
     "composer": {
         "placeholder": "Message",
@@ -234,6 +236,7 @@
         "advanced": {
             "connection": "Connection",
             "autoReconnect": "Reconnect automatically to chat",
+            "disableTypingSend": "Disable sending typing indicators",
             "serverClears": "Let the server clear local message cache",
             "serverClearsNote": "Enabled by default. When disabled, reconnecting keeps Android/browser cached room messages even if the server history is empty after a protocol refresh.",
             "uploads": "Uploads",

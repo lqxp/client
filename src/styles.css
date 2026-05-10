@@ -1565,6 +1565,13 @@ textarea {
   color: var(--red);
 }
 
+.typing-indicator {
+  margin: 8px 4px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
 .day {
   align-self: center;
   font-size: 11px;
