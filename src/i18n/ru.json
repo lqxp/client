@@ -34,6 +34,7 @@
         "joined": "В комнате",
         "removeConversation": "Удалить {room}",
         "removeConversationConfirm": "Удалить беседу \"{room}\" и её сообщения?",
+        "contextChangeImage": "Выбрать изображение",
         "contextChangeIcon": "Изменить иконку",
         "contextClearIcon": "Убрать иконку",
         "contextRenameLocal": "Переименовать локально",

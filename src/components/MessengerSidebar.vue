@@ -15,6 +15,8 @@ const isMobile = ref(false);
 const roomContextOpen = ref(false);
 const roomContextRoomId = ref("");
 const roomContextPos = ref({ x: 0, y: 0 });
+const roomIconInputRef = ref<HTMLInputElement | null>(null);
+const roomIconUploadRoomId = ref("");
 
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
@@ -66,6 +68,10 @@ function roomIcon(roomId) {
   return props.messenger.roomIcon?.(roomId) || "";
 }
 
+function roomIconIsImage(roomId) {
+  return roomIcon(roomId).startsWith("data:image/");
+}
+
 function onRoomContext(event, roomId) {
   event.preventDefault();
   event.stopPropagation();
@@ -96,6 +102,23 @@ function setRoomIconFromContext() {
   const next = window.prompt(t("sidebar.promptLocalRoomIcon"), current || "");
   if (next === null) return;
   props.messenger.setLocalRoomIcon(roomId, next);
+  closeRoomContext();
+}
+
+function pickRoomImageFromContext() {
+  if (!roomContextRoomId.value) return;
+  roomIconUploadRoomId.value = roomContextRoomId.value;
+  roomIconInputRef.value?.click();
+}
+
+async function onRoomIconFileChange(event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  const roomId = roomIconUploadRoomId.value || roomContextRoomId.value;
+  if (!roomId || !file) return;
+  await props.messenger.setLocalRoomIconFromFile?.(roomId, file);
+  roomIconUploadRoomId.value = "";
+  input.value = "";
   closeRoomContext();
 }
 
@@ -206,7 +229,8 @@ onBeforeUnmount(() => {
           @contextmenu="onRoomContext($event, c.roomId)"
         >
           <span class="avatar avatar--lg" :class="`avatar--${c.accent}`">
-            <span v-if="roomIcon(c.roomId)" class="conv__icon">{{ roomIcon(c.roomId) }}</span>
+            <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
+            <span v-else-if="roomIcon(c.roomId)" class="conv__icon">{{ roomIcon(c.roomId) }}</span>
             <template v-else>{{ initialsOf(c.name) }}</template>
           </span>
 
@@ -247,10 +271,19 @@ onBeforeUnmount(() => {
       :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }"
       @click.stop
     >
+      <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
       <button type="button" role="menuitem" @click="setRoomIconFromContext">{{ t('sidebar.contextChangeIcon') }}</button>
       <button type="button" role="menuitem" @click="clearRoomIconFromContext">{{ t('sidebar.contextClearIcon') }}</button>
       <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameLocal') }}</button>
     </div>
+
+    <input
+      ref="roomIconInputRef"
+      type="file"
+      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+      class="sr-only"
+      @change="onRoomIconFileChange"
+    />
 
     <div class="side__foot" @click.stop>
       <button class="side-user" type="button" @click="openSettings" :title="messenger.state.username">
@@ -331,6 +364,13 @@ onBeforeUnmount(() => {
 .conv__icon {
   font-size: 22px;
   line-height: 1;
+}
+
+.conv__icon-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .room-context {

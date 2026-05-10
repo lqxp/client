@@ -27,6 +27,8 @@ const ROOM_ID_MAX_LENGTH = 64;
 const MAX_ROOM_NOTE_LENGTH = 512;
 const MAX_LOCAL_ROOM_NAME_LENGTH = 64;
 const MAX_LOCAL_ROOM_ICON_LENGTH = 8;
+const MAX_LOCAL_ROOM_ICON_DATA_URL_LENGTH = 400_000;
+const MAX_LOCAL_ROOM_ICON_BYTES = 250 * 1024;
 const MESSAGE_LIMIT = 2000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -480,7 +482,14 @@ function sanitizeLocalRoomNames(raw) {
 }
 
 function sanitizeLocalRoomIcon(value) {
-  return String(value || "").trim().slice(0, MAX_LOCAL_ROOM_ICON_LENGTH);
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("data:image/")) {
+    const safeDataUrl = /^data:image\/(png|jpeg|jpg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(raw);
+    if (!safeDataUrl || raw.length > MAX_LOCAL_ROOM_ICON_DATA_URL_LENGTH) return "";
+    return raw;
+  }
+  return raw.slice(0, MAX_LOCAL_ROOM_ICON_LENGTH);
 }
 
 function sanitizeLocalRoomIcons(raw) {
@@ -1417,6 +1426,37 @@ export function useMessenger() {
     if (!id) return;
     delete state.localRoomIcons[id];
     persist();
+  }
+
+  async function setLocalRoomIconFromFile(roomId, file) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return false;
+    if (!file) return false;
+    if (!String(file.type || "").startsWith("image/")) {
+      state.lastError = "Room icon must be an image.";
+      return false;
+    }
+    if (Number(file.size) > MAX_LOCAL_ROOM_ICON_BYTES) {
+      state.lastError = `Room icon must be under ${Math.round(MAX_LOCAL_ROOM_ICON_BYTES / 1024)} KB.`;
+      return false;
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read image file."));
+      reader.readAsDataURL(file);
+    });
+
+    const clean = sanitizeLocalRoomIcon(dataUrl);
+    if (!clean) {
+      state.lastError = "Unsupported room icon image format.";
+      return false;
+    }
+
+    state.localRoomIcons[id] = clean;
+    persist();
+    return true;
   }
 
   function setDeleteMessagesOnLeave(value) {
@@ -3803,6 +3843,7 @@ export function useMessenger() {
     clearLocalRoomName,
     roomIcon,
     setLocalRoomIcon,
+    setLocalRoomIconFromFile,
     clearLocalRoomIcon,
     clearAllData,
     logout

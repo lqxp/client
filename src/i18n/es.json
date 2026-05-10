@@ -34,6 +34,7 @@
         "joined": "Unido",
         "removeConversation": "Eliminar {room}",
         "removeConversationConfirm": "¿Eliminar la conversación \"{room}\" y sus mensajes?",
+        "contextChangeImage": "Elegir imagen",
         "contextChangeIcon": "Cambiar icono",
         "contextClearIcon": "Quitar icono",
         "contextRenameLocal": "Renombrar localmente",

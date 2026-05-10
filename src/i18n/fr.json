@@ -34,6 +34,7 @@
         "joined": "Rejoint",
         "removeConversation": "Supprimer {room}",
         "removeConversationConfirm": "Supprimer la conversation \"{room}\" et ses messages ?",
+        "contextChangeImage": "Choisir une image",
         "contextChangeIcon": "Changer l'icône",
         "contextClearIcon": "Retirer l'icône",
         "contextRenameLocal": "Renommer localement",
