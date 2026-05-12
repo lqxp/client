@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -31,6 +31,14 @@ const statusLabel = computed(() => {
 });
 const platforms = computed(() => props.messenger.platformsForUser?.(props.username) || []);
 const mutualRooms = computed(() => props.messenger.mutualRoomsWith?.(props.username) || []);
+const selectedMutualRoom = ref("");
+
+function openSelectedMutualRoom() {
+  const roomId = String(selectedMutualRoom.value || "").trim();
+  if (!roomId) return;
+  props.messenger.selectConversation?.(roomId);
+  emit("close");
+}
 
 function initialsFor(name: string) {
   const clean = String(name || "?").trim();
@@ -84,12 +92,17 @@ function initialsFor(name: string) {
 
         <div class="profile-card__section">
           <h4>{{ t('profile.mutualRooms') }}</h4>
-          <ul v-if="mutualRooms.length" class="profile-card__mutual-list">
-            <li v-for="room in mutualRooms" :key="room.roomId" class="profile-card__mutual-item">
-              <span class="profile-card__mutual-icon">{{ room.icon || '•' }}</span>
-              <span class="profile-card__mutual-name">{{ room.name }}</span>
-            </li>
-          </ul>
+          <div v-if="mutualRooms.length" class="profile-card__mutual-picker">
+            <select v-model="selectedMutualRoom" class="profile-card__select" aria-label="Mutual rooms">
+              <option value="" disabled>Select a mutual room…</option>
+              <option v-for="room in mutualRooms" :key="room.roomId" :value="room.roomId">
+                {{ room.icon ? `${room.icon} ` : '' }}{{ room.name }}
+              </option>
+            </select>
+            <button type="button" class="btn--ghost profile-card__open-room" :disabled="!selectedMutualRoom" @click="openSelectedMutualRoom">
+              Open
+            </button>
+          </div>
           <p v-else class="profile-card__empty">{{ t('profile.noMutualRooms') }}</p>
         </div>
       </div>

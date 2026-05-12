@@ -56,10 +56,10 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   <section class="onboarding">
     <div class="onboarding__card">
       <div class="onboarding__hero">
-        <p class="onboarding__eyebrow">Welcome to QxProtocol</p>
+        <p class="onboarding__eyebrow">QxProtocol Desktop</p>
         <h1>{{ mode === "register" ? t('onboarding.createAccount') : mode === "recover" ? t('onboarding.recoverAccount') : t('onboarding.logIn') }}</h1>
         <p class="onboarding__copy">
-          Accounts are required to access rooms, presence and calls.
+          Discord-like speed with Element-style clarity: sign in to unlock rooms, presence and calls.
         </p>
       </div>
 
@@ -68,7 +68,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername || "You") }}</span>
           <div>
             <strong>{{ cleanUsername || "your.username" }}</strong>
-            <small>2-32 chars, lowercase, numbers, _ and .</small>
+            <small>2-32 chars · lowercase · numbers · _ and .</small>
           </div>
         </div>
 
@@ -130,7 +130,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </label>
 
           <div class="onboarding__meta">
-            <span>{{ usernameError || (mode === "register" ? "Recovery words download after signup" : "Session required") }}</span>
+            <span>{{ usernameError || (mode === "register" ? "Recovery words are downloaded after signup" : "Secure account session required") }}</span>
             <span>{{ cleanUsername.length }}/32</span>
           </div>
 

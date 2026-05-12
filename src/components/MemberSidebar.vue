@@ -50,20 +50,14 @@ const members = computed(() =>
   [...(props.messenger.memberRoster.value || [])].sort((a, b) => a.localeCompare(b))
 );
 
-const me = computed(() => String(props.messenger.state.username || "").trim());
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
 const selectedProfile = ref("");
 
 const sections = computed(() => {
-  const self: string[] = [];
   const inCall: string[] = [];
   const online: string[] = [];
 
   for (const username of members.value) {
-    if (username === me.value) {
-      self.push(username);
-      continue;
-    }
     if (voiceMembers.value.has(username)) {
       inCall.push(username);
       continue;
@@ -72,7 +66,6 @@ const sections = computed(() => {
   }
 
   return [
-    { key: "self", label: t('members.online'), users: self },
     { key: "call", label: t('call.live'), users: inCall },
     { key: "online", label: t('members.online'), users: online }
   ].filter((section) => section.users.length);
@@ -130,7 +123,6 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
             <div class="members__meta">
               <div class="members__name">
                 {{ username }}
-                <span v-if="username === me" class="members__badge">{{ t('members.you') }}</span>
                 <span class="platforms" :aria-label="`Platforms: ${platformsFor(username).map((p) => messenger.platformLabel(p)).join(', ') || 'unknown'}`">
                   <span
                     v-for="platform in platformsFor(username)"

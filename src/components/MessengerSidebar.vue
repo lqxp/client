@@ -376,23 +376,26 @@ onBeforeUnmount(() => {
 .room-context {
   position: fixed;
   z-index: 120;
-  min-width: 190px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  min-width: 196px;
+  border-radius: 8px;
+  background: #111214;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
   padding: 6px;
 }
 
 .room-context button {
   width: 100%;
   text-align: left;
-  border-radius: 8px;
-  padding: 9px 10px;
-  color: var(--text);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: #dbdee1;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .room-context button:hover {
-  background: var(--surface-hover);
+  background: #4752c4;
+  color: #fff;
 }
 </style>

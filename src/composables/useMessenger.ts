@@ -1043,7 +1043,12 @@ export function useMessenger() {
         };
       })
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .filter((r) => !query || r.roomId.toLowerCase().includes(query) || r.preview.toLowerCase().includes(query));
+      .filter((r) => (
+        !query
+        || r.roomId.toLowerCase().includes(query)
+        || r.name.toLowerCase().includes(query)
+        || r.preview.toLowerCase().includes(query)
+      ));
   });
 
   const activeConversation = computed(() => {
