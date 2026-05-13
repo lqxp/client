@@ -48,6 +48,15 @@
         "you": "Vous",
         "openProfile": "Ouvrir le profil de {username}"
     },
+    "profile": {
+        "close": "Fermer le profil",
+        "about": "À propos",
+        "noDescription": "Aucune description de profil pour le moment.",
+        "mutualRooms": "Salons en commun",
+        "noMutualRooms": "Aucun salon en commun pour le moment.",
+        "inVoiceChat": "Dans le salon vocal",
+        "clientPlatforms": "Plateformes client"
+    },
     "thread": {
         "back": "Retour aux conversations",
         "startCall": "Démarrer l’appel",

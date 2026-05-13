@@ -48,6 +48,15 @@
         "you": "You",
         "openProfile": "Open profile of {username}"
     },
+    "profile": {
+        "close": "Close profile",
+        "about": "About",
+        "noDescription": "No profile description yet.",
+        "mutualRooms": "Mutual rooms",
+        "noMutualRooms": "No mutual rooms yet.",
+        "inVoiceChat": "In voice chat",
+        "clientPlatforms": "Client platforms"
+    },
     "thread": {
         "back": "Back to conversations",
         "startCall": "Start call",

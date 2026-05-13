@@ -1122,9 +1122,9 @@ export function useMessenger() {
     const joined = new Set((state.joinedRooms || []).map(sanitizeRoomId).filter(Boolean));
     const knownUsers = joined.has(roomId)
       ? Object.entries(state.statusesByUser || {})
-          .filter(([, status]) => sanitizePresenceStatus(status) !== "invisible")
-          .map(([username]) => sanitizeUsername(username))
-          .filter((username) => username && username !== sanitizeUsername(state.username))
+        .filter(([, status]) => sanitizePresenceStatus(status) !== "invisible")
+        .map(([username]) => sanitizeUsername(username))
+        .filter((username) => username && username !== sanitizeUsername(state.username))
       : [];
     return [...new Set([...(state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean), ...knownUsers])];
   });
@@ -1667,6 +1667,7 @@ export function useMessenger() {
 
   function setServerClearsLocalMessages(value) {
     state.serverClearsLocalMessages = Boolean(value);
+    syncClientSettings();
     persist();
   }
 
@@ -2169,9 +2170,6 @@ export function useMessenger() {
 
   function removeRoom(roomId) {
     const id = sanitizeRoomId(roomId);
-    if (state.joinedRooms.includes(id)) {
-      send({ op: 4, d: { gameId: id } });
-    }
     state.rooms = state.rooms.filter((r) => r.roomId !== id);
     delete state.messagesByRoom[id];
     delete state.usersByRoom[id];
@@ -2301,6 +2299,7 @@ export function useMessenger() {
     if (!state.connected || !state.identified) return;
     const d: any = {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
+      serverClearsLocalMessages: state.serverClearsLocalMessages,
       status: sanitizePresenceStatus(state.status),
       clientId: localClientId,
       platform: currentLocalPlatform()
@@ -2356,21 +2355,26 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     if (!id || !isValidRoomId(id)) return;
 
-    if (state.connected && state.identified && state.joinedRooms.includes(id)) {
-      send({ op: 4, d: { gameId: id } });
+    if (!state.connected || !state.identified || !state.joinedRooms.includes(id)) {
+      removeRoom(id);
+      return;
     }
 
+    if (state.inCall && state.callRoom === id) endCall();
+    setTyping(false);
     state.joinedRooms = state.joinedRooms.filter((r) => r !== id);
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
-    delete state.usersByRoom[id];
-    delete state.voiceMembersByRoom[id];
-    delete state.callClientsByRoom[id];
-    delete state.typingByRoom[id];
-    if (state.activeRoom === id) {
-      setTyping(false);
-      state.activeRoom = "";
+    if (state.deleteMessagesOnLeave || state.serverClearsLocalMessages) {
+      removeRoom(id);
+    } else {
+      delete state.usersByRoom[id];
+      delete state.voiceMembersByRoom[id];
+      delete state.callClientsByRoom[id];
+      delete state.typingByRoom[id];
+      if (state.activeRoom === id) state.activeRoom = "";
+      persist();
     }
-    persist();
+    send({ op: 4, d: { gameId: id } });
   }
 
   function startCompose() {
@@ -3777,8 +3781,18 @@ export function useMessenger() {
 
     if (d?.ok) {
       state.joinedRooms = state.joinedRooms.filter((r) => r !== roomId);
+      state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
+      if (state.deleteMessagesOnLeave || state.serverClearsLocalMessages) {
+        removeRoom(roomId);
+        return;
+      }
+      delete state.usersByRoom[roomId];
+      delete state.voiceMembersByRoom[roomId];
+      delete state.callClientsByRoom[roomId];
+      delete state.typingByRoom[roomId];
       applyDeletedMessageIds(roomId, d.deletedMessageIds);
       if (roomId === state.activeRoom) state.activeRoom = "";
+      persist();
     } else if (d?.left) {
       const left = sanitizeUsername(d.left);
       if (!Array.isArray(d?.players)) {
@@ -3794,8 +3808,15 @@ export function useMessenger() {
   function applyDeletedMessageIds(roomId, messageIds) {
     const id = sanitizeRoomId(roomId);
     if (!id || !Array.isArray(messageIds)) return;
-    for (const messageId of messageIds) {
-      applyDeletion({ gameId: id, messageId });
+    const deleted = new Set((messageIds || []).map((messageId) => String(messageId || "")).filter(Boolean));
+    if (!deleted.size) return;
+    state.messagesByRoom[id] = (state.messagesByRoom[id] || []).filter((message) => !deleted.has(String(message?.messageId || "")));
+    const room = state.rooms.find((entry) => entry.roomId === id);
+    if (room) {
+      const latest = latestVisibleRoomMessage(state.messagesByRoom[id] || []);
+      room.lastPreview = messagePreviewLabel(latest) || "";
+      room.lastSender = latest?.username || "";
+      room.lastTimestamp = Number(latest?.timestamp || 0);
     }
   }
 
@@ -3803,18 +3824,26 @@ export function useMessenger() {
     const roomId = sanitizeRoomId(d?.gameId);
     if (!roomId) return;
     applyDeletedMessageIds(roomId, d.messageIds);
+    persist();
   }
 
   async function handleHistoryOp(d) {
     if (!d?.ok) return;
     const roomId = sanitizeRoomId(d.roomId);
     if (!roomId) return;
+    if (!state.joinedRooms.includes(roomId) && !state.pendingJoinRooms.includes(roomId) && roomId !== state.activeRoom) return;
     const serverMessages = Array.isArray(d.messages)
       ? await Promise.all(d.messages.map((m) => hydrateIncomingMessage(m, roomId)))
       : [];
-    const messages = state.serverClearsLocalMessages
-      ? serverMessages
-      : mergeRoomHistory(state.messagesByRoom[roomId] || [], serverMessages, roomId);
+    const localMessages = state.messagesByRoom[roomId] || [];
+    const serverMessageIds = new Set(serverMessages.map((message) => String(message?.messageId || "")).filter(Boolean));
+    const keptLocalMessages = state.serverClearsLocalMessages
+      ? []
+      : localMessages.filter((message) => {
+        const messageId = String(message?.messageId || "");
+        return !messageId || !serverMessageIds.has(messageId);
+      });
+    const messages = mergeRoomHistory(keptLocalMessages, serverMessages, roomId);
     state.messagesByRoom[roomId] = messages;
     const last = messages[messages.length - 1];
     if (last) touchRoom(roomId, last);
