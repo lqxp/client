@@ -71,7 +71,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           <p class="onboarding__eyebrow">QxProtocol Desktop</p>
           <h1>{{ title }}</h1>
           <p class="onboarding__copy">
-            Discord-like speed with a clearer desktop shell for rooms, presence and secure recovery.
+            Open-Source, scalable, dockerized chat application for teams or communities.
           </p>
         </div>
 
