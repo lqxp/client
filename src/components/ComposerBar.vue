@@ -34,6 +34,12 @@ const composerPlaceholder = computed(() => disabled.value
     : t('composer.placeholder'));
 const mediaDisabled = computed(() => disabled.value || editing.value);
 const recording = computed(() => !!props.messenger.state.recording);
+const typingLabel = computed(() => {
+  const users = props.messenger.typingUsers?.value || [];
+  if (!users.length) return "";
+  if (users.length === 1) return t("thread.typingOne", { user: users[0] });
+  return t("thread.typingMany", { count: String(users.length) });
+});
 const mentionSearch = computed(() => {
   const input = inputRef.value;
   const cursor = input?.selectionStart ?? cursorPosition.value ?? 0;
@@ -77,8 +83,6 @@ function syncComposerHeight() {
   input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
 }
 
-// Curated emoji palette — intentionally compact (80 glyphs) so it fits one screenful
-// without needing tabs/search.
 const EMOJIS = [
   "😀","😂","🤣","😊","😍","🥰","😘","😎","🤩","😇",
   "🙂","😉","😋","😛","😜","🤪","🤗","🤭","🤔","🧐",
@@ -197,7 +201,7 @@ async function insertMention(username: string) {
   mentionSuppressedStart.value = -1;
   await nextTick();
   inputRef.value?.focus();
-  try { inputRef.value?.setSelectionRange(nextCursor, nextCursor); } catch { /* ignore */ }
+  try { inputRef.value?.setSelectionRange(nextCursor, nextCursor); } catch { }
   cursorPosition.value = nextCursor;
 }
 
@@ -229,19 +233,46 @@ function pickFile() {
   fileInputRef.value?.click();
 }
 
-async function pickCamera() {
-  if (mediaDisabled.value) return;
-  mobileActionsOpen.value = false;
-  await openCamera();
+async function onFile(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const files = Array.from(target.files || []);
+  for (const file of files) {
+    await props.messenger.sendAttachment(file);
+  }
+  target.value = "";
 }
 
-async function onFile(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = Array.from(input.files || []);
-  for (const f of files) {
-    await props.messenger.sendAttachment(f);
+async function pickCamera() {
+  if (mediaDisabled.value || cameraOpen.value) return;
+  mobileActionsOpen.value = false;
+  pickerOpen.value = false;
+  cameraError.value = "";
+  cameraBusy.value = false;
+  cameraOpen.value = true;
+  await nextTick();
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    cameraError.value = "Camera is not available in this browser.";
+    return;
   }
-  input.value = "";
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: "environment"
+      },
+      audio: false
+    });
+    if (cameraVideoRef.value) {
+      cameraVideoRef.value.srcObject = cameraStream;
+      await cameraVideoRef.value.play().catch(() => {});
+    }
+  } catch (error) {
+    cameraError.value = error instanceof Error ? error.message : "Could not open camera.";
+    stopCameraStream();
+  }
 }
 
 function startHold() {
@@ -291,7 +322,6 @@ async function insertEmoji(emoji: string) {
   const before = current.slice(0, start);
   const after = current.slice(end);
   let next = before + emoji + after;
-  // Respect the same character cap the composer enforces via maxlength.
   const limit = props.messenger.MESSAGE_LIMIT || 2000;
   if (next.length > limit) next = next.slice(0, limit);
   props.messenger.state.messageInput = next;
@@ -299,7 +329,7 @@ async function insertEmoji(emoji: string) {
   await nextTick();
   input.focus();
   const pos = Math.min(next.length, before.length + emoji.length);
-  try { input.setSelectionRange(pos, pos); } catch { /* some input types throw */ }
+  try { input.setSelectionRange(pos, pos); } catch { }
 }
 
 function onDocPointerDown(event: PointerEvent) {
@@ -327,34 +357,11 @@ function onResize() {
 }
 
 function stopCameraStream() {
-  if (!cameraStream) return;
-  for (const track of cameraStream.getTracks()) track.stop();
-  cameraStream = null;
-}
-
-async function openCamera() {
-  cameraError.value = "";
-  if (!navigator.mediaDevices?.getUserMedia) {
-    cameraError.value = "Camera is not available in this browser.";
-    return;
+  if (cameraStream) {
+    for (const track of cameraStream.getTracks()) track.stop();
+    cameraStream = null;
   }
-
-  cameraOpen.value = true;
-  await nextTick();
-
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false
-    });
-    if (cameraVideoRef.value) {
-      cameraVideoRef.value.srcObject = cameraStream;
-      await cameraVideoRef.value.play();
-    }
-  } catch {
-    cameraError.value = "Camera access denied or unavailable.";
-    stopCameraStream();
-  }
+  if (cameraVideoRef.value) cameraVideoRef.value.srcObject = null;
 }
 
 function closeCamera() {
@@ -394,44 +401,85 @@ async function capturePhoto() {
     return;
   }
 
-  const file = new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" });
-  await props.messenger.sendAttachment(file);
-  closeCamera();
+  const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+  try {
+    await props.messenger.sendAttachment(file);
+    closeCamera();
+  } catch (error) {
+    cameraError.value = error instanceof Error ? error.message : "Could not send photo.";
+  } finally {
+    cameraBusy.value = false;
+  }
 }
 
-watch(() => [props.messenger.state.messageInput, composerPlaceholder.value], async () => {
-  await nextTick();
-  syncComposerHeight();
-}, { immediate: true });
+watch(() => props.messenger.state.activeRoom, () => {
+  pickerOpen.value = false;
+  mobileActionsOpen.value = false;
+  mentionIndex.value = 0;
+  mentionSuppressedStart.value = -1;
+  nextTick(() => syncComposerHeight());
+});
+
+watch(() => props.messenger.state.messageInput, () => {
+  nextTick(() => syncComposerHeight());
+});
+
+watch(recording, (active) => {
+  if (!active) return;
+  pickerOpen.value = false;
+  mobileActionsOpen.value = false;
+});
 
 onMounted(() => {
   document.addEventListener("pointerdown", onDocPointerDown);
   document.addEventListener("keydown", onDocKey);
+  window.addEventListener("resize", onResize);
   document.addEventListener("paste", onPaste);
-  window.addEventListener("resize", onResize, { passive: true });
-  nextTick(syncComposerHeight);
+  nextTick(() => syncComposerHeight());
 });
+
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown);
   document.removeEventListener("keydown", onDocKey);
-  document.removeEventListener("paste", onPaste);
   window.removeEventListener("resize", onResize);
+  document.removeEventListener("paste", onPaste);
   stopCameraStream();
 });
 </script>
 
 <template>
   <footer ref="composerRef" class="composer">
-    <div v-if="recording" class="composer__recording">
-      <span class="rec-dot"></span>
-      <span class="rec-label">{{ t('composer.holdToRecord') }}</span>
-      <span class="rec-time">{{ messenger.formatDuration(messenger.state.recordingElapsed) }}</span>
-      <span class="rec-spacer"></span>
-      <button type="button" class="btn--ghost" @click="cancelHold">{{ t('composer.recordCancel') }}</button>
-      <button type="button" class="btn btn--send" @click="endHold">{{ t('composer.recordSend') }}</button>
+    <div v-if="messenger.state.recording" class="voice-recorder">
+      <div class="voice-recorder__pulse"></div>
+      <span>{{ t('composer.recording') }}</span>
+      <div class="voice-recorder__actions">
+        <button type="button" class="btn--ghost" @click="cancelHold">{{ t('composer.recordCancel') }}</button>
+        <button type="button" class="btn btn--send" @click="endHold">{{ t('composer.recordSend') }}</button>
+      </div>
     </div>
 
     <template v-else>
+      <div class="composer__topline">
+        <div v-if="typingLabel" class="typing-indicator composer__typing-indicator" aria-live="polite">{{ typingLabel }}</div>
+        <div v-if="messenger.state.editingMessage" class="reply-draft edit-draft">
+          <div>
+            <span class="reply-draft__label">{{ t('composer.editing') }}</span>
+            <span class="reply-draft__text">{{ messenger.state.editingMessage.text }}</span>
+          </div>
+          <button type="button" class="icon-btn" :aria-label="t('composer.cancelEdit')" @click="messenger.cancelEditMessage">
+            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div v-else-if="messenger.state.replyingTo" class="reply-draft">
+          <div>
+            <span class="reply-draft__label">{{ t('composer.replyingTo') }} {{ messenger.state.replyingTo.username || t('message.reply') }}</span>
+            <span class="reply-draft__text">{{ messenger.state.replyingTo.text }}</span>
+          </div>
+          <button type="button" class="icon-btn" :aria-label="t('composer.cancelReply')" @click="messenger.cancelReply">
+            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
       <input
         ref="fileInputRef"
         type="file"
@@ -439,24 +487,6 @@ onBeforeUnmount(() => {
         style="display: none"
         @change="onFile"
       />
-      <div v-if="messenger.state.editingMessage" class="reply-draft edit-draft">
-        <div>
-          <span class="reply-draft__label">{{ t('composer.editing') }}</span>
-          <span class="reply-draft__text">{{ messenger.state.editingMessage.text }}</span>
-        </div>
-        <button type="button" class="icon-btn" :aria-label="t('composer.cancelEdit')" @click="messenger.cancelEditMessage">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div v-else-if="messenger.state.replyingTo" class="reply-draft">
-        <div>
-          <span class="reply-draft__label">{{ t('composer.replyingTo') }} {{ messenger.state.replyingTo.username || t('message.reply') }}</span>
-          <span class="reply-draft__text">{{ messenger.state.replyingTo.text }}</span>
-        </div>
-        <button type="button" class="icon-btn" :aria-label="t('composer.cancelReply')" @click="messenger.cancelReply">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
       <div class="composer__mobile-actions">
         <button
           class="icon-btn composer__more"

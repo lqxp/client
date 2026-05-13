@@ -2261,8 +2261,14 @@ textarea {
   flex: none;
 }
 
-.reply-draft {
+.composer__topline {
   flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reply-draft {
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -38,13 +38,6 @@ onBeforeUnmount(() => {
   if (bannerTimer) clearTimeout(bannerTimer);
 });
 
-const typingLabel = computed(() => {
-  const users = props.messenger.typingUsers?.value || [];
-  if (!users.length) return "";
-  if (users.length === 1) return t("thread.typingOne", { user: users[0] });
-  return t("thread.typingMany", { count: String(users.length) });
-});
-
 const decorated = computed(() => {
   const list = props.messenger.sortedMessages.value || [];
   const out = [];
@@ -95,7 +88,5 @@ const decorated = computed(() => {
         :show-avatar="entry.showAvatar"
       />
     </template>
-
-    <div v-if="typingLabel" class="typing-indicator" aria-live="polite">{{ typingLabel }}</div>
   </section>
 </template>
