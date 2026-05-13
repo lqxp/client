@@ -1985,6 +1985,14 @@ export function useMessenger() {
     if (context) context.close().catch(() => { });
   }
 
+  function primeCallAudioGate() {
+    if (state.callMuted) return;
+    const threshold = Number(state.microphoneThreshold) || 0;
+    if (threshold <= 0 || threshold >= 100) return;
+    callGateOpenUntil = Date.now() + 450;
+    setCallAudioGateOpen(true);
+  }
+
   function isAboveMicrophoneThreshold() {
     const threshold = Number(state.microphoneThreshold) || 0;
     if (threshold >= 100) return false;
@@ -2874,6 +2882,7 @@ export function useMessenger() {
       }
       publishCallState(true);
       connectKnownCallPeers(roomId);
+      primeCallAudioGate();
       startCallAudioGate();
       tickCall(Date.now());
       playJoinSound();
