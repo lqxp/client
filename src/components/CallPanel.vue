@@ -12,6 +12,7 @@ const now = ref(Date.now());
 const focusedTileId = ref("");
 const fullscreenTileId = ref("");
 const isMobile = ref(false);
+const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
 let tickId = null;
 let panelWindow = null;
 let panelWindowSyncId = null;
@@ -23,10 +24,14 @@ function syncMobile() {
 onMounted(() => {
   syncMobile();
   window.addEventListener("resize", syncMobile, { passive: true });
+  window.addEventListener("click", closeMemberMenu, { passive: true });
+  window.addEventListener("contextmenu", closeMemberMenu, { passive: true });
   tickId = setInterval(() => { now.value = Date.now(); }, 500);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobile);
+  window.removeEventListener("click", closeMemberMenu);
+  window.removeEventListener("contextmenu", closeMemberMenu);
   if (tickId) clearInterval(tickId);
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
 });
@@ -42,7 +47,6 @@ const members = computed(() => {
   const roomId = callRoom.value;
   if (!roomId) return [];
   const list = props.messenger.state.voiceMembersByRoom[roomId] || [];
-  // Put self first
   const me = props.messenger.state.username;
   const sorted = [...list].sort((a, b) => {
     if (a === me) return -1;
@@ -105,6 +109,8 @@ const speakingSet = computed(() => {
   return new Set(Object.keys(table).filter((u) => table[u] >= cutoff));
 });
 
+const activeMemberMenuVolume = computed(() => volumeOf(memberMenu.value.username));
+
 function initialsOf(name) {
   const trimmed = String(name || "?").trim();
   if (!trimmed) return "?";
@@ -117,10 +123,15 @@ function isSelf(username) {
   return String(username || "") === String(props.messenger.state.username || "");
 }
 
+function isLocallyMuted(username) {
+  return !isSelf(username) && volumeOf(username) <= 0;
+}
+
 function isSpeaking(username) {
   if (isSelf(username)) {
-    // self speaking = call is live and mic not muted (heuristic)
-    return props.messenger.state.inCall && !props.messenger.state.callMuted;
+    return props.messenger.state.inCall && !props.messenger.state.callMuted && props.messenger.state.micTestLevel > 0
+      ? props.messenger.state.micTestLevel >= Number(props.messenger.state.microphoneThreshold || 0)
+      : speakingSet.value.has(username);
   }
   return speakingSet.value.has(username);
 }
@@ -145,9 +156,9 @@ function mediaOf(username) {
 const focusedTile = computed(() => callTiles.value.find((tile) => tile.id === focusedTileId.value));
 
 function tileLabel(tile) {
-  if (tile.kind === "screen") return "Screen";
-  if (tile.kind === "camera") return "Camera";
-  return "Voice";
+  if (tile.kind === "screen") return t('call.screen');
+  if (tile.kind === "camera") return t('call.camera');
+  return t('call.voice');
 }
 
 function escapePopupHtml(value) {
@@ -274,6 +285,32 @@ function bindRemoteAudio(el, username) {
   props.messenger.applyAudioOutput(el);
   el.play?.().catch?.(() => {});
 }
+
+function openMemberMenu(event, username) {
+  if (isSelf(username)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  memberMenu.value = {
+    open: true,
+    x: event.clientX,
+    y: event.clientY,
+    username
+  };
+}
+
+function closeMemberMenu() {
+  if (!memberMenu.value.open) return;
+  memberMenu.value = { open: false, x: 0, y: 0, username: "" };
+}
+
+function setMemberVolume(username, value) {
+  props.messenger.setCallUserVolume(username, value);
+}
+
+function toggleLocalMute(username) {
+  const next = isLocallyMuted(username) ? 100 : 0;
+  props.messenger.setCallUserVolume(username, next);
+}
 </script>
 
 <template>
@@ -350,8 +387,10 @@ function bindRemoteAudio(el, username) {
           'has-video': tile.video,
           'is-screen': tile.kind === 'screen',
           'is-focused': focusedTileId === tile.id,
-          'is-fullscreen': fullscreenTileId === tile.id
+          'is-fullscreen': fullscreenTileId === tile.id,
+          'is-local-muted': isLocallyMuted(tile.username)
         }"
+        @contextmenu="openMemberMenu($event, tile.username)"
       >
         <div v-if="tile.video" class="calltile__video">
           <video
@@ -375,13 +414,13 @@ function bindRemoteAudio(el, username) {
           >{{ initialsOf(tile.username) }}</span>
         </div>
         <div v-if="tile.video" class="calltile__tools">
-          <button type="button"           :title="t('call.zoom')" :aria-label="t('call.zoom')" @click="setFocusedTile(tile)">
+          <button type="button" :title="t('call.zoom')" :aria-label="t('call.zoom')" @click="setFocusedTile(tile)">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6M8 11h6"/></svg>
           </button>
-          <button type="button"           :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click="toggleTileFullscreen(tile)">
+          <button type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click="toggleTileFullscreen(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           </button>
-          <button           v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click="openTileWindow(tile)">
+          <button v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click="openTileWindow(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
           </button>
         </div>
@@ -390,6 +429,9 @@ function bindRemoteAudio(el, username) {
             {{ tile.username }}<span v-if="tile.self" class="calltile__you"> {{ t('call.you') }}</span>
           </span>
           <span class="calltile__kind">{{ tileLabel(tile) }}</span>
+          <span v-if="!tile.self && isLocallyMuted(tile.username)" class="calltile__muted-badge" :aria-label="t('call.localMute')">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="16" y1="8" x2="22" y2="14"/><line x1="22" y1="8" x2="16" y2="14"/></svg>
+          </span>
           <span v-if="tile.self && messenger.state.callMuted" class="calltile__muted-badge" aria-label="muted">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/></svg>
           </span>
@@ -397,31 +439,34 @@ function bindRemoteAudio(el, username) {
       </div>
     </div>
 
-    <div v-if="focusedTile" class="callpanel__focus" :class="{ 'is-fullscreen': fullscreenTileId === focusedTile.id }">
-      <button class="callpanel__focus-close" type="button" :aria-label="t('call.closeView')" @click="clearFocusedTile">×</button>
-      <video :ref="bindFocusedVideo" autoplay playsinline :muted="focusedTile.self"></video>
-      <div class="callpanel__focus-label">{{ focusedTile.username }} · {{ tileLabel(focusedTile) }}</div>
-    </div>
-
-    <div class="callpanel__audio" v-if="remoteMembers.length">
-      <label v-for="u in remoteMembers" :key="`audio-${u}`" class="calltile__volume" :aria-label="`${u} volume`">
-        <audio
-          :ref="(el) => bindRemoteAudio(el, u)"
-          autoplay
-          playsinline
-        ></audio>
-        <span class="calltile__volume-name">{{ u }}</span>
-        <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    <div
+      v-if="memberMenu.open"
+      class="callpanel__menu"
+      :style="{ left: `${memberMenu.x}px`, top: `${memberMenu.y}px` }"
+      @click.stop
+    >
+      <div class="callpanel__menu-title">{{ memberMenu.username }}</div>
+      <button type="button" class="callpanel__menu-action" @click="toggleLocalMute(memberMenu.username)">
+        {{ isLocallyMuted(memberMenu.username) ? t('call.unmuteLocal') : t('call.localMute') }}
+      </button>
+      <label class="callpanel__menu-volume">
+        <span>{{ t('call.personalVolume') }}</span>
         <input
           type="range"
           min="0"
           max="100"
           step="1"
-          :value="volumeOf(u)"
-          @input="messenger.setCallUserVolume(u, inputValue($event))"
+          :value="activeMemberMenuVolume"
+          @input="setMemberVolume(memberMenu.username, inputValue($event))"
         />
-        <span>{{ volumeOf(u) }}%</span>
+        <strong>{{ activeMemberMenuVolume }}%</strong>
       </label>
+    </div>
+
+    <div v-if="focusedTile" class="callpanel__focus" :class="{ 'is-fullscreen': fullscreenTileId === focusedTile.id }">
+      <button class="callpanel__focus-close" type="button" :aria-label="t('call.closeView')" @click="clearFocusedTile">×</button>
+      <video :ref="bindFocusedVideo" autoplay playsinline :muted="focusedTile.self"></video>
+      <div class="callpanel__focus-label">{{ focusedTile.username }} · {{ tileLabel(focusedTile) }}</div>
     </div>
   </section>
 

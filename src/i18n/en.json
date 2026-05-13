@@ -108,7 +108,10 @@
         "you": "(you)",
         "voice": "Voice",
         "camera": "Camera",
-        "screen": "Screen"
+        "screen": "Screen",
+        "localMute": "Mute locally",
+        "unmuteLocal": "Unmute locally",
+        "personalVolume": "Personal volume"
     },
     "settings": {
         "title": "Settings",
@@ -258,73 +261,7 @@
             "ban": "Ban",
             "pardon": "Pardon",
             "banned": "banned",
-            "roomsNote": "Room previews expose metadata only, never message bodies."
-        },
-        "backups": {
-            "title": "Backups",
-            "note": "Backups include username, room list, message history metadata, reactions, and unread counts. Attachment bytes are dropped from persistent storage to keep files small.",
-            "export": "Export JSON",
-            "import": "Import JSON",
-            "clear": "Clear all",
-            "clearConfirm": "Clear all local data? This removes every conversation, message, and reaction from this browser. The remote server is not touched."
-        },
-        "about": {
-            "title": "About",
-            "connection": "Connection",
-            "connect": "Connect",
-            "disconnect": "Disconnect",
-            "session": "Session",
-            "status": "Status",
-            "joinedRooms": "Joined rooms",
-            "savedRooms": "Saved rooms",
-            "developer": "Developer details",
-            "appVersion": "App version",
-            "platform": "Platform",
-            "os": "Operating system",
-            "mobile": "Mobile runtime",
-            "secureContext": "Secure context",
-            "online": "Online",
-            "language": "Language",
-            "timezone": "Timezone",
-            "serverOrigin": "Server origin",
-            "apiBaseUrl": "API base URL",
-            "wsUrl": "WebSocket URL",
-            "userAgent": "User agent",
-            "yes": "yes",
-            "no": "no"
+            "disabled": "disabled"
         }
-    },
-    "imageViewer": {
-        "close": "Close image preview",
-        "download": "Download image",
-        "openTab": "Open image in new tab",
-        "resetZoom": "Reset zoom",
-        "zoomIn": "Zoom in",
-        "zoomOut": "Zoom out"
-    },
-    "camera": {
-        "title": "Take photo",
-        "capture": "Capture",
-        "cancel": "Cancel",
-        "close": "Close camera"
-    },
-    "members": {
-        "title": "Members",
-        "online": "Online",
-        "presence": "Presence",
-        "you": "you",
-        "openProfile": "Open profile: {username}"
-    },
-    "profile": {
-        "close": "Close profile",
-        "about": "About",
-        "clientPlatforms": "Client platforms",
-        "mutualRooms": "Mutual rooms",
-        "noMutualRooms": "No visible mutual rooms.",
-        "noDescription": "No profile description.",
-        "inVoiceChat": "In voice chat"
-    },
-    "audio": {
-        "download": "Download audio"
     }
 }
