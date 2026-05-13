@@ -441,7 +441,7 @@ function loadPersisted() {
       appAccent: ["blue", "violet", "emerald", "rose", "amber"].includes(String(raw.appAccent || "").toLowerCase()) ? String(raw.appAccent).toLowerCase() : "blue",
       messageStyle: ["bubble", "discord"].includes(String(raw.messageStyle || "").toLowerCase()) ? String(raw.messageStyle).toLowerCase() : "bubble",
       androidNotificationsEnabled: raw.androidNotificationsEnabled !== false,
-      serverClearsLocalMessages: raw.serverClearsLocalMessages !== false,
+      serverClearsLocalMessages: typeof raw.serverClearsLocalMessages === "boolean" ? raw.serverClearsLocalMessages : true,
       autoReconnectEnabled: raw.autoReconnectEnabled !== false,
       reconnectMinDelayMs: Math.max(250, Math.min(60000, Number(raw.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs)),
       reconnectMaxDelayMs: Math.max(1000, Math.min(120000, Number(raw.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs)),
@@ -1160,12 +1160,36 @@ export function useMessenger() {
 
   function applyAuthenticatedPayload(data) {
     if (!data?.user) throw new Error("Malformed account response.");
+    const preservedSettings = {
+      serverClearsLocalMessages: state.serverClearsLocalMessages,
+      deleteMessagesOnLeave: state.deleteMessagesOnLeave,
+      autoArchiveUploads: state.autoArchiveUploads,
+      autoReconnectEnabled: state.autoReconnectEnabled,
+      reconnectMinDelayMs: state.reconnectMinDelayMs,
+      reconnectMaxDelayMs: state.reconnectMaxDelayMs,
+      typingIndicatorsEnabled: state.typingIndicatorsEnabled,
+      messageSoundEnabled: state.messageSoundEnabled,
+      callSoundsEnabled: state.callSoundsEnabled,
+      androidNotificationsEnabled: state.androidNotificationsEnabled,
+      selectedAudioInputId: state.selectedAudioInputId,
+      selectedAudioOutputId: state.selectedAudioOutputId,
+      microphoneThreshold: state.microphoneThreshold,
+      appAccent: state.appAccent,
+      themeMode: state.themeMode,
+      messageStyle: state.messageStyle,
+      soundFlags: { ...state.soundFlags },
+      callUserVolumes: { ...state.callUserVolumes },
+      roomNotes: { ...state.roomNotes },
+      localRoomNames: { ...state.localRoomNames },
+      localRoomIcons: { ...state.localRoomIcons }
+    };
     state.authToken = String(data.token || state.authToken || "");
     state.userId = String(data.user.id || "");
     state.username = sanitizeUsername(data.user.username);
     state.admin = Boolean(data.user.admin);
     state.profile = normalizeProfile(data.user.profile);
     state.status = sanitizePresenceStatus(data.user.status);
+    Object.assign(state, preservedSettings);
     if (Array.isArray(data.recoveryWords)) {
       state.recoveryWords = data.recoveryWords.map((word) => String(word || "")).filter(Boolean).slice(0, 16);
     }
@@ -3940,6 +3964,7 @@ export function useMessenger() {
         if (typeof data.autoArchiveUploads === "boolean") state.autoArchiveUploads = data.autoArchiveUploads;
         if (typeof data.autoReconnectEnabled === "boolean") state.autoReconnectEnabled = data.autoReconnectEnabled;
         if (typeof data.serverClearsLocalMessages === "boolean") state.serverClearsLocalMessages = data.serverClearsLocalMessages;
+        else state.serverClearsLocalMessages = true;
         setReconnectDelays(data.reconnectMinDelayMs, data.reconnectMaxDelayMs);
         state.callUserVolumes = sanitizeCallUserVolumes(data.callUserVolumes);
 

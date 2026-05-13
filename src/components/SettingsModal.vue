@@ -804,8 +804,8 @@ onBeforeUnmount(() => {
           </label>
           <label class="settings-check">
             <span>{{ t('settings.advanced.serverClears') }}</span>
-            <input type="checkbox" :checked="messenger.state.serverClearsLocalMessages"
-              @change="messenger.setServerClearsLocalMessages(targetChecked($event))" />
+            <input type="checkbox" v-model="messenger.state.serverClearsLocalMessages"
+              @change="messenger.setServerClearsLocalMessages(messenger.state.serverClearsLocalMessages)" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
           <p class="settings-note">
