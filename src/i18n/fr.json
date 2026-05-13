@@ -276,7 +276,38 @@
             "ban": "Bannir",
             "pardon": "Gracier",
             "banned": "banni",
-            "disabled": "désactivé"
+            "disabled": "désactivé",
+            "roomsNote": "Les aperçus de salon n’exposent que des métadonnées, jamais le contenu des messages."
+        },
+        "backups": {
+            "title": "Copies de sauvegarde",
+            "note": "Les sauvegardes incluent le nom d’utilisateur, la liste des salons, les métadonnées d’historique, les réactions et les compteurs non lus. Les données des pièces jointes sont exclues.",
+            "export": "Exporter JSON",
+            "import": "Importer JSON",
+            "clear": "Tout effacer",
+            "clearConfirm": "Effacer toutes les données locales ? Cela supprime toutes les conversations, les messages et les réactions de ce navigateur. Le serveur distant n’est pas affecté."
+        },
+        "about": {
+            "title": "À propos",
+            "session": "Session",
+            "status": "Statut",
+            "joinedRooms": "Salons rejoints",
+            "savedRooms": "Salons enregistrés",
+            "developer": "Développeur",
+            "appVersion": "Version de l’application",
+            "platform": "Plateforme",
+            "os": "Système",
+            "mobile": "Mobile",
+            "secureContext": "Contexte sécurisé",
+            "online": "En ligne",
+            "language": "Langue",
+            "timezone": "Fuseau horaire",
+            "serverOrigin": "Origine serveur",
+            "apiBaseUrl": "URL API de base",
+            "wsUrl": "URL WebSocket",
+            "userAgent": "User-Agent",
+            "yes": "Oui",
+            "no": "Non"
         }
     }
 }

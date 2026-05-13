@@ -276,7 +276,38 @@
             "ban": "Ban",
             "pardon": "Pardon",
             "banned": "banned",
-            "disabled": "disabled"
+            "disabled": "disabled",
+            "roomsNote": "Room previews expose metadata only, never message content."
+        },
+        "backups": {
+            "title": "Backups",
+            "note": "Backups include username, room list, history metadata, reactions, and unread counters. Attachment data is excluded.",
+            "export": "Export JSON",
+            "import": "Import JSON",
+            "clear": "Clear all",
+            "clearConfirm": "Clear all local data? This removes all conversations, messages, and reactions from this browser. The remote server is not affected."
+        },
+        "about": {
+            "title": "About",
+            "session": "Session",
+            "status": "Status",
+            "joinedRooms": "Joined rooms",
+            "savedRooms": "Saved rooms",
+            "developer": "Developer",
+            "appVersion": "App version",
+            "platform": "Platform",
+            "os": "Operating system",
+            "mobile": "Mobile",
+            "secureContext": "Secure context",
+            "online": "Online",
+            "language": "Language",
+            "timezone": "Timezone",
+            "serverOrigin": "Server origin",
+            "apiBaseUrl": "API base URL",
+            "wsUrl": "WebSocket URL",
+            "userAgent": "User-Agent",
+            "yes": "Yes",
+            "no": "No"
         }
     }
 }
