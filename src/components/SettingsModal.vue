@@ -900,14 +900,21 @@ onBeforeUnmount(() => {
                 <small>
                   {{ user.id }}
                   <template v-if="user.admin"> · admin</template>
-                  <template v-if="user.disabled"> · disabled</template>
+                  <template v-if="user.banned"> · {{ t('settings.admin.banned') }}</template>
+                  <template v-else-if="user.disabled"> · disabled</template>
                   <template v-else> · {{ messenger.presenceStatusLabel(user.status) }}</template>
                 </small>
               </div>
-              <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.disabled }"
-                @click="messenger.setAdminUserDisabled(user.id, !user.disabled)">
-                {{ user.disabled ? t('settings.admin.enable') : t('settings.admin.disable') }}
-              </button>
+              <div class="settings-actions settings-actions--wrap">
+                <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.disabled }"
+                  @click="messenger.setAdminUserDisabled(user.id, !user.disabled)">
+                  {{ user.disabled ? t('settings.admin.enable') : t('settings.admin.disable') }}
+                </button>
+                <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.banned }"
+                  @click="messenger.setAdminUserBanned(user.id, !user.banned)">
+                  {{ user.banned ? t('settings.admin.pardon') : t('settings.admin.ban') }}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -3660,6 +3660,10 @@ textarea {
   margin-top: 18px;
 }
 
+.settings-actions--wrap {
+  justify-content: flex-end;
+}
+
 .admin-list {
   display: grid;
   gap: 8px;

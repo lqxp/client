@@ -255,6 +255,9 @@
             "calls": "Calls",
             "enable": "Enable",
             "disable": "Disable",
+            "ban": "Ban",
+            "pardon": "Pardon",
+            "banned": "banned",
             "roomsNote": "Room previews expose metadata only, never message bodies."
         },
         "backups": {

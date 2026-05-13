@@ -1273,6 +1273,22 @@ export function useMessenger() {
     }
   }
 
+  async function setAdminUserBanned(userId, banned) {
+    if (!state.admin) return false;
+    try {
+      await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/banned`, {
+        method: "POST",
+        body: JSON.stringify({ banned: Boolean(banned) })
+      });
+      await loadAdminOverview();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "User update failed.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
   function profileFor(username) {
     const key = sanitizeUsername(username);
     if (!key) return normalizeProfile(null);
@@ -3887,6 +3903,7 @@ export function useMessenger() {
     loadAdminOverview,
     setAdminFeature,
     setAdminUserDisabled,
+    setAdminUserBanned,
     refreshAudioDevices,
     unlockAudioDevices,
     startMicTest,

@@ -255,6 +255,9 @@
             "calls": "Appels",
             "enable": "Activer",
             "disable": "Désactiver",
+            "ban": "Bannir",
+            "pardon": "Gracier",
+            "banned": "banni",
             "roomsNote": "Les aperçus de salons n'exposent que des métadonnées, jamais le contenu des messages."
         },
         "backups": {

@@ -255,6 +255,9 @@
             "calls": "Llamadas",
             "enable": "Activar",
             "disable": "Desactivar",
+            "ban": "Banear",
+            "pardon": "Perdonar",
+            "banned": "baneado",
             "roomsNote": "Las vistas previas de salas solo exponen metadatos, nunca el contenido de los mensajes."
         },
         "backups": {
