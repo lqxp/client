@@ -1061,6 +1061,17 @@ function onDelete() {
   min-width: 0;
 }
 
+:global(:root[data-message-style="discord"] .msg:not(.is-own) .jumbo) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+:global(:root[data-message-style="discord"] .msg:not(.is-own) .jumbo .reactions.reactions--standalone) {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
 :global(:root[data-message-style="discord"] .jumbo__glyph) {
   display: inline-block;
   max-width: 100%;
