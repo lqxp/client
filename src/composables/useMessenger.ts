@@ -16,7 +16,7 @@ import {
 } from "@/crypto/e2ee";
 import { playCameraOffSound, playCameraOnSound, playJoinSound, playLeaveSound, playMuteSound, playScreenOffSound, playScreenOnSound, playUnmuteSound, setCallSoundsActive, setSoundFlag } from "@/calls/callSounds";
 
-const STORAGE_KEY = "qxprotocol-messenger-v4";
+const STORAGE_KEY = "qxprotocol-messenger-v5";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "💀", "🧢"];
@@ -282,6 +282,16 @@ function accentFor(seed) {
   return palette[h % palette.length];
 }
 
+function sanitizeRoomUsers(raw) {
+  const users = new Set<string>();
+  for (const player of Array.isArray(raw) ? raw : []) {
+    const user = sanitizeUsername(typeof player === "string" ? player : player?.user || player?.username || player?.name);
+    if (!user) continue;
+    users.add(user);
+  }
+  return [...users];
+}
+
 function sanitizeRoomKeys(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const next = {};
@@ -358,6 +368,28 @@ function loadPersisted() {
       }
     }
 
+    const joinedRooms = Array.isArray(raw.joinedRooms)
+      ? [...new Set(raw.joinedRooms.map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))]
+      : [];
+
+    const usersByRoom = {};
+    if (raw.usersByRoom && typeof raw.usersByRoom === "object") {
+      for (const [id, players] of Object.entries(raw.usersByRoom)) {
+        const roomId = sanitizeRoomId(id);
+        if (!isValidRoomId(roomId)) continue;
+        usersByRoom[roomId] = sanitizeRoomUsers(players);
+      }
+    }
+
+    const profilesByUser = {};
+    if (raw.profilesByUser && typeof raw.profilesByUser === "object") {
+      for (const [username, profile] of Object.entries(raw.profilesByUser)) {
+        const key = sanitizeUsername(username);
+        if (!key) continue;
+        profilesByUser[key] = normalizeProfile(profile);
+      }
+    }
+
     return {
       authToken: String(raw.authToken || ""),
       userId: String(raw.userId || ""),
@@ -367,6 +399,9 @@ function loadPersisted() {
       status: sanitizePresenceStatus(raw.status),
       activeRoom: isValidRoomId(raw.activeRoom) ? sanitizeRoomId(raw.activeRoom) : "",
       rooms,
+      joinedRooms,
+      usersByRoom,
+      profilesByUser,
       messagesByRoom,
       unreadByRoom,
       roomKeysByRoom: sanitizeRoomKeys(raw.roomKeysByRoom),
@@ -535,6 +570,9 @@ function savePersisted(state) {
         status: sanitizePresenceStatus(state.status),
         activeRoom: sanitizeRoomId(state.activeRoom),
         rooms: state.rooms,
+        joinedRooms: [...new Set((state.joinedRooms || []).map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))],
+        usersByRoom: Object.fromEntries(Object.entries(state.usersByRoom || {}).map(([roomId, users]) => [sanitizeRoomId(roomId), sanitizeRoomUsers(users)]).filter(([roomId]) => isValidRoomId(roomId))),
+        profilesByUser: Object.fromEntries(Object.entries(state.profilesByUser || {}).map(([username, profile]) => [sanitizeUsername(username), normalizeProfile(profile)]).filter(([username]) => Boolean(username))),
         messagesByRoom,
         unreadByRoom: state.unreadByRoom,
         roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
@@ -876,11 +914,11 @@ export function useMessenger() {
     rooms: persisted.rooms,
     roomKeysByRoom: persisted.roomKeysByRoom,
 
-    joinedRooms: [],
+    joinedRooms: persisted.joinedRooms,
     pendingJoinRooms: [],
     messagesByRoom: persisted.messagesByRoom,
-    usersByRoom: {},
-    profilesByUser: {},
+    usersByRoom: persisted.usersByRoom,
+    profilesByUser: { ...persisted.profilesByUser },
     statusesByUser: {},
     clientPlatformsByUser: {},
     callClientsByRoom: {},
@@ -1067,7 +1105,16 @@ export function useMessenger() {
     };
   });
 
-  const memberRoster = computed(() => [...new Set((state.usersByRoom[state.activeRoom] || []).map(sanitizeUsername).filter(Boolean))]);
+  const memberRoster = computed(() => {
+    const roomId = sanitizeRoomId(state.activeRoom);
+    const joined = new Set((state.joinedRooms || []).map(sanitizeRoomId).filter(Boolean));
+    const fallback = joined.has(roomId)
+      ? Object.keys(state.profilesByUser || {})
+          .map(sanitizeUsername)
+          .filter((username) => username && username !== sanitizeUsername(state.username))
+      : [];
+    return [...new Set([...(state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean), ...fallback])];
+  });
   const typingUsers = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
     const roomTyping = state.typingByRoom[roomId] || {};
