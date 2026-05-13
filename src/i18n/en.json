@@ -130,8 +130,8 @@
             "about": "About"
         },
         "profile": {
-            "displayName": "Display name",
-            "displayNameHint": "Visible to people you message.",
+            "displayName": "Username",
+            "displayNameHint": "Shown as @username to people you message.",
             "status": "Status",
             "statusHint": "Controls how you appear in Presence.",
             "description": "Description",

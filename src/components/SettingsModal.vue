@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
         </span>
         <span v-else class="avatar avatar--md" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
         <span>
-          <strong>{{ messenger.state.username || "anonymous" }}</strong>
+          <strong>@{{ messenger.state.username || "anonymous" }}</strong>
           <small>{{ connectionStatusLabel }}</small>
         </span>
       </button>
@@ -416,7 +416,7 @@ onBeforeUnmount(() => {
           </label>
           <div class="settings-inline">
             <input ref="firstInputRef" v-model="draftName" type="text" maxlength="32" autocomplete="off"
-              spellcheck="false" placeholder="e.g. echo" class="settings-input" @keydown.enter.prevent="saveName" />
+              spellcheck="false" placeholder="@echo" class="settings-input" @keydown.enter.prevent="saveName" />
             <button type="button" class="btn btn--primary settings-btn" :disabled="!nameValid || !nameChanged"
                 @click="saveName">{{ t('settings.profile.save') }}</button>
           </div>

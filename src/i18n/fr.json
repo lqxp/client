@@ -1,114 +1,51 @@
 {
     "app": {
-        "noConversation": "Aucune conversation sélectionnée",
-        "noConversationHint": "Choisissez un salon dans la liste ou appuyez sur l'icône crayon pour en créer un.",
-        "inCall": "En appel · {room} · {elapsed}",
-        "endCall": "Terminer"
+        "title": "LQXP",
+        "tagline": "Un chat léger et rapide pour les communautés"
     },
-    "onboarding": {
-        "register": "Inscription",
-        "login": "Connexion",
-        "recover": "Récupération",
-        "createAccount": "Créer un compte",
-        "recoverAccount": "Récupérer un compte",
-        "logIn": "Se connecter",
-        "submit": "Continuer",
+    "landing": {
+        "brandAlt": "Logo LQXP",
+        "welcome": "Bon retour",
+        "subtitle": "Connectez-vous ou créez un compte pour continuer",
+        "username": "Nom d'utilisateur",
+        "password": "Mot de passe",
+        "login": "Se connecter",
+        "register": "Créer un compte",
+        "recovery": "Clé de récupération",
+        "forgot": "Mot de passe oublié ?",
+        "recover": "Récupérer le compte",
         "usernamePlaceholder": "ex. echo",
-        "passwordPlaceholder": "Mot de passe",
-        "recoveryPlaceholder": "Mots de récupération"
+        "passwordPlaceholder": "Entrez votre mot de passe",
+        "recoveryPlaceholder": "Collez votre clé de récupération",
+        "registerNote": "Les noms d'utilisateur peuvent contenir des lettres, des chiffres, des tirets, des tirets bas et des points.",
+        "registerSuccess": "Compte créé. Enregistrez votre clé de récupération dans un endroit sûr :",
+        "recoveryHelp": "Utilisez votre clé de récupération pour réinitialiser votre mot de passe.",
+        "errors": {
+            "missingFields": "Entrez un nom d'utilisateur et un mot de passe.",
+            "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+            "requestFailed": "Impossible de terminer la requête. Réessayez."
+        }
     },
     "sidebar": {
-        "searchPlaceholder": "Rechercher",
-        "newConversation": "Nouvelle conversation",
-        "generateToken": "Générer un token de salon",
-        "pasteRoomToken": "Coller un token de salon",
-        "settings": "Paramètres",
         "online": "En ligne",
-        "invisible": "Invisible",
-        "dnd": "Ne pas déranger",
-        "connecting": "Connexion…",
         "offline": "Hors ligne",
-        "connect": "Connecter",
-        "disconnect": "Déconnecter",
-        "changeStatus": "Changer le statut",
-        "joined": "Rejoint",
-        "removeConversation": "Supprimer {room}",
-        "removeConversationConfirm": "Supprimer la conversation \"{room}\" et ses messages ?",
-        "contextChangeImage": "Choisir une image",
-        "contextChangeIcon": "Changer l'icône",
-        "contextClearIcon": "Retirer l'icône",
-        "contextRenameLocal": "Renommer localement",
-        "promptLocalRoomName": "Nom local du salon",
-        "promptLocalRoomIcon": "Icône locale (emoji)",
-        "anonymous": "anonyme"
+        "connecting": "Connexion…",
+        "invisible": "Invisible",
+        "dnd": "Ne pas déranger"
     },
-    "thread": {
-        "back": "Retour aux conversations",
-        "startCall": "Démarrer un appel",
-        "leaveRoom": "Quitter le salon",
-        "copyToken": "Copier le token du salon",
-        "members": "Membres en ligne",
-        "roomConversation": "Conversation du salon",
-        "e2eeReady": "E2EE prêt",
-        "noRoomKeyYet": "Pas encore de clé de salon",
-        "callsUnavailable": "Appels indisponibles : relais non configuré",
-        "copyTokenSuccess": "Token du salon copié.",
-        "copyTokenError": "Impossible de copier le token du salon.",
-        "leaveRoomDeletesLocal": "Les messages locaux seront supprimés.",
-        "leaveRoomConfirm": "Quitter \"{room}\" ?{suffix}",
-        "typingOne": "{user} est en train d’écrire…",
-        "typingMany": "{count} personnes écrivent…"
+    "members": {
+        "online": "Aucun membre en ligne",
+        "you": "Vous",
+        "openProfile": "Ouvrir le profil de {username}"
     },
-    "composer": {
-        "placeholder": "Message",
-        "send": "Envoyer",
-        "attachFile": "Joindre un fichier",
-        "takePhoto": "Prendre une photo",
-        "holdToRecord": "Maintenir pour enregistrer",
-        "emoji": "Emoji",
-        "cancelReply": "Annuler la réponse",
-        "cancelEdit": "Annuler la modification",
-        "replyingTo": "Répondre à",
-        "editing": "Modification",
-        "recordSend": "envoyer",
-        "recordCancel": "annuler"
-    },
-    "message": {
-        "deleted": "Message supprimé",
-        "edited": "modifié",
-        "reply": "Répondre",
-        "edit": "Modifier",
-        "delete": "Supprimer",
-        "copy": "Copier",
-        "copied": "Copié",
-        "seeMore": "Voir plus",
-        "seeLess": "Voir moins",
-        "deleteConfirm": "Supprimer ce message pour tout le monde dans le salon ?",
-        "photo": "Photo",
-        "video": "Vidéo",
-        "voiceMessage": "Message vocal",
-        "fileAttachment": "Pièce jointe",
-        "originalNotLoaded": "Le message original n'est pas chargé.",
-        "messageDeleted": "Message supprimé"
-    },
-    "call": {
-        "live": "En direct",
-        "mute": "Couper le micro",
-        "unmute": "Activer le micro",
-        "startCamera": "Activer la caméra",
-        "stopCamera": "Désactiver la caméra",
-        "shareScreen": "Partager l'écran",
-        "stopScreen": "Arrêter le partage",
-        "extractPanel": "Extraire le panneau vocal",
-        "endCall": "Terminer l'appel",
-        "zoom": "Agrandir",
-        "fullscreen": "Plein écran",
-        "extractView": "Extraire la vue",
-        "closeView": "Fermer la vue agrandie",
-        "you": "(vous)",
-        "voice": "Voix",
-        "camera": "Caméra",
-        "screen": "Écran"
+    "profile": {
+        "close": "Fermer le profil",
+        "about": "À propos",
+        "noDescription": "Aucune description de profil pour le moment.",
+        "mutualRooms": "Salons en commun",
+        "noMutualRooms": "Aucun salon en commun pour le moment.",
+        "inVoiceChat": "Dans le salon vocal",
+        "clientPlatforms": "Plateformes client"
     },
     "settings": {
         "title": "Paramètres",
@@ -130,8 +67,8 @@
             "about": "À propos"
         },
         "profile": {
-            "displayName": "Nom d'affichage",
-            "displayNameHint": "Visible par les personnes à qui vous écrivez.",
+            "displayName": "Nom d'utilisateur",
+            "displayNameHint": "Affiché sous la forme @username aux personnes à qui vous écrivez.",
             "status": "Statut",
             "statusHint": "Contrôle votre apparence dans la Présence.",
             "description": "Description",
@@ -157,174 +94,25 @@
             "dark": "Sombre",
             "light": "Clair",
             "adaptive": "Adaptatif (selon l'heure)",
-            "adaptiveNote": "Le mode adaptatif bascule automatiquement selon votre heure locale.",
-            "colors": "Couleurs",
-            "accentColor": "Couleur d'accentuation",
+            "adaptiveNote": "Le mode adaptatif change automatiquement selon votre heure locale.",
+            "colors": "Couleur d'accent",
+            "accentColor": "Choisir un accent",
             "blue": "Bleu",
             "violet": "Violet",
             "emerald": "Émeraude",
             "rose": "Rose",
             "amber": "Ambre",
-            "messages": "Messages",
+            "messages": {
+                "shape": "Forme des messages"
+            },
             "messageShape": "Style des messages",
-            "bubbles": "Bulles",
-            "discord": "Style Discord (ligne gauche)"
-        },
-        "language": {
-            "title": "Langue",
-            "appLanguage": "Langue de l'application",
-            "currentLanguage": "Langue actuelle",
-            "browserLanguage": "Langue du navigateur",
-            "note": "Les changements s'appliquent immédiatement et sont enregistrés sur cet appareil."
-        },
-        "rooms": {
-            "savedRooms": "Salons enregistrés",
-            "note": "Renommez localement les salons et ajoutez des notes privées. Ces changements sont stockés uniquement sur cet appareil.",
-            "notePlaceholder": "Note privée...",
-            "resetName": "Réinitialiser le nom",
-            "noRooms": "Aucun salon enregistré."
+            "compact": "Compact",
+            "cozy": "Confortable",
+            "discord": "Style Discord"
         },
         "security": {
-            "account": "Compte",
-            "userId": "ID utilisateur",
-            "username": "Nom d'utilisateur",
-            "downloadRecovery": "Télécharger les mots de récupération",
             "logout": "Se déconnecter",
-            "recoveryNote": "Les mots de récupération ne sont affichés qu'après la création ou la récupération du compte sur ce navigateur."
-        },
-        "privacy": {
-            "title": "Confidentialité",
-            "deleteOnLeave": "Supprimer les messages locaux en quittant un salon",
-            "streamerMode": "Mode streamer",
-            "streamerNote": "Le mode streamer masque les IDs de salon dans l'interface tout en maintenant vos connexions actives."
-        },
-        "notifications": {
-            "messages": "Messages",
-            "messageSound": "Jouer un son pour les nouveaux messages",
-            "backgroundNotifs": "Afficher les notifications pour les messages en arrière-plan",
-            "permission": "Permission : {status}",
-            "sounds": "Sons",
-            "previewSound": "Aperçu",
-            "soundMessage": "Message",
-            "soundJoin": "Connexion vocale",
-            "soundLeave": "Déconnexion vocale",
-            "soundMute": "Micro coupé",
-            "soundUnmute": "Micro activé",
-            "soundCameraOn": "Caméra activée",
-            "soundCameraOff": "Caméra désactivée",
-            "soundScreenOn": "Partage d'écran activé",
-            "soundScreenOff": "Partage d'écran désactivé"
-        },
-        "calls": {
-            "calling": "Appels",
-            "enableCalls": "Activer les appels entrants",
-            "playCallingSounds": "Jouer les sons d'appel",
-            "devices": "Appareils",
-            "microphone": "Microphone",
-            "speakers": "Haut-parleurs",
-            "systemDefault": "Système par défaut",
-            "allowDevices": "Autoriser et actualiser les appareils",
-            "checkingDevices": "Vérification...",
-            "devicesNote": "Autorisez l'accès au microphone pour afficher les vrais noms des appareils. Cela ne démarre pas un appel.",
-            "advanced": "Avancé",
-            "micThreshold": "Seuil de bruit du microphone",
-            "micThresholdHint": "Augmentez-le pour éviter d'envoyer du bruit de fond.",
-            "testMic": "Écouter et tester le micro",
-            "stopListening": "Arrêter l'écoute",
-            "startingMic": "Démarrage..."
-        },
-        "advanced": {
-            "connection": "Connexion",
-            "autoReconnect": "Se reconnecter automatiquement au chat",
-            "disableTypingSend": "Désactiver l’envoi de l’indicateur d’écriture",
-            "serverClears": "Laisser le serveur vider le cache local des messages",
-            "serverClearsNote": "Activé par défaut. Lorsque désactivé, la reconnexion conserve les messages en cache même si l'historique serveur est vide après un rafraîchissement.",
-            "uploads": "Envois",
-            "autoArchive": "Archiver automatiquement les fichiers en .zip lors de l'envoi",
-            "autoArchiveNote": "Désactivé par défaut. Lorsqu'activé, les pièces jointes sont compressées en ZIP avant l'envoi. Limite : 25 Mo."
-        },
-        "admin": {
-            "title": "Admin",
-            "refresh": "Actualiser",
-            "loading": "Chargement...",
-            "online": "En ligne",
-            "users": "Utilisateurs",
-            "rooms": "Salons",
-            "features": "Fonctionnalités",
-            "registrations": "Inscriptions",
-            "calls": "Appels",
-            "enable": "Activer",
-            "disable": "Désactiver",
-            "ban": "Bannir",
-            "pardon": "Gracier",
-            "banned": "banni",
-            "roomsNote": "Les aperçus de salons n'exposent que des métadonnées, jamais le contenu des messages."
-        },
-        "backups": {
-            "title": "Sauvegardes",
-            "note": "Les sauvegardes incluent le nom d'utilisateur, la liste des salons, les métadonnées de l'historique, les réactions et les compteurs non lus. Les données des pièces jointes sont exclues.",
-            "export": "Exporter JSON",
-            "import": "Importer JSON",
-            "clear": "Tout effacer",
-            "clearConfirm": "Effacer toutes les données locales ? Cela supprime toutes les conversations, messages et réactions de ce navigateur. Le serveur distant n'est pas affecté."
-        },
-        "about": {
-            "title": "À propos",
-            "connection": "Connexion",
-            "connect": "Connecter",
-            "disconnect": "Déconnecter",
-            "session": "Session",
-            "status": "Statut",
-            "joinedRooms": "Salons rejoints",
-            "savedRooms": "Salons sauvegardés",
-            "developer": "Détails développeur",
-            "appVersion": "Version de l'application",
-            "platform": "Plateforme",
-            "os": "Système d'exploitation",
-            "mobile": "Runtime mobile",
-            "secureContext": "Contexte sécurisé",
-            "online": "En ligne",
-            "language": "Langue",
-            "timezone": "Fuseau horaire",
-            "serverOrigin": "Origine du serveur",
-            "apiBaseUrl": "URL de base de l'API",
-            "wsUrl": "URL WebSocket",
-            "userAgent": "User agent",
-            "yes": "oui",
-            "no": "non"
+            "username": "Nom d'utilisateur"
         }
-    },
-    "imageViewer": {
-        "close": "Fermer l'aperçu",
-        "download": "Télécharger l'image",
-        "openTab": "Ouvrir dans un nouvel onglet",
-        "resetZoom": "Réinitialiser le zoom",
-        "zoomIn": "Zoom avant",
-        "zoomOut": "Zoom arrière"
-    },
-    "camera": {
-        "title": "Prendre une photo",
-        "capture": "Capturer",
-        "cancel": "Annuler",
-        "close": "Fermer la caméra"
-    },
-    "members": {
-        "title": "Membres",
-        "online": "En ligne",
-        "presence": "Présence",
-        "you": "vous",
-        "openProfile": "Ouvrir le profil : {username}"
-    },
-    "profile": {
-        "close": "Fermer le profil",
-        "about": "À propos",
-        "clientPlatforms": "Plateformes client",
-        "mutualRooms": "Salons en commun",
-        "noMutualRooms": "Aucun salon en commun visible.",
-        "noDescription": "Aucune description de profil.",
-        "inVoiceChat": "En chat vocal"
-    },
-    "audio": {
-        "download": "Télécharger l'audio"
     }
 }

@@ -70,7 +70,7 @@ function initialsFor(name: string) {
           <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
         <div class="profile-card__identity">
-          <strong>{{ username }}</strong>
+          <strong>@{{ username }}</strong>
           <small>
             <span
               class="members__dot"

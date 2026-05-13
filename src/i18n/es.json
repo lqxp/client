@@ -130,8 +130,8 @@
             "about": "Acerca de"
         },
         "profile": {
-            "displayName": "Nombre visible",
-            "displayNameHint": "Visible para las personas a las que escribes.",
+            "displayName": "Nombre de usuario",
+            "displayNameHint": "Se muestra como @username a las personas a las que escribes.",
             "status": "Estado",
             "statusHint": "Controla cómo apareces en Presencia.",
             "description": "Descripción",
