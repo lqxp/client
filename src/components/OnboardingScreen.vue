@@ -82,7 +82,8 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
             </div>
             <div class="onboarding__window-body">
               <div class="onboarding__window-side">
-                <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername || "You") }}</span>
+                <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername ||
+                  "You") }}</span>
                 <div>
                   <strong>{{ cleanUsername || "your.username" }}</strong>
                   <small>2-32 chars · lowercase · numbers · _ and .</small>
@@ -100,9 +101,12 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
       <div class="onboarding__card">
         <div class="onboarding__tabs" role="tablist" aria-label="Authentication mode">
-          <button type="button" :class="{ 'is-active': mode === 'login' }" @click="setMode('login')">{{ t('onboarding.login') }}</button>
-          <button type="button" :class="{ 'is-active': mode === 'register' }" @click="setMode('register')">{{ t('onboarding.register') }}</button>
-          <button type="button" :class="{ 'is-active': mode === 'recover' }" @click="setMode('recover')">{{ t('onboarding.recover') }}</button>
+          <button type="button" :class="{ 'is-active': mode === 'login' }" @click="setMode('login')">{{
+            t('onboarding.login') }}</button>
+          <button type="button" :class="{ 'is-active': mode === 'register' }" @click="setMode('register')">{{
+            t('onboarding.register') }}</button>
+          <button type="button" :class="{ 'is-active': mode === 'recover' }" @click="setMode('recover')">{{
+            t('onboarding.recover') }}</button>
         </div>
 
         <div class="onboarding__card-head">
@@ -116,52 +120,27 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
         <form class="onboarding__form" @submit.prevent="submit">
           <label class="onboarding__field" for="onboarding-username">
             <span>Username</span>
-            <input
-              id="onboarding-username"
-              ref="inputRef"
-              v-model="username"
-              type="text"
-              maxlength="32"
-              autocomplete="username"
-              spellcheck="false"
-              :placeholder="t('onboarding.usernamePlaceholder')"
-            />
+            <input id="onboarding-username" ref="inputRef" v-model="username" type="text" maxlength="32"
+              autocomplete="username" spellcheck="false" :placeholder="t('onboarding.usernamePlaceholder')" />
           </label>
 
           <label v-if="mode !== 'recover'" class="onboarding__field" for="onboarding-password">
             <span>Password</span>
-            <input
-              id="onboarding-password"
-              v-model="password"
-              type="password"
-              maxlength="128"
-              autocomplete="current-password"
-              :placeholder="t('onboarding.passwordPlaceholder')"
-            />
+            <input id="onboarding-password" v-model="password" type="password" maxlength="128"
+              autocomplete="current-password" :placeholder="t('onboarding.passwordPlaceholder')" />
           </label>
 
-          <label v-if="mode === 'recover'" class="onboarding__field onboarding__field--stacked" for="onboarding-recovery">
+          <label v-if="mode === 'recover'" class="onboarding__field onboarding__field--stacked"
+            for="onboarding-recovery">
             <span>Recovery words</span>
-            <textarea
-              id="onboarding-recovery"
-              v-model="recoveryWords"
-              rows="4"
-              autocomplete="off"
-              spellcheck="false"
-              :placeholder="t('onboarding.recoveryPlaceholder')"
-            ></textarea>
+            <textarea id="onboarding-recovery" v-model="recoveryWords" rows="4" autocomplete="off" spellcheck="false"
+              :placeholder="t('onboarding.recoveryPlaceholder')"></textarea>
           </label>
 
           <label v-if="mode === 'recover'" class="onboarding__field" for="onboarding-new-password">
             <span>New password</span>
-            <input
-              id="onboarding-new-password"
-              v-model="newPassword"
-              type="password"
-              maxlength="128"
-              autocomplete="new-password"
-              :placeholder="t('onboarding.passwordPlaceholder')"
-            />
+            <input id="onboarding-new-password" v-model="newPassword" type="password" maxlength="128"
+              autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" />
           </label>
 
           <div class="onboarding__meta">
@@ -171,7 +150,8 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
           <p v-if="errorMessage" class="onboarding__error">{{ errorMessage }}</p>
 
-          <button class="btn btn--primary onboarding__submit" type="submit" :disabled="!canSubmit || messenger.state.authLoading">
+          <button class="btn btn--primary onboarding__submit" type="submit"
+            :disabled="!canSubmit || messenger.state.authLoading">
             {{ messenger.state.authLoading ? "Please wait..." : title }}
           </button>
         </form>
