@@ -38,6 +38,12 @@
         "you": "Вы",
         "openProfile": "Открыть профиль {username}"
     },
+    "members": {
+        "presence": "Присутствие",
+        "online": "в сети",
+        "you": "Вы",
+        "openProfile": "Открыть профиль {username}"
+    },
     "profile": {
         "close": "Закрыть профиль",
         "about": "О себе",

@@ -42,6 +42,12 @@
         "promptLocalRoomIcon": "Icono local (emoji)",
         "anonymous": "anónimo"
     },
+    "members": {
+        "presence": "Presencia",
+        "online": "en línea",
+        "you": "Tú",
+        "openProfile": "Abrir el perfil de {username}"
+    },
     "thread": {
         "back": "Volver a conversaciones",
         "startCall": "Iniciar llamada",
