@@ -3674,6 +3674,42 @@ export function useMessenger() {
     state.profilesByUser[key] = profile;
   }
 
+  function applyIncrementalRoomUserState(roomId, username, options: {
+    visible?: boolean;
+    removeVoice?: boolean;
+    removeCalls?: boolean;
+    removeMedia?: boolean;
+    preserveSelf?: boolean;
+  } = {}) {
+    const id = sanitizeRoomId(roomId);
+    const user = sanitizeUsername(username);
+    if (!id || !user) return;
+
+    const {
+      visible = true,
+      removeVoice = false,
+      removeCalls = false,
+      removeMedia = false,
+      preserveSelf = false
+    } = options;
+
+    const me = sanitizeUsername(state.username);
+    const current = new Set(state.usersByRoom[id] || []);
+    if (visible || (preserveSelf && user === me)) current.add(user);
+    else current.delete(user);
+    state.usersByRoom[id] = [...current];
+
+    if (removeVoice) {
+      state.voiceMembersByRoom[id] = (state.voiceMembersByRoom[id] || []).filter((member) => member !== user);
+    }
+    if (removeCalls) {
+      delete state.callClientsByRoom[id]?.[user];
+    }
+    if (removeMedia) {
+      removeRemoteCallMedia(user);
+    }
+  }
+
   function applyPresenceStatus(d) {
     const roomId = applyRoomSnapshot(d, d?.gameId);
     const key = sanitizeUsername(d?.user);
@@ -3689,15 +3725,13 @@ export function useMessenger() {
     if (key === me) state.status = status;
 
     if (!roomId) return;
-    const current = new Set(state.usersByRoom[roomId] || []);
     if (!Array.isArray(d?.players)) {
-      if (visible || key === me) current.add(key);
-      else current.delete(key);
-      state.usersByRoom[roomId] = [...current];
-    }
-    if (!visible && key !== me && !Array.isArray(d?.voicePlayers)) {
-      state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).filter((user) => user !== key);
-      removeRemoteCallMedia(key);
+      applyIncrementalRoomUserState(roomId, key, {
+        visible,
+        preserveSelf: true,
+        removeVoice: !visible && key !== me && !Array.isArray(d?.voicePlayers),
+        removeMedia: !visible && key !== me && !Array.isArray(d?.voicePlayers)
+      });
     }
   }
 
@@ -3710,13 +3744,14 @@ export function useMessenger() {
       applyDeletedMessageIds(roomId, d.deletedMessageIds);
       if (roomId === state.activeRoom) state.activeRoom = "";
     } else if (d?.left) {
-      const arr = state.usersByRoom[roomId];
       const left = sanitizeUsername(d.left);
-      if (arr && !Array.isArray(d?.players)) state.usersByRoom[roomId] = arr.filter((u) => u !== left);
-      if (!Array.isArray(d?.voicePlayers)) {
-        state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).filter((u) => u !== left);
+      if (!Array.isArray(d?.players)) {
+        applyIncrementalRoomUserState(roomId, left, {
+          visible: false,
+          removeVoice: !Array.isArray(d?.voicePlayers),
+          removeCalls: !Array.isArray(d?.callPlayers)
+        });
       }
-      if (!Array.isArray(d?.callPlayers)) delete state.callClientsByRoom[roomId]?.[left];
     }
   }
 
