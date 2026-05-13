@@ -594,7 +594,7 @@ function onDelete() {
         </button>
       </template>
 
-      <a v-if="preview && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer" class="embed">
+      <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer" class="embed">
         <div v-if="preview.image" class="embed__media">
           <img :src="preview.image" :alt="preview.title || preview.url" loading="lazy" referrerpolicy="no-referrer" />
         </div>

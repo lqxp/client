@@ -128,6 +128,18 @@ function profileImageSrc(image) {
   return normalized ? `data:${normalized.mimeType};base64,${normalized.dataB64}` : "";
 }
 
+function sanitizeHttpUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw, typeof window !== "undefined" ? window.location.origin : "https://localhost");
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
 function isAndroidWebViewRuntime() {
   const ua = typeof navigator === "undefined" ? "" : String(navigator.userAgent || "").toLowerCase();
   return ua.includes("android") && (ua.includes("; wv") || ua.includes(" version/4."));
@@ -742,10 +754,10 @@ function normalizeMessage(message, fallbackRoomId) {
 
   const preview = message.preview && typeof message.preview === "object"
     ? {
-      url: String(message.preview.url || ""),
+      url: sanitizeHttpUrl(message.preview.url),
       title: String(message.preview.title || "").slice(0, 300),
       description: String(message.preview.description || "").slice(0, 500),
-      image: String(message.preview.image || ""),
+      image: sanitizeHttpUrl(message.preview.image),
       siteName: String(message.preview.siteName || "").slice(0, 80)
     }
     : null;
