@@ -62,11 +62,25 @@
   --bubble-out: var(--accent);
 }
 
-:root[data-accent="blue"] { --accent: #2090ea; }
-:root[data-accent="violet"] { --accent: #8b5cf6; }
-:root[data-accent="emerald"] { --accent: #10b981; }
-:root[data-accent="rose"] { --accent: #f43f5e; }
-:root[data-accent="amber"] { --accent: #f59e0b; }
+:root[data-accent="blue"] {
+  --accent: #2090ea;
+}
+
+:root[data-accent="violet"] {
+  --accent: #8b5cf6;
+}
+
+:root[data-accent="emerald"] {
+  --accent: #10b981;
+}
+
+:root[data-accent="rose"] {
+  --accent: #f43f5e;
+}
+
+:root[data-accent="amber"] {
+  --accent: #f59e0b;
+}
 
 * {
   box-sizing: border-box;
@@ -418,7 +432,7 @@ textarea {
   gap: 10px;
 }
 
-.onboarding__field + .onboarding__field {
+.onboarding__field+.onboarding__field {
   margin-top: 14px;
 }
 
@@ -1094,7 +1108,7 @@ textarea {
   padding: 12px 10px 14px;
 }
 
-.members__group + .members__group {
+.members__group+.members__group {
   margin-top: 18px;
 }
 
@@ -1392,33 +1406,66 @@ textarea {
 .profile-card__empty {
   color: var(--muted);
 }
-
-.profile-card__mutual-picker {
+.profile-card__mutual-list {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.profile-card__select {
-  flex: 1;
+.profile-card__mutual-room {
+  width: 100%;
   min-width: 0;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid #1b1d20;
-  background: #1e1f22;
-  color: #f2f3f5;
-  padding: 0 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  text-align: left;
 }
 
-.profile-card__select:focus {
-  outline: none;
-  border-color: #00a8fc;
-  box-shadow: 0 0 0 1px #00a8fc;
+.profile-card__mutual-room:hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
 }
 
-.profile-card__open-room {
+.profile-card__mutual-room-media,
+.profile-card__mutual-room-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
   flex: none;
-  min-width: 64px;
+}
+
+.profile-card__mutual-room-media {
+  background: var(--surface-3, var(--surface-2));
+}
+
+.profile-card__mutual-room-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-card__mutual-room-fallback {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+  color: var(--text);
+  font-weight: 800;
+}
+
+.profile-card__mutual-room-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {
@@ -1448,6 +1495,17 @@ textarea {
   .profile-card__identity strong {
     font-size: 24px;
   }
+
+  .profile-card__mutual-room {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .profile-card__mutual-room-media,
+  .profile-card__mutual-room-fallback {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 .thread__head {
@@ -1472,7 +1530,7 @@ textarea {
   flex: 1;
 }
 
-.thread__who > div {
+.thread__who>div {
   min-width: 0;
 }
 
@@ -3521,7 +3579,7 @@ textarea {
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.28);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   transition: transform 150ms ease;
 }
 
@@ -3619,7 +3677,7 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.admin-row > div {
+.admin-row>div {
   min-width: 0;
 }
 
@@ -3687,7 +3745,7 @@ textarea {
   background: var(--surface-2);
 }
 
-:root[data-theme="light"] .settings-kv > div,
+:root[data-theme="light"] .settings-kv>div,
 :root[data-theme="light"] .admin-row {
   background: var(--surface-2);
   border-color: var(--line-strong);
@@ -3813,7 +3871,7 @@ textarea {
     font-weight: 800;
   }
 
-  .settings__nav-item + .settings__nav-item {
+  .settings__nav-item+.settings__nav-item {
     border-top: 1px solid var(--line-strong);
   }
 
@@ -4089,7 +4147,7 @@ textarea {
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.28);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   transition: transform 150ms ease;
 }
 
@@ -4777,6 +4835,7 @@ textarea {
 }
 
 @media (max-width: 760px) {
+
   html,
   body,
   #app {

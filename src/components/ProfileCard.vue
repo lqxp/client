@@ -31,6 +31,13 @@ const statusLabel = computed(() => {
 });
 const platforms = computed(() => props.messenger.platformsForUser?.(props.username) || []);
 const mutualRooms = computed(() => props.messenger.mutualRoomsWith?.(props.username) || []);
+const mutualRoomOptions = computed(() =>
+  mutualRooms.value.map((room) => ({
+    ...room,
+    label: room.name,
+    previewSrc: room.icon?.startsWith("data:image/") ? "" : room.icon
+  }))
+);
 const selectedMutualRoom = ref("");
 
 function openSelectedMutualRoom() {
@@ -92,15 +99,19 @@ function initialsFor(name: string) {
 
         <div class="profile-card__section">
           <h4>{{ t('profile.mutualRooms') }}</h4>
-          <div v-if="mutualRooms.length" class="profile-card__mutual-picker">
-            <select v-model="selectedMutualRoom" class="profile-card__select" aria-label="Mutual rooms">
-              <option value="" disabled>Select a mutual room…</option>
-              <option v-for="room in mutualRooms" :key="room.roomId" :value="room.roomId">
-                {{ room.icon ? `${room.icon} ` : '' }}{{ room.name }}
-              </option>
-            </select>
-            <button type="button" class="btn--ghost profile-card__open-room" :disabled="!selectedMutualRoom" @click="openSelectedMutualRoom">
-              Open
+          <div v-if="mutualRoomOptions.length" class="profile-card__mutual-list" role="list">
+            <button
+              v-for="room in mutualRoomOptions"
+              :key="room.roomId"
+              type="button"
+              class="profile-card__mutual-room"
+              @click="selectedMutualRoom = room.roomId; openSelectedMutualRoom()"
+            >
+              <span v-if="room.previewSrc" class="profile-card__mutual-room-media">
+                <img :src="room.previewSrc" alt="" />
+              </span>
+              <span v-else class="profile-card__mutual-room-fallback">{{ room.label.slice(0, 1).toUpperCase() || '#' }}</span>
+              <span class="profile-card__mutual-room-name">{{ room.label }}</span>
             </button>
           </div>
           <p v-else class="profile-card__empty">{{ t('profile.noMutualRooms') }}</p>
