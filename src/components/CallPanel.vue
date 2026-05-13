@@ -21,17 +21,31 @@ function syncMobile() {
   isMobile.value = window.matchMedia("(max-width: 820px)").matches;
 }
 
+function clampMenuPosition(x, y) {
+  const width = 224;
+  const height = 176;
+  const margin = 12;
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
+  return {
+    x: Math.min(Math.max(margin, x), maxX),
+    y: Math.min(Math.max(margin, y), maxY)
+  };
+}
+
 onMounted(() => {
   syncMobile();
   window.addEventListener("resize", syncMobile, { passive: true });
   window.addEventListener("click", closeMemberMenu, { passive: true });
   window.addEventListener("contextmenu", closeMemberMenu, { passive: true });
+  window.addEventListener("keydown", handleWindowKeydown);
   tickId = setInterval(() => { now.value = Date.now(); }, 500);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobile);
   window.removeEventListener("click", closeMemberMenu);
   window.removeEventListener("contextmenu", closeMemberMenu);
+  window.removeEventListener("keydown", handleWindowKeydown);
   if (tickId) clearInterval(tickId);
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
 });
@@ -39,8 +53,8 @@ onBeforeUnmount(() => {
 const callRoom = computed(() => props.messenger.state.callRoom);
 const screenShareTitle = computed(() =>
   props.messenger.state.callScreenEnabled
-    ? t('call.stopScreen')
-    : props.messenger.screenShareUnavailableReason.value || t('call.shareScreen')
+    ? t("call.stopScreen")
+    : props.messenger.screenShareUnavailableReason.value || t("call.shareScreen")
 );
 
 const members = computed(() => {
@@ -156,9 +170,9 @@ function mediaOf(username) {
 const focusedTile = computed(() => callTiles.value.find((tile) => tile.id === focusedTileId.value));
 
 function tileLabel(tile) {
-  if (tile.kind === "screen") return t('call.screen');
-  if (tile.kind === "camera") return t('call.camera');
-  return t('call.voice');
+  if (tile.kind === "screen") return t("call.screen");
+  if (tile.kind === "camera") return t("call.camera");
+  return t("call.voice");
 }
 
 function escapePopupHtml(value) {
@@ -290,10 +304,11 @@ function openMemberMenu(event, username) {
   if (isSelf(username)) return;
   event.preventDefault();
   event.stopPropagation();
+  const position = clampMenuPosition(event.clientX + 6, event.clientY + 6);
   memberMenu.value = {
     open: true,
-    x: event.clientX,
-    y: event.clientY,
+    x: position.x,
+    y: position.y,
     username
   };
 }
@@ -301,6 +316,10 @@ function openMemberMenu(event, username) {
 function closeMemberMenu() {
   if (!memberMenu.value.open) return;
   memberMenu.value = { open: false, x: 0, y: 0, username: "" };
+}
+
+function handleWindowKeydown(event) {
+  if (event.key === "Escape") closeMemberMenu();
 }
 
 function setMemberVolume(username, value) {
@@ -319,7 +338,7 @@ function toggleLocalMute(username) {
       <div class="callpanel__meta">
         <span class="callpanel__status">
           <span class="call-dot"></span>
-          {{ t('call.live') }}
+          {{ t("call.live") }}
         </span>
         <span class="callpanel__title">{{ messenger.displayRoomName(callRoom) }}</span>
         <span class="callpanel__time">{{ callElapsed() }}</span>
@@ -439,29 +458,40 @@ function toggleLocalMute(username) {
       </div>
     </div>
 
-    <div
-      v-if="memberMenu.open"
-      class="callpanel__menu"
-      :style="{ left: `${memberMenu.x}px`, top: `${memberMenu.y}px` }"
-      @click.stop
-    >
-      <div class="callpanel__menu-title">{{ memberMenu.username }}</div>
-      <button type="button" class="callpanel__menu-action" @click="toggleLocalMute(memberMenu.username)">
-        {{ isLocallyMuted(memberMenu.username) ? t('call.unmuteLocal') : t('call.localMute') }}
-      </button>
-      <label class="callpanel__menu-volume">
-        <span>{{ t('call.personalVolume') }}</span>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          :value="activeMemberMenuVolume"
-          @input="setMemberVolume(memberMenu.username, inputValue($event))"
-        />
-        <strong>{{ activeMemberMenuVolume }}%</strong>
-      </label>
-    </div>
+    <Teleport to="body">
+      <div v-if="memberMenu.open" class="callpanel__menu-layer" @click="closeMemberMenu">
+        <div
+          class="callpanel__context-menu"
+          :style="{ left: `${memberMenu.x}px`, top: `${memberMenu.y}px` }"
+          @click.stop
+          @contextmenu.prevent
+        >
+          <div class="callpanel__context-head">
+            <span class="callpanel__context-user">{{ memberMenu.username }}</span>
+            <span class="callpanel__context-status">{{ isLocallyMuted(memberMenu.username) ? t('call.localMute') : t('members.online') }}</span>
+          </div>
+          <button type="button" class="callpanel__context-action" @click="toggleLocalMute(memberMenu.username)">
+            <span>{{ isLocallyMuted(memberMenu.username) ? t('call.unmuteLocal') : t('call.localMute') }}</span>
+            <span class="callpanel__context-hint">{{ isLocallyMuted(memberMenu.username) ? '100%' : '0%' }}</span>
+          </button>
+          <div class="callpanel__context-divider"></div>
+          <label class="callpanel__context-volume">
+            <span class="callpanel__context-label">{{ t('call.personalVolume') }}</span>
+            <div class="callpanel__context-slider-row">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                :value="activeMemberMenuVolume"
+                @input="setMemberVolume(memberMenu.username, inputValue($event))"
+              />
+              <strong>{{ activeMemberMenuVolume }}%</strong>
+            </div>
+          </label>
+        </div>
+      </div>
+    </Teleport>
 
     <div v-if="focusedTile" class="callpanel__focus" :class="{ 'is-fullscreen': fullscreenTileId === focusedTile.id }">
       <button class="callpanel__focus-close" type="button" :aria-label="t('call.closeView')" @click="clearFocusedTile">×</button>
@@ -484,3 +514,105 @@ function toggleLocalMute(username) {
     ></audio>
   </div>
 </template>
+
+<style scoped>
+.callpanel__menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+
+.callpanel__context-menu {
+  position: fixed;
+  z-index: 71;
+  width: 224px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(17, 18, 22, 0.96);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(18px);
+}
+
+.callpanel__context-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px 8px;
+}
+
+.callpanel__context-user {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f5f7fb;
+}
+
+.callpanel__context-status {
+  font-size: 0.74rem;
+  color: rgba(208, 214, 228, 0.62);
+}
+
+.callpanel__context-action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f3f5fa;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.callpanel__context-action:hover {
+  background: rgba(88, 101, 242, 0.16);
+  color: #ffffff;
+}
+
+.callpanel__context-hint {
+  font-size: 0.72rem;
+  color: rgba(208, 214, 228, 0.55);
+}
+
+.callpanel__context-divider {
+  height: 1px;
+  margin: 6px 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.callpanel__context-volume {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 8px 6px;
+}
+
+.callpanel__context-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(232, 236, 244, 0.84);
+}
+
+.callpanel__context-slider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.callpanel__context-slider-row input[type="range"] {
+  width: 100%;
+}
+
+.callpanel__context-slider-row strong {
+  min-width: 40px;
+  text-align: right;
+  font-size: 0.78rem;
+  color: #f5f7fb;
+}
+</style>
