@@ -1119,14 +1119,7 @@ export function useMessenger() {
 
   const memberRoster = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
-    const joined = new Set((state.joinedRooms || []).map(sanitizeRoomId).filter(Boolean));
-    const knownUsers = joined.has(roomId)
-      ? Object.entries(state.statusesByUser || {})
-        .filter(([, status]) => sanitizePresenceStatus(status) !== "invisible")
-        .map(([username]) => sanitizeUsername(username))
-        .filter((username) => username && username !== sanitizeUsername(state.username))
-      : [];
-    return [...new Set([...(state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean), ...knownUsers])];
+    return [...new Set((state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean))];
   });
   const typingUsers = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
