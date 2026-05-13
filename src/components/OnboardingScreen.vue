@@ -98,13 +98,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </div>
         </div>
 
-        <div class="onboarding__rail-preview onboarding__rail-preview--mobile">
-          <div class="onboarding__mobile-hero">
-            <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername || "You") }}</span>
-            <strong>{{ cleanUsername || "your.username" }}</strong>
-            <small>Simple, private chat.</small>
-          </div>
-        </div>
       </aside>
 
       <div class="onboarding__card">
@@ -237,33 +230,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__rail-preview {
   display: flex;
   align-items: flex-end;
-}
-
-.onboarding__rail-preview--mobile {
-  display: none;
-}
-
-.onboarding__mobile-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 18px;
-  border-radius: 16px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.onboarding__mobile-hero strong {
-  color: #f7f9fc;
-  font-size: 1rem;
-}
-
-.onboarding__mobile-hero small {
-  color: rgba(218, 225, 237, 0.72);
-  font-size: 0.88rem;
 }
 
 .onboarding__window {
@@ -505,48 +471,51 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
   .onboarding__shell {
     width: 100%;
-    min-height: calc(var(--app-viewport-height, 100dvh) - max(20px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
-    border-radius: 16px;
-    background: rgba(20, 22, 28, 0.96);
+    min-height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
   .onboarding__rail {
-    gap: 14px;
-    padding: 18px 18px 14px;
+    gap: 10px;
+    padding: 8px 4px 14px;
+    background: transparent;
+    border: 0;
   }
 
   .onboarding__card {
     gap: 16px;
-    padding: 18px;
+    padding: 0 4px 10px;
+    background: transparent;
   }
 
   .onboarding__eyebrow,
   .onboarding__card-kicker,
   .onboarding__mode-chip,
-  .onboarding__rail-preview--desktop {
+  .onboarding__rail-preview,
+  .onboarding__card-head h2 {
     display: none;
   }
 
   .onboarding__rail h1 {
-    font-size: 1.65rem;
-    line-height: 1.08;
+    font-size: 1.4rem;
+    line-height: 1.12;
   }
 
   .onboarding__copy {
     max-width: none;
     font-size: 0.9rem;
-    line-height: 1.5;
-  }
-
-  .onboarding__rail-preview--mobile {
-    display: flex;
-    align-items: stretch;
+    line-height: 1.45;
   }
 
   .onboarding__tabs {
     width: 100%;
     gap: 4px;
     padding: 4px;
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .onboarding__tabs button {
@@ -562,11 +531,25 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   }
 
   .onboarding__card-head {
-    gap: 8px;
+    gap: 0;
+    min-height: 0;
   }
 
-  .onboarding__card-head h2 {
-    font-size: 1.3rem;
+  .onboarding__field span {
+    color: rgba(240, 244, 255, 0.86);
+  }
+
+  .onboarding__field input,
+  .onboarding__field textarea {
+    border-color: rgba(148, 163, 184, 0.22);
+    background: rgba(100, 116, 139, 0.2);
+    box-shadow: none;
+    color: #070c14;
+  }
+
+  .onboarding__field input::placeholder,
+  .onboarding__field textarea::placeholder {
+    color: rgba(203, 213, 225, 0.62);
   }
 
   .onboarding__field input,
@@ -576,6 +559,12 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
   .onboarding__meta {
     gap: 6px;
+    color: rgba(218, 225, 237, 0.72);
+  }
+
+  .onboarding__error {
+    color: #ffd7d7;
+    background: rgba(211, 73, 73, 0.14);
   }
 }
 
@@ -586,7 +575,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
   .onboarding__rail,
   .onboarding__card {
-    padding-inline: 14px;
+    padding-inline: 0;
   }
 
   .onboarding__tabs button {
