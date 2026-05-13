@@ -3681,6 +3681,46 @@ export function useMessenger() {
     const roomId = sanitizeRoomId(d?.gameId);
     if (!roomId) return;
 
+    if (Array.isArray(d?.players)) {
+      state.usersByRoom[roomId] = normalizeRoomUsers(d.players);
+    }
+    if (d?.profiles && typeof d.profiles === "object") {
+      applyProfiles(d.profiles);
+    }
+    if (d?.statuses && typeof d.statuses === "object") {
+      applyStatuses(d.statuses);
+    }
+    if (d?.platforms && typeof d.platforms === "object") {
+      for (const [username, platforms] of Object.entries(d.platforms)) {
+        const key = sanitizeUsername(username);
+        if (!key) continue;
+        for (const platform of Array.isArray(platforms) ? platforms : [platforms]) {
+          rememberClientPlatform(key, platform);
+        }
+      }
+    }
+    if (Array.isArray(d?.voicePlayers)) {
+      state.voiceMembersByRoom[roomId] = normalizeRoomUsers(d.voicePlayers);
+    }
+    if (Array.isArray(d?.callPlayers)) {
+      const members = new Set<string>();
+      state.callClientsByRoom[roomId] = {};
+      for (const player of d.callPlayers) {
+        const user = sanitizeUsername(player?.user || player?.username || player);
+        if (!user) continue;
+        members.add(user);
+        const clientId = sanitizeClientId(player?.clientId);
+        if (clientId) {
+          const clients = new Set(state.callClientsByRoom[roomId][user] || []);
+          clients.add(clientId);
+          state.callClientsByRoom[roomId][user] = [...clients];
+        }
+        if (player?.platform) rememberClientPlatform(user, player.platform);
+        updateRemoteMedia(user, player?.media);
+      }
+      state.voiceMembersByRoom[roomId] = [...members];
+    }
+
     if (d?.ok) {
       state.joinedRooms = state.joinedRooms.filter((r) => r !== roomId);
       applyDeletedMessageIds(roomId, d.deletedMessageIds);
@@ -3688,9 +3728,11 @@ export function useMessenger() {
     } else if (d?.left) {
       const arr = state.usersByRoom[roomId];
       const left = sanitizeUsername(d.left);
-      if (arr) state.usersByRoom[roomId] = arr.filter((u) => u !== left);
-      state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).filter((u) => u !== left);
-      delete state.callClientsByRoom[roomId]?.[left];
+      if (arr && !Array.isArray(d?.players)) state.usersByRoom[roomId] = arr.filter((u) => u !== left);
+      if (!Array.isArray(d?.voicePlayers)) {
+        state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).filter((u) => u !== left);
+      }
+      if (!Array.isArray(d?.callPlayers)) delete state.callClientsByRoom[roomId]?.[left];
     }
   }
 
