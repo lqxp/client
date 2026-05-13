@@ -424,7 +424,7 @@ function loadPersisted() {
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
-      messageSoundEnabled: Boolean(raw.messageSoundEnabled),
+      messageSoundEnabled: typeof raw.messageSoundEnabled === "boolean" ? raw.messageSoundEnabled : true,
       callSoundsEnabled: raw.callSoundsEnabled !== false,
       soundFlags: {
         join: raw.soundFlags?.join !== false,
@@ -471,7 +471,7 @@ function loadPersisted() {
       autoArchiveUploads: false,
       streamerMode: false,
       typingIndicatorsEnabled: true,
-      messageSoundEnabled: false,
+      messageSoundEnabled: true,
       callSoundsEnabled: true,
       soundFlags: { join: true, leave: true, mute: true, unmute: true, cameraOn: true, cameraOff: true, screenOn: true, screenOff: true, message: true },
       themeMode: "dark",
@@ -3518,6 +3518,12 @@ export function useMessenger() {
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
         state.identified = true;
+        state.joinedRooms = [];
+        state.pendingJoinRooms = [];
+        state.usersByRoom = {};
+        state.voiceMembersByRoom = {};
+        state.callClientsByRoom = {};
+        state.typingByRoom = {};
         if (d?.profile) state.profile = normalizeProfile(d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
         state.systemBanner = "";
@@ -3629,12 +3635,26 @@ export function useMessenger() {
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
 
+    state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
+
+    if (d?.error) {
+      state.joinedRooms = state.joinedRooms.filter((r) => r !== roomId);
+      if (d.error === "Join the room first" || d.error === "Not joined to this room yet.") {
+        delete state.usersByRoom[roomId];
+        delete state.voiceMembersByRoom[roomId];
+        delete state.callClientsByRoom[roomId];
+        delete state.typingByRoom[roomId];
+      }
+      persist();
+      return;
+    }
+
     if (d?.ok && !d?.system) {
       if (!state.joinedRooms.includes(roomId)) state.joinedRooms.push(roomId);
-      state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
       touchRoom(roomId);
       if (roomId === state.activeRoom) fetchHistory(roomId);
       else if (!state.messagesByRoom[roomId]?.length) fetchHistory(roomId);
+      persist();
     }
   }
 
