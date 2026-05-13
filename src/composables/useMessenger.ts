@@ -3612,6 +3612,37 @@ export function useMessenger() {
     }
   }
 
+  function applyPlatformsMap(platformsMap) {
+    if (!platformsMap || typeof platformsMap !== "object") return;
+    for (const [username, platforms] of Object.entries(platformsMap)) {
+      const key = sanitizeUsername(username);
+      if (!key) continue;
+      for (const platform of Array.isArray(platforms) ? platforms : [platforms]) {
+        rememberClientPlatform(key, platform);
+      }
+    }
+  }
+
+  function applyCallPlayersSnapshot(roomId, callPlayers) {
+    if (!roomId || !Array.isArray(callPlayers)) return;
+    const members = new Set<string>();
+    state.callClientsByRoom[roomId] = {};
+    for (const player of callPlayers) {
+      const user = sanitizeUsername(player?.user || player?.username || player);
+      if (!user) continue;
+      members.add(user);
+      const clientId = sanitizeClientId(player?.clientId);
+      if (clientId) {
+        const clients = new Set(state.callClientsByRoom[roomId][user] || []);
+        clients.add(clientId);
+        state.callClientsByRoom[roomId][user] = [...clients];
+      }
+      if (player?.platform) rememberClientPlatform(user, player.platform);
+      updateRemoteMedia(user, player?.media);
+    }
+    state.voiceMembersByRoom[roomId] = [...members];
+  }
+
   function applyRoomSnapshot(d, fallbackRoomId = "") {
     const roomId = sanitizeRoomId(d?.gameId || fallbackRoomId || state.activeRoom);
     if (!roomId) return "";
@@ -3625,36 +3656,11 @@ export function useMessenger() {
     if (d?.statuses && typeof d.statuses === "object") {
       applyStatuses(d.statuses);
     }
-    if (d?.platforms && typeof d.platforms === "object") {
-      for (const [username, platforms] of Object.entries(d.platforms)) {
-        const key = sanitizeUsername(username);
-        if (!key) continue;
-        for (const platform of Array.isArray(platforms) ? platforms : [platforms]) {
-          rememberClientPlatform(key, platform);
-        }
-      }
-    }
+    applyPlatformsMap(d?.platforms);
     if (Array.isArray(d?.voicePlayers)) {
       state.voiceMembersByRoom[roomId] = normalizeRoomUsers(d.voicePlayers);
     }
-    if (Array.isArray(d?.callPlayers)) {
-      const members = new Set<string>();
-      state.callClientsByRoom[roomId] = {};
-      for (const player of d.callPlayers) {
-        const user = sanitizeUsername(player?.user || player?.username || player);
-        if (!user) continue;
-        members.add(user);
-        const clientId = sanitizeClientId(player?.clientId);
-        if (clientId) {
-          const clients = new Set(state.callClientsByRoom[roomId][user] || []);
-          clients.add(clientId);
-          state.callClientsByRoom[roomId][user] = [...clients];
-        }
-        if (player?.platform) rememberClientPlatform(user, player.platform);
-        updateRemoteMedia(user, player?.media);
-      }
-      state.voiceMembersByRoom[roomId] = [...members];
-    }
+    applyCallPlayersSnapshot(roomId, d?.callPlayers);
 
     return roomId;
   }
