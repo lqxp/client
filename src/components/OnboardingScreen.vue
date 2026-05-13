@@ -75,7 +75,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </p>
         </div>
 
-        <div class="onboarding__rail-preview">
+        <div class="onboarding__rail-preview onboarding__rail-preview--desktop">
           <div class="onboarding__window">
             <div class="onboarding__window-bar">
               <span></span><span></span><span></span>
@@ -95,6 +95,14 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
                 <div class="onboarding__window-row short"></div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="onboarding__rail-preview onboarding__rail-preview--mobile">
+          <div class="onboarding__mobile-hero">
+            <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername || "You") }}</span>
+            <strong>{{ cleanUsername || "your.username" }}</strong>
+            <small>Simple, private chat.</small>
           </div>
         </div>
       </aside>
@@ -229,6 +237,33 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__rail-preview {
   display: flex;
   align-items: flex-end;
+}
+
+.onboarding__rail-preview--mobile {
+  display: none;
+}
+
+.onboarding__mobile-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px;
+  border-radius: 16px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.onboarding__mobile-hero strong {
+  color: #f7f9fc;
+  font-size: 1rem;
+}
+
+.onboarding__mobile-hero small {
+  color: rgba(218, 225, 237, 0.72);
+  font-size: 0.88rem;
 }
 
 .onboarding__window {
@@ -463,12 +498,61 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
 @media (max-width: 640px) {
   .onboarding {
+    display: block;
+    min-height: var(--app-viewport-height, 100dvh);
+    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) 10px;
+  }
+
+  .onboarding__shell {
+    width: 100%;
+    min-height: calc(var(--app-viewport-height, 100dvh) - max(20px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    border-radius: 16px;
+    background: rgba(20, 22, 28, 0.96);
+  }
+
+  .onboarding__rail {
+    gap: 14px;
+    padding: 18px 18px 14px;
+  }
+
+  .onboarding__card {
+    gap: 16px;
     padding: 18px;
   }
 
-  .onboarding__rail,
-  .onboarding__card {
-    padding: 22px;
+  .onboarding__eyebrow,
+  .onboarding__card-kicker,
+  .onboarding__mode-chip,
+  .onboarding__rail-preview--desktop {
+    display: none;
+  }
+
+  .onboarding__rail h1 {
+    font-size: 1.65rem;
+    line-height: 1.08;
+  }
+
+  .onboarding__copy {
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .onboarding__rail-preview--mobile {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .onboarding__tabs {
+    width: 100%;
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .onboarding__tabs button {
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 0.84rem;
   }
 
   .onboarding__card-head,
@@ -477,8 +561,36 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
     align-items: flex-start;
   }
 
-  .onboarding__tabs {
-    width: 100%;
+  .onboarding__card-head {
+    gap: 8px;
+  }
+
+  .onboarding__card-head h2 {
+    font-size: 1.3rem;
+  }
+
+  .onboarding__field input,
+  .onboarding__submit {
+    height: 46px;
+  }
+
+  .onboarding__meta {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .onboarding {
+    padding-inline: 8px;
+  }
+
+  .onboarding__rail,
+  .onboarding__card {
+    padding-inline: 14px;
+  }
+
+  .onboarding__tabs button {
+    font-size: 0.8rem;
   }
 }
 </style>
