@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
@@ -85,6 +85,8 @@ const effectiveMentioned = computed(() => {
 const imageViewerOpen = ref(false);
 const expandedText = ref(false);
 const selectedProfile = ref("");
+const contextMenuOpen = ref(false);
+const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
 const repliedMessage = computed(() =>
   props.messenger.findMessageById(props.message.roomId, props.message.replyToMessageId)
 );
@@ -355,11 +357,79 @@ function openImageViewer() {
   imageViewerOpen.value = true;
 }
 
+function closeContextMenu() {
+  contextMenuOpen.value = false;
+}
+
+function positionContextMenu(clientX: number, clientY: number) {
+  const menuWidth = 220;
+  const menuHeight = 320;
+  const padding = 12;
+  const maxLeft = Math.max(padding, window.innerWidth - menuWidth - padding);
+  const maxTop = Math.max(padding, window.innerHeight - menuHeight - padding);
+  contextMenuStyle.value = {
+    left: `${Math.min(clientX, maxLeft)}px`,
+    top: `${Math.min(clientY, maxTop)}px`
+  };
+}
+
+function onMessageContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  positionContextMenu(event.clientX, event.clientY);
+  contextMenuOpen.value = true;
+}
+
+function onGlobalPointerDown(event: PointerEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest?.(".msg__context-menu")) return;
+  closeContextMenu();
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") closeContextMenu();
+}
+
+async function onCopyUserId() {
+  const userId = String(props.message.username || "").trim();
+  if (!userId) return;
+  const copied = await copyText(userId);
+  if (copied) props.messenger.state.toastMessage = "User ID copied.";
+  closeContextMenu();
+}
+
+function onOpenProfile() {
+  selectedProfile.value = String(props.message.username || "").trim().toLowerCase();
+  closeContextMenu();
+}
+
+function onStartReply() {
+  if (deleted.value) return;
+  props.messenger.startReply(props.message);
+  closeContextMenu();
+}
+
+function onToggleReaction(emoji: string) {
+  props.messenger.toggleReaction(props.message, emoji);
+  closeContextMenu();
+}
+
 function onDelete() {
   if (!isOwn.value || deleted.value) return;
-  if (!confirm(t('message.deleteConfirm'))) return;
+  if (!confirm(t("message.deleteConfirm"))) return;
   props.messenger.deleteMessage(props.message);
+  closeContextMenu();
 }
+
+onMounted(() => {
+  window.addEventListener("pointerdown", onGlobalPointerDown);
+  window.addEventListener("keydown", onGlobalKeydown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("pointerdown", onGlobalPointerDown);
+  window.removeEventListener("keydown", onGlobalKeydown);
+});
 </script>
 
 <template>
@@ -371,14 +441,14 @@ function onDelete() {
       'has-discord-reply': message.replyToMessageId && isDiscordStyle
     },
     runClass
-  ]">
+  ]" @contextmenu.prevent.stop="onMessageContextMenu">
     <span v-if="showAvatar" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
       <img v-if="avatarSrc" :src="avatarSrc" :alt="`${message.username} avatar`" />
       <template v-else>{{ avatarInitials }}</template>
     </span>
     <span v-else class="msg__spacer"></span>
 
-    <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }">
+    <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }" @contextmenu.prevent.stop="onMessageContextMenu">
       <div v-if="showAuthor && !isOwn" class="jumbo__author">
         {{ message.username }}
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
@@ -387,18 +457,18 @@ function onDelete() {
       <span v-if="showTimestamp && !isDiscordStyle" class="jumbo__time">
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
-      <div v-if="message.reactions.length" class="reactions reactions--standalone">
+      <div v-if="message.reactions.length" class="reactions reactions--standalone" @contextmenu.prevent.stop="onMessageContextMenu">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
           type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
       </div>
-      <div class="bubble-actions" :style="discordActionsStyle">
+      <div class="bubble-actions" :style="discordActionsStyle" @contextmenu.prevent.stop="onMessageContextMenu">
         <div class="pick">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
-          <button type="button" aria-label="Reply" @click="messenger.startReply(message)">
+          <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 17 4 12l5-5" />
@@ -413,7 +483,7 @@ function onDelete() {
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </button>
-          <button v-if="isOwn" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
+          <button v-if="isOwn && !deleted" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -427,8 +497,8 @@ function onDelete() {
     <div v-else class="bubble" :class="{
       'bubble--media': attachmentKind === 'image' || attachmentKind === 'video',
       'bubble--deleted': deleted
-    }">
-      <div class="bubble-actions" :style="discordActionsStyle">
+    }" @contextmenu.prevent.stop="onMessageContextMenu">
+      <div class="bubble-actions" :style="discordActionsStyle" @contextmenu.prevent.stop="onMessageContextMenu">
         <div class="pick" role="group" aria-label="React">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
@@ -463,6 +533,7 @@ function onDelete() {
         class="reply-ref"
         :class="{ 'is-missing': !repliedMessage }"
         @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu"
       >
         <span class="reply-ref__hook" aria-hidden="true"></span>
         <span v-if="replyAvatarSrc" class="reply-ref__avatar reply-ref__avatar--image">
@@ -487,6 +558,7 @@ function onDelete() {
         type="button"
         class="reply-card"
         @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu"
       >
         <span class="reply-card__author">{{ replyLabel }}</span>
         <span class="reply-card__text" v-html="renderDiscordEmoji(replyText)"></span>
@@ -505,14 +577,14 @@ function onDelete() {
 
       <template v-else-if="attachmentKind === 'image' && attachmentUrl">
         <button type="button" class="att-image-link" :aria-label="`Open image preview: ${message.attachment.filename}`"
-          @click="openImageViewer">
+          @click="openImageViewer" @contextmenu.prevent.stop="onMessageContextMenu">
           <img :src="attachmentUrl" :alt="message.attachment.filename" class="att-image" />
         </button>
         <ImageViewer v-if="imageViewerOpen" :src="attachmentUrl" :filename="message.attachment.filename"
           :size-label="messenger.formatSize(message.attachment.size)" @close="imageViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -525,7 +597,7 @@ function onDelete() {
           :size-label="messenger.formatSize(message.attachment.size)" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -539,7 +611,7 @@ function onDelete() {
           :messenger="messenger" />
         <div v-if="message.text && !message.text.startsWith('[voice:')" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible && message.text && !message.text.startsWith('[voice:')" type="button"
@@ -549,7 +621,7 @@ function onDelete() {
       </template>
 
       <template v-else-if="attachmentKind === 'file' && message.attachment">
-        <button class="att-file" type="button" @click="download" :disabled="!attachmentUrl">
+        <button class="att-file" type="button" @click="download" :disabled="!attachmentUrl" @contextmenu.prevent.stop="onMessageContextMenu">
           <span class="att-file-icon">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"
               stroke-linecap="round" stroke-linejoin="round">
@@ -575,7 +647,7 @@ function onDelete() {
         </button>
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -586,7 +658,7 @@ function onDelete() {
       <template v-else>
         <div class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
           <span v-if="isDiscordStyle && edited && !deleted" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -594,7 +666,7 @@ function onDelete() {
         </button>
       </template>
 
-      <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer" class="embed">
+      <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer" class="embed" @contextmenu.prevent.stop="onMessageContextMenu">
         <div v-if="preview.image" class="embed__media">
           <img :src="preview.image" :alt="preview.title || preview.url" loading="lazy" referrerpolicy="no-referrer" />
         </div>
@@ -613,6 +685,7 @@ function onDelete() {
         v-if="message.reactions.length && !deleted"
         class="reactions"
         :class="{ 'reactions--bubble-mode': keepBubbleReactions }"
+        @contextmenu.prevent.stop="onMessageContextMenu"
       >
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
           type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
@@ -624,6 +697,35 @@ function onDelete() {
   </article>
 
   <Teleport to="body">
+    <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
+      <div class="msg__context-menu" :style="contextMenuStyle" role="menu" aria-label="Message actions" @click.stop>
+        <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
+          <span>Reply</span>
+        </button>
+        <div v-if="!deleted" class="msg__context-section">
+          <div class="msg__context-label">React</div>
+          <div class="msg__context-reactions">
+            <button
+              v-for="emoji in messenger.QUICK_REACTIONS"
+              :key="`context-${message.messageId}-${emoji}`"
+              type="button"
+              class="msg__context-reaction"
+              @click="onToggleReaction(emoji)"
+              v-html="renderDiscordEmoji(emoji)"
+            ></button>
+          </div>
+        </div>
+        <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
+          <span>View profile</span>
+        </button>
+        <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
+          <span>Copy user ID</span>
+        </button>
+        <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem" @click="onDelete">
+          <span>Delete message</span>
+        </button>
+      </div>
+    </div>
     <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
   </Teleport>
 </template>
@@ -657,6 +759,88 @@ function onDelete() {
   src: url("https://cdn.jsdelivr.net/gh/ItzDerock/discord-components@master/assets/fonts/Bold.woff") format("woff");
   font-weight: 700;
   font-display: swap;
+}
+
+.msg__context {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.msg__context-menu {
+  position: fixed;
+  display: grid;
+  gap: 0.3rem;
+  width: min(220px, calc(100vw - 24px));
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, black 6%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(18px);
+}
+
+.msg__context-section {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.35rem 0.2rem 0.15rem;
+}
+
+.msg__context-label {
+  padding: 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.msg__context-item {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.msg__context-item:hover,
+.msg__context-item:focus-visible {
+  background: color-mix(in srgb, var(--surface-2) 80%, white 20%);
+  outline: none;
+}
+
+.msg__context-item.is-danger {
+  color: #ff8c8c;
+}
+
+.msg__context-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0 0.25rem 0.25rem;
+}
+
+.msg__context-reaction {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 72%, white 10%);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.msg__context-reaction:hover,
+.msg__context-reaction:focus-visible {
+  background: color-mix(in srgb, var(--surface-2) 60%, white 24%);
+  outline: none;
 }
 
 .msg__avatar--image,
