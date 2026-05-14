@@ -41,6 +41,38 @@
   --header-h: 64px;
   --app-viewport-height: 100dvh;
   --mobile-status-offset: 0px;
+
+  --discord-text: #dcddde;
+  --discord-text-strong: #ffffff;
+  --discord-muted: #72767d;
+  --discord-code-bg: #2f3136;
+  --discord-code-border: #202225;
+  --discord-code-button-bg: rgba(255, 255, 255, 0.06);
+  --discord-code-button-text: #b9bbbe;
+  --discord-code-button-active-bg: rgba(255, 255, 255, 0.12);
+
+  --onboarding-shell-bg: rgba(20, 22, 28, 0.92);
+  --onboarding-shell-border: rgba(255, 255, 255, 0.08);
+  --onboarding-rail-bg: linear-gradient(180deg, rgba(43, 45, 49, 0.98) 0%, rgba(31, 34, 40, 0.98) 100%);
+  --onboarding-rail-border: rgba(255, 255, 255, 0.06);
+  --onboarding-title: #f7f9fc;
+  --onboarding-copy: rgba(218, 225, 237, 0.76);
+  --onboarding-preview-bg: linear-gradient(180deg, rgba(48, 51, 57, 0.96), rgba(30, 33, 39, 0.96));
+  --onboarding-preview-border: rgba(255, 255, 255, 0.08);
+  --onboarding-preview-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 20px 40px rgba(0, 0, 0, 0.34);
+  --onboarding-window-bar-border: rgba(255, 255, 255, 0.06);
+  --onboarding-window-dot: rgba(255, 255, 255, 0.18);
+  --onboarding-tabs-bg: rgba(255, 255, 255, 0.06);
+
+  --call-context-bg: rgba(17, 18, 22, 0.96);
+  --call-context-border: rgba(255, 255, 255, 0.08);
+  --call-context-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --call-context-title: #f5f7fb;
+  --call-context-text: #f3f5fa;
+  --call-context-muted: rgba(208, 214, 228, 0.62);
+  --call-context-muted-2: rgba(208, 214, 228, 0.55);
+  --call-context-label: rgba(232, 236, 244, 0.84);
+  --call-context-divider: rgba(255, 255, 255, 0.08);
 }
 
 :root.is-android-runtime {
@@ -60,6 +92,38 @@
   --dim: #8893a2;
   --bubble-in: #e8edf4;
   --bubble-out: var(--accent);
+
+  --discord-text: #2b3440;
+  --discord-text-strong: #18212b;
+  --discord-muted: #6b7684;
+  --discord-code-bg: #eef2f7;
+  --discord-code-border: rgba(12, 22, 34, 0.12);
+  --discord-code-button-bg: rgba(12, 22, 34, 0.08);
+  --discord-code-button-text: #495666;
+  --discord-code-button-active-bg: rgba(12, 22, 34, 0.14);
+
+  --onboarding-shell-bg: rgba(255, 255, 255, 0.92);
+  --onboarding-shell-border: rgba(12, 22, 34, 0.08);
+  --onboarding-rail-bg: linear-gradient(180deg, rgba(247, 249, 252, 0.98) 0%, rgba(237, 242, 247, 0.98) 100%);
+  --onboarding-rail-border: rgba(12, 22, 34, 0.08);
+  --onboarding-title: #1f2a36;
+  --onboarding-copy: rgba(59, 72, 88, 0.82);
+  --onboarding-preview-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(242, 246, 251, 0.98));
+  --onboarding-preview-border: rgba(12, 22, 34, 0.08);
+  --onboarding-preview-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 18px 36px rgba(56, 72, 91, 0.12);
+  --onboarding-window-bar-border: rgba(12, 22, 34, 0.08);
+  --onboarding-window-dot: rgba(31, 42, 54, 0.14);
+  --onboarding-tabs-bg: rgba(12, 22, 34, 0.06);
+
+  --call-context-bg: rgba(255, 255, 255, 0.96);
+  --call-context-border: rgba(12, 22, 34, 0.1);
+  --call-context-shadow: 0 18px 48px rgba(56, 72, 91, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.66);
+  --call-context-title: #1d2733;
+  --call-context-text: #24303d;
+  --call-context-muted: rgba(70, 84, 102, 0.72);
+  --call-context-muted-2: rgba(70, 84, 102, 0.62);
+  --call-context-label: rgba(35, 46, 59, 0.82);
+  --call-context-divider: rgba(12, 22, 34, 0.08);
 }
 
 :root[data-accent="blue"] {
@@ -541,10 +605,10 @@ textarea {
 .side {
   display: flex;
   flex-direction: column;
-  background: #2b2d31;
+  background: var(--surface);
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid rgba(0, 0, 0, 0.28);
+  border-right: 1px solid var(--line);
 }
 
 .side__top {
@@ -642,15 +706,17 @@ textarea {
   gap: 10px;
   height: 30px;
   padding: 0 10px;
-  border-radius: 4px;
-  background: #1e1f22;
-  border: 1px solid transparent;
-  transition: background 120ms ease, border-color 120ms ease;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--surface) 12%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .search:focus-within {
-  background: #1e1f22;
-  border-color: #00a8fc;
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .search svg {
@@ -669,6 +735,7 @@ textarea {
   height: 100%;
   font-size: 14px;
   min-width: 0;
+  color: var(--text);
 }
 
 .search input::placeholder {
@@ -2199,9 +2266,9 @@ textarea {
   align-items: center;
   gap: 2px;
   padding: 2px 4px;
-  background: #111214;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--line);
   max-width: min(260px, calc(100vw - 40px));
   overflow-x: auto;
   scrollbar-width: none;
@@ -2220,12 +2287,13 @@ textarea {
   place-items: center;
   padding: 0;
   line-height: 1;
-  color: inherit;
-  transition: background 100ms ease, transform 100ms ease;
+  color: var(--text);
+  transition: background 100ms ease, transform 100ms ease, color 100ms ease;
 }
 
 .pick button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface-2) 80%, white 20%);
+  color: var(--text);
   transform: scale(1.12);
 }
 
@@ -2239,7 +2307,8 @@ textarea {
 }
 
 .pick__delete:hover {
-  background: rgba(255, 90, 95, 0.14);
+  background: color-mix(in srgb, var(--red) 18%, transparent);
+  color: var(--red);
 }
 
 .pick__edit {
@@ -2323,15 +2392,17 @@ textarea {
   min-width: 0;
   min-height: 44px;
   padding: 4px 8px 4px 12px;
-  border-radius: 8px;
-  background: #383a40;
-  border: 1px solid transparent;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 90%, var(--surface) 10%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .composer__input:focus-within {
-  border-color: #00a8fc;
-  box-shadow: 0 0 0 1px #00a8fc;
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .composer__input input,
@@ -2340,6 +2411,7 @@ textarea {
   min-width: 0;
   min-height: 30px;
   font-size: 14.5px;
+  color: var(--text);
 }
 
 .composer__input textarea {

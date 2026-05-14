@@ -389,13 +389,18 @@ onBeforeUnmount(() => {
   text-align: left;
   border-radius: 4px;
   padding: 8px 10px;
-  color: #dbdee1;
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .room-context button:hover {
-  background: #4752c4;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
   color: #fff;
+}
+
+.room-context button:hover :is(svg, img) {
+  color: currentColor;
 }
 </style>

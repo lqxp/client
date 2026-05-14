@@ -812,11 +812,23 @@ onBeforeUnmount(() => {
 .msg__context-item:hover,
 .msg__context-item:focus-visible {
   background: color-mix(in srgb, var(--surface-2) 80%, white 20%);
+  color: var(--text);
   outline: none;
+}
+
+.msg__context-item:hover :is(svg, .twemoji),
+.msg__context-item:focus-visible :is(svg, .twemoji) {
+  color: currentColor;
 }
 
 .msg__context-item.is-danger {
   color: #ff8c8c;
+}
+
+.msg__context-item.is-danger:hover,
+.msg__context-item.is-danger:focus-visible {
+  color: #fff;
+  background: color-mix(in srgb, #ff6b70 78%, transparent);
 }
 
 .msg__context-reactions {
@@ -954,7 +966,11 @@ onBeforeUnmount(() => {
 }
 
 :global(:root[data-message-style="discord"] .msg:hover) {
-  background-color: rgba(4, 4, 5, 0.07);
+  background-color: color-mix(in srgb, var(--surface-2) 46%, transparent);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .msg:hover) {
+  background-color: color-mix(in srgb, var(--surface-2) 72%, white 8%);
 }
 
 :global(:root[data-message-style="discord"] .msg.is-mentioned) {

@@ -528,9 +528,9 @@ function toggleLocalMute(username) {
   width: 224px;
   padding: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(17, 18, 22, 0.96);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--call-context-border);
+  background: var(--call-context-bg);
+  box-shadow: var(--call-context-shadow);
   backdrop-filter: blur(18px);
 }
 
@@ -544,12 +544,12 @@ function toggleLocalMute(username) {
 .callpanel__context-user {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #f5f7fb;
+  color: var(--call-context-title);
 }
 
 .callpanel__context-status {
   font-size: 0.74rem;
-  color: rgba(208, 214, 228, 0.62);
+  color: var(--call-context-muted);
 }
 
 .callpanel__context-action {
@@ -562,7 +562,7 @@ function toggleLocalMute(username) {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #f3f5fa;
+  color: var(--call-context-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -576,13 +576,13 @@ function toggleLocalMute(username) {
 
 .callpanel__context-hint {
   font-size: 0.72rem;
-  color: rgba(208, 214, 228, 0.55);
+  color: var(--call-context-muted-2);
 }
 
 .callpanel__context-divider {
   height: 1px;
   margin: 6px 4px 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--call-context-divider);
 }
 
 .callpanel__context-volume {
@@ -595,7 +595,7 @@ function toggleLocalMute(username) {
 .callpanel__context-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(232, 236, 244, 0.84);
+  color: var(--call-context-label);
 }
 
 .callpanel__context-slider-row {
@@ -613,6 +613,6 @@ function toggleLocalMute(username) {
   min-width: 40px;
   text-align: right;
   font-size: 0.78rem;
-  color: #f5f7fb;
+  color: var(--call-context-title);
 }
 </style>

@@ -170,7 +170,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   background:
     radial-gradient(900px 460px at 8% 10%, rgba(88, 101, 242, 0.22), transparent),
     radial-gradient(720px 320px at 88% 92%, rgba(86, 198, 125, 0.12), transparent),
-    linear-gradient(180deg, #0f1115 0%, #17191f 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, #0f1115 8%) 0%, color-mix(in srgb, var(--bg) 98%, #17191f 2%) 100%);
 }
 
 .onboarding__shell {
@@ -179,8 +179,8 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   grid-template-columns: minmax(320px, 1.05fr) minmax(380px, 0.95fr);
   border-radius: 22px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 22, 28, 0.92);
+  border: 1px solid var(--onboarding-shell-border);
+  background: var(--onboarding-shell-bg);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.44);
   backdrop-filter: blur(16px);
 }
@@ -191,9 +191,8 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   justify-content: space-between;
   gap: 24px;
   padding: 36px;
-  background:
-    linear-gradient(180deg, rgba(43, 45, 49, 0.98) 0%, rgba(31, 34, 40, 0.98) 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--onboarding-rail-bg);
+  border-right: 1px solid var(--onboarding-rail-border);
 }
 
 .onboarding__rail-top {
@@ -216,13 +215,13 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   font-size: clamp(2rem, 3vw, 2.8rem);
   line-height: 1.02;
   letter-spacing: -0.04em;
-  color: #f7f9fc;
+  color: var(--onboarding-title);
 }
 
 .onboarding__copy {
   margin: 0;
   max-width: 34ch;
-  color: rgba(218, 225, 237, 0.76);
+  color: var(--onboarding-copy);
   font-size: 0.98rem;
   line-height: 1.65;
 }
@@ -235,9 +234,9 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__window {
   width: min(100%, 420px);
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(48, 51, 57, 0.96), rgba(30, 33, 39, 0.96));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 20px 40px rgba(0, 0, 0, 0.34);
+  border: 1px solid var(--onboarding-preview-border);
+  background: var(--onboarding-preview-bg);
+  box-shadow: var(--onboarding-preview-shadow);
 }
 
 .onboarding__window-bar {
@@ -245,14 +244,14 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--onboarding-window-bar-border);
 }
 
 .onboarding__window-bar span {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--onboarding-window-dot);
 }
 
 .onboarding__window-body {
@@ -267,19 +266,19 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   gap: 14px;
   padding: 14px;
   border-radius: 12px;
-  background: rgba(17, 19, 24, 0.42);
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg) 28%);
 }
 
 .onboarding__window-side strong {
   display: block;
-  color: #f3f5fa;
+  color: var(--text);
   font-size: 0.98rem;
 }
 
 .onboarding__window-side small {
   display: block;
   margin-top: 4px;
-  color: rgba(205, 211, 223, 0.64);
+  color: var(--muted);
   line-height: 1.45;
 }
 
@@ -291,7 +290,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__window-row {
   height: 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent 18%);
 }
 
 .onboarding__window-row.short {
@@ -307,7 +306,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   flex-direction: column;
   gap: 22px;
   padding: 32px;
-  background: linear-gradient(180deg, rgba(242, 244, 247, 0.98), rgba(228, 232, 239, 0.96));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white 4%), color-mix(in srgb, var(--surface-2) 82%, white 18%));
 }
 
 .onboarding__tabs {
@@ -316,7 +315,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   gap: 6px;
   padding: 6px;
   border-radius: 14px;
-  background: rgba(18, 20, 26, 0.08);
+  background: var(--onboarding-tabs-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
@@ -326,7 +325,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #4d5563;
+  color: color-mix(in srgb, var(--text) 70%, var(--muted) 30%);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -352,12 +351,12 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6a7280;
+  color: var(--muted);
 }
 
 .onboarding__card-head h2 {
   margin: 0;
-  color: #171b22;
+  color: var(--text);
   font-size: 1.7rem;
   line-height: 1.1;
   letter-spacing: -0.03em;
@@ -385,7 +384,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 }
 
 .onboarding__field span {
-  color: #313845;
+  color: color-mix(in srgb, var(--text) 86%, var(--muted) 14%);
   font-size: 0.86rem;
   font-weight: 700;
 }
@@ -395,9 +394,9 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   width: 100%;
   border: 1px solid rgba(32, 37, 48, 0.16);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--surface) 92%, white 8%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.66);
-  color: #171b22;
+  color: var(--text);
   font: inherit;
   transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
@@ -426,7 +425,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #626b79;
+  color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.4;
 }
@@ -458,7 +457,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   .onboarding__rail {
     padding: 28px 28px 18px;
     border-right: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--onboarding-rail-border);
   }
 }
 
@@ -515,7 +514,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
     width: 100%;
     gap: 4px;
     padding: 4px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--onboarding-tabs-bg);
   }
 
   .onboarding__tabs button {
