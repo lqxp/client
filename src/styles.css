@@ -1077,10 +1077,11 @@ textarea {
   z-index: 30;
   min-width: 190px;
   padding: 6px;
-  border-radius: 8px;
-  background: #111214;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
 }
 
 .side-status__menu button {
@@ -1095,11 +1096,16 @@ textarea {
   text-align: left;
   font-size: 13.5px;
   font-weight: 600;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .side-status__menu button:hover,
 .side-status__menu button.is-active {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.side-status__menu button.is-active {
+  color: var(--text);
 }
 
 .side-foot__link {

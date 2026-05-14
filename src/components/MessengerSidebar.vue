@@ -377,10 +377,11 @@ onBeforeUnmount(() => {
   position: fixed;
   z-index: 120;
   min-width: 196px;
-  border-radius: 8px;
-  background: #111214;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
   padding: 6px;
 }
 
