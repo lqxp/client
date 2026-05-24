@@ -461,6 +461,9 @@ function loadPersisted() {
       status: "online",
       activeRoom: "",
       rooms: [],
+      joinedRooms: [],
+      usersByRoom: {},
+      profilesByUser: {},
       messagesByRoom: {},
       unreadByRoom: {},
       roomKeysByRoom: {},
@@ -3520,6 +3523,7 @@ export function useMessenger() {
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
         state.identified = true;
+        const persistedJoinedRooms = [...new Set((state.joinedRooms || []).map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))];
         state.joinedRooms = [];
         state.pendingJoinRooms = [];
         state.usersByRoom = {};
@@ -3529,7 +3533,9 @@ export function useMessenger() {
         if (d?.profile) state.profile = normalizeProfile(d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
         state.systemBanner = "";
-        for (const r of state.rooms) requestJoin(r.roomId);
+        for (const roomId of persistedJoinedRooms) touchRoom(roomId);
+        for (const roomId of persistedJoinedRooms) requestJoin(roomId);
+        if (state.activeRoom && !persistedJoinedRooms.includes(state.activeRoom)) touchRoom(state.activeRoom);
         break;
       case 3:
         handleJoinOp(d);
@@ -3868,7 +3874,7 @@ export function useMessenger() {
     const messages = mergeRoomHistory(keptLocalMessages, serverMessages, roomId);
     state.messagesByRoom[roomId] = messages;
     const last = messages[messages.length - 1];
-    if (last) touchRoom(roomId, last);
+    touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
     for (const message of serverMessages) requestEncryptedLinkPreview(message);
     if (roomId === state.activeRoom) scrollToBottom();
     persist();
