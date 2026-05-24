@@ -83,6 +83,15 @@ function syncComposerHeight() {
   input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
 }
 
+function focusInput(options: { end?: boolean } = {}) {
+  const input = inputRef.value;
+  if (!input || disabled.value) return;
+  input.focus();
+  if (!options.end) return;
+  const length = input.value.length;
+  try { input.setSelectionRange(length, length); } catch { }
+}
+
 const EMOJIS = [
   "😀","😂","🤣","😊","😍","🥰","😘","😎","🤩","😇",
   "🙂","😉","😋","😛","😜","🤪","🤗","🤭","🤔","🧐",
@@ -171,6 +180,7 @@ function send() {
   if (!canSend.value) return;
   props.messenger.sendChat();
   props.messenger.setTyping?.(false);
+  nextTick(() => focusInput());
 }
 
 function syncCursor() {
@@ -240,6 +250,7 @@ async function onFile(event: Event) {
     await props.messenger.sendAttachment(file);
   }
   target.value = "";
+  nextTick(() => focusInput());
 }
 
 async function pickCamera() {
@@ -369,6 +380,7 @@ function closeCamera() {
   cameraOpen.value = false;
   cameraBusy.value = false;
   cameraError.value = "";
+  nextTick(() => focusInput());
 }
 
 async function capturePhoto() {
@@ -417,11 +429,24 @@ watch(() => props.messenger.state.activeRoom, () => {
   mobileActionsOpen.value = false;
   mentionIndex.value = 0;
   mentionSuppressedStart.value = -1;
-  nextTick(() => syncComposerHeight());
+  nextTick(() => {
+    syncComposerHeight();
+    focusInput();
+  });
 });
 
 watch(() => props.messenger.state.messageInput, () => {
   nextTick(() => syncComposerHeight());
+});
+
+watch(() => props.messenger.state.editingMessage?.messageId || "", (messageId) => {
+  if (!messageId) return;
+  nextTick(() => focusInput({ end: true }));
+});
+
+watch(() => props.messenger.state.replyingTo?.messageId || "", (messageId) => {
+  if (!messageId) return;
+  nextTick(() => focusInput());
 });
 
 watch(recording, (active) => {
@@ -435,7 +460,10 @@ onMounted(() => {
   document.addEventListener("keydown", onDocKey);
   window.addEventListener("resize", onResize);
   document.addEventListener("paste", onPaste);
-  nextTick(() => syncComposerHeight());
+  nextTick(() => {
+    syncComposerHeight();
+    focusInput();
+  });
 });
 
 onBeforeUnmount(() => {

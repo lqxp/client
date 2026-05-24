@@ -136,3 +136,5 @@ dist
 .pnp.*
 bun.lock
 package-lock.json
+
+files/qxp.sqlite

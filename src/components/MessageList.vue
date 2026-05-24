@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import MessageBubble from "./MessageBubble.vue";
 
@@ -11,10 +11,29 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const RUN_GAP_MS = 3 * 60 * 1000;
 const BANNER_TIMEOUT_MS = 4500;
+const SCROLL_BOTTOM_THRESHOLD = 32;
 let bannerTimer: ReturnType<typeof setTimeout> | null = null;
+const feedRef = ref<HTMLElement | null>(null);
+const stickToBottom = ref(true);
 
 function dayKey(ts) {
   return new Date(ts).toDateString();
+}
+
+function isNearBottom() {
+  const feed = feedRef.value;
+  if (!feed) return true;
+  return (feed.scrollHeight - feed.scrollTop - feed.clientHeight) <= SCROLL_BOTTOM_THRESHOLD;
+}
+
+function updateStickToBottom() {
+  stickToBottom.value = isNearBottom();
+}
+
+function scrollToBottom() {
+  const feed = feedRef.value;
+  if (!feed) return;
+  feed.scrollTop = feed.scrollHeight;
 }
 
 watch(
@@ -36,6 +55,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (bannerTimer) clearTimeout(bannerTimer);
+  feedRef.value?.removeEventListener("scroll", updateStickToBottom);
 });
 
 const decorated = computed(() => {
@@ -66,10 +86,43 @@ const decorated = computed(() => {
   }
   return out;
 });
+
+watch(
+  () => props.messenger.state.activeRoom,
+  async () => {
+    stickToBottom.value = true;
+    await nextTick();
+    scrollToBottom();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => decorated.value.length,
+  async (nextLength, prevLength) => {
+    if (nextLength <= prevLength || !stickToBottom.value) return;
+    await nextTick();
+    scrollToBottom();
+  }
+);
+
+watch(
+  () => props.messenger.typingUsers?.value?.join("|") || "",
+  async () => {
+    if (!stickToBottom.value) return;
+    await nextTick();
+    scrollToBottom();
+  }
+);
+
+onMounted(() => {
+  feedRef.value?.addEventListener("scroll", updateStickToBottom, { passive: true });
+  updateStickToBottom();
+});
 </script>
 
 <template>
-  <section class="feed">
+  <section ref="feedRef" class="feed">
     <div
       v-if="messenger.state.lastError || messenger.state.systemBanner"
       class="banner"
