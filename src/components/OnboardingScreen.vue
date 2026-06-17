@@ -175,7 +175,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   display: grid;
   place-items: center;
   padding: 32px 16px;
-  background: linear-gradient(180deg, #165cad 0%, #1c71d8 100%);
+  background: #5865f2;
   overflow: hidden;
 }
 
