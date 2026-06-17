@@ -1310,6 +1310,84 @@ onBeforeUnmount(() => {
   vertical-align: baseline;
 }
 
+:global(:root[data-theme="light"][data-message-style="discord"] .msg),
+:global(:root[data-theme="light"][data-message-style="discord"] .bubble),
+:global(:root[data-theme="light"][data-message-style="discord"] .msg.is-own .bubble) {
+  color: var(--text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .bubble__author),
+:global(:root[data-theme="light"][data-message-style="discord"] .jumbo--discord .jumbo__author) {
+  color: var(--text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .bubble__author-time),
+:global(:root[data-theme="light"][data-message-style="discord"] .bubble__text--deleted),
+:global(:root[data-theme="light"][data-message-style="discord"] .bubble__edited),
+:global(:root[data-theme="light"][data-message-style="discord"] .reply-ref__edited),
+:global(:root[data-theme="light"][data-message-style="discord"] .jumbo__author .bubble__author-time),
+:global(:root[data-theme="light"][data-message-style="discord"] .jumbo__time--discord) {
+  color: var(--muted);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .reply-ref) {
+  color: var(--muted);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .reply-ref__username) {
+  color: var(--text);
+  opacity: 0.78;
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .reply-ref__hook) {
+  border-left-color: var(--line-strong);
+  border-top-color: var(--line-strong);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .mention) {
+  background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .mention:hover) {
+  background-color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  color: #fff;
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .reply-ref:not(.is-missing):hover .reply-ref__text) {
+  color: var(--text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .markdown a) {
+  color: var(--accent);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .markdown code) {
+  background: var(--discord-code-bg);
+  color: var(--discord-text-strong);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .codeblock) {
+  border-color: var(--discord-code-border);
+  background: var(--discord-code-bg);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .codeblock__head) {
+  border-bottom-color: var(--discord-code-border);
+  color: var(--discord-code-button-text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .codeblock__copy) {
+  background: var(--discord-code-button-bg);
+  color: var(--discord-code-button-text);
+}
+
+:global(:root[data-theme="light"][data-message-style="discord"] .codeblock__copy:hover),
+:global(:root[data-theme="light"][data-message-style="discord"] .codeblock__copy.is-copied) {
+  background: var(--discord-code-button-active-bg);
+  color: var(--discord-text-strong);
+}
+
 :global(:root[data-message-style="discord"] .jumbo__glyph) {
   display: inline-block;
   max-width: 100%;
