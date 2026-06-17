@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
 export default defineConfig({
-  base: "./",
+  base: "/app/",
   plugins: [vue()],
   resolve: {
     alias: {
