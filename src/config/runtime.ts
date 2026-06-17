@@ -20,7 +20,7 @@ interface RuntimeConfigPayload {
   rtc?: RuntimeRtcConfig;
 }
 
-const DEFAULT_SERVER_ORIGIN = "https://qxp.kisakay.com";
+const DEFAULT_SERVER_ORIGIN = "https://qxch.at/app";
 const RUNTIME_SCRIPT_RE = /<script\b[^>]*>\s*window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/m;
 
 const envServerOrigin = normalizeHttpUrl(import.meta.env.VITE_QXP_SERVER_ORIGIN);
