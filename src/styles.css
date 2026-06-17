@@ -4444,21 +4444,21 @@ textarea {
 .callpanel {
   flex: none;
   padding: 10px 12px 12px;
-  background: #060709;
+  background: color-mix(in srgb, var(--surface) 94%, var(--bg) 6%);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
 .callpanel__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  min-height: 36px;
+  min-height: 0;
 }
 
 .callpanel__meta {
@@ -4502,6 +4502,7 @@ textarea {
   display: flex;
   gap: 6px;
   flex: none;
+  margin-left: auto;
 }
 
 .callpanel__stage {
@@ -4539,10 +4540,10 @@ textarea {
   min-height: 0;
   overflow: hidden;
   border-radius: 8px;
-  background: #15171c;
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--bg) 12%);
   font-size: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 24%, transparent);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -4573,8 +4574,8 @@ textarea {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 34%),
-    #15171c;
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--text) 10%, transparent), transparent 34%),
+    color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
 }
 
 .calltile__video {
@@ -4607,8 +4608,9 @@ textarea {
   min-width: 0;
   padding: 6px 8px;
   border-radius: 6px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.58);
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -4621,13 +4623,13 @@ textarea {
 }
 
 .calltile__you {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
   font-weight: 600;
 }
 
 .calltile__kind {
   flex: none;
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--muted);
   font-size: 11px;
   font-family: var(--mono);
   text-transform: uppercase;
@@ -4639,7 +4641,8 @@ textarea {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
   color: var(--red);
   flex: none;
 }
@@ -4669,17 +4672,19 @@ textarea {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.58);
-  color: #fff;
+  background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
+  color: var(--text);
   cursor: pointer;
   backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg) 18%, transparent);
 }
 
 .calltile__tools button:hover,
 .callpanel__focus-close:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--surface-hover) 86%, var(--surface) 14%);
+  border-color: var(--line-strong);
 }
 
 .calltile__tools svg {
@@ -4698,7 +4703,7 @@ textarea {
   border-radius: 10px;
   overflow: hidden;
   background: #020305;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line-strong);
 }
 
 .callpanel__focus.is-fullscreen {
@@ -4735,7 +4740,7 @@ textarea {
   z-index: 2;
   padding: 7px 10px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.62);
+  background: color-mix(in srgb, var(--bg) 74%, transparent);
   color: #fff;
   font-weight: 700;
   backdrop-filter: blur(8px);

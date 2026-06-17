@@ -150,10 +150,6 @@ function isSpeaking(username) {
   return speakingSet.value.has(username);
 }
 
-function callElapsed() {
-  return props.messenger.formatDuration(props.messenger.state.callElapsed);
-}
-
 function volumeOf(username) {
   return props.messenger.callUserVolume(username);
 }
@@ -283,8 +279,7 @@ function syncPanelWindow() {
 function openPanelWindow() {
   panelWindow = window.open("", "qxp-voice-panel", "popup=yes,width=1180,height=760");
   if (!panelWindow) return;
-  const safeRoomName = escapePopupHtml(props.messenger.displayRoomName(callRoom.value));
-  panelWindow.document.write(`<!doctype html><html><head><title>QxChat VoicePanel</title><style>html,body{margin:0;min-height:100%;background:#060709;color:#fff;font-family:system-ui,sans-serif}.head{height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;background:#090b10;border-bottom:1px solid rgba(255,255,255,.12)}.live{color:#4fd68a;font-weight:800}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#15171c;border:1px solid rgba(255,255,255,.1)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.58);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}</style></head><body><div class="head"><span class="live">Live</span><strong>${safeRoomName}</strong><span>${callElapsed()}</span></div><main id="tiles" class="grid"></main></body></html>`);
+  panelWindow.document.write(`<!doctype html><html><head><title>QxChat Call Panel</title><style>html,body{margin:0;min-height:100%;background:#111318;color:#f4f4f5;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#1d2129;border:1px solid rgba(255,255,255,.08)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(10,12,16,.64);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}</style></head><body><main id="tiles" class="grid"></main></body></html>`);
   panelWindow.document.close();
   syncPanelWindow();
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
@@ -335,14 +330,6 @@ function toggleLocalMute(username) {
 <template>
   <section class="callpanel" v-if="messenger.state.inCall && messenger.state.callRoom === messenger.state.activeRoom">
     <header class="callpanel__head">
-      <div class="callpanel__meta">
-        <span class="callpanel__status">
-          <span class="call-dot"></span>
-          {{ t("call.live") }}
-        </span>
-        <span class="callpanel__title">{{ messenger.displayRoomName(callRoom) }}</span>
-        <span class="callpanel__time">{{ callElapsed() }}</span>
-      </div>
       <div class="callpanel__actions">
         <button
           class="icon-btn"
