@@ -80,10 +80,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 <template>
   <section class="onboarding">
     <div class="onboarding__shell">
-      <div class="onboarding__backdrop" aria-hidden="true">
-        <div class="onboarding__orb onboarding__orb--one"></div>
-        <div class="onboarding__orb onboarding__orb--two"></div>
-      </div>
 
       <div class="onboarding__card">
         <div class="onboarding__brand">
@@ -183,26 +179,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   position: absolute;
   inset: -80px;
   pointer-events: none;
-}
-
-.onboarding__orb {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.onboarding__orb--one {
-  top: 0;
-  left: 0;
-  width: 180px;
-  height: 180px;
-}
-
-.onboarding__orb--two {
-  right: 0;
-  bottom: 0;
-  width: 140px;
-  height: 140px;
-  background: rgba(7, 20, 38, 0.12);
 }
 
 .onboarding__card {
