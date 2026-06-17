@@ -3,6 +3,26 @@
         "title": "LQXP",
         "tagline": "Небольшой и быстрый чат для сообществ"
     },
+    "onboarding": {
+        "register": "Зарегистрироваться",
+        "login": "Войти",
+        "recover": "Восстановить",
+        "createAccount": "Создать аккаунт",
+        "recoverAccount": "Восстановить аккаунт",
+        "recoverAccountTitle": "Восстановить аккаунт",
+        "welcomeBackTitle": "С возвращением!",
+        "createAccountSubtitle": "Создайте аккаунт QxChat, чтобы продолжить.",
+        "recoverAccountSubtitle": "Введите данные, чтобы восстановить доступ.",
+        "welcomeBackSubtitle": "Войдите, чтобы вернуться к комнатам и перепискам.",
+        "recoveryAfterSignup": "Слова восстановления выдаются после регистрации.",
+        "recoveryHelp": "Используйте слова восстановления, чтобы сбросить доступ.",
+        "secureSessionRequired": "Требуется безопасный вход.",
+        "logIn": "Войти",
+        "submit": "Продолжить",
+        "usernamePlaceholder": "напр. echo",
+        "passwordPlaceholder": "Пароль",
+        "recoveryPlaceholder": "Слова восстановления"
+    },
     "landing": {
         "brandAlt": "Логотип LQXP",
         "welcome": "С возвращением",
