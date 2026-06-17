@@ -153,11 +153,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
               autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" />
           </label>
 
-          <div class="onboarding__meta">
-            <span>{{ helperText }}</span>
-            <span>{{ cleanUsername.length }}/32</span>
-          </div>
-
           <p v-if="errorMessage" class="onboarding__error">{{ errorMessage }}</p>
 
           <button class="btn btn--primary onboarding__submit" type="submit" :disabled="!canSubmit || messenger.state.authLoading">
@@ -303,7 +298,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   gap: 0;
   padding: 0;
   border-radius: 0;
-  background: #0d1420;
+  background: #2b2d31;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
