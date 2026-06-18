@@ -1,9 +1,21 @@
 import { computed, nextTick, reactive } from "vue";
 import { zipSync } from "fflate";
-import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { EMPTY_CALL_MEDIA, normalizeCallMedia } from "@/calls/callTypes";
-import type { CallMediaState, CallSignalPayload, RemoteCallMedia } from "@/calls/callTypes";
-import { WebRtcCallManager, relayCallsConfigured, relayCallsRequirementMessage } from "@/calls/WebRtcCallManager";
+import type {
+  CallMediaState,
+  CallSignalPayload,
+  RemoteCallMedia,
+} from "@/calls/callTypes";
+import {
+  WebRtcCallManager,
+  relayCallsConfigured,
+  relayCallsRequirementMessage,
+} from "@/calls/WebRtcCallManager";
 import { apiUrl, appRuntimeConfig } from "@/config/runtime";
 import {
   cryptoAvailable,
@@ -12,9 +24,20 @@ import {
   generateRoomAccessToken,
   generateRoomKey,
   parseRoomAccessToken,
-  normalizeRoomKey
+  normalizeRoomKey,
 } from "@/crypto/e2ee";
-import { playCameraOffSound, playCameraOnSound, playJoinSound, playLeaveSound, playMuteSound, playScreenOffSound, playScreenOnSound, playUnmuteSound, setCallSoundsActive, setSoundFlag } from "@/calls/callSounds";
+import {
+  playCameraOffSound,
+  playCameraOnSound,
+  playJoinSound,
+  playLeaveSound,
+  playMuteSound,
+  playScreenOffSound,
+  playScreenOnSound,
+  playUnmuteSound,
+  setCallSoundsActive,
+  setSoundFlag,
+} from "@/calls/callSounds";
 
 const STORAGE_KEY = "qxprotocol-messenger-v5";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -38,9 +61,16 @@ const MAX_PROFILE_PRONOUNS_LENGTH = 24;
 const RECONNECT_DEFAULTS = {
   enabled: true,
   minDelayMs: 1000,
-  maxDelayMs: 30000
+  maxDelayMs: 30000,
 };
-const PROFILE_IMAGE_MIME_TYPES = new Set(["image/png", "image/apng", "image/gif", "image/jpeg", "image/jpg", "image/webp"]);
+const PROFILE_IMAGE_MIME_TYPES = new Set([
+  "image/png",
+  "image/apng",
+  "image/gif",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+]);
 const PRESENCE_STATUSES = ["online", "invisible", "dnd"];
 const DUPLICATE_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -56,14 +86,20 @@ function inferWebSocketUrl() {
 }
 
 function sanitizeUsername(value) {
-  return String(value || "").trim().toLowerCase().slice(0, 32);
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 32);
 }
 
 function validateUsername(value) {
   const username = sanitizeUsername(value);
-  if (username.length < 2 || username.length > 32) return "Username must be 2 to 32 characters.";
-  if (!/^[a-z0-9_.]+$/.test(username)) return "Username can only use a-z, 0-9, underscore and period.";
-  if (username.includes("..")) return "Username cannot contain two consecutive periods.";
+  if (username.length < 2 || username.length > 32)
+    return "Username must be 2 to 32 characters.";
+  if (!/^[a-z0-9_.]+$/.test(username))
+    return "Username can only use a-z, 0-9, underscore and period.";
+  if (username.includes(".."))
+    return "Username cannot contain two consecutive periods.";
   return "";
 }
 
@@ -99,10 +135,19 @@ function normalizeProfileImage(value, maxBytes) {
   if (!value || typeof value !== "object") return null;
   const mimeType = normalizeProfileMime(value.mimeType);
   const dataB64 = String(value.dataB64 || "").trim();
-  const size = Math.max(0, Number(value.size) || Math.ceil((dataB64.length * 3) / 4));
+  const size = Math.max(
+    0,
+    Number(value.size) || Math.ceil((dataB64.length * 3) / 4),
+  );
   const width = Math.max(0, Math.round(Number(value.width) || 0));
   const height = Math.max(0, Math.round(Number(value.height) || 0));
-  if (!mimeType || !dataB64 || size > maxBytes || dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8) return null;
+  if (
+    !mimeType ||
+    !dataB64 ||
+    size > maxBytes ||
+    dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8
+  )
+    return null;
   return { mimeType, size, width, height, dataB64 };
 }
 
@@ -111,13 +156,18 @@ function normalizeProfile(profile) {
   return {
     avatar: normalizeProfileImage(source.avatar, MAX_PROFILE_AVATAR_BYTES),
     banner: normalizeProfileImage(source.banner, MAX_PROFILE_BANNER_BYTES),
-    description: sanitizeProfileText(source.description, MAX_PROFILE_DESCRIPTION_LENGTH),
-    pronouns: sanitizeProfileText(source.pronouns, MAX_PROFILE_PRONOUNS_LENGTH)
+    description: sanitizeProfileText(
+      source.description,
+      MAX_PROFILE_DESCRIPTION_LENGTH,
+    ),
+    pronouns: sanitizeProfileText(source.pronouns, MAX_PROFILE_PRONOUNS_LENGTH),
   };
 }
 
 function normalizeProfileMime(value) {
-  const mime = String(value || "").trim().toLowerCase();
+  const mime = String(value || "")
+    .trim()
+    .toLowerCase();
   if (mime === "image/jpg") return "image/jpeg";
   if (mime === "image/apng") return "image/png";
   return PROFILE_IMAGE_MIME_TYPES.has(mime) ? mime : "";
@@ -125,14 +175,21 @@ function normalizeProfileMime(value) {
 
 function profileImageSrc(image) {
   const normalized = normalizeProfileImage(image, MAX_PROFILE_BANNER_BYTES);
-  return normalized ? `data:${normalized.mimeType};base64,${normalized.dataB64}` : "";
+  return normalized
+    ? `data:${normalized.mimeType};base64,${normalized.dataB64}`
+    : "";
 }
 
 function sanitizeHttpUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   try {
-    const url = new URL(raw, typeof window !== "undefined" ? window.location.origin : "https://localhost");
+    const url = new URL(
+      raw,
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://localhost",
+    );
     if (url.protocol !== "http:" && url.protocol !== "https:") return "";
     return url.toString();
   } catch {
@@ -141,8 +198,14 @@ function sanitizeHttpUrl(value) {
 }
 
 function isAndroidWebViewRuntime() {
-  const ua = typeof navigator === "undefined" ? "" : String(navigator.userAgent || "").toLowerCase();
-  return ua.includes("android") && (ua.includes("; wv") || ua.includes(" version/4."));
+  const ua =
+    typeof navigator === "undefined"
+      ? ""
+      : String(navigator.userAgent || "").toLowerCase();
+  return (
+    ua.includes("android") &&
+    (ua.includes("; wv") || ua.includes(" version/4."))
+  );
 }
 
 function isTauriRuntime() {
@@ -152,7 +215,10 @@ function isTauriRuntime() {
 }
 
 function detectClientPlatform() {
-  const ua = typeof navigator === "undefined" ? "" : String(navigator.userAgent || "").toLowerCase();
+  const ua =
+    typeof navigator === "undefined"
+      ? ""
+      : String(navigator.userAgent || "").toLowerCase();
   if (isTauriRuntime()) {
     if (ua.includes("android")) return "android";
     if (/iphone|ipad|ipod/.test(ua)) return "ios";
@@ -165,58 +231,84 @@ function detectClientPlatform() {
 }
 
 function sanitizeClientId(value) {
-  return String(value || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 48);
 }
 
 function getPersistentClientId() {
   try {
-    const existing = sanitizeClientId(localStorage.getItem(CLIENT_ID_STORAGE_KEY));
+    const existing = sanitizeClientId(
+      localStorage.getItem(CLIENT_ID_STORAGE_KEY),
+    );
     if (existing) return existing;
-    const generated = globalThis.crypto?.randomUUID?.()
-      || `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const generated =
+      globalThis.crypto?.randomUUID?.() ||
+      `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const next = sanitizeClientId(generated);
     localStorage.setItem(CLIENT_ID_STORAGE_KEY, next);
     return next;
   } catch {
-    return sanitizeClientId(`client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+    return sanitizeClientId(
+      `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+    );
   }
 }
 
 function sanitizePlatform(value) {
-  const platform = String(value || "").trim().toLowerCase();
-  if (["web", "desktop", "android", "ios", "mobile"].includes(platform)) return platform;
+  const platform = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (["web", "desktop", "android", "ios", "mobile"].includes(platform))
+    return platform;
   return platform ? "desktop" : "web";
 }
 
 function platformLabel(platform) {
   switch (sanitizePlatform(platform)) {
-    case "android": return "Android";
-    case "ios": return "iOS";
-    case "mobile": return "Mobile";
-    case "desktop": return "Desktop";
-    default: return "Web";
+    case "android":
+      return "Android";
+    case "ios":
+      return "iOS";
+    case "mobile":
+      return "Mobile";
+    case "desktop":
+      return "Desktop";
+    default:
+      return "Web";
   }
 }
 
 function platformIcon(platform) {
   switch (sanitizePlatform(platform)) {
-    case "android": return "A";
-    case "ios": return "iOS";
-    case "mobile": return "M";
-    case "desktop": return "PC";
-    default: return "Web";
+    case "android":
+      return "A";
+    case "ios":
+      return "iOS";
+    case "mobile":
+      return "M";
+    case "desktop":
+      return "PC";
+    default:
+      return "Web";
   }
 }
 
 function sanitizeRoomId(value) {
-  return String(value || "").trim().slice(0, ROOM_ID_MAX_LENGTH);
+  return String(value || "")
+    .trim()
+    .slice(0, ROOM_ID_MAX_LENGTH);
 }
 
 function validateRoomId(value) {
   const id = sanitizeRoomId(value);
-  if (id.length < ROOM_ID_MIN_LENGTH) return "Room name must be at least 8 characters.";
-  if (id.length > ROOM_ID_MAX_LENGTH) return "Room name must be at most 64 characters.";
-  if (!/^[a-z0-9]+$/i.test(id)) return "Room name can only contain letters and numbers.";
+  if (id.length < ROOM_ID_MIN_LENGTH)
+    return "Room name must be at least 8 characters.";
+  if (id.length > ROOM_ID_MAX_LENGTH)
+    return "Room name must be at most 64 characters.";
+  if (!/^[a-z0-9]+$/i.test(id))
+    return "Room name can only contain letters and numbers.";
   return "";
 }
 
@@ -232,7 +324,8 @@ function generateRandomRoomId() {
 
   let id = "";
   const bytes = new Uint8Array(ROOM_ID_MAX_LENGTH);
-  const maxByte = Math.floor(256 / RANDOM_ROOM_ALPHABET.length) * RANDOM_ROOM_ALPHABET.length;
+  const maxByte =
+    Math.floor(256 / RANDOM_ROOM_ALPHABET.length) * RANDOM_ROOM_ALPHABET.length;
   while (id.length < ROOM_ID_MAX_LENGTH) {
     cryptoApi.getRandomValues(bytes);
     for (const byte of bytes) {
@@ -263,7 +356,10 @@ async function copyTextToClipboard(text) {
 }
 
 function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatDay(timestamp) {
@@ -271,9 +367,15 @@ function formatDay(timestamp) {
   const now = new Date();
   const oneDay = 86_400_000;
   if (date.toDateString() === now.toDateString()) return "Today";
-  if (date.toDateString() === new Date(now.getTime() - oneDay).toDateString()) return "Yesterday";
-  if (now.getTime() - date.getTime() < 7 * oneDay) return date.toLocaleDateString([], { weekday: "long" });
-  return date.toLocaleDateString([], { month: "short", day: "numeric", year: date.getFullYear() === now.getFullYear() ? undefined : "numeric" });
+  if (date.toDateString() === new Date(now.getTime() - oneDay).toDateString())
+    return "Yesterday";
+  if (now.getTime() - date.getTime() < 7 * oneDay)
+    return date.toLocaleDateString([], { weekday: "long" });
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
 }
 
 function formatSidebarTime(timestamp) {
@@ -282,12 +384,22 @@ function formatSidebarTime(timestamp) {
   const now = new Date();
   const oneDay = 86_400_000;
   if (date.toDateString() === now.toDateString()) return formatTime(timestamp);
-  if (now.getTime() - date.getTime() < 7 * oneDay) return date.toLocaleDateString([], { weekday: "short" });
+  if (now.getTime() - date.getTime() < 7 * oneDay)
+    return date.toLocaleDateString([], { weekday: "short" });
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function accentFor(seed) {
-  const palette = ["blue", "green", "amber", "violet", "olive", "slate", "teal", "rose"];
+  const palette = [
+    "blue",
+    "green",
+    "amber",
+    "violet",
+    "olive",
+    "slate",
+    "teal",
+    "rose",
+  ];
   const s = String(seed || "");
   let h = 0;
   for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -297,7 +409,11 @@ function accentFor(seed) {
 function sanitizeRoomUsers(raw) {
   const users = new Set<string>();
   for (const player of Array.isArray(raw) ? raw : []) {
-    const user = sanitizeUsername(typeof player === "string" ? player : player?.user || player?.username || player?.name);
+    const user = sanitizeUsername(
+      typeof player === "string"
+        ? player
+        : player?.user || player?.username || player?.name,
+    );
     if (!user) continue;
     users.add(user);
   }
@@ -336,7 +452,11 @@ function parseInviteLink() {
 
 function clearInviteLinkFromUrl() {
   try {
-    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/`);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#/`,
+    );
   } catch {
     /* hash cleanup is best effort */
   }
@@ -348,15 +468,17 @@ function loadPersisted() {
     const profile = loadPersistedProfile();
     const rooms = Array.isArray(raw.rooms)
       ? raw.rooms
-        .filter((r) => r && typeof r === "object" && typeof r.roomId === "string")
-        .slice(0, MAX_ROOMS_SHOWN)
-        .map((r) => ({
-          roomId: sanitizeRoomId(r.roomId),
-          lastPreview: String(r.lastPreview || ""),
-          lastTimestamp: Number(r.lastTimestamp) || 0,
-          lastSender: String(r.lastSender || "")
-        }))
-        .filter((r) => isValidRoomId(r.roomId))
+          .filter(
+            (r) => r && typeof r === "object" && typeof r.roomId === "string",
+          )
+          .slice(0, MAX_ROOMS_SHOWN)
+          .map((r) => ({
+            roomId: sanitizeRoomId(r.roomId),
+            lastPreview: String(r.lastPreview || ""),
+            lastTimestamp: Number(r.lastTimestamp) || 0,
+            lastSender: String(r.lastSender || ""),
+          }))
+          .filter((r) => isValidRoomId(r.roomId))
       : [];
 
     const messagesByRoom = {};
@@ -376,12 +498,19 @@ function loadPersisted() {
       for (const [id, n] of Object.entries(raw.unreadByRoom)) {
         const v = Number(n);
         const roomId = sanitizeRoomId(id);
-        if (Number.isFinite(v) && v > 0 && isValidRoomId(roomId)) unreadByRoom[roomId] = v;
+        if (Number.isFinite(v) && v > 0 && isValidRoomId(roomId))
+          unreadByRoom[roomId] = v;
       }
     }
 
     const joinedRooms = Array.isArray(raw.joinedRooms)
-      ? [...new Set(raw.joinedRooms.map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))]
+      ? [
+          ...new Set(
+            raw.joinedRooms
+              .map((roomId) => sanitizeRoomId(roomId))
+              .filter((roomId) => isValidRoomId(roomId)),
+          ),
+        ]
       : [];
 
     const usersByRoom = {};
@@ -406,10 +535,17 @@ function loadPersisted() {
       authToken: String(raw.authToken || ""),
       userId: String(raw.userId || ""),
       admin: Boolean(raw.admin),
-      recoveryWords: Array.isArray(raw.recoveryWords) ? raw.recoveryWords.map((word) => String(word || "")).filter(Boolean).slice(0, 16) : [],
+      recoveryWords: Array.isArray(raw.recoveryWords)
+        ? raw.recoveryWords
+            .map((word) => String(word || ""))
+            .filter(Boolean)
+            .slice(0, 16)
+        : [],
       username: sanitizeUsername(raw.username),
       status: sanitizePresenceStatus(raw.status),
-      activeRoom: isValidRoomId(raw.activeRoom) ? sanitizeRoomId(raw.activeRoom) : "",
+      activeRoom: isValidRoomId(raw.activeRoom)
+        ? sanitizeRoomId(raw.activeRoom)
+        : "",
       rooms,
       joinedRooms,
       usersByRoom,
@@ -419,12 +555,18 @@ function loadPersisted() {
       roomKeysByRoom: sanitizeRoomKeys(raw.roomKeysByRoom),
       selectedAudioInputId: String(raw.selectedAudioInputId || ""),
       selectedAudioOutputId: String(raw.selectedAudioOutputId || ""),
-      microphoneThreshold: Math.max(0, Math.min(100, Number(raw.microphoneThreshold) || 0)),
+      microphoneThreshold: Math.max(
+        0,
+        Math.min(100, Number(raw.microphoneThreshold) || 0),
+      ),
       deleteMessagesOnLeave: Boolean(raw.deleteMessagesOnLeave),
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
-      messageSoundEnabled: typeof raw.messageSoundEnabled === "boolean" ? raw.messageSoundEnabled : true,
+      messageSoundEnabled:
+        typeof raw.messageSoundEnabled === "boolean"
+          ? raw.messageSoundEnabled
+          : true,
       callSoundsEnabled: raw.callSoundsEnabled !== false,
       soundFlags: {
         join: raw.soundFlags?.join !== false,
@@ -435,21 +577,48 @@ function loadPersisted() {
         cameraOff: raw.soundFlags?.cameraOff !== false,
         screenOn: raw.soundFlags?.screenOn !== false,
         screenOff: raw.soundFlags?.screenOff !== false,
-        message: raw.soundFlags?.message !== false
+        message: raw.soundFlags?.message !== false,
       },
-      themeMode: ["dark", "light", "adaptive"].includes(String(raw.themeMode || "").toLowerCase()) ? String(raw.themeMode).toLowerCase() : "dark",
-      appAccent: ["blue", "violet", "emerald", "rose", "amber"].includes(String(raw.appAccent || "").toLowerCase()) ? String(raw.appAccent).toLowerCase() : "blue",
-      messageStyle: ["bubble", "discord"].includes(String(raw.messageStyle || "").toLowerCase()) ? String(raw.messageStyle).toLowerCase() : "bubble",
+      themeMode: ["dark", "light", "adaptive"].includes(
+        String(raw.themeMode || "").toLowerCase(),
+      )
+        ? String(raw.themeMode).toLowerCase()
+        : "dark",
+      appAccent: ["blue", "violet", "emerald", "rose", "amber"].includes(
+        String(raw.appAccent || "").toLowerCase(),
+      )
+        ? String(raw.appAccent).toLowerCase()
+        : "blue",
+      messageStyle: ["bubble", "discord"].includes(
+        String(raw.messageStyle || "").toLowerCase(),
+      )
+        ? String(raw.messageStyle).toLowerCase()
+        : "bubble",
       androidNotificationsEnabled: raw.androidNotificationsEnabled !== false,
-      serverClearsLocalMessages: typeof raw.serverClearsLocalMessages === "boolean" ? raw.serverClearsLocalMessages : false,
+      serverClearsLocalMessages:
+        typeof raw.serverClearsLocalMessages === "boolean"
+          ? raw.serverClearsLocalMessages
+          : false,
       autoReconnectEnabled: raw.autoReconnectEnabled !== false,
-      reconnectMinDelayMs: Math.max(250, Math.min(60000, Number(raw.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs)),
-      reconnectMaxDelayMs: Math.max(1000, Math.min(120000, Number(raw.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs)),
+      reconnectMinDelayMs: Math.max(
+        250,
+        Math.min(
+          60000,
+          Number(raw.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs,
+        ),
+      ),
+      reconnectMaxDelayMs: Math.max(
+        1000,
+        Math.min(
+          120000,
+          Number(raw.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs,
+        ),
+      ),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
       localRoomNames: sanitizeLocalRoomNames(raw.localRoomNames),
       localRoomIcons: sanitizeLocalRoomIcons(raw.localRoomIcons),
-      profile
+      profile,
     };
   } catch {
     return {
@@ -476,7 +645,17 @@ function loadPersisted() {
       typingIndicatorsEnabled: true,
       messageSoundEnabled: true,
       callSoundsEnabled: true,
-      soundFlags: { join: true, leave: true, mute: true, unmute: true, cameraOn: true, cameraOff: true, screenOn: true, screenOff: true, message: true },
+      soundFlags: {
+        join: true,
+        leave: true,
+        mute: true,
+        unmute: true,
+        cameraOn: true,
+        cameraOff: true,
+        screenOn: true,
+        screenOff: true,
+        message: true,
+      },
       themeMode: "dark",
       appAccent: "blue",
       messageStyle: "bubble",
@@ -489,14 +668,16 @@ function loadPersisted() {
       roomNotes: {},
       localRoomNames: {},
       localRoomIcons: {},
-      profile: loadPersistedProfile()
+      profile: loadPersistedProfile(),
     };
   }
 }
 
 function loadPersistedProfile() {
   try {
-    return normalizeProfile(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}"));
+    return normalizeProfile(
+      JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}"),
+    );
   } catch {
     return normalizeProfile(null);
   }
@@ -519,7 +700,9 @@ function sanitizeRoomNotes(raw) {
   for (const [roomId, note] of Object.entries(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
-    next[id] = String(note || "").trim().slice(0, MAX_ROOM_NOTE_LENGTH);
+    next[id] = String(note || "")
+      .trim()
+      .slice(0, MAX_ROOM_NOTE_LENGTH);
   }
   return next;
 }
@@ -530,7 +713,9 @@ function sanitizeLocalRoomNames(raw) {
   for (const [roomId, name] of Object.entries(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
-    const clean = String(name || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    const clean = String(name || "")
+      .trim()
+      .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
     if (clean) next[id] = clean;
   }
   return next;
@@ -540,8 +725,10 @@ function sanitizeLocalRoomIcon(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   if (raw.startsWith("data:image/")) {
-    const safeDataUrl = /^data:image\/(png|jpeg|jpg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(raw);
-    if (!safeDataUrl || raw.length > MAX_LOCAL_ROOM_ICON_DATA_URL_LENGTH) return "";
+    const safeDataUrl =
+      /^data:image\/(png|jpeg|jpg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(raw);
+    if (!safeDataUrl || raw.length > MAX_LOCAL_ROOM_ICON_DATA_URL_LENGTH)
+      return "";
     return raw;
   }
   return raw.slice(0, MAX_LOCAL_ROOM_ICON_LENGTH);
@@ -570,8 +757,13 @@ function stripAttachmentDataForStorage(arr) {
 function savePersisted(state) {
   try {
     const messagesByRoom = {};
-    for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [string, any[]][]) {
-      messagesByRoom[id] = stripAttachmentDataForStorage(arr.slice(-MAX_HISTORY_PER_ROOM));
+    for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
+      string,
+      any[],
+    ][]) {
+      messagesByRoom[id] = stripAttachmentDataForStorage(
+        arr.slice(-MAX_HISTORY_PER_ROOM),
+      );
     }
     localStorage.setItem(
       STORAGE_KEY,
@@ -580,14 +772,36 @@ function savePersisted(state) {
         authToken: String(state.authToken || ""),
         userId: String(state.userId || ""),
         admin: Boolean(state.admin),
-        recoveryWords: Array.isArray(state.recoveryWords) ? state.recoveryWords.slice(0, 16) : [],
+        recoveryWords: Array.isArray(state.recoveryWords)
+          ? state.recoveryWords.slice(0, 16)
+          : [],
         username: sanitizeUsername(state.username),
         status: sanitizePresenceStatus(state.status),
         activeRoom: sanitizeRoomId(state.activeRoom),
         rooms: state.rooms,
-        joinedRooms: [...new Set((state.joinedRooms || []).map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))],
-        usersByRoom: Object.fromEntries(Object.entries(state.usersByRoom || {}).map(([roomId, users]) => [sanitizeRoomId(roomId), sanitizeRoomUsers(users)]).filter(([roomId]) => isValidRoomId(roomId))),
-        profilesByUser: Object.fromEntries(Object.entries(state.profilesByUser || {}).map(([username, profile]) => [sanitizeUsername(username), normalizeProfile(profile)]).filter(([username]) => Boolean(username))),
+        joinedRooms: [
+          ...new Set(
+            (state.joinedRooms || [])
+              .map((roomId) => sanitizeRoomId(roomId))
+              .filter((roomId) => isValidRoomId(roomId)),
+          ),
+        ],
+        usersByRoom: Object.fromEntries(
+          Object.entries(state.usersByRoom || {})
+            .map(([roomId, users]) => [
+              sanitizeRoomId(roomId),
+              sanitizeRoomUsers(users),
+            ])
+            .filter(([roomId]) => isValidRoomId(roomId)),
+        ),
+        profilesByUser: Object.fromEntries(
+          Object.entries(state.profilesByUser || {})
+            .map(([username, profile]) => [
+              sanitizeUsername(username),
+              normalizeProfile(profile),
+            ])
+            .filter(([username]) => Boolean(username)),
+        ),
         messagesByRoom,
         unreadByRoom: state.unreadByRoom,
         roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
@@ -612,8 +826,8 @@ function savePersisted(state) {
         callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
         roomNotes: sanitizeRoomNotes(state.roomNotes),
         localRoomNames: sanitizeLocalRoomNames(state.localRoomNames),
-        localRoomIcons: sanitizeLocalRoomIcons(state.localRoomIcons)
-      })
+        localRoomIcons: sanitizeLocalRoomIcons(state.localRoomIcons),
+      }),
     );
   } catch {
     /* storage full — attachment bytes alone can exceed quota */
@@ -623,7 +837,10 @@ function savePersisted(state) {
 
 function savePersistedProfile(profile) {
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(normalizeProfile(profile)));
+    localStorage.setItem(
+      PROFILE_STORAGE_KEY,
+      JSON.stringify(normalizeProfile(profile)),
+    );
   } catch {
     /* browser storage can be smaller than the protocol image limits */
   }
@@ -650,8 +867,10 @@ function messagePreviewLabel(message) {
   if (!message || message.deleted) return "";
   if (message.kind === "image") return "Photo";
   if (message.kind === "video") return "Video";
-  if (message.kind === "audio" || message.kind === "voice") return "Voice message";
-  if (message.kind === "file") return message.attachment?.filename || "File attachment";
+  if (message.kind === "audio" || message.kind === "voice")
+    return "Voice message";
+  if (message.kind === "file")
+    return message.attachment?.filename || "File attachment";
   return String(message.text || "").trim();
 }
 
@@ -666,10 +885,10 @@ function sameAttachmentPayload(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
   return (
-    String(left.filename || "") === String(right.filename || "")
-    && String(left.mimeType || "") === String(right.mimeType || "")
-    && Number(left.size) === Number(right.size)
-    && String(left.dataB64 || "") === String(right.dataB64 || "")
+    String(left.filename || "") === String(right.filename || "") &&
+    String(left.mimeType || "") === String(right.mimeType || "") &&
+    Number(left.size) === Number(right.size) &&
+    String(left.dataB64 || "") === String(right.dataB64 || "")
   );
 }
 
@@ -677,24 +896,31 @@ function sameEncryptedPayload(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
   return (
-    Number(left.v) === Number(right.v)
-    && String(left.alg || "") === String(right.alg || "")
-    && String(left.iv || "") === String(right.iv || "")
-    && String(left.ciphertext || "") === String(right.ciphertext || "")
+    Number(left.v) === Number(right.v) &&
+    String(left.alg || "") === String(right.alg || "") &&
+    String(left.iv || "") === String(right.iv || "") &&
+    String(left.ciphertext || "") === String(right.ciphertext || "")
   );
 }
 
 function isDuplicateRecentMessage(messages, candidate) {
-  const oldestAllowed = Number(candidate?.timestamp || Date.now()) - DUPLICATE_MESSAGE_WINDOW_MS;
+  const oldestAllowed =
+    Number(candidate?.timestamp || Date.now()) - DUPLICATE_MESSAGE_WINDOW_MS;
   for (let i = (messages?.length || 0) - 1; i >= 0; i -= 1) {
     const message = messages[i];
     if (!message || message.deleted) continue;
     if (Number(message.timestamp || 0) < oldestAllowed) break;
-    if (String(message.username || "") !== String(candidate.username || "")) continue;
+    if (String(message.username || "") !== String(candidate.username || ""))
+      continue;
     if (String(message.text || "") !== String(candidate.text || "")) continue;
-    if (String(message.replyToMessageId || "") !== String(candidate.replyToMessageId || "")) continue;
+    if (
+      String(message.replyToMessageId || "") !==
+      String(candidate.replyToMessageId || "")
+    )
+      continue;
     if (!sameEncryptedPayload(message.encrypted, candidate.encrypted)) continue;
-    if (!sameAttachmentPayload(message.attachment, candidate.attachment)) continue;
+    if (!sameAttachmentPayload(message.attachment, candidate.attachment))
+      continue;
     return true;
   }
   return false;
@@ -725,22 +951,26 @@ function isOnlyEmoji(text) {
 
 function normalizeMessage(message, fallbackRoomId) {
   const voiceDuration = parseVoiceLabel(message.text);
-  const attachment = message.attachment && typeof message.attachment === "object"
-    ? {
-      filename: String(message.attachment.filename || "file"),
-      mimeType: String(message.attachment.mimeType || "application/octet-stream"),
-      size: Number(message.attachment.size) || 0,
-      dataB64: String(message.attachment.dataB64 || "")
-    }
-    : null;
-  const encrypted = message.encrypted && typeof message.encrypted === "object"
-    ? {
-      v: Number(message.encrypted.v) || 0,
-      alg: String(message.encrypted.alg || ""),
-      iv: String(message.encrypted.iv || ""),
-      ciphertext: String(message.encrypted.ciphertext || "")
-    }
-    : null;
+  const attachment =
+    message.attachment && typeof message.attachment === "object"
+      ? {
+          filename: String(message.attachment.filename || "file"),
+          mimeType: String(
+            message.attachment.mimeType || "application/octet-stream",
+          ),
+          size: Number(message.attachment.size) || 0,
+          dataB64: String(message.attachment.dataB64 || ""),
+        }
+      : null;
+  const encrypted =
+    message.encrypted && typeof message.encrypted === "object"
+      ? {
+          v: Number(message.encrypted.v) || 0,
+          alg: String(message.encrypted.alg || ""),
+          iv: String(message.encrypted.iv || ""),
+          ciphertext: String(message.encrypted.ciphertext || ""),
+        }
+      : null;
 
   let kind = "text";
   if (message.deleted) kind = "deleted";
@@ -753,17 +983,19 @@ function normalizeMessage(message, fallbackRoomId) {
   }
 
   const rawText = message.text || "";
-  const jumboEmoji = !attachment && !voiceDuration && !message.deleted && isOnlyEmoji(rawText);
+  const jumboEmoji =
+    !attachment && !voiceDuration && !message.deleted && isOnlyEmoji(rawText);
 
-  const preview = message.preview && typeof message.preview === "object"
-    ? {
-      url: sanitizeHttpUrl(message.preview.url),
-      title: String(message.preview.title || "").slice(0, 300),
-      description: String(message.preview.description || "").slice(0, 500),
-      image: sanitizeHttpUrl(message.preview.image),
-      siteName: String(message.preview.siteName || "").slice(0, 80)
-    }
-    : null;
+  const preview =
+    message.preview && typeof message.preview === "object"
+      ? {
+          url: sanitizeHttpUrl(message.preview.url),
+          title: String(message.preview.title || "").slice(0, 300),
+          description: String(message.preview.description || "").slice(0, 500),
+          image: sanitizeHttpUrl(message.preview.image),
+          siteName: String(message.preview.siteName || "").slice(0, 80),
+        }
+      : null;
 
   return {
     messageId: message.messageId,
@@ -785,7 +1017,7 @@ function normalizeMessage(message, fallbackRoomId) {
     jumboEmoji,
     locked: Boolean(message.locked),
     editedAt: Number(message.editedAt) || 0,
-    mentioned: Boolean(message.mentioned)
+    mentioned: Boolean(message.mentioned),
   };
 }
 
@@ -812,12 +1044,17 @@ function zipSafeFilename(name) {
 
 async function archiveFileAsZip(file: File) {
   const filename = zipSafeFilename(file.name || "file");
-  const zipName = filename.toLowerCase().endsWith(".zip") ? filename : `${filename}.zip`;
+  const zipName = filename.toLowerCase().endsWith(".zip")
+    ? filename
+    : `${filename}.zip`;
   const data = new Uint8Array(await file.arrayBuffer());
   const zipped = zipSync({ [filename]: data }, { level: 6 });
   const zipBytes = new Uint8Array(zipped.byteLength);
   zipBytes.set(zipped);
-  return new File([zipBytes], zipName, { type: "application/zip", lastModified: Date.now() });
+  return new File([zipBytes], zipName, {
+    type: "application/zip",
+    lastModified: Date.now(),
+  });
 }
 
 function base64ToBlob(b64, mimeType) {
@@ -877,7 +1114,7 @@ function smoothLevel(previous, next) {
 
 function buildWaveform(seed) {
   return Array.from({ length: 28 }, (_, index) => {
-    const offset = ((index * 17) + String(seed).length * 13) % 24;
+    const offset = (index * 17 + String(seed).length * 13) % 24;
     return 8 + offset;
   });
 }
@@ -892,12 +1129,14 @@ export function useMessenger() {
   if (importedInvite) {
     persisted.roomKeysByRoom[importedInvite.roomId] = importedInvite.roomKey;
     persisted.activeRoom = importedInvite.roomId;
-    if (!persisted.rooms.some((room) => room.roomId === importedInvite.roomId)) {
+    if (
+      !persisted.rooms.some((room) => room.roomId === importedInvite.roomId)
+    ) {
       persisted.rooms.unshift({
         roomId: importedInvite.roomId,
         lastPreview: "",
         lastTimestamp: 0,
-        lastSender: ""
+        lastSender: "",
       });
     }
     clearInviteLinkFromUrl();
@@ -971,7 +1210,10 @@ export function useMessenger() {
     serverClearsLocalMessages: persisted.serverClearsLocalMessages,
     autoReconnectEnabled: persisted.autoReconnectEnabled,
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
-    reconnectMaxDelayMs: Math.max(persisted.reconnectMinDelayMs, persisted.reconnectMaxDelayMs),
+    reconnectMaxDelayMs: Math.max(
+      persisted.reconnectMinDelayMs,
+      persisted.reconnectMaxDelayMs,
+    ),
     callUserVolumes: persisted.callUserVolumes,
     roomNotes: persisted.roomNotes,
     localRoomNames: persisted.localRoomNames,
@@ -982,16 +1224,16 @@ export function useMessenger() {
     micTestLoading: false,
     micTestLevel: 0,
 
-    recording: null,        // { recorder, stream, startedAt, roomId } while recording voice memo
+    recording: null, // { recorder, stream, startedAt, roomId } while recording voice memo
     recordingElapsed: 0,
 
-    inCall: false,          // currently mid-voice-call
-    callRoom: "",           // which room the call is in
-    callStream: null,       // raw microphone MediaStream
+    inCall: false, // currently mid-voice-call
+    callRoom: "", // which room the call is in
+    callStream: null, // raw microphone MediaStream
     cameraStream: null,
     screenStream: null,
-    callElapsed: 0,         // seconds
-    callMuted: false,       // local mic mute applied to the outbound call gate
+    callElapsed: 0, // seconds
+    callMuted: false, // local mic mute applied to the outbound call gate
     callCameraEnabled: false,
     callScreenEnabled: false,
     localCallMedia: { ...EMPTY_CALL_MEDIA },
@@ -999,18 +1241,19 @@ export function useMessenger() {
     remoteCallStreamsByUser: {},
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
-    speakingByRoom: {},     // { roomId: { username: lastChunkTimestamp } } — recent speakers
-    typingByRoom: {},       // { roomId: { username: lastTypingTimestamp } }
+    speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
+    typingByRoom: {}, // { roomId: { username: lastTypingTimestamp } }
     callAnalyser: null,
     callAnalyserData: null,
 
     adminLoading: false,
-    adminOverview: null
+    adminOverview: null,
   });
 
   // Sync call sounds flag from persisted state
   setCallSoundsActive(state.callSoundsEnabled);
-  for (const [key, val] of Object.entries(state.soundFlags)) setSoundFlag(key, Boolean(val));
+  for (const [key, val] of Object.entries(state.soundFlags))
+    setSoundFlag(key, Boolean(val));
 
   // Non-reactive registry of Blob-URLs keyed by messageId so repeated renders
   // reuse the same URL and we can free them when messages are evicted.
@@ -1035,12 +1278,14 @@ export function useMessenger() {
     return detectClientPlatform();
   }
   function attachmentUrlFor(message) {
-
     if (!message?.attachment?.dataB64) return null;
     const id = message.messageId;
     if (attachmentUrlCache.has(id)) return attachmentUrlCache.get(id);
     try {
-      const blob = base64ToBlob(message.attachment.dataB64, message.attachment.mimeType);
+      const blob = base64ToBlob(
+        message.attachment.dataB64,
+        message.attachment.mimeType,
+      );
       const url = URL.createObjectURL(blob);
       attachmentUrlCache.set(id, url);
       return url;
@@ -1050,37 +1295,52 @@ export function useMessenger() {
   }
 
   const roomLabel = computed(() => state.activeRoom);
-  const roomTitle = computed(() => state.activeRoom ? displayRoomName(state.activeRoom) : "No conversation");
+  const roomTitle = computed(() =>
+    state.activeRoom ? displayRoomName(state.activeRoom) : "No conversation",
+  );
   const callsAvailable = computed(() => relayCallsConfigured());
-  const callsUnavailableReason = computed(() => callsAvailable.value ? "" : relayCallsRequirementMessage());
+  const callsUnavailableReason = computed(() =>
+    callsAvailable.value ? "" : relayCallsRequirementMessage(),
+  );
   const screenShareUnavailableReason = computed(() => {
-    if (isAndroidWebViewRuntime()) return "Screen sharing is not supported by Android WebView.";
-    if (!navigator.mediaDevices?.getDisplayMedia) return "Screen sharing is not available in this browser.";
+    if (isAndroidWebViewRuntime())
+      return "Screen sharing is not supported by Android WebView.";
+    if (!navigator.mediaDevices?.getDisplayMedia)
+      return "Screen sharing is not available in this browser.";
     return "";
   });
-  const screenShareAvailable = computed(() => !screenShareUnavailableReason.value);
+  const screenShareAvailable = computed(
+    () => !screenShareUnavailableReason.value,
+  );
 
   const connectionLabel = computed(() => {
-    if (state.connected && state.identified) return presenceStatusLabel(state.status).toLowerCase();
+    if (state.connected && state.identified)
+      return presenceStatusLabel(state.status).toLowerCase();
     if (state.connected) return "authenticating";
     return "offline";
   });
 
-  const onlineCount = computed(() => (state.usersByRoom[state.activeRoom] || []).length);
+  const onlineCount = computed(
+    () => (state.usersByRoom[state.activeRoom] || []).length,
+  );
 
   const sortedMessages = computed(() => {
     const arr = state.messagesByRoom[state.activeRoom] || [];
     return [...arr].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   });
 
-  const canSend = computed(() => state.messageInput.trim().length > 0 && !!state.activeRoom);
+  const canSend = computed(
+    () => state.messageInput.trim().length > 0 && !!state.activeRoom,
+  );
 
   const conversations = computed(() => {
     const query = state.searchTerm.trim().toLowerCase();
     return state.rooms
       .slice()
       .map((r) => {
-        const latest = latestVisibleRoomMessage(state.messagesByRoom[r.roomId] || []);
+        const latest = latestVisibleRoomMessage(
+          state.messagesByRoom[r.roomId] || [],
+        );
         const preview = messagePreviewLabel(latest) || r.lastPreview || "";
         const timestamp = Number(latest?.timestamp || r.lastTimestamp || 0);
         return {
@@ -1092,16 +1352,17 @@ export function useMessenger() {
           timestamp,
           active: r.roomId === state.activeRoom,
           unread: state.unreadByRoom[r.roomId] || 0,
-          joined: state.joinedRooms.includes(r.roomId)
+          joined: state.joinedRooms.includes(r.roomId),
         };
       })
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .filter((r) => (
-        !query
-        || r.roomId.toLowerCase().includes(query)
-        || r.name.toLowerCase().includes(query)
-        || r.preview.toLowerCase().includes(query)
-      ));
+      .filter(
+        (r) =>
+          !query ||
+          r.roomId.toLowerCase().includes(query) ||
+          r.name.toLowerCase().includes(query) ||
+          r.preview.toLowerCase().includes(query),
+      );
   });
 
   const activeConversation = computed(() => {
@@ -1116,13 +1377,17 @@ export function useMessenger() {
       preview: "",
       timestampLabel: "",
       unread: 0,
-      joined: state.joinedRooms.includes(state.activeRoom)
+      joined: state.joinedRooms.includes(state.activeRoom),
     };
   });
 
   const memberRoster = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
-    return [...new Set((state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean))];
+    return [
+      ...new Set(
+        (state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean),
+      ),
+    ];
   });
   const typingUsers = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
@@ -1143,8 +1408,10 @@ export function useMessenger() {
   async function apiRequest(path, options: any = {}) {
     const headers = {
       ...(options.body ? { "content-type": "application/json" } : {}),
-      ...(state.authToken ? { authorization: `Bearer ${state.authToken}` } : {}),
-      ...(options.headers || {})
+      ...(state.authToken
+        ? { authorization: `Bearer ${state.authToken}` }
+        : {}),
+      ...(options.headers || {}),
     };
     const response = await fetch(apiUrl(path), { ...options, headers });
     const data = await response.json().catch(() => ({}));
@@ -1177,7 +1444,7 @@ export function useMessenger() {
       callUserVolumes: { ...state.callUserVolumes },
       roomNotes: { ...state.roomNotes },
       localRoomNames: { ...state.localRoomNames },
-      localRoomIcons: { ...state.localRoomIcons }
+      localRoomIcons: { ...state.localRoomIcons },
     };
     state.authToken = String(data.token || state.authToken || "");
     state.userId = String(data.user.id || "");
@@ -1187,7 +1454,10 @@ export function useMessenger() {
     state.status = sanitizePresenceStatus(data.user.status);
     Object.assign(state, preservedSettings);
     if (Array.isArray(data.recoveryWords)) {
-      state.recoveryWords = data.recoveryWords.map((word) => String(word || "")).filter(Boolean).slice(0, 16);
+      state.recoveryWords = data.recoveryWords
+        .map((word) => String(word || ""))
+        .filter(Boolean)
+        .slice(0, 16);
     }
     persist();
   }
@@ -1197,17 +1467,20 @@ export function useMessenger() {
       "QxProtocol account recovery words",
       `Username: ${state.username}`,
       "",
-      ...(state.recoveryWords || [])
+      ...(state.recoveryWords || []),
     ].join("\n");
   }
 
   function downloadRecoveryWords() {
     if (!state.recoveryWords?.length) {
-      state.lastError = "Recovery words are only available on this browser after account creation or recovery.";
+      state.lastError =
+        "Recovery words are only available on this browser after account creation or recovery.";
       showToast(state.lastError);
       return false;
     }
-    const blob = new Blob([recoveryText()], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([recoveryText()], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1229,7 +1502,10 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ username: sanitizeUsername(username), password })
+        body: JSON.stringify({
+          username: sanitizeUsername(username),
+          password,
+        }),
       });
       applyAuthenticatedPayload(data);
       downloadRecoveryWords();
@@ -1253,7 +1529,10 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ username: sanitizeUsername(username), password })
+        body: JSON.stringify({
+          username: sanitizeUsername(username),
+          password,
+        }),
       });
       applyAuthenticatedPayload(data);
       connect();
@@ -1279,8 +1558,8 @@ export function useMessenger() {
         body: JSON.stringify({
           username: sanitizeUsername(username),
           recoveryWords: String(recoveryWords || ""),
-          newPassword
-        })
+          newPassword,
+        }),
       });
       applyAuthenticatedPayload(data);
       connect();
@@ -1326,7 +1605,7 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/admin/features", {
         method: "POST",
-        body: JSON.stringify({ key, enabled: Boolean(enabled) })
+        body: JSON.stringify({ key, enabled: Boolean(enabled) }),
       });
       if (state.adminOverview) state.adminOverview.features = data.features;
       return true;
@@ -1340,10 +1619,13 @@ export function useMessenger() {
   async function setAdminUserDisabled(userId, disabled) {
     if (!state.admin) return false;
     try {
-      await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/disabled`, {
-        method: "POST",
-        body: JSON.stringify({ disabled: Boolean(disabled) })
-      });
+      await apiRequest(
+        `/api/admin/users/${encodeURIComponent(userId)}/disabled`,
+        {
+          method: "POST",
+          body: JSON.stringify({ disabled: Boolean(disabled) }),
+        },
+      );
       await loadAdminOverview();
       return true;
     } catch (error) {
@@ -1356,10 +1638,13 @@ export function useMessenger() {
   async function setAdminUserBanned(userId, banned) {
     if (!state.admin) return false;
     try {
-      await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/banned`, {
-        method: "POST",
-        body: JSON.stringify({ banned: Boolean(banned) })
-      });
+      await apiRequest(
+        `/api/admin/users/${encodeURIComponent(userId)}/banned`,
+        {
+          method: "POST",
+          body: JSON.stringify({ banned: Boolean(banned) }),
+        },
+      );
       await loadAdminOverview();
       return true;
     } catch (error) {
@@ -1397,7 +1682,8 @@ export function useMessenger() {
     if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
     const current = roomKeyFor(id);
     if (current) return current;
-    if (!cryptoAvailable()) throw new Error("Web Crypto is unavailable in this browser.");
+    if (!cryptoAvailable())
+      throw new Error("Web Crypto is unavailable in this browser.");
     const next = generateRoomKey();
     state.roomKeysByRoom[id] = next;
     persist();
@@ -1433,15 +1719,18 @@ export function useMessenger() {
 
   function encryptedPlaceholderMessage(message, roomId, reason = "") {
     const hint = reason ? ` (${reason})` : "";
-    return normalizeMessage({
-      ...message,
+    return normalizeMessage(
+      {
+        ...message,
+        roomId,
+        text: E2EE_MESSAGE_PLACEHOLDER,
+        attachment: null,
+        preview: null,
+        locked: true,
+        system: false,
+      },
       roomId,
-      text: E2EE_MESSAGE_PLACEHOLDER,
-      attachment: null,
-      preview: null,
-      locked: true,
-      system: false
-    }, roomId);
+    );
   }
 
   async function hydrateIncomingMessage(message, fallbackRoomId) {
@@ -1449,24 +1738,38 @@ export function useMessenger() {
     if (!message?.encrypted) return normalizeMessage(message, roomId);
     const roomKey = roomKeyFor(roomId);
     if (!roomKey) {
-      return encryptedPlaceholderMessage(message, roomId, "room token required");
+      return encryptedPlaceholderMessage(
+        message,
+        roomId,
+        "room token required",
+      );
     }
     try {
-      const decrypted = await decryptRoomPayload(roomKey, roomId, message.encrypted);
-      return normalizeMessage({
-        ...message,
-        text: String(decrypted?.text || ""),
-        attachment: decrypted?.attachment && typeof decrypted.attachment === "object"
-          ? {
-            filename: String(decrypted.attachment.filename || "file"),
-            mimeType: String(decrypted.attachment.mimeType || "application/octet-stream"),
-            size: Number(decrypted.attachment.size) || 0,
-            dataB64: String(decrypted.attachment.dataB64 || "")
-          }
-          : null,
-        preview: message.preview || null,
-        locked: false
-      }, roomId);
+      const decrypted = await decryptRoomPayload(
+        roomKey,
+        roomId,
+        message.encrypted,
+      );
+      return normalizeMessage(
+        {
+          ...message,
+          text: String(decrypted?.text || ""),
+          attachment:
+            decrypted?.attachment && typeof decrypted.attachment === "object"
+              ? {
+                  filename: String(decrypted.attachment.filename || "file"),
+                  mimeType: String(
+                    decrypted.attachment.mimeType || "application/octet-stream",
+                  ),
+                  size: Number(decrypted.attachment.size) || 0,
+                  dataB64: String(decrypted.attachment.dataB64 || ""),
+                }
+              : null,
+          preview: message.preview || null,
+          locked: false,
+        },
+        roomId,
+      );
     } catch {
       return encryptedPlaceholderMessage(message, roomId, "wrong room key");
     }
@@ -1476,7 +1779,9 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     const roomKey = roomKeyFor(id);
     if (!roomKey) {
-      throw new Error("This room needs its room token key before you can send encrypted messages.");
+      throw new Error(
+        "This room needs its room token key before you can send encrypted messages.",
+      );
     }
     return encryptRoomPayload(roomKey, id, payload);
   }
@@ -1503,7 +1808,9 @@ export function useMessenger() {
   function setRoomNote(roomId, note) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
-    const clean = String(note || "").trim().slice(0, MAX_ROOM_NOTE_LENGTH);
+    const clean = String(note || "")
+      .trim()
+      .slice(0, MAX_ROOM_NOTE_LENGTH);
     if (clean) {
       state.roomNotes[id] = clean;
     } else {
@@ -1515,7 +1822,9 @@ export function useMessenger() {
   function setLocalRoomName(roomId, name) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
-    const clean = String(name || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    const clean = String(name || "")
+      .trim()
+      .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
     if (clean && clean !== id) {
       state.localRoomNames[id] = clean;
     } else {
@@ -1619,15 +1928,33 @@ export function useMessenger() {
 
   function previewSound(key: string) {
     switch (key) {
-      case "join": playJoinSound(true); break;
-      case "leave": playLeaveSound(true); break;
-      case "mute": playMuteSound(true); break;
-      case "unmute": playUnmuteSound(true); break;
-      case "cameraOn": playCameraOnSound(true); break;
-      case "cameraOff": playCameraOffSound(true); break;
-      case "screenOn": playScreenOnSound(true); break;
-      case "screenOff": playScreenOffSound(true); break;
-      case "message": playMessageNotificationSound(); break;
+      case "join":
+        playJoinSound(true);
+        break;
+      case "leave":
+        playLeaveSound(true);
+        break;
+      case "mute":
+        playMuteSound(true);
+        break;
+      case "unmute":
+        playUnmuteSound(true);
+        break;
+      case "cameraOn":
+        playCameraOnSound(true);
+        break;
+      case "cameraOff":
+        playCameraOffSound(true);
+        break;
+      case "screenOn":
+        playScreenOnSound(true);
+        break;
+      case "screenOff":
+        playScreenOffSound(true);
+        break;
+      case "message":
+        playMessageNotificationSound();
+        break;
     }
   }
 
@@ -1638,19 +1965,31 @@ export function useMessenger() {
   }
 
   function setThemeMode(value) {
-    const next = ["dark", "light", "adaptive"].includes(String(value || "").toLowerCase()) ? String(value).toLowerCase() : "dark";
+    const next = ["dark", "light", "adaptive"].includes(
+      String(value || "").toLowerCase(),
+    )
+      ? String(value).toLowerCase()
+      : "dark";
     state.themeMode = next;
     persist();
   }
 
   function setAppAccent(value) {
-    const next = ["blue", "violet", "emerald", "rose", "amber"].includes(String(value || "").toLowerCase()) ? String(value).toLowerCase() : "blue";
+    const next = ["blue", "violet", "emerald", "rose", "amber"].includes(
+      String(value || "").toLowerCase(),
+    )
+      ? String(value).toLowerCase()
+      : "blue";
     state.appAccent = next;
     persist();
   }
 
   function setMessageStyle(value) {
-    const next = ["bubble", "discord"].includes(String(value || "").toLowerCase()) ? String(value).toLowerCase() : "bubble";
+    const next = ["bubble", "discord"].includes(
+      String(value || "").toLowerCase(),
+    )
+      ? String(value).toLowerCase()
+      : "bubble";
     state.messageStyle = next;
     persist();
   }
@@ -1673,8 +2012,20 @@ export function useMessenger() {
   }
 
   function setReconnectDelays(minDelayMs, maxDelayMs) {
-    const min = Math.max(250, Math.min(60000, Math.round(Number(minDelayMs) || RECONNECT_DEFAULTS.minDelayMs)));
-    const max = Math.max(min, Math.min(120000, Math.round(Number(maxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs)));
+    const min = Math.max(
+      250,
+      Math.min(
+        60000,
+        Math.round(Number(minDelayMs) || RECONNECT_DEFAULTS.minDelayMs),
+      ),
+    );
+    const max = Math.max(
+      min,
+      Math.min(
+        120000,
+        Math.round(Number(maxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs),
+      ),
+    );
     state.reconnectMinDelayMs = min;
     state.reconnectMaxDelayMs = max;
     persist();
@@ -1694,7 +2045,7 @@ export function useMessenger() {
     state.profile = normalizeProfile({
       ...state.profile,
       ...(description !== undefined ? { description } : {}),
-      ...(pronouns !== undefined ? { pronouns } : {})
+      ...(pronouns !== undefined ? { pronouns } : {}),
     });
     persist();
     syncClientSettings(true);
@@ -1702,7 +2053,9 @@ export function useMessenger() {
 
   async function setProfileImageFromFile(kind, file) {
     const isBanner = kind === "banner";
-    const limit = isBanner ? MAX_PROFILE_BANNER_BYTES : MAX_PROFILE_AVATAR_BYTES;
+    const limit = isBanner
+      ? MAX_PROFILE_BANNER_BYTES
+      : MAX_PROFILE_AVATAR_BYTES;
     if (!file) return false;
     if (file.size > limit) {
       state.lastError = `${isBanner ? "Banner" : "Profile image"} too large: ${formatSize(file.size)} > ${formatSize(limit)}`;
@@ -1750,17 +2103,21 @@ export function useMessenger() {
   function setCallUserVolume(username, value) {
     const key = sanitizeUsername(username);
     if (!key) return;
-    state.callUserVolumes[key] = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    state.callUserVolumes[key] = Math.max(
+      0,
+      Math.min(100, Math.round(Number(value) || 0)),
+    );
     persist();
   }
 
   function ensureNotificationAudio() {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return null;
       if (!notificationAudioContext) notificationAudioContext = new AudioCtx();
       if (notificationAudioContext.state === "suspended") {
-        notificationAudioContext.resume().catch(() => { });
+        notificationAudioContext.resume().catch(() => {});
       }
       return notificationAudioContext;
     } catch {
@@ -1793,7 +2150,9 @@ export function useMessenger() {
 
   function notificationPermission() {
     if (isTauriRuntime()) return "native";
-    return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
+    return typeof Notification === "undefined"
+      ? "unsupported"
+      : Notification.permission;
   }
 
   async function requestNotificationPermission() {
@@ -1815,7 +2174,8 @@ export function useMessenger() {
   }
 
   function showAndroidMessageNotification(message, roomId) {
-    if (document.visibilityState === "visible" && roomId === state.activeRoom) return;
+    if (document.visibilityState === "visible" && roomId === state.activeRoom)
+      return;
     if (!state.androidNotificationsEnabled) return;
     const title = `${message.username || "New message"} in ${displayRoomName(roomId) || "QxChat"}`;
     const body = messagePreviewLabel(message) || "New message";
@@ -1828,19 +2188,23 @@ export function useMessenger() {
               body,
               group: `qxchat-${roomId}`,
               autoCancel: true,
-              silent: !state.messageSoundEnabled
+              silent: !state.messageSoundEnabled,
             });
           }
         })
-        .catch(() => { });
+        .catch(() => {});
       return;
     }
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (
+      typeof Notification === "undefined" ||
+      Notification.permission !== "granted"
+    )
+      return;
     try {
       const notification = new Notification(title, {
         body,
         tag: `qxchat-${roomId}`,
-        silent: !state.messageSoundEnabled
+        silent: !state.messageSoundEnabled,
       });
       notification.onclick = () => {
         window.focus();
@@ -1856,7 +2220,7 @@ export function useMessenger() {
     return {
       audio: state.selectedAudioInputId
         ? { deviceId: { exact: state.selectedAudioInputId } }
-        : true
+        : true,
     };
   }
 
@@ -1872,7 +2236,8 @@ export function useMessenger() {
     } catch (error) {
       const selectedDeviceId = String(state.selectedAudioInputId || "").trim();
       const errorName = String(error?.name || "").trim();
-      if (!selectedDeviceId || errorName !== "OverconstrainedError") throw error;
+      if (!selectedDeviceId || errorName !== "OverconstrainedError")
+        throw error;
 
       state.selectedAudioInputId = "";
       persist();
@@ -1897,14 +2262,20 @@ export function useMessenger() {
 
     state.audioDevicesLoading = true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
       for (const track of stream.getTracks()) track.stop();
       state.audioDevicesPermission = "granted";
       await refreshAudioDevices();
       return true;
     } catch (error) {
       state.audioDevicesPermission = "denied";
-      state.lastError = mediaErrorMessage("Microphone permission is required to list audio devices", error);
+      state.lastError = mediaErrorMessage(
+        "Microphone permission is required to list audio devices",
+        error,
+      );
       await refreshAudioDevices();
       return false;
     } finally {
@@ -1932,7 +2303,12 @@ export function useMessenger() {
   }
 
   async function applyAudioOutput(audio) {
-    if (!audio || !state.selectedAudioOutputId || typeof audio.setSinkId !== "function") return;
+    if (
+      !audio ||
+      !state.selectedAudioOutputId ||
+      typeof audio.setSinkId !== "function"
+    )
+      return;
     try {
       await audio.setSinkId(state.selectedAudioOutputId);
     } catch {
@@ -1950,10 +2326,13 @@ export function useMessenger() {
     state.callAnalyser = null;
     state.callAnalyserData = null;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return stream;
       const context = new AudioCtx();
-      const monitorStream = new MediaStream(stream.getAudioTracks().map((track) => track.clone()));
+      const monitorStream = new MediaStream(
+        stream.getAudioTracks().map((track) => track.clone()),
+      );
       const monitorSource = context.createMediaStreamSource(monitorStream);
       const outboundSource = context.createMediaStreamSource(stream);
       const analyser = context.createAnalyser();
@@ -1964,7 +2343,7 @@ export function useMessenger() {
       monitorSource.connect(analyser);
       outboundSource.connect(gate);
       gate.connect(destination);
-      context.resume?.().catch?.(() => { });
+      context.resume?.().catch?.(() => {});
       state.callAnalyser = { context, analyser, gate, monitorStream };
       state.callAnalyserData = new Uint8Array(analyser.fftSize);
       return destination.stream;
@@ -1985,7 +2364,7 @@ export function useMessenger() {
     const context = state.callAnalyser?.context;
     state.callAnalyser = null;
     state.callAnalyserData = null;
-    if (context) context.close().catch(() => { });
+    if (context) context.close().catch(() => {});
   }
 
   function primeCallAudioGate() {
@@ -1999,7 +2378,12 @@ export function useMessenger() {
   function isAboveMicrophoneThreshold() {
     const threshold = Number(state.microphoneThreshold) || 0;
     if (threshold >= 100) return false;
-    if (threshold <= 0 || !state.callAnalyser?.analyser || !state.callAnalyserData) return true;
+    if (
+      threshold <= 0 ||
+      !state.callAnalyser?.analyser ||
+      !state.callAnalyserData
+    )
+      return true;
     state.callAnalyser.analyser.getByteTimeDomainData(state.callAnalyserData);
     return microphoneLevelFromSamples(state.callAnalyserData) > threshold;
   }
@@ -2029,7 +2413,12 @@ export function useMessenger() {
     if (open && threshold >= 100) {
       open = false;
       callGateOpenUntil = 0;
-    } else if (open && threshold > 0 && state.callAnalyser?.analyser && state.callAnalyserData) {
+    } else if (
+      open &&
+      threshold > 0 &&
+      state.callAnalyser?.analyser &&
+      state.callAnalyserData
+    ) {
       const now = Date.now();
       if (isAboveMicrophoneThreshold()) callGateOpenUntil = now + 220;
       open = now <= callGateOpenUntil;
@@ -2071,7 +2460,7 @@ export function useMessenger() {
     const context = micTestAnalyser?.context;
     micTestAnalyser = null;
     micTestAnalyserData = null;
-    if (context) context.close().catch(() => { });
+    if (context) context.close().catch(() => {});
     state.micTestActive = false;
     state.micTestLoading = false;
     state.micTestLevel = 0;
@@ -2090,12 +2479,14 @@ export function useMessenger() {
 
     state.micTestLoading = true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(audioConstraints());
+      const stream =
+        await navigator.mediaDevices.getUserMedia(audioConstraints());
       state.audioDevicesPermission = "granted";
       await refreshAudioDevices();
       micTestStream = stream;
 
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const context = new AudioCtx();
         const source = context.createMediaStreamSource(stream);
@@ -2111,11 +2502,16 @@ export function useMessenger() {
       micTestAudio.srcObject = stream;
       micTestAudio.volume = 0.75;
       await applyAudioOutput(micTestAudio);
-      micTestAudio.play().catch(() => { });
+      micTestAudio.play().catch(() => {});
 
       state.micTestActive = true;
       const tick = () => {
-        if (!state.micTestActive || !micTestAnalyser?.analyser || !micTestAnalyserData) return;
+        if (
+          !state.micTestActive ||
+          !micTestAnalyser?.analyser ||
+          !micTestAnalyserData
+        )
+          return;
         micTestAnalyser.analyser.getByteTimeDomainData(micTestAnalyserData);
         const nextLevel = microphoneLevelFromSamples(micTestAnalyserData);
         micTestSmoothedLevel = smoothLevel(micTestSmoothedLevel, nextLevel);
@@ -2146,7 +2542,12 @@ export function useMessenger() {
       existing.lastTimestamp = ts || existing.lastTimestamp || 0;
       existing.lastSender = sender;
     } else {
-      state.rooms.push({ roomId: id, lastPreview: preview, lastTimestamp: ts, lastSender: sender });
+      state.rooms.push({
+        roomId: id,
+        lastPreview: preview,
+        lastTimestamp: ts,
+        lastSender: sender,
+      });
     }
     persist();
   }
@@ -2158,7 +2559,9 @@ export function useMessenger() {
       try {
         const url = attachmentUrlCache.get(message.messageId);
         if (url) URL.revokeObjectURL(url);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       attachmentUrlCache.delete(message.messageId);
     }
     delete state.messagesByRoom[id];
@@ -2204,7 +2607,8 @@ export function useMessenger() {
 
     if (!typing) {
       delete state.typingByRoom[id][user];
-      if (!Object.keys(state.typingByRoom[id]).length) delete state.typingByRoom[id];
+      if (!Object.keys(state.typingByRoom[id]).length)
+        delete state.typingByRoom[id];
       return;
     }
 
@@ -2212,7 +2616,8 @@ export function useMessenger() {
     const timer = setTimeout(() => {
       if (!state.typingByRoom[id]) return;
       delete state.typingByRoom[id][user];
-      if (!Object.keys(state.typingByRoom[id]).length) delete state.typingByRoom[id];
+      if (!Object.keys(state.typingByRoom[id]).length)
+        delete state.typingByRoom[id];
       typingExpiryTimers.delete(timerKey);
     }, TYPING_REMOTE_TTL_MS);
     typingExpiryTimers.set(timerKey, timer);
@@ -2220,14 +2625,21 @@ export function useMessenger() {
 
   function setTyping(active) {
     const roomId = sanitizeRoomId(state.activeRoom);
-    const canBroadcast = Boolean(state.typingIndicatorsEnabled && state.connected && state.identified && roomId && state.joinedRooms.includes(roomId));
+    const canBroadcast = Boolean(
+      state.typingIndicatorsEnabled &&
+      state.connected &&
+      state.identified &&
+      roomId &&
+      state.joinedRooms.includes(roomId),
+    );
 
     if (!active || !canBroadcast || !String(state.messageInput || "").trim()) {
       if (typingIdleTimer) {
         clearTimeout(typingIdleTimer);
         typingIdleTimer = null;
       }
-      if (typingActiveRoomId) send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
+      if (typingActiveRoomId)
+        send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
       typingActiveRoomId = "";
       typingLastSentAt = 0;
       return;
@@ -2306,7 +2718,7 @@ export function useMessenger() {
       serverClearsLocalMessages: state.serverClearsLocalMessages,
       status: sanitizePresenceStatus(state.status),
       clientId: localClientId,
-      platform: currentLocalPlatform()
+      platform: currentLocalPlatform(),
     };
     if (includeProfile) d.profile = normalizeProfile(state.profile);
     send({ op: 8, d });
@@ -2347,7 +2759,10 @@ export function useMessenger() {
     touchRoom(id);
     persist();
     if (state.connected && state.identified) {
-      if (!state.joinedRooms.includes(id) && !state.pendingJoinRooms.includes(id)) {
+      if (
+        !state.joinedRooms.includes(id) &&
+        !state.pendingJoinRooms.includes(id)
+      ) {
         requestJoin(id);
       } else {
         scrollToBottom();
@@ -2359,7 +2774,11 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     if (!id || !isValidRoomId(id)) return;
 
-    if (!state.connected || !state.identified || !state.joinedRooms.includes(id)) {
+    if (
+      !state.connected ||
+      !state.identified ||
+      !state.joinedRooms.includes(id)
+    ) {
       removeRoom(id);
       return;
     }
@@ -2486,8 +2905,8 @@ export function useMessenger() {
           platform: currentLocalPlatform(),
           v: "QxpClient",
           isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
-          isSecure: window.isSecureContext
-        }
+          isSecure: window.isSecureContext,
+        },
       });
     });
     state.ws.addEventListener("message", ({ data }) => {
@@ -2515,12 +2934,24 @@ export function useMessenger() {
   }
 
   function scheduleReconnect() {
-    if (!state.autoReconnectEnabled || state.manualClose || !state.authToken || !sanitizeUsername(state.username)) return;
+    if (
+      !state.autoReconnectEnabled ||
+      state.manualClose ||
+      !state.authToken ||
+      !sanitizeUsername(state.username)
+    )
+      return;
     if (state.reconnectTimer || state.ws || state.connected) return;
-    const minDelay = Math.max(250, Number(state.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs);
-    const maxDelay = Math.max(minDelay, Number(state.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs);
+    const minDelay = Math.max(
+      250,
+      Number(state.reconnectMinDelayMs) || RECONNECT_DEFAULTS.minDelayMs,
+    );
+    const maxDelay = Math.max(
+      minDelay,
+      Number(state.reconnectMaxDelayMs) || RECONNECT_DEFAULTS.maxDelayMs,
+    );
     const attempt = Math.max(0, Number(state.reconnectAttempts) || 0);
-    const delay = Math.min(maxDelay, minDelay * (2 ** Math.min(attempt, 6)));
+    const delay = Math.min(maxDelay, minDelay * 2 ** Math.min(attempt, 6));
     state.reconnectAttempts = attempt + 1;
     state.reconnectTimer = setTimeout(() => {
       state.reconnectTimer = null;
@@ -2557,16 +2988,23 @@ export function useMessenger() {
       editCurrentMessage(text);
       return;
     }
-    if (state.connected && state.identified && state.joinedRooms.includes(roomId)) {
-      buildEncryptedOutgoingMessage(roomId, { text: text.slice(0, MESSAGE_LIMIT), attachment: null })
+    if (
+      state.connected &&
+      state.identified &&
+      state.joinedRooms.includes(roomId)
+    ) {
+      buildEncryptedOutgoingMessage(roomId, {
+        text: text.slice(0, MESSAGE_LIMIT),
+        attachment: null,
+      })
         .then((encrypted) => {
           const d: any = { text: "", gameId: roomId, encrypted };
-          if (state.replyingTo?.messageId) d.replyToMessageId = state.replyingTo.messageId;
+          if (state.replyingTo?.messageId)
+            d.replyToMessageId = state.replyingTo.messageId;
           send({ op: 7, d });
           state.messageInput = "";
           state.replyingTo = null;
           setTyping(false);
-
         })
         .catch((error) => {
           state.lastError = error?.message || "Message encryption failed.";
@@ -2594,7 +3032,9 @@ export function useMessenger() {
     }
 
     try {
-      const shouldArchive = state.autoArchiveUploads && !String(caption || "").startsWith("[voice:");
+      const shouldArchive =
+        state.autoArchiveUploads &&
+        !String(caption || "").startsWith("[voice:");
       const uploadFile = shouldArchive ? await archiveFileAsZip(file) : file;
       if (uploadFile.size > MAX_ATTACHMENT_BYTES) {
         state.lastError = `File too large after zip archive: ${uploadFile.name} (${formatSize(uploadFile.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
@@ -2607,17 +3047,19 @@ export function useMessenger() {
           filename: String(uploadFile.name || "file").slice(0, 128),
           mimeType: uploadFile.type || "application/octet-stream",
           size: uploadFile.size,
-          dataB64
-        }
+          dataB64,
+        },
       });
       send({
         op: 7,
         d: {
           text: "",
           gameId: roomId,
-          ...(state.replyingTo?.messageId ? { replyToMessageId: state.replyingTo.messageId } : {}),
-          encrypted
-        }
+          ...(state.replyingTo?.messageId
+            ? { replyToMessageId: state.replyingTo.messageId }
+            : {}),
+          encrypted,
+        },
       });
       state.replyingTo = null;
     } catch (err) {
@@ -2643,10 +3085,17 @@ export function useMessenger() {
       refreshAudioDevices();
       state.audioDevicesPermission = "granted";
       const mimeType = pickAudioMime();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
       const chunks = [];
-      recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-      recorder.onerror = () => { state.lastError = "Recording error."; };
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+      };
+      recorder.onerror = () => {
+        state.lastError = "Recording error.";
+      };
       recorder.start();
       state.recording = {
         recorder,
@@ -2655,7 +3104,7 @@ export function useMessenger() {
         chunks,
         startedAt: Date.now(),
         mimeType,
-        ownsStream: !reusingCallStream
+        ownsStream: !reusingCallStream,
       };
       tickRecording();
     } catch (err) {
@@ -2665,7 +3114,9 @@ export function useMessenger() {
 
   function tickRecording() {
     if (!state.recording) return;
-    state.recordingElapsed = Math.floor((Date.now() - state.recording.startedAt) / 1000);
+    state.recordingElapsed = Math.floor(
+      (Date.now() - state.recording.startedAt) / 1000,
+    );
     setTimeout(tickRecording, 250);
   }
 
@@ -2677,19 +3128,31 @@ export function useMessenger() {
     try {
       await new Promise<void>((resolve) => {
         rec.recorder.onstop = resolve;
-        try { rec.recorder.stop(); } catch { resolve(); }
+        try {
+          rec.recorder.stop();
+        } catch {
+          resolve();
+        }
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     // Only keep a shared stream alive while the call still owns it.
-    if (rec.ownsStream || rec.stream !== state.callStream) stopStreamTracks(rec.stream);
+    if (rec.ownsStream || rec.stream !== state.callStream)
+      stopStreamTracks(rec.stream);
     if (cancel) return;
     if (!rec.chunks.length) return;
 
     const blob = new Blob(rec.chunks, { type: rec.mimeType || "audio/webm" });
     if (blob.size < 200) return;
     const ext = (rec.mimeType || "audio/webm").includes("ogg") ? "ogg" : "webm";
-    const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: blob.type });
-    await sendAttachment(file, `[voice:${formatDuration(Math.floor(blob.size / 6000))}]`);
+    const file = new File([blob], `voice-${Date.now()}.${ext}`, {
+      type: blob.type,
+    });
+    await sendAttachment(
+      file,
+      `[voice:${formatDuration(Math.floor(blob.size / 6000))}]`,
+    );
   }
 
   function pickAudioMime() {
@@ -2698,10 +3161,11 @@ export function useMessenger() {
       "audio/webm;codecs=opus",
       "audio/webm",
       "audio/ogg;codecs=opus",
-      "audio/mp4"
+      "audio/mp4",
     ];
     for (const c of candidates) {
-      if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+      if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c))
+        return c;
     }
     return "";
   }
@@ -2716,7 +3180,7 @@ export function useMessenger() {
     return {
       audio: state.inCall && !state.callMuted,
       camera: Boolean(state.callCameraEnabled),
-      screen: Boolean(state.callScreenEnabled)
+      screen: Boolean(state.callScreenEnabled),
     };
   }
 
@@ -2725,8 +3189,20 @@ export function useMessenger() {
     state.localCallMedia = media;
     callManager?.setLocalMedia(media);
     const platform = currentLocalPlatform();
-    send({ op: 98, d: { isVoiceChat, media, clientId: localClientId, platform } });
-    send({ op: 110, d: { gameId: state.callRoom || state.activeRoom, isVoiceChat, media, clientId: localClientId, platform } });
+    send({
+      op: 98,
+      d: { isVoiceChat, media, clientId: localClientId, platform },
+    });
+    send({
+      op: 110,
+      d: {
+        gameId: state.callRoom || state.activeRoom,
+        isVoiceChat,
+        media,
+        clientId: localClientId,
+        platform,
+      },
+    });
   }
 
   function rememberClientPlatform(username, platform) {
@@ -2741,10 +3217,15 @@ export function useMessenger() {
   function normalizeRoomUsers(players) {
     const users = new Set<string>();
     for (const player of Array.isArray(players) ? players : []) {
-      const user = sanitizeUsername(typeof player === "string" ? player : player?.user || player?.username || player?.name);
+      const user = sanitizeUsername(
+        typeof player === "string"
+          ? player
+          : player?.user || player?.username || player?.name,
+      );
       if (!user) continue;
       users.add(user);
-      if (typeof player === "object" && player?.platform) rememberClientPlatform(user, player.platform);
+      if (typeof player === "object" && player?.platform)
+        rememberClientPlatform(user, player.platform);
     }
     return [...users];
   }
@@ -2752,7 +3233,8 @@ export function useMessenger() {
   function platformsForUser(username) {
     const key = sanitizeUsername(username);
     const platforms = new Set(state.clientPlatformsByUser[key] || []);
-    if (key === sanitizeUsername(state.username)) platforms.add(currentLocalPlatform());
+    if (key === sanitizeUsername(state.username))
+      platforms.add(currentLocalPlatform());
     return [...platforms].map(sanitizePlatform).filter(Boolean).sort();
   }
 
@@ -2764,9 +3246,15 @@ export function useMessenger() {
     for (const room of state.rooms) {
       const roomId = sanitizeRoomId(room?.roomId);
       if (!roomId || !isValidRoomId(roomId)) continue;
-      const users = new Set((state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean));
+      const users = new Set(
+        (state.usersByRoom[roomId] || []).map(sanitizeUsername).filter(Boolean),
+      );
       if (users.has(me) && users.has(target)) {
-        matches.push({ roomId, name: displayRoomName(roomId), icon: roomIcon(roomId) });
+        matches.push({
+          roomId,
+          name: displayRoomName(roomId),
+          icon: roomIcon(roomId),
+        });
       }
     }
     return matches;
@@ -2779,7 +3267,8 @@ export function useMessenger() {
     for (const user of state.voiceMembersByRoom[roomId] || []) {
       if (!user || user === me) continue;
       const clients = callClients[user] || [""];
-      for (const clientId of clients.length ? clients : [""]) callManager.connectPeer(user, clientId);
+      for (const clientId of clients.length ? clients : [""])
+        callManager.connectPeer(user, clientId);
     }
   }
 
@@ -2788,7 +3277,7 @@ export function useMessenger() {
     if (!key) return;
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
       ...(state.remoteCallMediaByUser[key] || EMPTY_CALL_MEDIA),
-      ...(media || {})
+      ...(media || {}),
     });
   }
 
@@ -2801,8 +3290,11 @@ export function useMessenger() {
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
       ...existing,
       audio: Boolean(remote.media?.audio),
-      camera: existing.screen && !existing.camera && inferred.camera ? false : inferred.camera ?? existing.camera,
-      screen: existing.screen
+      camera:
+        existing.screen && !existing.camera && inferred.camera
+          ? false
+          : (inferred.camera ?? existing.camera),
+      screen: existing.screen,
     });
   }
 
@@ -2825,7 +3317,12 @@ export function useMessenger() {
 
   function remoteVideoStream(username) {
     const stream = remoteCallStream(username);
-    if (!stream?.getVideoTracks().some((track) => track.readyState === "live" && !track.muted)) return null;
+    if (
+      !stream
+        ?.getVideoTracks()
+        .some((track) => track.readyState === "live" && !track.muted)
+    )
+      return null;
     return stream;
   }
 
@@ -2869,9 +3366,10 @@ export function useMessenger() {
         clientId: localClientId,
         platform,
         localStream: outboundStream,
-        sendSignal: (payload: CallSignalPayload) => send({ op: 111, d: payload }),
+        sendSignal: (payload: CallSignalPayload) =>
+          send({ op: 111, d: payload }),
         onRemoteMedia: storeRemoteCallMedia,
-        onRemoteLeft: removeRemoteCallMedia
+        onRemoteLeft: removeRemoteCallMedia,
       });
       // Register self as voice member locally so our tile shows up immediately.
       const me = sanitizeUsername(state.username);
@@ -2879,7 +3377,8 @@ export function useMessenger() {
         const members = new Set(state.voiceMembersByRoom[roomId] || []);
         members.add(me);
         state.voiceMembersByRoom[roomId] = [...members];
-        if (!state.callClientsByRoom[roomId]) state.callClientsByRoom[roomId] = {};
+        if (!state.callClientsByRoom[roomId])
+          state.callClientsByRoom[roomId] = {};
         state.callClientsByRoom[roomId][me] = [localClientId];
         rememberClientPlatform(me, platform);
       }
@@ -2900,7 +3399,8 @@ export function useMessenger() {
     state.callMuted = !state.callMuted;
     updateCallAudioGate();
     publishCallState(true);
-    if (state.callMuted) playMuteSound(); else playUnmuteSound();
+    if (state.callMuted) playMuteSound();
+    else playUnmuteSound();
   }
 
   async function toggleCamera() {
@@ -2916,7 +3416,10 @@ export function useMessenger() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
       stopStreamTracks(state.cameraStream);
       state.cameraStream = stream;
       state.callCameraEnabled = true;
@@ -2954,13 +3457,21 @@ export function useMessenger() {
     }
 
     try {
-      if (!screenShareAvailable.value || !navigator.mediaDevices?.getDisplayMedia) {
-        const message = screenShareUnavailableReason.value || "Screen sharing is not available in this browser.";
+      if (
+        !screenShareAvailable.value ||
+        !navigator.mediaDevices?.getDisplayMedia
+      ) {
+        const message =
+          screenShareUnavailableReason.value ||
+          "Screen sharing is not available in this browser.";
         state.lastError = message;
         showToast(message);
         return;
       }
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
       stopStreamTracks(state.screenStream);
       state.screenStream = stream;
       state.callScreenEnabled = true;
@@ -2983,7 +3494,10 @@ export function useMessenger() {
   }
 
   function tickCall(startedAt) {
-    if (!state.inCall) { state.callElapsed = 0; return; }
+    if (!state.inCall) {
+      state.callElapsed = 0;
+      return;
+    }
     state.callElapsed = Math.floor((Date.now() - startedAt) / 1000);
     setTimeout(() => tickCall(startedAt), 500);
   }
@@ -3005,8 +3519,15 @@ export function useMessenger() {
     }
     const rawCallStream = state.callStream;
     const outboundStream = callOutboundStream;
-    const memoStream = state.recording && !state.recording.ownsStream ? state.recording.stream : null;
-    if (outboundStream && outboundStream !== rawCallStream && outboundStream !== memoStream) {
+    const memoStream =
+      state.recording && !state.recording.ownsStream
+        ? state.recording.stream
+        : null;
+    if (
+      outboundStream &&
+      outboundStream !== rawCallStream &&
+      outboundStream !== memoStream
+    ) {
       stopStreamTracks(outboundStream);
     }
     callOutboundStream = null;
@@ -3015,7 +3536,10 @@ export function useMessenger() {
       if (rawCallStream !== memoStream) stopStreamTracks(rawCallStream);
       state.callStream = null;
     }
-    if (wasInCall) { publishCallState(false); playLeaveSound(); }
+    if (wasInCall) {
+      publishCallState(false);
+      playLeaveSound();
+    }
     state.inCall = false;
     state.voiceEnabled = false;
     state.callRoom = "";
@@ -3028,7 +3552,9 @@ export function useMessenger() {
     // Remove self from voice members locally.
     const me = sanitizeUsername(state.username);
     if (me && roomId) {
-      const members = (state.voiceMembersByRoom[roomId] || []).filter((u) => u !== me);
+      const members = (state.voiceMembersByRoom[roomId] || []).filter(
+        (u) => u !== me,
+      );
       state.voiceMembersByRoom[roomId] = members;
       delete state.callClientsByRoom[roomId]?.[me];
     }
@@ -3064,7 +3590,13 @@ export function useMessenger() {
         state.callClientsByRoom[roomId][user] = [...clients];
       } else {
         delete state.callClientsByRoom[roomId][user];
-        if (user !== me || clientId === localClientId || !state.inCall || state.callRoom !== roomId) members.delete(user);
+        if (
+          user !== me ||
+          clientId === localClientId ||
+          !state.inCall ||
+          state.callRoom !== roomId
+        )
+          members.delete(user);
         callManager?.removePeer(user, clientId);
         if (user !== me) removeRemoteCallMedia(user);
       }
@@ -3076,8 +3608,14 @@ export function useMessenger() {
     if (!state.inCall || !callManager) return;
     const from = sanitizeUsername(d?.from);
     const fromClientId = sanitizeClientId(d?.fromClientId);
-    if (from && from === sanitizeUsername(state.username) && (!fromClientId || fromClientId === localClientId)) return;
-    if (d?.toClientId && sanitizeClientId(d.toClientId) !== localClientId) return;
+    if (
+      from &&
+      from === sanitizeUsername(state.username) &&
+      (!fromClientId || fromClientId === localClientId)
+    )
+      return;
+    if (d?.toClientId && sanitizeClientId(d.toClientId) !== localClientId)
+      return;
     if (d?.fromPlatform) rememberClientPlatform(from, d.fromPlatform);
     callManager.handleSignal({
       gameId: sanitizeRoomId(d?.gameId),
@@ -3088,7 +3626,7 @@ export function useMessenger() {
       fromPlatform: sanitizePlatform(d?.fromPlatform),
       type: d?.type,
       sdp: typeof d?.sdp === "string" ? d.sdp : undefined,
-      candidate: d?.candidate
+      candidate: d?.candidate,
     });
   }
 
@@ -3100,7 +3638,8 @@ export function useMessenger() {
       if (!state.speakingByRoom[roomId]) state.speakingByRoom[roomId] = {};
       state.speakingByRoom[roomId][fromUser] = Date.now();
       const members = state.voiceMembersByRoom[roomId] || [];
-      if (!members.includes(fromUser)) state.voiceMembersByRoom[roomId] = [...members, fromUser];
+      if (!members.includes(fromUser))
+        state.voiceMembersByRoom[roomId] = [...members, fromUser];
     }
   }
 
@@ -3108,7 +3647,7 @@ export function useMessenger() {
     const roomId = sanitizeRoomId(d?.gameId);
     if (!roomId) return;
     const user = sanitizeUsername(d?.user);
-    if (!user || d?.ok) return;    // our own op 98 ack has {ok} but no user — skip
+    if (!user || d?.ok) return; // our own op 98 ack has {ok} but no user — skip
     if (d?.media) {
       handleCallState(d);
       return;
@@ -3131,7 +3670,10 @@ export function useMessenger() {
   async function changeUsername(newName) {
     const clean = sanitizeUsername(newName);
     const validation = validateUsername(clean);
-    if (validation) { state.lastError = validation; return false; }
+    if (validation) {
+      state.lastError = validation;
+      return false;
+    }
 
     const previous = sanitizeUsername(state.username);
     if (clean === previous) return true;
@@ -3139,7 +3681,7 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/auth/username", {
         method: "POST",
-        body: JSON.stringify({ username: clean })
+        body: JSON.stringify({ username: clean }),
       });
 
       if (data?.user) {
@@ -3150,14 +3692,21 @@ export function useMessenger() {
 
         if (previous && next && previous !== next) {
           for (const roomId of Object.keys(state.usersByRoom)) {
-            state.usersByRoom[roomId] = (state.usersByRoom[roomId] || []).map((user) =>
-              sanitizeUsername(user) === previous ? next : sanitizeUsername(user)
+            state.usersByRoom[roomId] = (state.usersByRoom[roomId] || []).map(
+              (user) =>
+                sanitizeUsername(user) === previous
+                  ? next
+                  : sanitizeUsername(user),
             );
           }
 
           for (const roomId of Object.keys(state.voiceMembersByRoom)) {
-            state.voiceMembersByRoom[roomId] = (state.voiceMembersByRoom[roomId] || []).map((user) =>
-              sanitizeUsername(user) === previous ? next : sanitizeUsername(user)
+            state.voiceMembersByRoom[roomId] = (
+              state.voiceMembersByRoom[roomId] || []
+            ).map((user) =>
+              sanitizeUsername(user) === previous
+                ? next
+                : sanitizeUsername(user),
             );
           }
 
@@ -3178,15 +3727,18 @@ export function useMessenger() {
             delete state.statusesByUser[previous];
           }
           if (state.clientPlatformsByUser[previous]) {
-            state.clientPlatformsByUser[next] = state.clientPlatformsByUser[previous];
+            state.clientPlatformsByUser[next] =
+              state.clientPlatformsByUser[previous];
             delete state.clientPlatformsByUser[previous];
           }
           if (state.remoteCallMediaByUser[previous]) {
-            state.remoteCallMediaByUser[next] = state.remoteCallMediaByUser[previous];
+            state.remoteCallMediaByUser[next] =
+              state.remoteCallMediaByUser[previous];
             delete state.remoteCallMediaByUser[previous];
           }
           if (state.remoteCallStreamsByUser[previous]) {
-            state.remoteCallStreamsByUser[next] = state.remoteCallStreamsByUser[previous];
+            state.remoteCallStreamsByUser[next] =
+              state.remoteCallStreamsByUser[previous];
             delete state.remoteCallStreamsByUser[previous];
           }
         }
@@ -3206,7 +3758,11 @@ export function useMessenger() {
     if (state.recording) stopRecordingVoiceMemo(true);
     disconnect();
     for (const url of attachmentUrlCache.values()) {
-      try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
     }
     attachmentUrlCache.clear();
     state.rooms = [];
@@ -3229,7 +3785,11 @@ export function useMessenger() {
     if (state.connected && state.identified && message?.messageId) {
       send({
         op: 19,
-        d: { messageId: message.messageId, reaction: emoji, gameId: message.roomId || state.activeRoom }
+        d: {
+          messageId: message.messageId,
+          reaction: emoji,
+          gameId: message.roomId || state.activeRoom,
+        },
       });
     }
   }
@@ -3238,19 +3798,20 @@ export function useMessenger() {
     if (!state.connected || !state.identified || !message?.messageId) return;
     const gameId = message.roomId || state.activeRoom;
     if (!gameId) return;
-    if (state.editingMessage?.messageId === message.messageId) cancelEditMessage();
+    if (state.editingMessage?.messageId === message.messageId)
+      cancelEditMessage();
     send({ op: 21, d: { messageId: message.messageId, gameId } });
   }
 
   function canEditMessage(message) {
     return Boolean(
-      message
-      && isOwnMessage(message)
-      && !message.deleted
-      && !message.locked
-      && !message.system
-      && !message.attachment
-      && message.kind === "text"
+      message &&
+      isOwnMessage(message) &&
+      !message.deleted &&
+      !message.locked &&
+      !message.system &&
+      !message.attachment &&
+      message.kind === "text",
     );
   }
 
@@ -3262,11 +3823,13 @@ export function useMessenger() {
     state.editingMessage = {
       messageId: message.messageId,
       roomId,
-      text: message.rawText || message.text || ""
+      text: message.rawText || message.text || "",
     };
     state.messageInput = message.rawText || message.text || "";
     nextTick(() => {
-      const input = document.querySelector(".composer__input textarea") as HTMLTextAreaElement | null;
+      const input = document.querySelector(
+        ".composer__input textarea",
+      ) as HTMLTextAreaElement | null;
       input?.focus();
       try {
         input?.setSelectionRange(input.value.length, input.value.length);
@@ -3285,9 +3848,15 @@ export function useMessenger() {
     const draft = state.editingMessage;
     if (!draft?.messageId) return;
     const roomId = sanitizeRoomId(draft.roomId || state.activeRoom);
-    const nextText = String(text || "").trim().slice(0, MESSAGE_LIMIT);
+    const nextText = String(text || "")
+      .trim()
+      .slice(0, MESSAGE_LIMIT);
     if (!roomId || !nextText) return;
-    if (!state.connected || !state.identified || !state.joinedRooms.includes(roomId)) {
+    if (
+      !state.connected ||
+      !state.identified ||
+      !state.joinedRooms.includes(roomId)
+    ) {
       state.lastError = "Not joined to this room yet.";
       showToast(state.lastError);
       return;
@@ -3301,8 +3870,8 @@ export function useMessenger() {
             messageId: draft.messageId,
             gameId: roomId,
             text: "",
-            encrypted
-          }
+            encrypted,
+          },
         });
         state.messageInput = "";
         state.editingMessage = null;
@@ -3343,7 +3912,7 @@ export function useMessenger() {
     if (!state.authToken) throw new Error("Not authenticated.");
     await apiRequest("/api/auth/delete", {
       method: "POST",
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ password }),
     });
     logoutLocal();
   }
@@ -3352,7 +3921,11 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     const target = String(messageId || "");
     if (!id || !target) return null;
-    return (state.messagesByRoom[id] || []).find((message) => message.messageId === target) || null;
+    return (
+      (state.messagesByRoom[id] || []).find(
+        (message) => message.messageId === target,
+      ) || null
+    );
   }
 
   function startReply(message) {
@@ -3362,13 +3935,14 @@ export function useMessenger() {
       messageId: message.messageId,
       roomId: message.roomId || state.activeRoom,
       username: message.username || "",
-      text: message.kind === "image"
-        ? "Photo"
-        : message.kind === "video"
-          ? "Video"
-          : message.kind === "file"
-            ? "File attachment"
-            : message.text || ""
+      text:
+        message.kind === "image"
+          ? "Photo"
+          : message.kind === "video"
+            ? "Video"
+            : message.kind === "file"
+              ? "File attachment"
+              : message.text || "",
     };
   }
 
@@ -3395,8 +3969,20 @@ export function useMessenger() {
   }
 
   function requestEncryptedLinkPreview(message) {
-    if (!message?.encrypted || message.preview || message.deleted || message.locked) return;
-    if (!state.connected || !state.identified || !state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    if (
+      !message?.encrypted ||
+      message.preview ||
+      message.deleted ||
+      message.locked
+    )
+      return;
+    if (
+      !state.connected ||
+      !state.identified ||
+      !state.ws ||
+      state.ws.readyState !== WebSocket.OPEN
+    )
+      return;
 
     const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
     const messageId = String(message.messageId || "");
@@ -3414,8 +4000,8 @@ export function useMessenger() {
       d: {
         gameId: roomId,
         messageId,
-        url
-      }
+        url,
+      },
     });
   }
 
@@ -3431,17 +4017,25 @@ export function useMessenger() {
       const index = arr.findIndex((m) => m.messageId === messageId);
       if (index === -1) continue;
       // Drop any associated Blob URL so it can be GC'd.
-      try { attachmentUrlCache.get(messageId) && URL.revokeObjectURL(attachmentUrlCache.get(messageId)); } catch { /* ignore */ }
+      try {
+        attachmentUrlCache.get(messageId) &&
+          URL.revokeObjectURL(attachmentUrlCache.get(messageId));
+      } catch {
+        /* ignore */
+      }
       attachmentUrlCache.delete(messageId);
-      arr[index] = normalizeMessage({
-        ...arr[index],
-        text: "",
-        attachment: null,
-        preview: null,
-        reactions: [],
-        editedAt: 0,
-        deleted: true
-      }, id);
+      arr[index] = normalizeMessage(
+        {
+          ...arr[index],
+          text: "",
+          attachment: null,
+          preview: null,
+          reactions: [],
+          editedAt: 0,
+          deleted: true,
+        },
+        id,
+      );
       persist();
       return;
     }
@@ -3456,7 +4050,8 @@ export function useMessenger() {
     if (index === -1) {
       if (isDuplicateRecentMessage(arr, normalized)) return false;
       arr.push(normalized);
-      if (arr.length > MAX_HISTORY_PER_ROOM) arr.splice(0, arr.length - MAX_HISTORY_PER_ROOM);
+      if (arr.length > MAX_HISTORY_PER_ROOM)
+        arr.splice(0, arr.length - MAX_HISTORY_PER_ROOM);
       return true;
     } else {
       arr[index] = normalized;
@@ -3469,8 +4064,10 @@ export function useMessenger() {
     const normalized = await hydrateIncomingMessage(message, roomId);
     const me = sanitizeUsername(state.username);
     if (me && !isOwnMessage(normalized)) {
-      normalized.mentioned = new RegExp(`(^|[^a-z0-9_.])@${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^a-z0-9_.])`, "i")
-        .test(String(normalized.text || ""));
+      normalized.mentioned = new RegExp(
+        `(^|[^a-z0-9_.])@${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^a-z0-9_.])`,
+        "i",
+      ).test(String(normalized.text || ""));
     }
     const added = pushMessageToRoom(roomId, normalized);
     touchRoom(roomId, normalized);
@@ -3496,7 +4093,10 @@ export function useMessenger() {
       if (!arr) continue;
       const index = arr.findIndex((m) => m.messageId === messageId);
       if (index !== -1) {
-        arr[index] = normalizeMessage({ ...arr[index], reactions: payload.reactions || [] }, id);
+        arr[index] = normalizeMessage(
+          { ...arr[index], reactions: payload.reactions || [] },
+          id,
+        );
         persist();
         return;
       }
@@ -3523,7 +4123,21 @@ export function useMessenger() {
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
         state.identified = true;
-        const persistedJoinedRooms = [...new Set((state.joinedRooms || []).map((roomId) => sanitizeRoomId(roomId)).filter((roomId) => isValidRoomId(roomId)))];
+        const persistedJoinedRooms = [
+          ...new Set(
+            (state.joinedRooms || [])
+              .map((r) => sanitizeRoomId(r))
+              .filter((r) => isValidRoomId(r)),
+          ),
+        ];
+        const allKnownRooms = [
+          ...new Set([
+            ...persistedJoinedRooms,
+            ...(state.rooms || [])
+              .map((r) => sanitizeRoomId(r.roomId))
+              .filter((r) => isValidRoomId(r)),
+          ]),
+        ];
         state.joinedRooms = [];
         state.pendingJoinRooms = [];
         state.usersByRoom = {};
@@ -3533,9 +4147,17 @@ export function useMessenger() {
         if (d?.profile) state.profile = normalizeProfile(d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
         state.systemBanner = "";
-        for (const roomId of persistedJoinedRooms) touchRoom(roomId);
-        for (const roomId of persistedJoinedRooms) requestJoin(roomId);
-        if (state.activeRoom && !persistedJoinedRooms.includes(state.activeRoom)) touchRoom(state.activeRoom);
+        for (const roomId of allKnownRooms) touchRoom(roomId);
+        for (const roomId of allKnownRooms) requestJoin(roomId);
+        if (
+          state.activeRoom &&
+          !persistedJoinedRooms.includes(state.activeRoom)
+        )
+          touchRoom(state.activeRoom);
+        allKnownRooms.forEach((roomId, index) => {
+          if (index === 0) requestJoin(roomId);
+          else setTimeout(() => requestJoin(roomId), index * 30);
+        });
         break;
       case 3:
         handleJoinOp(d);
@@ -3575,7 +4197,9 @@ export function useMessenger() {
         applyPreview(d);
         break;
       case 24:
-        state.lastError = d?.reason ? `Blacklisted: ${d.reason}` : "Blacklisted.";
+        state.lastError = d?.reason
+          ? `Blacklisted: ${d.reason}`
+          : "Blacklisted.";
         disconnect();
         break;
       case 25:
@@ -3613,9 +4237,12 @@ export function useMessenger() {
           const key = sanitizeUsername(d?.username || d?.user);
           if (key) {
             if (d?.platform) rememberClientPlatform(key, d.platform);
-            else if (typeof d?.isMobile === "boolean") rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
-            if (d?.profile) state.profilesByUser[key] = normalizeProfile(d.profile);
-            if (d?.status) state.statusesByUser[key] = sanitizePresenceStatus(d.status);
+            else if (typeof d?.isMobile === "boolean")
+              rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
+            if (d?.profile)
+              state.profilesByUser[key] = normalizeProfile(d.profile);
+            if (d?.status)
+              state.statusesByUser[key] = sanitizePresenceStatus(d.status);
           }
         }
         break;
@@ -3647,7 +4274,10 @@ export function useMessenger() {
 
     if (d?.error) {
       state.joinedRooms = state.joinedRooms.filter((r) => r !== roomId);
-      if (d.error === "Join the room first" || d.error === "Not joined to this room yet.") {
+      if (
+        d.error === "Join the room first" ||
+        d.error === "Not joined to this room yet."
+      ) {
         delete state.usersByRoom[roomId];
         delete state.voiceMembersByRoom[roomId];
         delete state.callClientsByRoom[roomId];
@@ -3660,8 +4290,7 @@ export function useMessenger() {
     if (d?.ok && !d?.system) {
       if (!state.joinedRooms.includes(roomId)) state.joinedRooms.push(roomId);
       touchRoom(roomId);
-      if (roomId === state.activeRoom) fetchHistory(roomId);
-      else if (!state.messagesByRoom[roomId]?.length) fetchHistory(roomId);
+      fetchHistory(roomId);
       persist();
     }
   }
@@ -3685,7 +4314,9 @@ export function useMessenger() {
     for (const [username, platforms] of Object.entries(platformsMap)) {
       const key = sanitizeUsername(username);
       if (!key) continue;
-      for (const platform of Array.isArray(platforms) ? platforms : [platforms]) {
+      for (const platform of Array.isArray(platforms)
+        ? platforms
+        : [platforms]) {
         rememberClientPlatform(key, platform);
       }
     }
@@ -3712,7 +4343,9 @@ export function useMessenger() {
   }
 
   function applyRoomSnapshot(d, fallbackRoomId = "") {
-    const roomId = sanitizeRoomId(d?.gameId || fallbackRoomId || state.activeRoom);
+    const roomId = sanitizeRoomId(
+      d?.gameId || fallbackRoomId || state.activeRoom,
+    );
     if (!roomId) return "";
 
     if (Array.isArray(d?.players)) {
@@ -3742,13 +4375,17 @@ export function useMessenger() {
     state.profilesByUser[key] = profile;
   }
 
-  function applyIncrementalRoomUserState(roomId, username, options: {
-    visible?: boolean;
-    removeVoice?: boolean;
-    removeCalls?: boolean;
-    removeMedia?: boolean;
-    preserveSelf?: boolean;
-  } = {}) {
+  function applyIncrementalRoomUserState(
+    roomId,
+    username,
+    options: {
+      visible?: boolean;
+      removeVoice?: boolean;
+      removeCalls?: boolean;
+      removeMedia?: boolean;
+      preserveSelf?: boolean;
+    } = {},
+  ) {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
@@ -3758,7 +4395,7 @@ export function useMessenger() {
       removeVoice = false,
       removeCalls = false,
       removeMedia = false,
-      preserveSelf = false
+      preserveSelf = false,
     } = options;
 
     const me = sanitizeUsername(state.username);
@@ -3768,7 +4405,9 @@ export function useMessenger() {
     state.usersByRoom[id] = [...current];
 
     if (removeVoice) {
-      state.voiceMembersByRoom[id] = (state.voiceMembersByRoom[id] || []).filter((member) => member !== user);
+      state.voiceMembersByRoom[id] = (
+        state.voiceMembersByRoom[id] || []
+      ).filter((member) => member !== user);
     }
     if (removeCalls) {
       delete state.callClientsByRoom[id]?.[user];
@@ -3798,7 +4437,7 @@ export function useMessenger() {
         visible,
         preserveSelf: true,
         removeVoice: !visible && key !== me && !Array.isArray(d?.voicePlayers),
-        removeMedia: !visible && key !== me && !Array.isArray(d?.voicePlayers)
+        removeMedia: !visible && key !== me && !Array.isArray(d?.voicePlayers),
       });
     }
   }
@@ -3809,7 +4448,9 @@ export function useMessenger() {
 
     if (d?.ok) {
       state.joinedRooms = state.joinedRooms.filter((r) => r !== roomId);
-      state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
+      state.pendingJoinRooms = state.pendingJoinRooms.filter(
+        (r) => r !== roomId,
+      );
       if (state.deleteMessagesOnLeave || state.serverClearsLocalMessages) {
         removeRoom(roomId);
         return;
@@ -3827,7 +4468,7 @@ export function useMessenger() {
         applyIncrementalRoomUserState(roomId, left, {
           visible: false,
           removeVoice: !Array.isArray(d?.voicePlayers),
-          removeCalls: !Array.isArray(d?.callPlayers)
+          removeCalls: !Array.isArray(d?.callPlayers),
         });
       }
     }
@@ -3836,9 +4477,15 @@ export function useMessenger() {
   function applyDeletedMessageIds(roomId, messageIds) {
     const id = sanitizeRoomId(roomId);
     if (!id || !Array.isArray(messageIds)) return;
-    const deleted = new Set((messageIds || []).map((messageId) => String(messageId || "")).filter(Boolean));
+    const deleted = new Set(
+      (messageIds || [])
+        .map((messageId) => String(messageId || ""))
+        .filter(Boolean),
+    );
     if (!deleted.size) return;
-    state.messagesByRoom[id] = (state.messagesByRoom[id] || []).filter((message) => !deleted.has(String(message?.messageId || "")));
+    state.messagesByRoom[id] = (state.messagesByRoom[id] || []).filter(
+      (message) => !deleted.has(String(message?.messageId || "")),
+    );
     const room = state.rooms.find((entry) => entry.roomId === id);
     if (room) {
       const latest = latestVisibleRoomMessage(state.messagesByRoom[id] || []);
@@ -3859,19 +4506,34 @@ export function useMessenger() {
     if (!d?.ok) return;
     const roomId = sanitizeRoomId(d.roomId);
     if (!roomId) return;
-    if (!state.joinedRooms.includes(roomId) && !state.pendingJoinRooms.includes(roomId) && roomId !== state.activeRoom) return;
+    if (
+      !state.joinedRooms.includes(roomId) &&
+      !state.pendingJoinRooms.includes(roomId) &&
+      roomId !== state.activeRoom
+    )
+      return;
     const serverMessages = Array.isArray(d.messages)
-      ? await Promise.all(d.messages.map((m) => hydrateIncomingMessage(m, roomId)))
+      ? await Promise.all(
+          d.messages.map((m) => hydrateIncomingMessage(m, roomId)),
+        )
       : [];
     const localMessages = state.messagesByRoom[roomId] || [];
-    const serverMessageIds = new Set(serverMessages.map((message) => String(message?.messageId || "")).filter(Boolean));
+    const serverMessageIds = new Set(
+      serverMessages
+        .map((message) => String(message?.messageId || ""))
+        .filter(Boolean),
+    );
     const keptLocalMessages = state.serverClearsLocalMessages
       ? []
       : localMessages.filter((message) => {
-        const messageId = String(message?.messageId || "");
-        return !messageId || !serverMessageIds.has(messageId);
-      });
-    const messages = mergeRoomHistory(keptLocalMessages, serverMessages, roomId);
+          const messageId = String(message?.messageId || "");
+          return !messageId || !serverMessageIds.has(messageId);
+        });
+    const messages = mergeRoomHistory(
+      keptLocalMessages,
+      serverMessages,
+      roomId,
+    );
     state.messagesByRoom[roomId] = messages;
     const last = messages[messages.length - 1];
     touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
@@ -3928,9 +4590,11 @@ export function useMessenger() {
       autoReconnectEnabled: state.autoReconnectEnabled,
       reconnectMinDelayMs: state.reconnectMinDelayMs,
       reconnectMaxDelayMs: state.reconnectMaxDelayMs,
-      callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes)
+      callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
@@ -3951,7 +4615,9 @@ export function useMessenger() {
     state.settingsOpen = false;
     if (!file) return;
     const reader = new FileReader();
-    reader.onerror = () => { state.lastError = "Couldn't read file."; };
+    reader.onerror = () => {
+      state.lastError = "Couldn't read file.";
+    };
     reader.onload = (e) => {
       try {
         const data = JSON.parse(String(e.target.result));
@@ -3959,7 +4625,8 @@ export function useMessenger() {
         const usedToBeConnected = state.connected;
         if (usedToBeConnected) disconnect();
 
-        if (typeof data.username === "string") state.username = sanitizeUsername(data.username);
+        if (typeof data.username === "string")
+          state.username = sanitizeUsername(data.username);
         state.status = sanitizePresenceStatus(data.status);
         state.profile = normalizeProfile(data.profile);
 
@@ -3971,7 +4638,7 @@ export function useMessenger() {
               roomId: sanitizeRoomId(r.roomId),
               lastPreview: String(r.lastPreview || ""),
               lastTimestamp: Number(r.lastTimestamp) || 0,
-              lastSender: String(r.lastSender || "")
+              lastSender: String(r.lastSender || ""),
             }))
             .filter((r) => isValidRoomId(r.roomId));
         }
@@ -3994,7 +4661,8 @@ export function useMessenger() {
           for (const [id, n] of Object.entries(data.unreadByRoom)) {
             const v = Number(n);
             const roomId = sanitizeRoomId(id);
-            if (Number.isFinite(v) && v > 0 && isValidRoomId(roomId)) next[roomId] = v;
+            if (Number.isFinite(v) && v > 0 && isValidRoomId(roomId))
+              next[roomId] = v;
           }
           state.unreadByRoom = next;
         }
@@ -4002,25 +4670,38 @@ export function useMessenger() {
         state.roomKeysByRoom = sanitizeRoomKeys(data.roomKeysByRoom);
 
         if (typeof data.activeRoom === "string") {
-          state.activeRoom = isValidRoomId(data.activeRoom) ? sanitizeRoomId(data.activeRoom) : "";
+          state.activeRoom = isValidRoomId(data.activeRoom)
+            ? sanitizeRoomId(data.activeRoom)
+            : "";
         }
-        if (typeof data.deleteMessagesOnLeave === "boolean") state.deleteMessagesOnLeave = data.deleteMessagesOnLeave;
-        if (typeof data.streamerMode === "boolean") state.streamerMode = data.streamerMode;
-        if (typeof data.messageSoundEnabled === "boolean") state.messageSoundEnabled = data.messageSoundEnabled;
-        if (typeof data.typingIndicatorsEnabled === "boolean") state.typingIndicatorsEnabled = data.typingIndicatorsEnabled;
+        if (typeof data.deleteMessagesOnLeave === "boolean")
+          state.deleteMessagesOnLeave = data.deleteMessagesOnLeave;
+        if (typeof data.streamerMode === "boolean")
+          state.streamerMode = data.streamerMode;
+        if (typeof data.messageSoundEnabled === "boolean")
+          state.messageSoundEnabled = data.messageSoundEnabled;
+        if (typeof data.typingIndicatorsEnabled === "boolean")
+          state.typingIndicatorsEnabled = data.typingIndicatorsEnabled;
         if (typeof data.themeMode === "string") setThemeMode(data.themeMode);
-        if (typeof data.callSoundsEnabled === "boolean") setCallSoundsEnabled(data.callSoundsEnabled);
+        if (typeof data.callSoundsEnabled === "boolean")
+          setCallSoundsEnabled(data.callSoundsEnabled);
         if (data.soundFlags && typeof data.soundFlags === "object") {
           for (const key of Object.keys(state.soundFlags)) {
-            if (typeof data.soundFlags[key] === "boolean") setSoundEnabled(key, data.soundFlags[key]);
+            if (typeof data.soundFlags[key] === "boolean")
+              setSoundEnabled(key, data.soundFlags[key]);
           }
         }
         if (typeof data.appAccent === "string") setAppAccent(data.appAccent);
-        if (typeof data.messageStyle === "string") setMessageStyle(data.messageStyle);
-        if (typeof data.androidNotificationsEnabled === "boolean") state.androidNotificationsEnabled = data.androidNotificationsEnabled;
-        if (typeof data.autoArchiveUploads === "boolean") state.autoArchiveUploads = data.autoArchiveUploads;
-        if (typeof data.autoReconnectEnabled === "boolean") state.autoReconnectEnabled = data.autoReconnectEnabled;
-        if (typeof data.serverClearsLocalMessages === "boolean") state.serverClearsLocalMessages = data.serverClearsLocalMessages;
+        if (typeof data.messageStyle === "string")
+          setMessageStyle(data.messageStyle);
+        if (typeof data.androidNotificationsEnabled === "boolean")
+          state.androidNotificationsEnabled = data.androidNotificationsEnabled;
+        if (typeof data.autoArchiveUploads === "boolean")
+          state.autoArchiveUploads = data.autoArchiveUploads;
+        if (typeof data.autoReconnectEnabled === "boolean")
+          state.autoReconnectEnabled = data.autoReconnectEnabled;
+        if (typeof data.serverClearsLocalMessages === "boolean")
+          state.serverClearsLocalMessages = data.serverClearsLocalMessages;
         else state.serverClearsLocalMessages = true;
         setReconnectDelays(data.reconnectMinDelayMs, data.reconnectMaxDelayMs);
         state.callUserVolumes = sanitizeCallUserVolumes(data.callUserVolumes);
@@ -4029,7 +4710,8 @@ export function useMessenger() {
         state.lastError = "";
         state.systemBanner = "Backup imported.";
         setTimeout(() => {
-          if (state.systemBanner === "Backup imported.") state.systemBanner = "";
+          if (state.systemBanner === "Backup imported.")
+            state.systemBanner = "";
         }, 2000);
 
         if (usedToBeConnected) connect();
@@ -4184,7 +4866,7 @@ export function useMessenger() {
     setLocalRoomIconFromFile,
     clearLocalRoomIcon,
     clearAllData,
-    logout
+    logout,
   };
 
   return singleton;
