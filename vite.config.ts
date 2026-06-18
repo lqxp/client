@@ -6,25 +6,33 @@ import { readFileSync } from "node:fs";
 const packageJson = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8"),
 );
-const isTauri = process.env.TAURI_PLATFORM !== undefined;
-console.log(process.env.TAURI_PLATFORM)
+
+const isWeb = process.env.BUILD_TARGET === "web";
+
 export default defineConfig({
-  base: isTauri ? "./" : "/app/",
+  base: isWeb ? "/app/" : "./",
+
   plugins: [vue()],
+
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
     },
   },
+
   build: {
     outDir: "dist",
     emptyOutDir: true,
   },
+
   server: {
     host: "0.0.0.0",
     port: 4173,
   },
+
   define: {
-    __APP_VERSION__: JSON.stringify(String(packageJson.version || "0.0.0")),
+    __APP_VERSION__: JSON.stringify(
+      String(packageJson.version || "0.0.0"),
+    ),
   },
 });
