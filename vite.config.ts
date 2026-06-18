@@ -1,13 +1,13 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
+import { resolve, basename } from "node:path";
 
 const packageJson = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8"),
 );
 
-const isWeb = process.env.BUILD_TARGET === "web";
+const isWeb = basename(process.cwd()) === "web";
 
 export default defineConfig({
   base: isWeb ? "/app/" : "./",
@@ -31,8 +31,6 @@ export default defineConfig({
   },
 
   define: {
-    __APP_VERSION__: JSON.stringify(
-      String(packageJson.version || "0.0.0"),
-    ),
+    __APP_VERSION__: JSON.stringify(String(packageJson.version || "0.0.0")),
   },
 });
