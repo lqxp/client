@@ -9,7 +9,8 @@
     "build:web": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js",
     "sync:runtime": "node ./scripts/sync-runtime-config.mjs",
     "typecheck": "vue-tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:tauri": "vite build"
   },
   "dependencies": {
     "fflate": "^0.8.2",
