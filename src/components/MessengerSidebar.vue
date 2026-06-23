@@ -96,16 +96,6 @@ function renameRoomFromContext() {
   closeRoomContext();
 }
 
-function setRoomIconFromContext() {
-  const roomId = roomContextRoomId.value;
-  if (!roomId) return;
-  const current = roomIcon(roomId);
-  const next = window.prompt(t("sidebar.promptLocalRoomIcon"), current || "");
-  if (next === null) return;
-  props.messenger.setLocalRoomIcon(roomId, next);
-  closeRoomContext();
-}
-
 function pickRoomImageFromContext() {
   if (!roomContextRoomId.value) return;
   roomIconUploadRoomId.value = roomContextRoomId.value;
@@ -120,13 +110,6 @@ async function onRoomIconFileChange(event) {
   await props.messenger.setLocalRoomIconFromFile?.(roomId, file);
   roomIconUploadRoomId.value = "";
   input.value = "";
-  closeRoomContext();
-}
-
-function clearRoomIconFromContext() {
-  const roomId = roomContextRoomId.value;
-  if (!roomId) return;
-  props.messenger.clearLocalRoomIcon(roomId);
   closeRoomContext();
 }
 
@@ -231,7 +214,6 @@ onBeforeUnmount(() => {
         >
           <span class="avatar avatar--lg" :class="`avatar--${c.accent}`">
             <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
-            <span v-else-if="roomIcon(c.roomId)" class="conv__icon">{{ roomIcon(c.roomId) }}</span>
             <template v-else>{{ initialsOf(c.name) }}</template>
           </span>
 

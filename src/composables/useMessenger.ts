@@ -1814,27 +1814,6 @@ export function useMessenger() {
     send({ op: 33, d: { gameId: id, title: "" } });
   }
 
-  function setLocalRoomIcon(roomId, icon) {
-    const id = sanitizeRoomId(roomId);
-    if (!id || !isValidRoomId(id)) return;
-    const clean = sanitizeLocalRoomIcon(icon);
-    const room = state.rooms.find((entry) => entry.roomId === id);
-    if (clean) {
-      if (room) room.iconUrl = sanitizeHttpUrl(clean);
-    } else {
-      if (room) room.iconUrl = "";
-    }
-    persist();
-  }
-
-  function clearLocalRoomIcon(roomId) {
-    const id = sanitizeRoomId(roomId);
-    if (!id) return;
-    const room = state.rooms.find((entry) => entry.roomId === id);
-    if (room) room.iconUrl = "";
-    persist();
-  }
-
   async function setLocalRoomIconFromFile(roomId, file) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return false;
