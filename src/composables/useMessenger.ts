@@ -4352,23 +4352,6 @@ export function useMessenger() {
       room.title = nextTitle;
       room.iconUrl = mergedIconUrl;
       room.members = nextMembers;
-      if (roomPayload?.icon || nextIconUrl) {
-        console.log("[room-icon][snapshot]", {
-          roomId,
-          rawUrl:
-            roomPayload?.icon?.url ||
-            roomPayload?.icon?.file?.url ||
-            roomPayload?.iconUrl ||
-            roomPayload?.icon?.path ||
-            roomPayload?.icon?.src ||
-            "",
-          sanitizedUrl: nextIconUrl,
-          appliedUrl: room.iconUrl,
-          iconKeys: roomPayload?.icon ? Object.keys(roomPayload.icon) : [],
-          iconJson: roomPayload?.icon ? JSON.stringify(roomPayload.icon) : "",
-          payload: roomPayload,
-        });
-      }
     } else if (roomPayload) {
       state.rooms.push({
         roomId,

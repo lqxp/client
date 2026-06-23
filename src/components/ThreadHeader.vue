@@ -20,7 +20,10 @@ const initials = computed(() => {
 });
 
 const roomIcon = computed(() => props.messenger.roomIcon?.(props.messenger.state.activeRoom) || "");
-const roomIconIsImage = computed(() => roomIcon.value.startsWith("data:image/"));
+const roomIconIsImage = computed(() => {
+  const icon = String(roomIcon.value || "").trim();
+  return !!icon && !icon.startsWith("data:");
+});
 const callActiveHere = computed(() =>
   props.messenger.state.inCall && props.messenger.state.callRoom === props.messenger.state.activeRoom
 );
@@ -71,7 +74,6 @@ function removeHere() {
     <div class="thread__who">
       <span class="avatar avatar--md" :class="`avatar--${accent}`">
         <img v-if="roomIconIsImage" :src="roomIcon" alt="" class="thread__room-icon-image" />
-        <template v-else-if="roomIcon">{{ roomIcon }}</template>
         <template v-else>{{ initials }}</template>
       </span>
       <div>
