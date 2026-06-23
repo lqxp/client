@@ -184,6 +184,7 @@ function profileImageSrc(image) {
 function sanitizeHttpUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
+  if (raw.startsWith("blob:")) return raw;
   try {
     const baseOrigin =
       typeof window !== "undefined"
@@ -869,8 +870,6 @@ function sameAttachmentPayload(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
   return (
-    String(left.id || "") === String(right.id || "") &&
-    String(left.url || "") === String(right.url || "") &&
     String(left.filename || "") === String(right.filename || "") &&
     String(left.mimeType || "") === String(right.mimeType || "") &&
     Number(left.size) === Number(right.size)
@@ -1763,6 +1762,7 @@ export function useMessenger() {
                     decrypted.attachment.mimeType || "application/octet-stream",
                   ),
                   size: Number(decrypted.attachment.size) || 0,
+                  dataB64: String(decrypted.attachment.dataB64 || ""),
                 }
               : null,
           preview: message.preview || null,
@@ -4087,7 +4087,50 @@ export function useMessenger() {
     const arr = state.messagesByRoom[id];
     const index = arr.findIndex((m) => m.messageId === normalized.messageId);
     if (index === -1) {
-      if (isDuplicateRecentMessage(arr, normalized)) return false;
+      const duplicateIndex = arr.findIndex((message) => {
+        if (!message || message.deleted) return false;
+        if (String(message.username || "") !== String(normalized.username || ""))
+          return false;
+        if (String(message.text || "") !== String(normalized.text || ""))
+          return false;
+        if (
+          String(message.replyToMessageId || "") !==
+          String(normalized.replyToMessageId || "")
+        )
+          return false;
+        const sameEncrypted = sameEncryptedPayload(
+          message.encrypted,
+          normalized.encrypted,
+        );
+        const sameAttachment = sameAttachmentPayload(
+          message.attachment,
+          normalized.attachment,
+        );
+        if (!sameEncrypted && !sameAttachment) return false;
+        return Math.abs(
+          Number(message.timestamp || 0) - Number(normalized.timestamp || 0),
+        ) <= DUPLICATE_MESSAGE_WINDOW_MS;
+      });
+      if (duplicateIndex !== -1) {
+        const existing = arr[duplicateIndex];
+        const existingAttachment = existing?.attachment || null;
+        const normalizedAttachment = normalized?.attachment || null;
+        arr[duplicateIndex] = {
+          ...normalized,
+          attachment:
+            normalizedAttachment || existingAttachment
+              ? {
+                  ...(existingAttachment || {}),
+                  ...(normalizedAttachment || {}),
+                  url:
+                    normalizedAttachment?.url || existingAttachment?.url || "",
+                  dataB64:
+                    normalizedAttachment?.dataB64 || existingAttachment?.dataB64 || "",
+                }
+              : null,
+        };
+        return false;
+      }
       arr.push(normalized);
       if (arr.length > MAX_HISTORY_PER_ROOM)
         arr.splice(0, arr.length - MAX_HISTORY_PER_ROOM);
