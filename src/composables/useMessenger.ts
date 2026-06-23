@@ -3054,6 +3054,8 @@ export function useMessenger() {
         state.lastError = `File too large after zip archive: ${uploadFile.name} (${formatSize(uploadFile.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
         return;
       }
+
+      const previewUrl = URL.createObjectURL(uploadFile);
       const dataB64 = await blobToBase64(uploadFile);
       const encrypted = await buildEncryptedOutgoingMessage(roomId, {
         text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
@@ -3064,6 +3066,29 @@ export function useMessenger() {
           dataB64,
         },
       });
+      const optimisticMessage = normalizeMessage(
+        {
+          messageId: crypto.randomUUID(),
+          roomId,
+          user: state.username || "You",
+          username: state.username || "You",
+          text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
+          timestamp: Date.now(),
+          attachment: {
+            id: "",
+            url: previewUrl,
+            filename: String(uploadFile.name || "file").slice(0, 128),
+            mimeType: uploadFile.type || "application/octet-stream",
+            size: uploadFile.size,
+            dataB64: "",
+          },
+        },
+        roomId,
+      );
+      pushMessageToRoom(roomId, optimisticMessage);
+      touchRoom(roomId, optimisticMessage);
+      if (roomId === state.activeRoom) scrollToBottom();
+
       send({
         op: 7,
         d: {
@@ -3076,6 +3101,7 @@ export function useMessenger() {
         },
       });
       state.replyingTo = null;
+      persist();
     } catch (err) {
       state.lastError = `Upload failed: ${err.message || err}`;
     }
