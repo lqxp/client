@@ -69,7 +69,8 @@ function roomIcon(roomId) {
 }
 
 function roomIconIsImage(roomId) {
-  return roomIcon(roomId).startsWith("data:image/");
+  const icon = roomIcon(roomId);
+  return icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/");
 }
 
 function onRoomContext(event, roomId) {
