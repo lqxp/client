@@ -43,11 +43,8 @@
         "removeConversation": "Supprimer {room}",
         "removeConversationConfirm": "Supprimer la conversation \"{room}\" et ses messages ?",
         "contextChangeImage": "Choisir une image",
-        "contextChangeIcon": "Changer l’icône",
-        "contextClearIcon": "Supprimer l’icône",
-        "contextRenameLocal": "Renommer localement",
-        "promptLocalRoomName": "Nom local du salon",
-        "promptLocalRoomIcon": "Icône locale (emoji)",
+        "contextRenameLocal": "Renommer le salon",
+        "promptLocalRoomName": "Nom du salon",
         "anonymous": "anonyme"
     },
     "members": {

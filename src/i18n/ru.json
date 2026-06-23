@@ -64,11 +64,8 @@
         "removeConversation": "Удалить {room}",
         "removeConversationConfirm": "Удалить разговор \"{room}\" и его сообщения?",
         "contextChangeImage": "Выбрать изображение",
-        "contextChangeIcon": "Изменить иконку",
-        "contextClearIcon": "Удалить иконку",
         "contextRenameLocal": "Переименовать комнату",
         "promptLocalRoomName": "Имя комнаты",
-        "promptLocalRoomIcon": "Локальная иконка (эмодзи)",
         "anonymous": "аноним"
     },
     "members": {
