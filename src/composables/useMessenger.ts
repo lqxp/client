@@ -712,20 +712,6 @@ function sanitizeRoomNotes(raw) {
   return next;
 }
 
-function sanitizeLocalRoomNames(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
-  for (const [roomId, name] of Object.entries(raw)) {
-    const id = sanitizeRoomId(roomId);
-    if (!isValidRoomId(id)) continue;
-    const clean = String(name || "")
-      .trim()
-      .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
-    if (clean) next[id] = clean;
-  }
-  return next;
-}
-
 function sanitizeLocalRoomIcon(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
