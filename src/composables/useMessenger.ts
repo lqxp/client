@@ -814,7 +814,6 @@ function savePersisted(state) {
         reconnectMaxDelayMs: state.reconnectMaxDelayMs,
         callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
         roomNotes: sanitizeRoomNotes(state.roomNotes),
-        localRoomNames: sanitizeLocalRoomNames(state.localRoomNames),
       }),
     );
   } catch {
@@ -2536,14 +2535,20 @@ export function useMessenger() {
       existing.lastPreview = preview;
       existing.lastTimestamp = ts || existing.lastTimestamp || 0;
       existing.lastSender = sender;
+      existing.title = String(existing.title || "")
+        .trim()
+        .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
       existing.iconUrl = sanitizeHttpUrl(existing.iconUrl);
+      existing.members = normalizeRoomUsers(existing.members || []);
     } else {
       state.rooms.push({
         roomId: id,
+        title: "",
         lastPreview: preview,
         lastTimestamp: ts,
         lastSender: sender,
         iconUrl: "",
+        members: [],
       });
     }
     persist();
@@ -4228,6 +4233,15 @@ export function useMessenger() {
       case 32:
         if (d?.error) {
           state.lastError = d.error;
+        } else {
+          applyRoomSnapshot(d, d?.gameId);
+        }
+        break;
+      case 33:
+        if (d?.error) {
+          state.lastError = d.error;
+        } else {
+          applyRoomSnapshot(d, d?.gameId);
         }
         break;
       case 13:
@@ -4342,12 +4356,40 @@ export function useMessenger() {
 
   function applyRoomSnapshot(d, fallbackRoomId = "") {
     const roomId = sanitizeRoomId(
-      d?.gameId || fallbackRoomId || state.activeRoom,
+      d?.room?.room_id || d?.room?.roomId || d?.gameId || fallbackRoomId || state.activeRoom,
     );
     if (!roomId) return "";
 
+    const roomPayload = d?.room && typeof d.room === "object" ? d.room : null;
+    const room = state.rooms.find((entry) => entry.roomId === roomId);
+    const nextTitle = String(roomPayload?.title || "")
+      .trim()
+      .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    const nextIconUrl = sanitizeHttpUrl(
+      roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+    );
+    const nextMembers = normalizeRoomUsers(roomPayload?.members || []);
+
+    if (room) {
+      room.title = nextTitle;
+      room.iconUrl = nextIconUrl;
+      room.members = nextMembers;
+    } else if (roomPayload) {
+      state.rooms.push({
+        roomId,
+        title: nextTitle,
+        lastPreview: "",
+        lastTimestamp: 0,
+        lastSender: "",
+        iconUrl: nextIconUrl,
+        members: nextMembers,
+      });
+    }
+
     if (Array.isArray(d?.players)) {
       state.usersByRoom[roomId] = normalizeRoomUsers(d.players);
+    } else if (roomPayload) {
+      state.usersByRoom[roomId] = nextMembers;
     }
     if (d?.profiles && typeof d.profiles === "object") {
       applyProfiles(d.profiles);
@@ -4360,6 +4402,7 @@ export function useMessenger() {
       state.voiceMembersByRoom[roomId] = normalizeRoomUsers(d.voicePlayers);
     }
     applyCallPlayersSnapshot(roomId, d?.callPlayers);
+    touchRoom(roomId);
 
     return roomId;
   }
