@@ -255,8 +255,6 @@ onBeforeUnmount(() => {
       @click.stop
     >
       <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
-      <button type="button" role="menuitem" @click="setRoomIconFromContext">{{ t('sidebar.contextChangeIcon') }}</button>
-      <button type="button" role="menuitem" @click="clearRoomIconFromContext">{{ t('sidebar.contextClearIcon') }}</button>
       <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameLocal') }}</button>
     </div>
 
