@@ -3020,7 +3020,10 @@ export function useMessenger() {
     try {
       const shouldArchive =
         state.autoArchiveUploads &&
-        !String(caption || "").startsWith("[voice:");
+        !String(caption || "").startsWith("[voice:") &&
+        !String(file.type || "").startsWith("image/") &&
+        !String(file.type || "").startsWith("video/") &&
+        !String(file.type || "").startsWith("audio/");
       const uploadFile = shouldArchive ? await archiveFileAsZip(file) : file;
       if (uploadFile.size > MAX_ATTACHMENT_BYTES) {
         state.lastError = `File too large after zip archive: ${uploadFile.name} (${formatSize(uploadFile.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
