@@ -70,7 +70,7 @@ function roomIcon(roomId) {
 
 function roomIconIsImage(roomId) {
   const icon = roomIcon(roomId);
-  return icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/");
+  return !!icon && !icon.startsWith("data:");
 }
 
 function onRoomContext(event, roomId) {
