@@ -1822,7 +1822,9 @@ export function useMessenger() {
             resolve(false);
             return;
           }
-          const iconUrl = sanitizeHttpUrl(payload?.icon?.url);
+          const iconUrl = sanitizeHttpUrl(
+            payload?.room?.icon?.file?.url || payload?.icon?.file?.url || payload?.icon?.url,
+          );
           if (!iconUrl) {
             state.lastError = "Invalid room icon URL returned by server.";
             resolve(false);
