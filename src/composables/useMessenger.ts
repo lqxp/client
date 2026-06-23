@@ -200,6 +200,25 @@ function sanitizeHttpUrl(value) {
   }
 }
 
+function cacheBustedRoomIconUrl(value) {
+  const clean = sanitizeHttpUrl(value);
+  if (!clean) return "";
+  try {
+    const baseOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://localhost";
+    const url = new URL(clean, baseOrigin);
+    url.searchParams.set("v", String(Date.now()));
+    if (typeof window !== "undefined" && url.origin === window.location.origin) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+    return url.toString();
+  } catch {
+    return clean;
+  }
+}
+
 function isAndroidWebViewRuntime() {
   const ua =
     typeof navigator === "undefined"
@@ -1832,7 +1851,7 @@ export function useMessenger() {
           }
           touchRoom(id);
           const room = state.rooms.find((entry) => entry.roomId === id);
-          if (room) room.iconUrl = iconUrl;
+          if (room) room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
           persist();
           resolve(true);
         },
@@ -4324,11 +4343,12 @@ export function useMessenger() {
     const nextIconUrl = sanitizeHttpUrl(
       roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
     );
+    const mergedIconUrl = nextIconUrl || sanitizeHttpUrl(room?.iconUrl);
     const nextMembers = normalizeRoomUsers(roomPayload?.members || []);
 
     if (room) {
       room.title = nextTitle;
-      room.iconUrl = nextIconUrl;
+      room.iconUrl = mergedIconUrl;
       room.members = nextMembers;
     } else if (roomPayload) {
       state.rooms.push({
@@ -4337,7 +4357,7 @@ export function useMessenger() {
         lastPreview: "",
         lastTimestamp: 0,
         lastSender: "",
-        iconUrl: nextIconUrl,
+        iconUrl: mergedIconUrl,
         members: nextMembers,
       });
     }
