@@ -479,6 +479,7 @@ function loadPersisted() {
             lastPreview: String(r.lastPreview || ""),
             lastTimestamp: Number(r.lastTimestamp) || 0,
             lastSender: String(r.lastSender || ""),
+            iconUrl: sanitizeHttpUrl(r.iconUrl),
           }))
           .filter((r) => isValidRoomId(r.roomId))
       : [];
@@ -1334,6 +1335,7 @@ export function useMessenger() {
           roomId: r.roomId,
           name: displayRoomName(r.roomId),
           accent: accentFor(r.roomId),
+          icon: roomIcon(r.roomId),
           preview: preview || "No messages yet",
           timestampLabel: formatSidebarTime(timestamp),
           timestamp,
@@ -1360,6 +1362,7 @@ export function useMessenger() {
       roomId: state.activeRoom,
       name: displayRoomName(state.activeRoom),
       accent: accentFor(state.activeRoom),
+      icon: roomIcon(state.activeRoom),
       active: true,
       preview: "",
       timestampLabel: "",
@@ -1790,7 +1793,11 @@ export function useMessenger() {
 
   function roomIcon(roomId) {
     const id = sanitizeRoomId(roomId);
-    return id ? sanitizeLocalRoomIcon(state.localRoomIcons[id]) : "";
+    if (!id) return "";
+    const room = state.rooms.find((entry) => entry.roomId === id);
+    const remote = sanitizeHttpUrl(room?.iconUrl);
+    if (remote) return remote;
+    return sanitizeLocalRoomIcon(state.localRoomIcons[id]);
   }
 
   function setRoomNote(roomId, note) {
@@ -1851,8 +1858,50 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return false;
     if (!file) return false;
-    state.lastError = "L’icône locale de room en fichier n’est plus supportée. Utilise une URL servie par le serveur.";
-    return false;
+    if (!String(file.type || "").startsWith("image/")) {
+      state.lastError = "Room icon must be an image.";
+      return false;
+    }
+    if (Number(file.size) > MAX_PROFILE_AVATAR_BYTES) {
+      state.lastError = `Room icon must be under ${Math.round(MAX_PROFILE_AVATAR_BYTES / 1024)} KB.`;
+      return false;
+    }
+
+    const dataB64 = await blobToBase64(file);
+    return await new Promise((resolve) => {
+      send({
+        op: 32,
+        d: {
+          gameId: id,
+          file: {
+            filename: String(file.name || "room-icon"),
+            mimeType: String(file.type || "application/octet-stream"),
+            size: Number(file.size) || 0,
+            dataB64,
+          },
+        },
+        onAck(message) {
+          const payload = message?.d;
+          if (payload?.error) {
+            state.lastError = payload.error;
+            resolve(false);
+            return;
+          }
+          const iconUrl = sanitizeHttpUrl(payload?.icon?.url);
+          if (!iconUrl) {
+            state.lastError = "Invalid room icon URL returned by server.";
+            resolve(false);
+            return;
+          }
+          touchRoom(id);
+          const room = state.rooms.find((entry) => entry.roomId === id);
+          if (room) room.iconUrl = iconUrl;
+          delete state.localRoomIcons[id];
+          persist();
+          resolve(true);
+        },
+      });
+    });
   }
 
   function setDeleteMessagesOnLeave(value) {
@@ -2506,12 +2555,14 @@ export function useMessenger() {
       existing.lastPreview = preview;
       existing.lastTimestamp = ts || existing.lastTimestamp || 0;
       existing.lastSender = sender;
+      existing.iconUrl = sanitizeHttpUrl(existing.iconUrl);
     } else {
       state.rooms.push({
         roomId: id,
         lastPreview: preview,
         lastTimestamp: ts,
         lastSender: sender,
+        iconUrl: "",
       });
     }
     persist();
@@ -4196,6 +4247,11 @@ export function useMessenger() {
           markUserTyping(d.gameId, d.username, Boolean(d.typing));
         }
         break;
+      case 32:
+        if (d?.error) {
+          state.lastError = d.error;
+        }
+        break;
       case 13:
         {
           const key = sanitizeUsername(d?.username || d?.user);
@@ -4603,6 +4659,7 @@ export function useMessenger() {
               lastPreview: String(r.lastPreview || ""),
               lastTimestamp: Number(r.lastTimestamp) || 0,
               lastSender: String(r.lastSender || ""),
+              iconUrl: sanitizeHttpUrl(r.iconUrl),
             }))
             .filter((r) => isValidRoomId(r.roomId));
         }
