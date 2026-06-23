@@ -1851,7 +1851,16 @@ export function useMessenger() {
           }
           touchRoom(id);
           const room = state.rooms.find((entry) => entry.roomId === id);
-          if (room) room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
+          if (room) {
+            room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
+            console.log("[room-icon][upload-ack]", {
+              roomId: id,
+              rawUrl: payload?.room?.icon?.file?.url || payload?.icon?.file?.url || payload?.icon?.url || "",
+              sanitizedUrl: iconUrl,
+              appliedUrl: room.iconUrl,
+              payload,
+            });
+          }
           persist();
           resolve(true);
         },
@@ -4350,6 +4359,15 @@ export function useMessenger() {
       room.title = nextTitle;
       room.iconUrl = mergedIconUrl;
       room.members = nextMembers;
+      if (roomPayload?.icon || nextIconUrl) {
+        console.log("[room-icon][snapshot]", {
+          roomId,
+          rawUrl: roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+          sanitizedUrl: nextIconUrl,
+          appliedUrl: room.iconUrl,
+          payload: roomPayload,
+        });
+      }
     } else if (roomPayload) {
       state.rooms.push({
         roomId,
@@ -4360,6 +4378,15 @@ export function useMessenger() {
         iconUrl: mergedIconUrl,
         members: nextMembers,
       });
+      if (roomPayload?.icon || nextIconUrl) {
+        console.log("[room-icon][snapshot]", {
+          roomId,
+          rawUrl: roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+          sanitizedUrl: nextIconUrl,
+          appliedUrl: mergedIconUrl,
+          payload: roomPayload,
+        });
+      }
     }
 
     if (Array.isArray(d?.players)) {
