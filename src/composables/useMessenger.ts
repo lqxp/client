@@ -49,7 +49,6 @@ const ROOM_ID_MIN_LENGTH = 8;
 const ROOM_ID_MAX_LENGTH = 64;
 const MAX_ROOM_NOTE_LENGTH = 512;
 const MAX_LOCAL_ROOM_NAME_LENGTH = 64;
-const MAX_LOCAL_ROOM_ICON_LENGTH = 2048;
 const MESSAGE_LIMIT = 2000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -711,16 +710,6 @@ function sanitizeRoomNotes(raw) {
   }
   return next;
 }
-
-function sanitizeLocalRoomIcon(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  if (raw.startsWith("data:")) return "";
-  const url = sanitizeHttpUrl(raw);
-  if (url) return url;
-  return raw.slice(0, MAX_LOCAL_ROOM_ICON_LENGTH);
-}
-
 
 function stripAttachmentDataForStorage(arr) {
   return (arr || []).map((m) => {
@@ -4875,9 +4864,7 @@ export function useMessenger() {
     setLocalRoomName,
     clearLocalRoomName,
     roomIcon,
-    setLocalRoomIcon,
     setLocalRoomIconFromFile,
-    clearLocalRoomIcon,
     clearAllData,
     logout,
   };
