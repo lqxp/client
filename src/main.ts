@@ -20,6 +20,11 @@ syncPlatformChromeOffset();
 window.addEventListener("resize", syncViewportHeight, { passive: true });
 window.visualViewport?.addEventListener("resize", syncViewportHeight, { passive: true });
 window.visualViewport?.addEventListener("scroll", syncViewportHeight, { passive: true });
+window.addEventListener("contextmenu", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("[data-allow-native-context-menu]")) return;
+  event.preventDefault();
+});
 
 initializeRuntimeConfig()
   .catch(() => {
