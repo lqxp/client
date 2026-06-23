@@ -66,8 +66,8 @@
         "contextChangeImage": "Выбрать изображение",
         "contextChangeIcon": "Изменить иконку",
         "contextClearIcon": "Удалить иконку",
-        "contextRenameLocal": "Переименовать локально",
-        "promptLocalRoomName": "Локальное имя комнаты",
+        "contextRenameLocal": "Переименовать комнату",
+        "promptLocalRoomName": "Имя комнаты",
         "promptLocalRoomIcon": "Локальная иконка (эмодзи)",
         "anonymous": "аноним"
     },

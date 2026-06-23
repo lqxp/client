@@ -45,8 +45,8 @@
         "contextChangeImage": "Choose image",
         "contextChangeIcon": "Change icon",
         "contextClearIcon": "Remove icon",
-        "contextRenameLocal": "Rename locally",
-        "promptLocalRoomName": "Local room name",
+        "contextRenameLocal": "Rename room",
+        "promptLocalRoomName": "Room name",
         "promptLocalRoomIcon": "Local icon (emoji)",
         "anonymous": "anonymous"
     },

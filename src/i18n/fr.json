@@ -206,7 +206,7 @@
         },
         "rooms": {
             "savedRooms": "Salons enregistrés",
-            "note": "Renommez localement les salons et ajoutez des notes privées. Ces changements sont stockés uniquement sur cet appareil.",
+            "note": "Renommez les salons pour tout le groupe et ajoutez des notes privées. Les noms sont synchronisés par le serveur, les notes restent sur cet appareil.",
             "notePlaceholder": "Note privée...",
             "resetName": "Réinitialiser le nom",
             "noRooms": "Aucun salon enregistré."
