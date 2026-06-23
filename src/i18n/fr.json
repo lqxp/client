@@ -255,7 +255,10 @@
             "micThresholdHint": "Augmentez-le pour éviter d’envoyer du bruit de fond.",
             "testMic": "Écouter et tester le micro",
             "stopListening": "Arrêter l’écoute",
-            "startingMic": "Démarrage..."
+            "startingMic": "Démarrage...",
+            "screenShare": "Partage d’écran",
+            "shareScreenAudio": "Partager l’audio système avec l’écran/la fenêtre",
+            "shareScreenAudioNote": "Quand c’est activé, le partage d’écran demande aussi l’audio système/de la fenêtre si le navigateur et le système d’exploitation le prennent en charge."
         },
         "advanced": {
             "connection": "Connexion",

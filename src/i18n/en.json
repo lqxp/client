@@ -255,7 +255,10 @@
             "micThresholdHint": "Raise it to avoid sending background noise.",
             "testMic": "Listen and test mic",
             "stopListening": "Stop listening",
-            "startingMic": "Starting..."
+            "startingMic": "Starting...",
+            "screenShare": "Screen sharing",
+            "shareScreenAudio": "Share system audio with screen/window",
+            "shareScreenAudioNote": "When enabled, screen sharing requests system/window audio too when supported by the browser and operating system."
         },
         "advanced": {
             "connection": "Connection",

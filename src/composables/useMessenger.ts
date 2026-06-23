@@ -587,6 +587,7 @@ function loadPersisted() {
         Math.min(100, Number(raw.microphoneThreshold) || 0),
       ),
       deleteMessagesOnLeave: Boolean(raw.deleteMessagesOnLeave),
+      shareScreenAudio: raw.shareScreenAudio !== false,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
@@ -665,6 +666,7 @@ function loadPersisted() {
       selectedAudioOutputId: "",
       microphoneThreshold: 0,
       deleteMessagesOnLeave: false,
+      shareScreenAudio: true,
       autoArchiveUploads: false,
       streamerMode: false,
       typingIndicatorsEnabled: true,
@@ -792,6 +794,7 @@ function savePersisted(state) {
         selectedAudioOutputId: state.selectedAudioOutputId,
         microphoneThreshold: state.microphoneThreshold,
         deleteMessagesOnLeave: state.deleteMessagesOnLeave,
+        shareScreenAudio: state.shareScreenAudio,
         autoArchiveUploads: state.autoArchiveUploads,
         streamerMode: state.streamerMode,
         typingIndicatorsEnabled: state.typingIndicatorsEnabled,
@@ -1182,6 +1185,7 @@ export function useMessenger() {
     selectedAudioOutputId: persisted.selectedAudioOutputId,
     microphoneThreshold: persisted.microphoneThreshold,
     deleteMessagesOnLeave: persisted.deleteMessagesOnLeave,
+    shareScreenAudio: persisted.shareScreenAudio,
     autoArchiveUploads: persisted.autoArchiveUploads,
     streamerMode: persisted.streamerMode,
     typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
@@ -1869,6 +1873,11 @@ export function useMessenger() {
 
   function setStreamerMode(value) {
     state.streamerMode = Boolean(value);
+    persist();
+  }
+
+  function setShareScreenAudio(value) {
+    state.shareScreenAudio = Boolean(value);
     persist();
   }
 
@@ -3447,7 +3456,7 @@ export function useMessenger() {
       }
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: false,
+        audio: state.shareScreenAudio,
       });
       stopStreamTracks(state.screenStream);
       state.screenStream = stream;
@@ -4840,6 +4849,7 @@ export function useMessenger() {
     setMicrophoneThreshold,
     setDeleteMessagesOnLeave,
     setStreamerMode,
+    setShareScreenAudio,
     setMessageSoundEnabled,
     setTypingIndicatorsEnabled,
     setCallSoundsEnabled,

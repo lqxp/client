@@ -791,6 +791,19 @@ onBeforeUnmount(() => {
             {{ messenger.state.micTestLoading ? t('settings.calls.startingMic') : messenger.state.micTestActive ? t('settings.calls.stopListening') : t('settings.calls.testMic') }}
           </button>
         </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.calls.screenShare') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.calls.shareScreenAudio') }}</span>
+            <input type="checkbox" :checked="messenger.state.shareScreenAudio"
+              @change="messenger.setShareScreenAudio(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">
+            {{ t('settings.calls.shareScreenAudioNote') }}
+          </p>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'advanced'" class="settings-page">

@@ -252,7 +252,10 @@
             "micThresholdHint": "Auméntalo para evitar enviar ruido de fondo.",
             "testMic": "Escuchar y probar micrófono",
             "stopListening": "Dejar de escuchar",
-            "startingMic": "Iniciando..."
+            "startingMic": "Iniciando...",
+            "screenShare": "Compartir pantalla",
+            "shareScreenAudio": "Compartir el audio del sistema con la pantalla/ventana",
+            "shareScreenAudioNote": "Cuando está activado, al compartir pantalla también se solicita el audio del sistema/de la ventana si el navegador y el sistema operativo lo permiten."
         },
         "advanced": {
             "connection": "Conexión",
