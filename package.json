@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js",
-    "build:web": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js",
+    "inject": "node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js",
+    "build": "vite build --watch",
+    "build:web": "vite build && npm run inject",
     "sync:runtime": "node ./scripts/sync-runtime-config.mjs",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
