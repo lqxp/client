@@ -39,7 +39,7 @@ import {
   setSoundFlag,
 } from "@/calls/callSounds";
 
-const STORAGE_KEY = "qxprotocol-messenger-v5";
+const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "💀", "🧢"];
@@ -478,10 +478,14 @@ function loadPersisted() {
           .slice(0, MAX_ROOMS_SHOWN)
           .map((r) => ({
             roomId: sanitizeRoomId(r.roomId),
+            title: String(r.title || "")
+              .trim()
+              .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH),
             lastPreview: String(r.lastPreview || ""),
             lastTimestamp: Number(r.lastTimestamp) || 0,
             lastSender: String(r.lastSender || ""),
-            iconUrl: sanitizeHttpUrl(r.iconUrl),
+            iconUrl: sanitizeHttpUrl(r.iconUrl || r.icon?.url),
+            members: sanitizeRoomUsers(r.members || []),
           }))
           .filter((r) => isValidRoomId(r.roomId))
       : [];
@@ -621,7 +625,6 @@ function loadPersisted() {
       ),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
-      localRoomNames: sanitizeLocalRoomNames(raw.localRoomNames),
       profile,
     };
   } catch {
@@ -670,7 +673,6 @@ function loadPersisted() {
       reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
       callUserVolumes: {},
       roomNotes: {},
-      localRoomNames: {},
       profile: loadPersistedProfile(),
     };
   }
@@ -1206,7 +1208,6 @@ export function useMessenger() {
     ),
     callUserVolumes: persisted.callUserVolumes,
     roomNotes: persisted.roomNotes,
-    localRoomNames: persisted.localRoomNames,
     audioDevicesLoading: false,
     audioDevicesPermission: "unknown",
     micTestActive: false,
@@ -1421,7 +1422,6 @@ export function useMessenger() {
       soundFlags: { ...state.soundFlags },
       callUserVolumes: { ...state.callUserVolumes },
       roomNotes: { ...state.roomNotes },
-      localRoomNames: { ...state.localRoomNames },
     };
     state.authToken = String(data.token || state.authToken || "");
     state.userId = String(data.user.id || "");
@@ -1768,8 +1768,9 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     if (state.streamerMode) return "Hidden channel";
-    const localName = state.localRoomNames[id];
-    if (localName) return localName;
+    const room = state.rooms.find((entry) => entry.roomId === id);
+    const persistedTitle = String(room?.title || "").trim();
+    if (persistedTitle) return persistedTitle;
     return id;
   }
 
@@ -1805,19 +1806,13 @@ export function useMessenger() {
     const clean = String(name || "")
       .trim()
       .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
-    if (clean && clean !== id) {
-      state.localRoomNames[id] = clean;
-    } else {
-      delete state.localRoomNames[id];
-    }
-    persist();
+    send({ op: 33, d: { gameId: id, title: clean } });
   }
 
   function clearLocalRoomName(roomId) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
-    delete state.localRoomNames[id];
-    persist();
+    send({ op: 33, d: { gameId: id, title: "" } });
   }
 
   function setLocalRoomIcon(roomId, icon) {
@@ -2586,7 +2581,6 @@ export function useMessenger() {
     delete state.callClientsByRoom[id];
     delete state.typingByRoom[id];
     delete state.unreadByRoom[id];
-    delete state.localRoomNames[id];
     state.joinedRooms = state.joinedRooms.filter((r) => r !== id);
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
     if (state.activeRoom === id) state.activeRoom = "";
