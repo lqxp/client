@@ -1265,7 +1265,32 @@ export function useMessenger() {
     return detectClientPlatform();
   }
   function attachmentUrlFor(message) {
-    return sanitizeHttpUrl(message?.attachment?.url) || null;
+    const remoteUrl = sanitizeHttpUrl(message?.attachment?.url);
+    if (remoteUrl) return remoteUrl;
+
+    const dataB64 = String(message?.attachment?.dataB64 || "").trim();
+    const mimeType = String(
+      message?.attachment?.mimeType || "application/octet-stream",
+    ).trim();
+    const messageId = String(message?.messageId || "").trim();
+    if (!dataB64 || !mimeType || !messageId) return null;
+
+    const cached = attachmentUrlCache.get(messageId);
+    if (cached) return cached;
+
+    try {
+      const binary = atob(dataB64);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1)
+        bytes[index] = binary.charCodeAt(index);
+      const blobUrl = URL.createObjectURL(
+        new Blob([bytes], { type: mimeType }),
+      );
+      attachmentUrlCache.set(messageId, blobUrl);
+      return blobUrl;
+    } catch {
+      return null;
+    }
   }
 
   const roomLabel = computed(() => state.activeRoom);
