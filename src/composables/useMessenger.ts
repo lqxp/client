@@ -1853,13 +1853,6 @@ export function useMessenger() {
           const room = state.rooms.find((entry) => entry.roomId === id);
           if (room) {
             room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
-            console.log("[room-icon][upload-ack]", {
-              roomId: id,
-              rawUrl: payload?.room?.icon?.url || payload?.room?.icon?.file?.url || payload?.icon?.url || payload?.icon?.file?.url || "",
-              sanitizedUrl: iconUrl,
-              appliedUrl: room.iconUrl,
-              payload,
-            });
           }
           persist();
           resolve(true);
@@ -4371,6 +4364,8 @@ export function useMessenger() {
             "",
           sanitizedUrl: nextIconUrl,
           appliedUrl: room.iconUrl,
+          iconKeys: roomPayload?.icon ? Object.keys(roomPayload.icon) : [],
+          iconJson: roomPayload?.icon ? JSON.stringify(roomPayload.icon) : "",
           payload: roomPayload,
         });
       }
@@ -4396,6 +4391,8 @@ export function useMessenger() {
             "",
           sanitizedUrl: nextIconUrl,
           appliedUrl: mergedIconUrl,
+          iconKeys: roomPayload?.icon ? Object.keys(roomPayload.icon) : [],
+          iconJson: roomPayload?.icon ? JSON.stringify(roomPayload.icon) : "",
           payload: roomPayload,
         });
       }
