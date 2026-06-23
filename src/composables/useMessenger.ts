@@ -4635,16 +4635,22 @@ export function useMessenger() {
         state.profile = normalizeProfile(data.profile);
 
         if (Array.isArray(data.rooms)) {
+          const previousIcons = Object.fromEntries(
+            state.rooms.map((room) => [room.roomId, sanitizeHttpUrl(room.iconUrl)]),
+          );
           state.rooms = data.rooms
             .filter((r) => r && typeof r.roomId === "string")
             .slice(0, MAX_ROOMS_SHOWN)
-            .map((r) => ({
-              roomId: sanitizeRoomId(r.roomId),
-              lastPreview: String(r.lastPreview || ""),
-              lastTimestamp: Number(r.lastTimestamp) || 0,
-              lastSender: String(r.lastSender || ""),
-              iconUrl: sanitizeHttpUrl(r.iconUrl),
-            }))
+            .map((r) => {
+              const roomId = sanitizeRoomId(r.roomId);
+              return {
+                roomId,
+                lastPreview: String(r.lastPreview || ""),
+                lastTimestamp: Number(r.lastTimestamp) || 0,
+                lastSender: String(r.lastSender || ""),
+                iconUrl: sanitizeHttpUrl(r.iconUrl) || previousIcons[roomId] || "",
+              };
+            })
             .filter((r) => isValidRoomId(r.roomId));
         }
 
