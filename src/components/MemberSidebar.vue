@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -25,6 +26,10 @@ function accentFor(name: string) {
 
 function avatarFor(username: string) {
   return props.messenger.profileImageSrc(props.messenger.profileFor(username).avatar);
+}
+
+function bannerFor(username: string) {
+  return props.messenger.profileImageSrc(props.messenger.profileFor(username).banner);
 }
 
 function statusFor(username: string) {
@@ -52,6 +57,11 @@ const members = computed(() =>
 
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
 const selectedProfile = ref("");
+const selectedAvatarUser = ref("");
+const selectedBannerUser = ref("");
+const memberContextOpen = ref(false);
+const memberContextUser = ref("");
+const memberContextPos = ref({ x: 0, y: 0 });
 
 const sections = computed(() => {
   const inCall: string[] = [];
@@ -74,19 +84,84 @@ const sections = computed(() => {
 function openProfile(event: MouseEvent, username: string) {
   event.preventDefault();
   event.stopPropagation();
+  closeMemberContext();
   selectedProfile.value = username;
+}
+
+function openMemberContext(event: MouseEvent, username: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  memberContextUser.value = username;
+  memberContextPos.value = { x: event.clientX, y: event.clientY };
+  memberContextOpen.value = true;
 }
 
 function closeProfile() {
   selectedProfile.value = "";
 }
 
-function onKey(event: KeyboardEvent) {
-  if (event.key === "Escape") closeProfile();
+function closeAvatarViewer() {
+  selectedAvatarUser.value = "";
 }
 
-onMounted(() => document.addEventListener("keydown", onKey));
-onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
+function closeBannerViewer() {
+  selectedBannerUser.value = "";
+}
+
+function closeMemberContext() {
+  memberContextOpen.value = false;
+  memberContextUser.value = "";
+}
+
+function openAvatarFromContext() {
+  if (!memberContextUser.value || !avatarFor(memberContextUser.value)) return;
+  selectedAvatarUser.value = memberContextUser.value;
+  closeMemberContext();
+}
+
+function openBannerFromContext() {
+  if (!memberContextUser.value || !bannerFor(memberContextUser.value)) return;
+  selectedBannerUser.value = memberContextUser.value;
+  closeMemberContext();
+}
+
+function openProfileFromContext() {
+  if (!memberContextUser.value) return;
+  selectedProfile.value = memberContextUser.value;
+  closeMemberContext();
+}
+
+async function copyUserIdFromContext() {
+  const userId = String(memberContextUser.value || "").trim();
+  if (!userId) return;
+  const copied = await navigator.clipboard.writeText(userId).then(() => true).catch(() => false);
+  if (copied) props.messenger.showToast?.("User ID copied.");
+  closeMemberContext();
+}
+
+function onGlobalPointerDown(event: PointerEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest?.(".members__context-menu")) return;
+  closeMemberContext();
+}
+
+function onKey(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    closeMemberContext();
+    closeProfile();
+    closeAvatarViewer();
+    closeBannerViewer();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("keydown", onKey);
+  window.addEventListener("pointerdown", onGlobalPointerDown);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("keydown", onKey);
+  window.removeEventListener("pointerdown", onGlobalPointerDown);
+});
 </script>
 
 <template>
@@ -110,7 +185,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
             tabindex="0"
             :aria-label="t('members.openProfile', { username })"
             @click="openProfile($event, username)"
-            @contextmenu.prevent.stop="openProfile($event, username)"
+            @contextmenu.prevent.stop="openMemberContext($event, username)"
             @keydown.enter.prevent="selectedProfile = username"
             @keydown.space.prevent="selectedProfile = username"
           >
@@ -151,7 +226,34 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
 
     <div v-else class="members__empty">{{ t('members.online') }}</div>
 
+    <div
+      v-if="memberContextOpen"
+      class="members__context-menu"
+      role="menu"
+      :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
+      @click.stop
+    >
+      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">See Avatar</button>
+      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">See Banner</button>
+      <button type="button" role="menuitem" @click="openProfileFromContext">View Profile</button>
+      <button type="button" role="menuitem" @click="copyUserIdFromContext">Copy User Id</button>
+    </div>
+
     <Teleport to="body">
+      <ImageViewer
+        v-if="selectedAvatarUser"
+        :src="avatarFor(selectedAvatarUser)"
+        :filename="`${selectedAvatarUser}-avatar`"
+        size-label="Avatar"
+        @close="closeAvatarViewer"
+      />
+      <ImageViewer
+        v-if="selectedBannerUser"
+        :src="bannerFor(selectedBannerUser)"
+        :filename="`${selectedBannerUser}-banner`"
+        size-label="Banner"
+        @close="closeBannerViewer"
+      />
       <ProfileCard
         v-if="selectedProfile"
         :messenger="messenger"
@@ -161,3 +263,33 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
     </Teleport>
   </aside>
 </template>
+
+<style scoped>
+.members__context-menu {
+  position: fixed;
+  z-index: 140;
+  min-width: 196px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  padding: 6px;
+}
+
+.members__context-menu button {
+  width: 100%;
+  text-align: left;
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.members__context-menu button:hover {
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  color: #fff;
+}
+</style>
