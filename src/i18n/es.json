@@ -43,8 +43,8 @@
         "removeConversation": "Eliminar {room}",
         "removeConversationConfirm": "¿Eliminar la conversación \"{room}\" y sus mensajes?",
         "contextChangeImage": "Elegir imagen",
-        "contextRenameLocal": "Renombrar la sala",
-        "promptLocalRoomName": "Nombre de la sala",
+        "contextRenameRoom": "Renombrar la sala",
+        "promptRoomName": "Nombre de la sala",
         "anonymous": "anónimo"
     },
     "members": {

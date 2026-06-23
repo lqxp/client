@@ -64,8 +64,8 @@
         "removeConversation": "Удалить {room}",
         "removeConversationConfirm": "Удалить разговор \"{room}\" и его сообщения?",
         "contextChangeImage": "Выбрать изображение",
-        "contextRenameLocal": "Переименовать комнату",
-        "promptLocalRoomName": "Имя комнаты",
+        "contextRenameRoom": "Переименовать комнату",
+        "promptRoomName": "Имя комнаты",
         "anonymous": "аноним"
     },
     "members": {

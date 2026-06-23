@@ -90,7 +90,7 @@ function renameRoomFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
   const current = props.messenger.displayRoomName(roomId);
-  const next = window.prompt(t("sidebar.promptLocalRoomName"), current || roomId);
+  const next = window.prompt(t("sidebar.promptRoomName"), current || roomId);
   if (next === null) return;
   props.messenger.setLocalRoomName(roomId, next);
   closeRoomContext();
@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
       @click.stop
     >
       <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
-      <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameLocal') }}</button>
+      <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameRoom') }}</button>
     </div>
 
     <input
