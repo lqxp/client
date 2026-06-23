@@ -134,20 +134,25 @@ function findFirstLinkPreviewUrl(text) {
 function normalizeProfileImage(value, maxBytes) {
   if (!value || typeof value !== "object") return null;
   const mimeType = normalizeProfileMime(value.mimeType);
-  const dataB64 = String(value.dataB64 || "").trim();
-  const size = Math.max(
-    0,
-    Number(value.size) || Math.ceil((dataB64.length * 3) / 4),
-  );
+  const size = Math.max(0, Number(value.size) || 0);
   const width = Math.max(0, Math.round(Number(value.width) || 0));
   const height = Math.max(0, Math.round(Number(value.height) || 0));
+
+  const url = sanitizeHttpUrl(value.url);
+  const id = String(value.id || "").trim();
+  if (mimeType && url && id && size && size <= maxBytes) {
+    return { id, url, mimeType, size, width, height };
+  }
+
+  const dataB64 = String(value.dataB64 || "").trim();
   if (
     !mimeType ||
     !dataB64 ||
     size > maxBytes ||
     dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8
-  )
+  ) {
     return null;
+  }
   return { mimeType, size, width, height, dataB64 };
 }
 
@@ -175,9 +180,8 @@ function normalizeProfileMime(value) {
 
 function profileImageSrc(image) {
   const normalized = normalizeProfileImage(image, MAX_PROFILE_BANNER_BYTES);
-  return normalized
-    ? `data:${normalized.mimeType};base64,${normalized.dataB64}`
-    : "";
+  if (!normalized) return "";
+  return normalized.url || `data:${normalized.mimeType};base64,${normalized.dataB64}`;
 }
 
 function sanitizeHttpUrl(value) {
@@ -749,8 +753,7 @@ function sanitizeLocalRoomIcons(raw) {
 function stripAttachmentDataForStorage(arr) {
   return (arr || []).map((m) => {
     if (!m?.attachment) return m;
-    const { dataB64: _omit, ...rest } = m.attachment;
-    return { ...m, attachment: { ...rest, dataB64: "" } };
+    return { ...m, attachment: { ...m.attachment } };
   });
 }
 
@@ -885,10 +888,11 @@ function sameAttachmentPayload(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
   return (
+    String(left.id || "") === String(right.id || "") &&
+    String(left.url || "") === String(right.url || "") &&
     String(left.filename || "") === String(right.filename || "") &&
     String(left.mimeType || "") === String(right.mimeType || "") &&
-    Number(left.size) === Number(right.size) &&
-    String(left.dataB64 || "") === String(right.dataB64 || "")
+    Number(left.size) === Number(right.size)
   );
 }
 
@@ -954,6 +958,8 @@ function normalizeMessage(message, fallbackRoomId) {
   const attachment =
     message.attachment && typeof message.attachment === "object"
       ? {
+          id: String(message.attachment.id || "").trim(),
+          url: sanitizeHttpUrl(message.attachment.url),
           filename: String(message.attachment.filename || "file"),
           mimeType: String(
             message.attachment.mimeType || "application/octet-stream",
@@ -1278,20 +1284,7 @@ export function useMessenger() {
     return detectClientPlatform();
   }
   function attachmentUrlFor(message) {
-    if (!message?.attachment?.dataB64) return null;
-    const id = message.messageId;
-    if (attachmentUrlCache.has(id)) return attachmentUrlCache.get(id);
-    try {
-      const blob = base64ToBlob(
-        message.attachment.dataB64,
-        message.attachment.mimeType,
-      );
-      const url = URL.createObjectURL(blob);
-      attachmentUrlCache.set(id, url);
-      return url;
-    } catch {
-      return null;
-    }
+    return sanitizeHttpUrl(message?.attachment?.url) || null;
   }
 
   const roomLabel = computed(() => state.activeRoom);
@@ -1757,12 +1750,13 @@ export function useMessenger() {
           attachment:
             decrypted?.attachment && typeof decrypted.attachment === "object"
               ? {
+                  id: String(decrypted.attachment.id || "").trim(),
+                  url: sanitizeHttpUrl(decrypted.attachment.url),
                   filename: String(decrypted.attachment.filename || "file"),
                   mimeType: String(
                     decrypted.attachment.mimeType || "application/octet-stream",
                   ),
                   size: Number(decrypted.attachment.size) || 0,
-                  dataB64: String(decrypted.attachment.dataB64 || ""),
                 }
               : null,
           preview: message.preview || null,
@@ -4115,7 +4109,6 @@ export function useMessenger() {
       case 2:
         if (d?.error) {
           state.lastError = d.error;
-          logoutLocal();
           break;
         }
         state.uuid = d.uuid;
