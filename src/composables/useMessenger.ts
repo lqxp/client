@@ -502,7 +502,7 @@ function loadPersisted() {
             lastPreview: String(r.lastPreview || ""),
             lastTimestamp: Number(r.lastTimestamp) || 0,
             lastSender: String(r.lastSender || ""),
-            iconUrl: sanitizeHttpUrl(r.iconUrl || r.icon?.url),
+            iconUrl: sanitizeHttpUrl(r.iconUrl || r.icon?.url || r.icon?.file?.url),
             members: sanitizeRoomUsers(r.members || []),
           }))
           .filter((r) => isValidRoomId(r.roomId))
@@ -1842,7 +1842,7 @@ export function useMessenger() {
             return;
           }
           const iconUrl = sanitizeHttpUrl(
-            payload?.room?.icon?.file?.url || payload?.icon?.file?.url || payload?.icon?.url,
+            payload?.room?.icon?.url || payload?.room?.icon?.file?.url || payload?.icon?.url || payload?.icon?.file?.url,
           );
           if (!iconUrl) {
             state.lastError = "Invalid room icon URL returned by server.";
@@ -1855,7 +1855,7 @@ export function useMessenger() {
             room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
             console.log("[room-icon][upload-ack]", {
               roomId: id,
-              rawUrl: payload?.room?.icon?.file?.url || payload?.icon?.file?.url || payload?.icon?.url || "",
+              rawUrl: payload?.room?.icon?.url || payload?.room?.icon?.file?.url || payload?.icon?.url || payload?.icon?.file?.url || "",
               sanitizedUrl: iconUrl,
               appliedUrl: room.iconUrl,
               payload,
@@ -4350,7 +4350,7 @@ export function useMessenger() {
       .trim()
       .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
     const nextIconUrl = sanitizeHttpUrl(
-      roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+      roomPayload?.icon?.url || roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
     );
     const mergedIconUrl = nextIconUrl || sanitizeHttpUrl(room?.iconUrl);
     const nextMembers = normalizeRoomUsers(roomPayload?.members || []);
@@ -4362,7 +4362,13 @@ export function useMessenger() {
       if (roomPayload?.icon || nextIconUrl) {
         console.log("[room-icon][snapshot]", {
           roomId,
-          rawUrl: roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+          rawUrl:
+            roomPayload?.icon?.url ||
+            roomPayload?.icon?.file?.url ||
+            roomPayload?.iconUrl ||
+            roomPayload?.icon?.path ||
+            roomPayload?.icon?.src ||
+            "",
           sanitizedUrl: nextIconUrl,
           appliedUrl: room.iconUrl,
           payload: roomPayload,
@@ -4381,7 +4387,13 @@ export function useMessenger() {
       if (roomPayload?.icon || nextIconUrl) {
         console.log("[room-icon][snapshot]", {
           roomId,
-          rawUrl: roomPayload?.icon?.file?.url || roomPayload?.iconUrl || "",
+          rawUrl:
+            roomPayload?.icon?.url ||
+            roomPayload?.icon?.file?.url ||
+            roomPayload?.iconUrl ||
+            roomPayload?.icon?.path ||
+            roomPayload?.icon?.src ||
+            "",
           sanitizedUrl: nextIconUrl,
           appliedUrl: mergedIconUrl,
           payload: roomPayload,
