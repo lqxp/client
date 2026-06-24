@@ -8,9 +8,6 @@ interface ImportMetaEnv {
   readonly VITE_QXP_TURN_URLS?: string;
   readonly VITE_QXP_TURN_USERNAME?: string;
   readonly VITE_QXP_TURN_CREDENTIAL?: string;
-  readonly QXP_TURN_URLS?: string;
-  readonly QXP_TURN_USERNAME?: string;
-  readonly QXP_TURN_CREDENTIAL?: string;
   readonly VITE_QXP_CALLS_ENABLED?: string;
   readonly VITE_QXP_CALLS_UNAVAILABLE_REASON?: string;
 }
