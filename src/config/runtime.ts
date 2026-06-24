@@ -27,9 +27,9 @@ const envServerOrigin = normalizeHttpUrl(import.meta.env.VITE_QXP_SERVER_ORIGIN)
 const envApiBaseUrl = normalizeHttpUrl(import.meta.env.VITE_QXP_API_BASE_URL);
 const envWsUrl = normalizeWebSocketUrl(import.meta.env.VITE_QXP_WS_URL);
 const envRelayOnly = normalizeBoolean(import.meta.env.VITE_QXP_RELAY_ONLY);
-const envTurnUrls = normalizeEnvStringArray(import.meta.env.VITE_QXP_TURN_URLS);
-const envTurnUsername = normalizeEnvString(import.meta.env.VITE_QXP_TURN_USERNAME);
-const envTurnCredential = normalizeEnvString(import.meta.env.VITE_QXP_TURN_CREDENTIAL);
+const envTurnUrls = normalizeEnvStringArray(import.meta.env.VITE_QXP_TURN_URLS || import.meta.env.QXP_TURN_URLS);
+const envTurnUsername = normalizeEnvString(import.meta.env.VITE_QXP_TURN_USERNAME || import.meta.env.QXP_TURN_USERNAME);
+const envTurnCredential = normalizeEnvString(import.meta.env.VITE_QXP_TURN_CREDENTIAL || import.meta.env.QXP_TURN_CREDENTIAL);
 const envCallsEnabled = normalizeBoolean(import.meta.env.VITE_QXP_CALLS_ENABLED);
 const envCallsUnavailableReason = normalizeEnvString(import.meta.env.VITE_QXP_CALLS_UNAVAILABLE_REASON);
 
