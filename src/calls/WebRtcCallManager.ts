@@ -35,11 +35,23 @@ const relayUrls = rtcRuntimeConfig.turnUrls;
 const relayUsername = rtcRuntimeConfig.turnUsername;
 const relayCredential = rtcRuntimeConfig.turnCredential;
 
+export function webRtcSupported() {
+  return typeof RTCPeerConnection !== "undefined";
+}
+
 export function relayCallsConfigured() {
-  return rtcRuntimeConfig.callsEnabled && relayUrls.length > 0 && !!relayUsername && !!relayCredential;
+  return webRtcSupported()
+    && rtcRuntimeConfig.callsEnabled
+    && relayUrls.length > 0
+    && !!relayUsername
+    && !!relayCredential;
 }
 
 export function relayCallsRequirementMessage() {
+  if (!webRtcSupported()) {
+    return "Calls are not available in this runtime because WebRTC is not supported.";
+  }
+
   return rtcRuntimeConfig.callsUnavailableReason
     || "Calls are disabled until a TURN relay is configured. Direct peer-to-peer calls were turned off to avoid exposing participant IP addresses.";
 }
