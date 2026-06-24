@@ -11,7 +11,7 @@
     "sync:runtime": "node ./scripts/sync-runtime-config.mjs",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
-    "build:tauri": "vite build"
+    "build:tauri": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js"
   },
   "dependencies": {
     "@tauri-apps/plugin-notification": "^2.3.3",

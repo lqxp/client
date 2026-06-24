@@ -139,12 +139,38 @@ function runtimeScript(payload) {
 }
 
 function extractRuntimeConfigFromHtml(html) {
+  const runtimeConfigUrlMatch = String(html || "").match(
+    /<script\b[^>]*\bsrc=["']([^"']*runtime-config\.js[^"']*)["'][^>]*><\/script>/i
+  );
+  if (runtimeConfigUrlMatch) {
+    return { __runtimeConfigScriptUrl: runtimeConfigUrlMatch[1] };
+  }
+
   const match = String(html || "").match(
     /<script\b[^>]*>\s*window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/m
   );
   if (!match) {
-    throw new Error("Could not find window.__QXP_RUNTIME__ in the production HTML.");
+    throw new Error("Could not find runtime config in the production HTML.");
   }
+  return JSON.parse(match[1]);
+}
+
+async function fetchRuntimeConfigScript(configUrl, htmlPayload) {
+  const runtimeConfigScriptUrl = String(htmlPayload?.__runtimeConfigScriptUrl || "").trim();
+  if (!runtimeConfigScriptUrl) return htmlPayload;
+
+  const resolvedUrl = new URL(runtimeConfigScriptUrl, configUrl).toString();
+  const response = await fetch(resolvedUrl);
+  if (!response.ok) {
+    throw new Error(`Could not fetch ${resolvedUrl}: HTTP ${response.status}`);
+  }
+
+  const script = await response.text();
+  const match = script.match(/window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*?\})\s*;?/m);
+  if (!match) {
+    throw new Error(`Could not find window.__QXP_RUNTIME__ in ${resolvedUrl}.`);
+  }
+
   return JSON.parse(match[1]);
 }
 
@@ -162,7 +188,8 @@ if (configUrl) {
     throw new Error(`Could not fetch ${configUrl}: HTTP ${response.status}`);
   }
 
-  const runtimeConfig = extractRuntimeConfigFromHtml(await response.text());
+  const htmlPayload = extractRuntimeConfigFromHtml(await response.text());
+  const runtimeConfig = await fetchRuntimeConfigScript(configUrl, htmlPayload);
   const payload = {
     ...runtimeConfig,
     ...(envPayload || {}),
