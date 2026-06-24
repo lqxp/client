@@ -314,6 +314,11 @@
             "serverOrigin": "Server origin",
             "apiBaseUrl": "API base URL",
             "wsUrl": "WebSocket URL",
+            "turnUser": "TURN user",
+            "turnHost": "TURN host",
+            "turnRemote": "TURN remote",
+            "turnSecure": "TURN secure",
+            "turnPassword": "TURN password",
             "userAgent": "User-Agent",
             "yes": "Yes",
             "no": "No"

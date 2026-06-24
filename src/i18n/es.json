@@ -313,6 +313,11 @@
             "serverOrigin": "Origen del servidor",
             "apiBaseUrl": "URL base de la API",
             "wsUrl": "URL WebSocket",
+            "turnUser": "Usuario TURN",
+            "turnHost": "Host TURN",
+            "turnRemote": "TURN remoto",
+            "turnSecure": "TURN seguro",
+            "turnPassword": "Contraseña TURN",
             "userAgent": "User agent",
             "yes": "sí",
             "no": "no"

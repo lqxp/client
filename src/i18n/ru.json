@@ -335,6 +335,11 @@
             "serverOrigin": "Источник сервера",
             "apiBaseUrl": "Базовый URL API",
             "wsUrl": "URL WebSocket",
+            "turnUser": "TURN пользователь",
+            "turnHost": "TURN хост",
+            "turnRemote": "Удалённый TURN",
+            "turnSecure": "Защищённый TURN",
+            "turnPassword": "Пароль TURN",
             "userAgent": "User-Agent",
             "yes": "Да",
             "no": "Нет"

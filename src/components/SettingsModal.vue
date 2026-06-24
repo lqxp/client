@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
-import { appRuntimeConfig } from "@/config/runtime";
+import { appRuntimeConfig, rtcRuntimeConfig } from "@/config/runtime";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -215,7 +215,12 @@ const runtimeDetails = computed(() => {
     userAgent: navigator.userAgent,
     serverOrigin: appRuntimeConfig.serverOrigin,
     apiBaseUrl: appRuntimeConfig.apiBaseUrl,
-    wsUrl: appRuntimeConfig.wsUrl
+    wsUrl: appRuntimeConfig.wsUrl,
+    turnUser: rtcRuntimeConfig.turnUsername || "—",
+    turnHost: rtcRuntimeConfig.turnUrls[0] || "—",
+    turnRemote: rtcRuntimeConfig.relayOnly,
+    turnSecure: rtcRuntimeConfig.turnUrls.some((url) => String(url).trim().toLowerCase().startsWith("turns:")),
+    turnPassword: rtcRuntimeConfig.turnCredential || "—"
   };
 });
 
@@ -1057,6 +1062,26 @@ onBeforeUnmount(() => {
             <div>
               <dt>{{ t('settings.about.wsUrl') }}</dt>
               <dd>{{ runtimeDetails.wsUrl }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('settings.about.turnUser') }}</dt>
+              <dd>{{ runtimeDetails.turnUser }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('settings.about.turnHost') }}</dt>
+              <dd>{{ runtimeDetails.turnHost }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('settings.about.turnRemote') }}</dt>
+              <dd>{{ runtimeDetails.turnRemote ? t('settings.about.yes') : t('settings.about.no') }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('settings.about.turnSecure') }}</dt>
+              <dd>{{ runtimeDetails.turnSecure ? t('settings.about.yes') : t('settings.about.no') }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('settings.about.turnPassword') }}</dt>
+              <dd>{{ runtimeDetails.turnPassword }}</dd>
             </div>
             <div>
               <dt>{{ t('settings.about.userAgent') }}</dt>
