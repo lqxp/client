@@ -16,6 +16,20 @@ const scale = ref(1);
 
 const scaleLabel = computed(() => `${Math.round(scale.value * 100)}%`);
 
+const downloadFilename = computed(() => {
+  const raw = String(props.filename || "Image").trim() || "Image";
+  if (/\.[a-z0-9]{2,8}$/i.test(raw)) return raw;
+  const src = String(props.src || "");
+  const cleanPath = src.split("?")[0]?.split("#")[0] || "";
+  const extFromPath = cleanPath.match(/\.([a-z0-9]{2,8})$/i)?.[1];
+  if (extFromPath) return `${raw}.${extFromPath}`;
+  if (src.startsWith("data:image/")) {
+    const extFromData = src.match(/^data:image\/([a-z0-9+.-]+);/i)?.[1]?.replace("jpeg", "jpg");
+    if (extFromData) return `${raw}.${extFromData}`;
+  }
+  return `${raw}.png`;
+});
+
 function close() {
   emit("close");
 }
@@ -35,7 +49,7 @@ function resetZoom() {
 function download() {
   const a = document.createElement("a");
   a.href = props.src;
-  a.download = props.filename || "image";
+  a.download = downloadFilename.value;
   document.body.appendChild(a);
   a.click();
   a.remove();

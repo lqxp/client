@@ -134,22 +134,30 @@ function normalizeProfileImage(value, maxBytes) {
   const size = Math.max(0, Number(value.size) || 0);
   const width = Math.max(0, Math.round(Number(value.width) || 0));
   const height = Math.max(0, Math.round(Number(value.height) || 0));
-
-  const url = sanitizeHttpUrl(value.url);
-  const id = String(value.id || "").trim();
-  if (mimeType && url && id && size && size <= maxBytes) {
-    return { id, url, mimeType, size, width, height };
-  }
-
   const dataB64 = String(value.dataB64 || "").trim();
   if (
     !mimeType ||
-    !dataB64 ||
     size > maxBytes ||
-    dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8
+    (dataB64 && dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8)
   ) {
     return null;
   }
+
+  const url = sanitizeHttpUrl(value.url);
+  const id = String(value.id || "").trim();
+  if (url && id && size) {
+    return {
+      id,
+      url,
+      mimeType,
+      size,
+      width,
+      height,
+      ...(dataB64 ? { dataB64 } : {}),
+    };
+  }
+
+  if (!dataB64) return null;
   return { mimeType, size, width, height, dataB64 };
 }
 
@@ -166,6 +174,17 @@ function normalizeProfile(profile) {
   };
 }
 
+function mergeProfiles(base, incoming) {
+  const left = normalizeProfile(base);
+  const right = normalizeProfile(incoming);
+  return normalizeProfile({
+    avatar: right.avatar || left.avatar,
+    banner: right.banner || left.banner,
+    description: right.description || left.description,
+    pronouns: right.pronouns || left.pronouns,
+  });
+}
+
 function normalizeProfileMime(value) {
   const mime = String(value || "")
     .trim()
@@ -178,7 +197,10 @@ function normalizeProfileMime(value) {
 function profileImageSrc(image) {
   const normalized = normalizeProfileImage(image, MAX_PROFILE_BANNER_BYTES);
   if (!normalized) return "";
-  return normalized.url || `data:${normalized.mimeType};base64,${normalized.dataB64}`;
+  if ("url" in normalized && normalized.url) return normalized.url;
+  return normalized.dataB64
+    ? `data:${normalized.mimeType};base64,${normalized.dataB64}`
+    : "";
 }
 
 function sanitizeHttpUrl(value) {
@@ -1448,7 +1470,7 @@ export function useMessenger() {
     state.userId = String(data.user.id || "");
     state.username = sanitizeUsername(data.user.username);
     state.admin = Boolean(data.user.admin);
-    state.profile = normalizeProfile(data.user.profile);
+    state.profile = mergeProfiles(state.profile, data.user.profile);
     state.status = sanitizePresenceStatus(data.user.status);
     Object.assign(state, preservedSettings);
     if (Array.isArray(data.recoveryWords)) {
@@ -2053,7 +2075,12 @@ export function useMessenger() {
       ...(pronouns !== undefined ? { pronouns } : {}),
     });
     persist();
-    syncClientSettings(true);
+    syncClientSettings(true, {
+      description:
+        description !== undefined ? sanitizeProfileText(description, MAX_PROFILE_DESCRIPTION_LENGTH) : state.profile.description,
+      pronouns:
+        pronouns !== undefined ? sanitizeProfileText(pronouns, MAX_PROFILE_PRONOUNS_LENGTH) : state.profile.pronouns,
+    });
   }
 
   async function setProfileImageFromFile(kind, file) {
@@ -2082,7 +2109,7 @@ export function useMessenger() {
       const image = { mimeType, size: file.size, width, height, dataB64 };
       state.profile = normalizeProfile({ ...state.profile, [kind]: image });
       persist();
-      syncClientSettings(true);
+      syncClientSettings(true, { [kind]: image });
       return true;
     } catch (error) {
       state.lastError = error?.message || "Could not read profile image.";
@@ -2095,7 +2122,7 @@ export function useMessenger() {
     if (kind !== "avatar" && kind !== "banner") return;
     state.profile = normalizeProfile({ ...state.profile, [kind]: null });
     persist();
-    syncClientSettings(true);
+    syncClientSettings(true, { [kind]: null });
   }
 
   function callUserVolume(username) {
@@ -2722,7 +2749,7 @@ export function useMessenger() {
     state.ws.send(JSON.stringify(payload));
   }
 
-  function syncClientSettings(includeProfile = false) {
+  function syncClientSettings(includeProfile = false, profileOverride?: any) {
     if (!state.connected || !state.identified) return;
     const d: any = {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
@@ -2731,7 +2758,7 @@ export function useMessenger() {
       clientId: localClientId,
       platform: currentLocalPlatform(),
     };
-    if (includeProfile) d.profile = normalizeProfile(state.profile);
+    if (includeProfile) d.profile = normalizeProfile(profileOverride ?? state.profile);
     send({ op: 8, d });
   }
 
@@ -4225,7 +4252,7 @@ export function useMessenger() {
         state.voiceMembersByRoom = {};
         state.callClientsByRoom = {};
         state.typingByRoom = {};
-        if (d?.profile) state.profile = normalizeProfile(d.profile);
+        if (d?.profile) state.profile = mergeProfiles(state.profile, d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
         state.systemBanner = "";
         for (const roomId of allKnownRooms) touchRoom(roomId);
@@ -4335,7 +4362,7 @@ export function useMessenger() {
             else if (typeof d?.isMobile === "boolean")
               rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
             if (d?.profile)
-              state.profilesByUser[key] = normalizeProfile(d.profile);
+              state.profilesByUser[key] = mergeProfiles(state.profilesByUser[key], d.profile);
             if (d?.status)
               state.statusesByUser[key] = sanitizePresenceStatus(d.status);
           }
@@ -4512,8 +4539,9 @@ export function useMessenger() {
     applyRoomSnapshot(d, d?.gameId);
     const key = sanitizeUsername(d?.user);
     if (!key) return;
-    const profile = normalizeProfile(d?.profile);
-    if (key === sanitizeUsername(state.username)) state.profile = profile;
+    const profile = mergeProfiles(state.profilesByUser[key], d?.profile);
+    if (key === sanitizeUsername(state.username))
+      state.profile = mergeProfiles(state.profile, d?.profile);
     state.profilesByUser[key] = profile;
   }
 
@@ -4569,7 +4597,8 @@ export function useMessenger() {
     const visible = d?.visible !== false;
 
     state.statusesByUser[key] = status;
-    if (d?.profile) state.profilesByUser[key] = normalizeProfile(d.profile);
+    if (d?.profile)
+      state.profilesByUser[key] = mergeProfiles(state.profilesByUser[key], d.profile);
     if (d?.platform) rememberClientPlatform(key, d.platform);
     if (key === me) state.status = status;
 
@@ -4770,7 +4799,7 @@ export function useMessenger() {
         if (typeof data.username === "string")
           state.username = sanitizeUsername(data.username);
         state.status = sanitizePresenceStatus(data.status);
-        state.profile = normalizeProfile(data.profile);
+        state.profile = mergeProfiles(state.profile, data.profile);
 
         if (Array.isArray(data.rooms)) {
           const previousIcons = Object.fromEntries(

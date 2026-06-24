@@ -63,6 +63,18 @@ const memberContextOpen = ref(false);
 const memberContextUser = ref("");
 const memberContextPos = ref({ x: 0, y: 0 });
 
+function clampMemberContextPosition(clientX: number, clientY: number) {
+  const menuWidth = 196;
+  const menuHeight = 220;
+  const padding = 12;
+  const maxLeft = Math.max(padding, window.innerWidth - menuWidth - padding);
+  const maxTop = Math.max(padding, window.innerHeight - menuHeight - padding);
+  return {
+    x: Math.min(Math.max(clientX, padding), maxLeft),
+    y: Math.min(Math.max(clientY, padding), maxTop),
+  };
+}
+
 const sections = computed(() => {
   const inCall: string[] = [];
   const online: string[] = [];
@@ -92,7 +104,7 @@ function openMemberContext(event: MouseEvent, username: string) {
   event.preventDefault();
   event.stopPropagation();
   memberContextUser.value = username;
-  memberContextPos.value = { x: event.clientX, y: event.clientY };
+  memberContextPos.value = clampMemberContextPosition(event.clientX, event.clientY);
   memberContextOpen.value = true;
 }
 
