@@ -219,4 +219,23 @@ if (configUrl) {
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, outputScript, "utf8");
 
+const writtenPayload = JSON.parse(outputScript.match(/window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*\})\s*;?\s*$/m)?.[1] || "{}");
+const summary = {
+  configSource,
+  outputPath,
+  serverOrigin: writtenPayload.serverOrigin || "",
+  apiBaseUrl: writtenPayload.apiBaseUrl || "",
+  wsUrl: writtenPayload.wsUrl || "",
+  rtc: {
+    relayOnly: writtenPayload.rtc?.relayOnly,
+    turnUrlsCount: Array.isArray(writtenPayload.rtc?.turnUrls) ? writtenPayload.rtc.turnUrls.length : 0,
+    turnUsername: writtenPayload.rtc?.turnUsername ? "***set***" : "",
+    turnCredential: writtenPayload.rtc?.turnCredential ? "***set***" : "",
+    callsEnabled: writtenPayload.rtc?.callsEnabled,
+    callsUnavailableReason: writtenPayload.rtc?.callsUnavailableReason || ""
+  }
+};
+
 console.log(`Wrote ${outputPath} from ${configSource} with RTC ${rtcStatus}.`);
+console.log("Runtime config summary:");
+console.log(JSON.stringify(summary, null, 2));
