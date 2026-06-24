@@ -15,6 +15,7 @@ import {
   WebRtcCallManager,
   relayCallsConfigured,
   relayCallsRequirementMessage,
+  webRtcSupported,
 } from "@/calls/WebRtcCallManager";
 import { apiUrl, appRuntimeConfig } from "@/config/runtime";
 import {
@@ -3414,6 +3415,11 @@ export function useMessenger() {
     }
     try {
       const stream = await getPreferredAudioStream();
+      if (!webRtcSupported()) {
+        stopStreamTracks(stream);
+        state.lastError = relayCallsRequirementMessage();
+        return;
+      }
       const outboundStream = setupCallAudioPipeline(stream);
       callOutboundStream = outboundStream;
       refreshAudioDevices();
