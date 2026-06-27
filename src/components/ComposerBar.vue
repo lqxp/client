@@ -93,14 +93,14 @@ function focusInput(options: { end?: boolean } = {}) {
 }
 
 const EMOJIS = [
-  "😀","😂","🤣","😊","😍","🥰","😘","😎","🤩","😇",
-  "🙂","😉","😋","😛","😜","🤪","🤗","🤭","🤔","🧐",
-  "😏","🙄","😬","😒","😞","😔","😢","😭","😤","😡",
-  "🥺","😳","😱","😴","🤒","🤕","🤧","🥳","🤯","💀",
-  "👍","👎","👌","✌️","🤞","🤘","🤙","👏","🙏","🤝",
-  "💪","👀","👋","🙌","🤦","🤷","💃","🕺","🦾","🧠",
-  "❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","💘",
-  "🔥","✨","⭐","🎉","🎊","💯","💢","💥","💫","☕"
+  "😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤩", "😇",
+  "🙂", "😉", "😋", "😛", "😜", "🤪", "🤗", "🤭", "🤔", "🧐",
+  "😏", "🙄", "😬", "😒", "😞", "😔", "😢", "😭", "😤", "😡",
+  "🥺", "😳", "😱", "😴", "🤒", "🤕", "🤧", "🥳", "🤯", "💀",
+  "👍", "👎", "👌", "✌️", "🤞", "🤘", "🤙", "👏", "🙏", "🤝",
+  "💪", "👀", "👋", "🙌", "🤦", "🤷", "💃", "🕺", "🦾", "🧠",
+  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔", "💘",
+  "🔥", "✨", "⭐", "🎉", "🎊", "💯", "💢", "💥", "💫", "☕"
 ];
 
 function pastedExtension(mimeType) {
@@ -147,9 +147,9 @@ function filesFromClipboard(event: ClipboardEvent): File[] {
   const files = directFiles.length
     ? directFiles
     : Array.from((clipboard.items || []) as DataTransferItemList)
-        .filter((item) => item.kind === "file")
-        .map((item) => item.getAsFile())
-        .filter((file): file is File => Boolean(file));
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file));
 
   return files.map(namePastedFile);
 }
@@ -223,7 +223,9 @@ function onComposerKeydown(event: KeyboardEvent) {
     } else if (event.key === "ArrowUp") {
       mentionIndex.value = (mentionIndex.value - 1 + mentionOptions.value.length) % mentionOptions.value.length;
     } else if (event.key === "Enter" || event.key === "Tab") {
-      insertMention(selectedMention.value);
+      insertMention(selectedMention.value).then(() => {
+        syncCursor();
+      });
     } else if (event.key === "Escape") {
       mentionIndex.value = 0;
       mentionSuppressedStart.value = mentionSearch.value?.start ?? -1;
@@ -278,7 +280,7 @@ async function pickCamera() {
     });
     if (cameraVideoRef.value) {
       cameraVideoRef.value.srcObject = cameraStream;
-      await cameraVideoRef.value.play().catch(() => {});
+      await cameraVideoRef.value.play().catch(() => { });
     }
   } catch (error) {
     cameraError.value = error instanceof Error ? error.message : "Could not open camera.";
@@ -488,146 +490,133 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <div class="composer__topline">
-        <div v-if="typingLabel" class="typing-indicator composer__typing-indicator" aria-live="polite">{{ typingLabel }}</div>
+        <div v-if="typingLabel" class="typing-indicator composer__typing-indicator" aria-live="polite">{{ typingLabel }}
+        </div>
         <div v-if="messenger.state.editingMessage" class="reply-draft edit-draft">
           <div>
             <span class="reply-draft__label">{{ t('composer.editing') }}</span>
             <span class="reply-draft__text">{{ messenger.state.editingMessage.text }}</span>
           </div>
-          <button type="button" class="icon-btn" :aria-label="t('composer.cancelEdit')" @click="messenger.cancelEditMessage">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <button type="button" class="icon-btn" :aria-label="t('composer.cancelEdit')"
+            @click="messenger.cancelEditMessage">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
         <div v-else-if="messenger.state.replyingTo" class="reply-draft">
           <div>
-            <span class="reply-draft__label">{{ t('composer.replyingTo') }} {{ messenger.state.replyingTo.username || t('message.reply') }}</span>
+            <span class="reply-draft__label">{{ t('composer.replyingTo') }} {{ messenger.state.replyingTo.username ||
+              t('message.reply') }}</span>
             <span class="reply-draft__text">{{ messenger.state.replyingTo.text }}</span>
           </div>
           <button type="button" class="icon-btn" :aria-label="t('composer.cancelReply')" @click="messenger.cancelReply">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg viewBox="0 0 24 24">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
       </div>
-      <input
-        ref="fileInputRef"
-        type="file"
-        multiple
-        style="display: none"
-        @change="onFile"
-      />
+      <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFile" />
       <div class="composer__mobile-actions">
-        <button
-          class="icon-btn composer__more"
-          type="button"
-          aria-label="More message actions"
-          :aria-expanded="mobileActionsOpen"
-          :disabled="disabled"
-          @click="toggleMobileActions"
-        >
-          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        <button class="icon-btn composer__more" type="button" aria-label="More message actions"
+          :aria-expanded="mobileActionsOpen" :disabled="disabled" @click="toggleMobileActions">
+          <svg viewBox="0 0 24 24">
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+          </svg>
         </button>
 
         <div v-if="mobileActionsOpen" class="composer__actions-pop" role="menu">
           <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickFile">
-            <svg viewBox="0 0 24 24"><path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7"/></svg>
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
+            </svg>
             <span>{{ t('composer.attachFile') }}</span>
           </button>
           <button type="button" role="menuitem" :disabled="mediaDisabled" @click="startMobileRecording">
-            <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10a7 7 0 0 1-14 0" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
             <span>{{ t('composer.holdToRecord') }}</span>
           </button>
           <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickCamera">
-            <svg viewBox="0 0 24 24"><path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <svg viewBox="0 0 24 24">
+              <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
             <span>{{ t('camera.title') }}</span>
           </button>
         </div>
       </div>
 
-      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.attachFile')" :disabled="mediaDisabled" @click="pickFile">
-        <svg viewBox="0 0 24 24"><path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7"/></svg>
+      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.attachFile')"
+        :disabled="mediaDisabled" @click="pickFile">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
+        </svg>
       </button>
-      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')" :disabled="mediaDisabled" @click="pickCamera">
-        <svg viewBox="0 0 24 24"><path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
+        :disabled="mediaDisabled" @click="pickCamera">
+        <svg viewBox="0 0 24 24">
+          <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+          <circle cx="12" cy="13" r="3.5" />
+        </svg>
       </button>
 
       <label class="composer__input">
-        <textarea
-          ref="inputRef"
-          v-model="messenger.state.messageInput"
-          :maxlength="messenger.MESSAGE_LIMIT"
-          rows="1"
-          :placeholder="composerPlaceholder"
-          :disabled="disabled"
-          autocomplete="off"
-          spellcheck="false"
-          @input="syncCursor"
-          @click="syncCursor"
-          @keyup="syncCursor"
-          @keydown="onComposerKeydown"
-        ></textarea>
+        <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
+          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false"
+          @input="syncCursor" @click="syncCursor" @keyup="syncCursor" @keydown="onComposerKeydown"></textarea>
         <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
-          <button
-            v-for="(username, index) in mentionOptions"
-            :key="username"
-            type="button"
-            class="mention-picker__item"
-            :class="{ 'is-active': index === mentionIndex }"
-            role="option"
-            :aria-selected="index === mentionIndex"
-            @mousedown.prevent="insertMention(username)"
-          >
-            <span class="mention-picker__avatar" :class="`avatar--${messenger.accentFor(username)}`">{{ username.slice(0, 2).toUpperCase() }}</span>
+          <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
+            :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"
+            @mousedown.prevent="insertMention(username)">
+            <span class="mention-picker__avatar" :class="`avatar--${messenger.accentFor(username)}`">{{
+              username.slice(0, 2).toUpperCase() }}</span>
             <span class="mention-picker__name">@{{ username }}</span>
           </button>
         </div>
         <span class="composer__emoji-wrap" ref="emojiWrapRef">
-          <button
-            class="icon-btn"
-            type="button"
-            :aria-label="t('composer.emoji')"
-            :aria-expanded="pickerOpen"
-            :disabled="disabled"
-            @click.prevent="togglePicker"
-          >
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          <button class="icon-btn" type="button" :aria-label="t('composer.emoji')" :aria-expanded="pickerOpen"
+            :disabled="disabled" @click.prevent="togglePicker">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <line x1="9" y1="9" x2="9.01" y2="9" />
+              <line x1="15" y1="9" x2="15.01" y2="9" />
+            </svg>
           </button>
 
           <div v-if="pickerOpen" class="emoji-picker" role="menu">
-            <button
-              v-for="emoji in EMOJIS"
-              :key="emoji"
-              type="button"
-              class="emoji-picker__cell"
-              :aria-label="emoji"
-              @click="insertEmoji(emoji)"
-            >{{ emoji }}</button>
+            <button v-for="emoji in EMOJIS" :key="emoji" type="button" class="emoji-picker__cell" :aria-label="emoji"
+              @click="insertEmoji(emoji)">{{ emoji }}</button>
           </div>
         </span>
       </label>
 
-      <button
-        v-if="canSend"
-        class="icon-btn composer__send"
-        type="button"
-        :aria-label="t('composer.send')"
-        @click="send"
-      >
-        <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
+      <button v-if="canSend" class="icon-btn composer__send" type="button" :aria-label="t('composer.send')"
+        @click="send">
+        <svg viewBox="0 0 24 24">
+          <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+        </svg>
       </button>
-      <button
-        v-else
-        class="icon-btn composer__mic composer__desktop-action"
-        type="button"
-        :aria-label="t('composer.holdToRecord')"
-        :disabled="mediaDisabled"
-        @mousedown.prevent="startHold"
-        @mouseup.prevent="endHold"
-        @mouseleave="endHold"
-        @touchstart.prevent="startHold"
-        @touchend.prevent="endHold"
-        @touchcancel.prevent="cancelHold"
-      >
-        <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <button v-else class="icon-btn composer__mic composer__desktop-action" type="button"
+        :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold"
+        @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold" @touchend.prevent="endHold"
+        @touchcancel.prevent="cancelHold">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+          <path d="M19 10a7 7 0 0 1-14 0" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+          <line x1="8" y1="23" x2="16" y2="23" />
+        </svg>
       </button>
     </template>
   </footer>
@@ -638,17 +627,14 @@ onBeforeUnmount(() => {
         <header class="camera-modal__head">
           <span>{{ t('camera.title') }}</span>
           <button type="button" class="icon-btn" :aria-label="t('camera.close')" @click="closeCamera">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg viewBox="0 0 24 24">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </header>
 
         <div class="camera-modal__preview">
-          <video
-            ref="cameraVideoRef"
-            autoplay
-            muted
-            playsinline
-          ></video>
+          <video ref="cameraVideoRef" autoplay muted playsinline></video>
           <div v-if="cameraError" class="camera-modal__error">{{ cameraError }}</div>
         </div>
 
