@@ -187,7 +187,6 @@ function syncCursor() {
   const input = inputRef.value;
   cursorPosition.value = input?.selectionStart ?? String(props.messenger.state.messageInput || "").length;
   mentionIndex.value = 0;
-  mentionSuppressedStart.value = -1;
   props.messenger.setTyping?.(Boolean(String(props.messenger.state.messageInput || "").trim()));
   syncComposerHeight();
 }
@@ -223,8 +222,10 @@ function onComposerKeydown(event: KeyboardEvent) {
     } else if (event.key === "ArrowUp") {
       mentionIndex.value = (mentionIndex.value - 1 + mentionOptions.value.length) % mentionOptions.value.length;
     } else if (event.key === "Enter" || event.key === "Tab") {
-      insertMention(selectedMention.value).then(() => {
+      const mention = selectedMention.value;
+      insertMention(mention).then(() => {
         syncCursor();
+        mentionSuppressedStart.value = mentionSearch.value?.start ?? 0;
       });
     } else if (event.key === "Escape") {
       mentionIndex.value = 0;
@@ -437,6 +438,11 @@ watch(() => props.messenger.state.activeRoom, () => {
   });
 });
 
+function onInput() {
+  mentionSuppressedStart.value = -1;
+  syncCursor();
+}
+
 watch(() => props.messenger.state.messageInput, () => {
   nextTick(() => syncComposerHeight());
 });
@@ -572,8 +578,8 @@ onBeforeUnmount(() => {
 
       <label class="composer__input">
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
-          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false"
-          @input="syncCursor" @click="syncCursor" @keyup="syncCursor" @keydown="onComposerKeydown"></textarea>
+          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false" @input="onInput"
+          @click="syncCursor" @keyup="syncCursor" @keydown="onComposerKeydown"></textarea>
         <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
           <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
             :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"

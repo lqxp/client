@@ -1870,9 +1870,7 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     const room = state.rooms.find((entry) => entry.roomId === id);
-    let _ = sanitizeHttpUrl(room?.iconUrl);
-    console.log("-------------", _, room)
-    return _
+    return sanitizeHttpUrl(room?.iconUrl);
   }
 
   function setRoomNote(roomId, note) {
@@ -4544,23 +4542,6 @@ export function useMessenger() {
         iconUrl: mergedIconUrl,
         members: nextMembers,
       });
-      if (roomPayload?.icon || nextIconUrl) {
-        console.log("[room-icon][snapshot]", {
-          roomId,
-          rawUrl:
-            roomPayload?.icon?.url ||
-            roomPayload?.icon?.file?.url ||
-            roomPayload?.iconUrl ||
-            roomPayload?.icon?.path ||
-            roomPayload?.icon?.src ||
-            "",
-          sanitizedUrl: nextIconUrl,
-          appliedUrl: mergedIconUrl,
-          iconKeys: roomPayload?.icon ? Object.keys(roomPayload.icon) : [],
-          iconJson: roomPayload?.icon ? JSON.stringify(roomPayload.icon) : "",
-          payload: roomPayload,
-        });
-      }
     }
 
     if (Array.isArray(d?.players)) {
