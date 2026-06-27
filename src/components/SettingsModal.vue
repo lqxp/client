@@ -29,8 +29,8 @@ const nameValid = computed(() => !props.messenger.validateUsername(draftName.val
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const profile = computed(() => props.messenger.myProfile.value);
-const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar));
-const bannerSrc = computed(() => props.messenger.profileImageSrc(profile.value.banner));
+const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar, "avatar"));
+const bannerSrc = computed(() => props.messenger.profileImageSrc(profile.value.banner, "banner"));
 const profileTextChanged = computed(() =>
   draftDescription.value.trim() !== String(profile.value.description || "").trim()
   || draftPronouns.value.trim() !== String(profile.value.pronouns || "").trim()

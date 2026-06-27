@@ -20,7 +20,7 @@ const roomIconUploadRoomId = ref("");
 
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
-const meAvatar = computed(() => props.messenger.profileImageSrc(props.messenger.myProfile.value.avatar));
+const meAvatar = computed(() => props.messenger.profileImageSrc(props.messenger.myProfile.value.avatar, "avatar"));
 const statusLabel = computed(() => {
   switch (props.messenger.state.status) {
     case "invisible":

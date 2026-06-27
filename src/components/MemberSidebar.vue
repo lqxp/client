@@ -25,11 +25,11 @@ function accentFor(name: string) {
 }
 
 function avatarFor(username: string) {
-  return props.messenger.profileImageSrc(props.messenger.profileFor(username).avatar);
+  return props.messenger.profileImageSrc(props.messenger.profileFor(username).avatar, "avatar");
 }
 
 function bannerFor(username: string) {
-  return props.messenger.profileImageSrc(props.messenger.profileFor(username).banner);
+  return props.messenger.profileImageSrc(props.messenger.profileFor(username).banner, "banner");
 }
 
 function statusFor(username: string) {

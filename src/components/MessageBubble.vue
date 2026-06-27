@@ -60,7 +60,7 @@ const avatarInitials = computed(() => initialsFor(props.message.username));
 const avatarAccent = computed(() => props.messenger.accentFor(props.message.username || ""));
 const avatarSrc = computed(() => {
   const profile = props.messenger.profileFor?.(props.message.username || "");
-  return props.messenger.profileImageSrc?.(profile?.avatar) || "";
+  return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 });
 
 const attachmentUrl = computed(() => props.messenger.attachmentUrlFor(props.message));
@@ -95,7 +95,7 @@ const replyText = computed(() => previewTextFor(repliedMessage.value, props.mess
 const replyEdited = computed(() => Number(repliedMessage.value?.editedAt || 0) > 0 && !repliedMessage.value?.deleted);
 const replyAvatarSrc = computed(() => {
   const profile = props.messenger.profileFor?.(repliedMessage.value?.username || "");
-  return props.messenger.profileImageSrc?.(profile?.avatar) || "";
+  return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 });
 const replyAvatarAccent = computed(() => props.messenger.accentFor(repliedMessage.value?.username || replyLabel.value || ""));
 const replyAvatarInitials = computed(() => initialsFor(repliedMessage.value?.username || replyLabel.value || "?"));
