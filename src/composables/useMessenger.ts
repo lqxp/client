@@ -1490,6 +1490,7 @@ export function useMessenger() {
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
     statusesByUser: {},
+    userIdsByUsername: {},
     clientPlatformsByUser: {},
     callClientsByRoom: {},
     unreadByRoom: persisted.unreadByRoom,
@@ -1864,6 +1865,7 @@ export function useMessenger() {
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.statusesByUser = {};
+    state.userIdsByUsername = {};
     state.profile = normalizeProfile(null);
     state.status = "online";
     state.activeRoom = "";
@@ -3292,6 +3294,7 @@ export function useMessenger() {
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.statusesByUser = {};
+    state.userIdsByUsername = {};
     state.typingByRoom = {};
     state.ws = null;
     if (typingIdleTimer) {
@@ -3854,6 +3857,20 @@ export function useMessenger() {
     state.clientPlatformsByUser[key] = [...platforms];
   }
 
+  function rememberUserId(username, userId) {
+    const key = sanitizeUsername(username);
+    const id = String(userId || "").trim();
+    if (!key || !id) return;
+    state.userIdsByUsername[key] = id;
+  }
+
+  function userIdForUsername(username) {
+    const key = sanitizeUsername(username);
+    if (!key) return "";
+    if (key === sanitizeUsername(state.username)) return String(state.userId || state.uuid || "").trim();
+    return String(state.userIdsByUsername[key] || "").trim();
+  }
+
   function normalizeRoomUsers(players) {
     const users = new Set<string>();
     for (const player of Array.isArray(players) ? players : []) {
@@ -3864,8 +3881,10 @@ export function useMessenger() {
       );
       if (!user) continue;
       users.add(user);
-      if (typeof player === "object" && player?.platform)
-        rememberClientPlatform(user, player.platform);
+      if (typeof player === "object") {
+        rememberUserId(user, player?.id || player?.userId || player?.uuid);
+        if (player?.platform) rememberClientPlatform(user, player.platform);
+      }
     }
     return [...users];
   }
@@ -4417,6 +4436,7 @@ export function useMessenger() {
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.statusesByUser = {};
+    state.userIdsByUsername = {};
     state.profile = normalizeProfile(null);
     state.status = "online";
     state.activeRoom = "";
@@ -4960,6 +4980,7 @@ export function useMessenger() {
         {
           const key = sanitizeUsername(d?.username || d?.user);
           if (key) {
+            rememberUserId(key, d?.id || d?.userId || d?.uuid);
             if (d?.platform) rememberClientPlatform(key, d.platform);
             else if (typeof d?.isMobile === "boolean")
               rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
@@ -5192,6 +5213,7 @@ export function useMessenger() {
     const visible = d?.visible !== false;
 
     state.statusesByUser[key] = status;
+    rememberUserId(key, d?.id || d?.userId || d?.uuid);
     if (d?.profile)
       state.profilesByUser[key] = mergeProfiles(
         state.profilesByUser[key],
@@ -5551,6 +5573,7 @@ export function useMessenger() {
     presenceStatusLabel,
     profileImageSrc,
     platformsForUser,
+    userIdForUsername,
     mutualRoomsWith,
     platformLabel,
     platformIcon,

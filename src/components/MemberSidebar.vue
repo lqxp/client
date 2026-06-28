@@ -144,8 +144,12 @@ function openProfileFromContext() {
 }
 
 async function copyUserIdFromContext() {
-  const userId = String(memberContextUser.value || "").trim();
-  if (!userId) return;
+  const userId = String(props.messenger.userIdForUsername?.(memberContextUser.value) || "").trim();
+  if (!userId) {
+    props.messenger.showToast?.("User ID unavailable.");
+    closeMemberContext();
+    return;
+  }
   const copied = await navigator.clipboard.writeText(userId).then(() => true).catch(() => false);
   if (copied) props.messenger.showToast?.("User ID copied.");
   closeMemberContext();
