@@ -1,2 +1,2 @@
-# QxpClient
-QxpClient is the Official client for the lqxp protocol
+# client
+Used by https://github.com/lqxp/app
