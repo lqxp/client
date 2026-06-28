@@ -3748,6 +3748,174 @@ textarea {
   justify-content: flex-end;
 }
 
+.settings-lock-form {
+  margin-top: 14px;
+}
+
+.settings-inline--lock {
+  margin-left: 0;
+  align-items: center;
+}
+
+.settings-input--pin {
+  max-width: 180px;
+  letter-spacing: 0.18em;
+  font-family: var(--mono);
+}
+
+.settings-progress {
+  height: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+
+.settings-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, white));
+  transition: width 0.18s ease;
+}
+
+.lock-screen {
+  min-height: var(--app-viewport-height);
+  display: grid;
+  place-items: center;
+  padding: calc(24px + var(--mobile-status-offset)) 24px 24px;
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 34%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08), transparent 30%),
+    var(--bg);
+  color: var(--text);
+}
+
+.lock-card {
+  width: min(100%, 460px);
+  padding: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.lock-card__mark {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--blue-soft);
+  color: var(--accent);
+}
+
+.lock-card__mark svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lock-card__copy {
+  margin-top: 22px;
+}
+
+.lock-card__eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lock-card h1 {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.05;
+}
+
+.lock-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lock-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.lock-form__input {
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: 18px var(--mono);
+  letter-spacing: 0.2em;
+}
+
+.lock-form__input:focus {
+  border-color: var(--accent);
+}
+
+.lock-form__submit {
+  width: auto;
+  min-height: 52px;
+  margin: 0;
+  border-radius: 14px;
+}
+
+.lock-dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 24px 0 10px;
+}
+
+.lock-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+}
+
+.lock-dots span.is-filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.lock-pad {
+  display: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.lock-pad button {
+  min-height: 56px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  color: var(--text);
+  font-size: 22px;
+}
+
+.lock-card__error {
+  margin: 16px 0 0;
+  color: var(--red) !important;
+}
+
 .admin-list {
   display: grid;
   gap: 8px;
@@ -4036,6 +4204,14 @@ textarea {
   .settings-kv {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .lock-card {
+    width: min(100%, 520px);
+  }
+
+  .lock-pad {
+    display: grid;
+  }
 }
 
 @media (max-width: 640px) {
@@ -4140,6 +4316,29 @@ textarea {
 
   .settings-kv>div {
     min-height: 84px;
+  }
+
+  .settings-input--pin {
+    max-width: none;
+  }
+
+  .lock-screen {
+    align-items: stretch;
+    padding: calc(16px + var(--mobile-status-offset)) 16px 16px;
+  }
+
+  .lock-card {
+    align-self: center;
+    padding: 24px;
+    border-radius: 24px;
+  }
+
+  .lock-form {
+    grid-template-columns: 1fr;
+  }
+
+  .lock-form__submit {
+    width: 100%;
   }
 }
 

@@ -10,12 +10,14 @@ import ComposerBar from "@/components/ComposerBar.vue";
 import CallPanel from "@/components/CallPanel.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
 import OnboardingScreen from "@/components/OnboardingScreen.vue";
+import LockScreen from "@/components/LockScreen.vue";
 
 const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const mobileThreadOpen = ref(false);
 
-const needsOnboarding = computed(() => !String(messenger.state.authToken || "").trim() || !String(messenger.state.username || "").trim());
+const isLocked = computed(() => messenger.state.clientLockLocked);
+const needsOnboarding = computed(() => !isLocked.value && (!String(messenger.state.authToken || "").trim() || !String(messenger.state.username || "").trim()));
 const hasActive = computed(() => !!messenger.roomLabel.value);
 const inCall = computed(() => messenger.state.inCall);
 const callRoom = computed(() => messenger.state.callRoom);
@@ -82,7 +84,8 @@ function goToCallRoom() {
 </script>
 
 <template>
-  <OnboardingScreen v-if="needsOnboarding" :messenger="messenger" />
+  <LockScreen v-if="isLocked" :messenger="messenger" />
+  <OnboardingScreen v-else-if="needsOnboarding" :messenger="messenger" />
 
   <div v-else class="app" :class="{ 'is-thread': hasActive && mobileThreadOpen }">
     <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" />

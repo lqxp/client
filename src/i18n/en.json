@@ -25,6 +25,13 @@
         "passwordPlaceholder": "Password",
         "recoveryPlaceholder": "Recovery words"
     },
+    "lock": {
+        "title": "QxChat is locked",
+        "subtitle": "Enter your PIN to decrypt local data and resume your session.",
+        "pinPlaceholder": "PIN code",
+        "unlock": "Unlock",
+        "backspace": "Backspace"
+    },
     "sidebar": {
         "searchPlaceholder": "Search",
         "newConversation": "New conversation",
@@ -214,7 +221,21 @@
             "username": "Username",
             "downloadRecovery": "Download recovery words",
             "logout": "Log out",
-            "recoveryNote": "Recovery words are shown only after account creation or recovery on this browser."
+            "recoveryNote": "Recovery words are shown only after account creation or recovery on this browser.",
+            "clientLock": "Client lock",
+            "clientLockEnabled": "Lock QxChat with a PIN",
+            "pinLength": "PIN length",
+            "pinDigits": "{count}-digit PIN",
+            "pinPlaceholder": "PIN",
+            "pinConfirmPlaceholder": "Confirm PIN",
+            "enableLock": "Enable lock",
+            "encrypting": "Encrypting…",
+            "encryptingNote": "Encrypting local data. Keep this window open.",
+            "lockNow": "Lock now",
+            "disableLock": "Disable lock",
+            "disableLockConfirm": "Disable client lock and rewrite local data in plain text?",
+            "pinMismatch": "PINs do not match.",
+            "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted."
         },
         "privacy": {
             "title": "Privacy",

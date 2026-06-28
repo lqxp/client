@@ -25,6 +25,13 @@
         "passwordPlaceholder": "Mot de passe",
         "recoveryPlaceholder": "Mots de récupération"
     },
+    "lock": {
+        "title": "QxChat est verrouillé",
+        "subtitle": "Entrez votre PIN pour déchiffrer les données locales et reprendre la session.",
+        "pinPlaceholder": "Code PIN",
+        "unlock": "Déverrouiller",
+        "backspace": "Effacer"
+    },
     "sidebar": {
         "searchPlaceholder": "Rechercher",
         "newConversation": "Nouvelle conversation",
@@ -214,7 +221,21 @@
             "username": "Nom d'utilisateur",
             "downloadRecovery": "Télécharger les mots de récupération",
             "logout": "Se déconnecter",
-            "recoveryNote": "Les mots de récupération ne sont affichés qu’après la création ou la récupération du compte sur ce navigateur."
+            "recoveryNote": "Les mots de récupération ne sont affichés qu’après la création ou la récupération du compte sur ce navigateur.",
+            "clientLock": "Verrouillage client",
+            "clientLockEnabled": "Verrouiller QxChat avec un PIN",
+            "pinLength": "Longueur du PIN",
+            "pinDigits": "PIN à {count} chiffres",
+            "pinPlaceholder": "PIN",
+            "pinConfirmPlaceholder": "Confirmer le PIN",
+            "enableLock": "Activer le verrouillage",
+            "encrypting": "Chiffrement…",
+            "encryptingNote": "Chiffrement des données locales en cours. Garde cette fenêtre ouverte.",
+            "lockNow": "Verrouiller maintenant",
+            "disableLock": "Désactiver le verrouillage",
+            "disableLockConfirm": "Désactiver le verrouillage client et réécrire les données locales en clair ?",
+            "pinMismatch": "Les PIN ne correspondent pas.",
+            "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées."
         },
         "privacy": {
             "title": "Confidentialité",

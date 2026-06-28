@@ -21,6 +21,26 @@ const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
 const isMobileSettings = ref(false);
+const lockPin = ref("");
+const lockPinConfirm = ref("");
+const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
+const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
+const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
+
+watch(lockPinLength, (length) => {
+  lockPin.value = lockPin.value.replace(/\D/g, "").slice(0, length);
+  lockPinConfirm.value = lockPinConfirm.value.replace(/\D/g, "").slice(0, length);
+});
+
+watch(lockPin, (value) => {
+  const clean = value.replace(/\D/g, "").slice(0, lockPinLength.value);
+  if (clean !== value) lockPin.value = clean;
+});
+
+watch(lockPinConfirm, (value) => {
+  const clean = value.replace(/\D/g, "").slice(0, lockPinLength.value);
+  if (clean !== value) lockPinConfirm.value = clean;
+});
 
 const isOpen = computed(() => props.messenger.state.settingsOpen);
 
@@ -155,6 +175,25 @@ function onClear() {
 function onLogout() {
   props.messenger.logoutAccount();
   close();
+}
+
+async function onEnableClientLock() {
+  if (lockPin.value !== lockPinConfirm.value) {
+    alert(t('settings.security.pinMismatch'));
+    return;
+  }
+  const ok = await props.messenger.enableClientLock(lockPin.value);
+  if (ok) {
+    lockPin.value = "";
+    lockPinConfirm.value = "";
+  }
+}
+
+function onDisableClientLock() {
+  if (!confirm(t('settings.security.disableLockConfirm'))) return;
+  props.messenger.disableClientLock();
+  lockPin.value = "";
+  lockPinConfirm.value = "";
 }
 
 function onDeleteAccount() {
@@ -608,6 +647,58 @@ onBeforeUnmount(() => {
           </div>
           <p class="settings-note">
             {{ t('settings.security.recoveryNote') }}
+          </p>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.security.clientLock') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.security.clientLockEnabled') }}</span>
+            <input type="checkbox" :checked="messenger.state.clientLockEnabled"
+              @change="targetChecked($event) ? onEnableClientLock() : onDisableClientLock()" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+
+          <div v-if="!messenger.state.clientLockEnabled" class="settings-lock-form">
+            <label class="settings-select">
+              <span>{{ lockPinLabel }}</span>
+              <select v-model.number="messenger.state.clientLockPinLength">
+                <option :value="4">4</option>
+                <option :value="6">6</option>
+                <option :value="8">8</option>
+              </select>
+            </label>
+            <div class="settings-inline settings-inline--lock">
+              <input v-model="lockPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+                autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
+                :placeholder="lockPinPlaceholder" />
+              <input v-model="lockPinConfirm" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+                autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
+                :placeholder="lockPinPlaceholder" />
+              <button type="button" class="btn btn--primary settings-btn" :disabled="messenger.state.clientLockLoading"
+                @click="onEnableClientLock">
+                {{ messenger.state.clientLockLoading ? t('settings.security.encrypting') : t('settings.security.enableLock') }}
+              </button>
+            </div>
+            <div v-if="messenger.state.clientLockLoading" class="settings-progress" role="progressbar" :aria-valuenow="messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
+              <span :style="{ width: `${messenger.state.clientLockProgress || 8}%` }"></span>
+            </div>
+            <p v-if="messenger.state.clientLockLoading" class="settings-note">
+              {{ t('settings.security.encryptingNote') }}
+            </p>
+          </div>
+
+          <div v-else class="settings-actions">
+            <button type="button" class="btn settings-btn" :disabled="messenger.state.clientLockLoading"
+              @click="messenger.lockClient">
+              {{ t('settings.security.lockNow') }}
+            </button>
+            <button type="button" class="btn settings-btn settings-btn--danger" @click="onDisableClientLock">
+              {{ t('settings.security.disableLock') }}
+            </button>
+          </div>
+          <p class="settings-note">
+            {{ t('settings.security.clientLockNote') }}
           </p>
         </div>
       </section>

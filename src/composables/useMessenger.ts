@@ -43,6 +43,8 @@ import {
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
+const CLIENT_LOCK_PBKDF2_ITERATIONS = 250000;
+const CLIENT_LOCK_PIN_LENGTHS = [4, 6, 8];
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "💀", "🧢"];
 const MAX_ROOMS_SHOWN = 100;
 const MAX_HISTORY_PER_ROOM = 500;
@@ -572,9 +574,83 @@ function clearInviteLinkFromUrl() {
   }
 }
 
+function defaultPersisted(overrides: Record<string, unknown> = {}) {
+  return {
+    authToken: "",
+    userId: "",
+    admin: false,
+    recoveryWords: [],
+    username: "",
+    status: "online",
+    activeRoom: "",
+    rooms: [],
+    joinedRooms: [],
+    usersByRoom: {},
+    profilesByUser: {},
+    messagesByRoom: {},
+    unreadByRoom: {},
+    roomKeysByRoom: {},
+    selectedAudioInputId: "",
+    selectedAudioOutputId: "",
+    microphoneThreshold: 0,
+    deleteMessagesOnLeave: false,
+    shareScreenAudio: true,
+    autoArchiveUploads: false,
+    streamerMode: false,
+    typingIndicatorsEnabled: true,
+    messageSoundEnabled: true,
+    callSoundsEnabled: true,
+    soundFlags: {
+      join: true,
+      leave: true,
+      mute: true,
+      unmute: true,
+      cameraOn: true,
+      cameraOff: true,
+      screenOn: true,
+      screenOff: true,
+      message: true,
+    },
+    themeMode: "dark",
+    appAccent: "blue",
+    messageStyle: "bubble",
+    androidNotificationsEnabled: true,
+    serverClearsLocalMessages: false,
+    autoReconnectEnabled: RECONNECT_DEFAULTS.enabled,
+    reconnectMinDelayMs: RECONNECT_DEFAULTS.minDelayMs,
+    reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
+    callUserVolumes: {},
+    roomNotes: {},
+    profile: loadPersistedProfile(),
+    clientLockEnabled: false,
+    clientLockSalt: "",
+    clientLockIv: "",
+    clientLockCiphertext: "",
+    clientLockLocked: false,
+    clientLockLoading: false,
+    clientLockProgress: 0,
+    clientLockPinLength: 6,
+    ...overrides,
+  };
+}
+
+function localDataLockedPayload(raw) {
+  return raw && raw.version === 5 && raw.locked === true && typeof raw.ciphertext === "string";
+}
+
 function loadPersisted() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (localDataLockedPayload(raw)) {
+      return defaultPersisted({
+        clientLockEnabled: true,
+        clientLockSalt: String(raw.salt || ""),
+        clientLockIv: String(raw.iv || ""),
+        clientLockCiphertext: String(raw.ciphertext || ""),
+        clientLockLocked: true,
+        clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
+      });
+    }
     const profile = loadPersistedProfile();
     const rooms = Array.isArray(raw.rooms)
       ? raw.rooms
@@ -748,56 +824,14 @@ function loadPersisted() {
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
       profile,
+      clientLockEnabled: false,
+      clientLockSalt: "",
+      clientLockIv: "",
+      clientLockCiphertext: "",
+      clientLockLocked: false,
     };
   } catch {
-    return {
-      authToken: "",
-      userId: "",
-      admin: false,
-      recoveryWords: [],
-      username: "",
-      status: "online",
-      activeRoom: "",
-      rooms: [],
-      joinedRooms: [],
-      usersByRoom: {},
-      profilesByUser: {},
-      messagesByRoom: {},
-      unreadByRoom: {},
-      roomKeysByRoom: {},
-      selectedAudioInputId: "",
-      selectedAudioOutputId: "",
-      microphoneThreshold: 0,
-      deleteMessagesOnLeave: false,
-      shareScreenAudio: true,
-      autoArchiveUploads: false,
-      streamerMode: false,
-      typingIndicatorsEnabled: true,
-      messageSoundEnabled: true,
-      callSoundsEnabled: true,
-      soundFlags: {
-        join: true,
-        leave: true,
-        mute: true,
-        unmute: true,
-        cameraOn: true,
-        cameraOff: true,
-        screenOn: true,
-        screenOff: true,
-        message: true,
-      },
-      themeMode: "dark",
-      appAccent: "blue",
-      messageStyle: "bubble",
-      androidNotificationsEnabled: true,
-      serverClearsLocalMessages: false,
-      autoReconnectEnabled: RECONNECT_DEFAULTS.enabled,
-      reconnectMinDelayMs: RECONNECT_DEFAULTS.minDelayMs,
-      reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
-      callUserVolumes: {},
-      roomNotes: {},
-      profile: loadPersistedProfile(),
-    };
+    return defaultPersisted();
   }
 }
 
@@ -842,7 +876,54 @@ function stripAttachmentDataForStorage(arr) {
   });
 }
 
-function savePersisted(state) {
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(String(value || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function validateClientLockPin(pin) {
+  const clean = String(pin || "").trim();
+  if (!CLIENT_LOCK_PIN_LENGTHS.includes(clean.length) || !/^\d+$/.test(clean)) {
+    return "PIN must be 4, 6 or 8 digits.";
+  }
+  return "";
+}
+
+async function deriveClientLockKey(pin, saltBytes) {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(String(pin || "")),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: saltBytes,
+      iterations: CLIENT_LOCK_PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+let activeClientLockKey: CryptoKey | null = null;
+
+function buildPersistedPayload(state) {
   const messagesByRoom = {};
   for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
     string,
@@ -911,7 +992,31 @@ function savePersisted(state) {
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
+    profile: normalizeProfile(state.profile),
   };
+  return payload;
+}
+
+async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(JSON.stringify(payload)),
+  );
+  return {
+    version: 5,
+    locked: true,
+    kdf: "PBKDF2-SHA256",
+    iterations: CLIENT_LOCK_PBKDF2_ITERATIONS,
+    pinLength,
+    salt,
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(encrypted)),
+  };
+}
+
+function writePersistedPayload(payload) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -924,6 +1029,22 @@ function savePersisted(state) {
       /* storage may be unavailable */
     }
   }
+}
+
+async function savePersisted(state) {
+  const payload = buildPersistedPayload(state);
+  if (state.clientLockEnabled && activeClientLockKey && state.clientLockSalt) {
+    const lockedPayload = await encryptClientLockPayload(
+      payload,
+      activeClientLockKey,
+      state.clientLockSalt,
+      state.clientLockPinLength,
+    );
+    writePersistedPayload(lockedPayload);
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+    return;
+  }
+  writePersistedPayload(payload);
   savePersistedProfile(state.profile);
 }
 
@@ -1254,6 +1375,14 @@ export function useMessenger() {
     authLoading: false,
     authMode: "login",
     recoveryWords: persisted.recoveryWords,
+    clientLockEnabled: persisted.clientLockEnabled,
+    clientLockLocked: persisted.clientLockLocked,
+    clientLockSalt: persisted.clientLockSalt,
+    clientLockIv: persisted.clientLockIv,
+    clientLockCiphertext: persisted.clientLockCiphertext,
+    clientLockLoading: false,
+    clientLockProgress: 0,
+    clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number((persisted as any).clientLockPinLength)) ? Number((persisted as any).clientLockPinLength) : 6,
 
     username: persisted.username,
     status: persisted.status,
@@ -1508,8 +1637,172 @@ export function useMessenger() {
   const myProfile = computed(() => normalizeProfile(state.profile));
   const myStatus = computed(() => sanitizePresenceStatus(state.status));
 
+  function applyPersistedPayload(payload) {
+    const normalized = (() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      const loaded = loadPersisted();
+      localStorage.removeItem(STORAGE_KEY);
+      return loaded;
+    })();
+    state.authToken = normalized.authToken;
+    state.userId = normalized.userId;
+    state.admin = normalized.admin;
+    state.recoveryWords = normalized.recoveryWords;
+    state.username = normalized.username;
+    state.status = normalized.status;
+    state.profile = normalized.profile;
+    state.activeRoom = normalized.activeRoom;
+    state.rooms = normalized.rooms;
+    state.joinedRooms = normalized.joinedRooms;
+    state.usersByRoom = normalized.usersByRoom;
+    state.profilesByUser = { ...normalized.profilesByUser };
+    state.messagesByRoom = normalized.messagesByRoom;
+    state.unreadByRoom = normalized.unreadByRoom;
+    state.roomKeysByRoom = normalized.roomKeysByRoom;
+    state.selectedAudioInputId = normalized.selectedAudioInputId;
+    state.selectedAudioOutputId = normalized.selectedAudioOutputId;
+    state.microphoneThreshold = normalized.microphoneThreshold;
+    state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
+    state.shareScreenAudio = normalized.shareScreenAudio;
+    state.autoArchiveUploads = normalized.autoArchiveUploads;
+    state.streamerMode = normalized.streamerMode;
+    state.typingIndicatorsEnabled = normalized.typingIndicatorsEnabled;
+    state.messageSoundEnabled = normalized.messageSoundEnabled;
+    state.callSoundsEnabled = normalized.callSoundsEnabled;
+    state.soundFlags = { ...normalized.soundFlags };
+    state.themeMode = normalized.themeMode;
+    state.appAccent = normalized.appAccent;
+    state.messageStyle = normalized.messageStyle;
+    state.androidNotificationsEnabled = normalized.androidNotificationsEnabled;
+    state.serverClearsLocalMessages = normalized.serverClearsLocalMessages;
+    state.autoReconnectEnabled = normalized.autoReconnectEnabled;
+    state.reconnectMinDelayMs = normalized.reconnectMinDelayMs;
+    state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
+    state.callUserVolumes = normalized.callUserVolumes;
+    state.roomNotes = normalized.roomNotes;
+  }
+
   function persist() {
-    savePersisted(state);
+    if (state.clientLockLocked) return Promise.resolve();
+    return savePersisted(state);
+  }
+
+  async function enableClientLock(pin) {
+    const validation = validateClientLockPin(pin);
+    if (validation) {
+      state.lastError = validation;
+      showToast(validation);
+      return false;
+    }
+    if (!crypto?.subtle) {
+      state.lastError = "Client lock requires Web Crypto.";
+      showToast(state.lastError);
+      return false;
+    }
+    state.clientLockLoading = true;
+    try {
+      const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+      activeClientLockKey = await deriveClientLockKey(pin, saltBytes);
+      state.clientLockSalt = bytesToBase64(saltBytes);
+      state.clientLockEnabled = true;
+      state.clientLockLocked = false;
+      state.clientLockPinLength = String(pin).length;
+      await persist();
+      showToast("Client lock enabled.");
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Could not enable client lock.";
+      showToast(state.lastError);
+      return false;
+    } finally {
+      state.clientLockLoading = false;
+      state.clientLockProgress = 0;
+    }
+  }
+
+  async function unlockClientLock(pin) {
+    const validation = validateClientLockPin(pin);
+    if (validation) {
+      state.lastError = validation;
+      showToast(validation);
+      return false;
+    }
+    state.clientLockLoading = true;
+    try {
+      const key = await deriveClientLockKey(pin, base64ToBytes(state.clientLockSalt));
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: base64ToBytes(state.clientLockIv) },
+        key,
+        base64ToBytes(state.clientLockCiphertext),
+      );
+      const payload = JSON.parse(new TextDecoder().decode(decrypted));
+      const salt = state.clientLockSalt;
+      activeClientLockKey = key;
+      applyPersistedPayload(payload);
+      state.clientLockEnabled = true;
+      state.clientLockLocked = false;
+      state.clientLockSalt = salt;
+      state.clientLockIv = "";
+      state.clientLockCiphertext = "";
+      state.clientLockPinLength = String(pin).length;
+      persist();
+      connect();
+      showToast("QxChat unlocked.");
+      return true;
+    } catch {
+      state.lastError = "Invalid PIN.";
+      showToast(state.lastError);
+      return false;
+    } finally {
+      state.clientLockLoading = false;
+    }
+  }
+
+  async function lockClient() {
+    if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey) return false;
+    const lockedPayload = await encryptClientLockPayload(
+      buildPersistedPayload(state),
+      activeClientLockKey,
+      state.clientLockSalt,
+      state.clientLockPinLength,
+    );
+    writePersistedPayload(lockedPayload);
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+    disconnect();
+    activeClientLockKey = null;
+    state.authToken = "";
+    state.userId = "";
+    state.username = "";
+    state.recoveryWords = [];
+    state.profile = normalizeProfile(null);
+    state.activeRoom = "";
+    state.rooms = [];
+    state.joinedRooms = [];
+    state.usersByRoom = {};
+    state.profilesByUser = {};
+    state.messagesByRoom = {};
+    state.unreadByRoom = {};
+    state.roomKeysByRoom = {};
+    state.clientLockSalt = String(lockedPayload.salt || state.clientLockSalt || "");
+    state.clientLockIv = String(lockedPayload.iv || "");
+    state.clientLockCiphertext = String(lockedPayload.ciphertext || "");
+    state.clientLockLocked = true;
+    state.settingsOpen = false;
+    showToast("QxChat locked.");
+    return true;
+  }
+
+  function disableClientLock() {
+    if (!state.clientLockEnabled) return true;
+    state.clientLockEnabled = false;
+    state.clientLockLocked = false;
+    state.clientLockSalt = "";
+    state.clientLockIv = "";
+    state.clientLockCiphertext = "";
+    activeClientLockKey = null;
+    persist();
+    showToast("Client lock disabled.");
+    return true;
   }
 
   async function apiRequest(path, options: any = {}) {
@@ -1565,6 +1858,14 @@ export function useMessenger() {
         .slice(0, 16);
     }
     persist();
+  }
+
+  function normalizeRecoveryWords(recoveryWords) {
+    return String(recoveryWords || "")
+      .split(/\s+/)
+      .map((word) => word.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 16);
   }
 
   function recoveryText() {
@@ -1667,6 +1968,9 @@ export function useMessenger() {
         }),
       });
       applyAuthenticatedPayload(data);
+      state.recoveryWords = normalizeRecoveryWords(recoveryWords);
+      persist();
+      downloadRecoveryWords();
       connect();
       return true;
     } catch (error) {
@@ -5091,6 +5395,10 @@ export function useMessenger() {
     logoutAccount,
     deleteAccount,
     downloadRecoveryWords,
+    enableClientLock,
+    unlockClientLock,
+    lockClient,
+    disableClientLock,
     loadAdminOverview,
     setAdminFeature,
     setAdminUserDisabled,

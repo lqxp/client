@@ -25,6 +25,13 @@
         "passwordPlaceholder": "Contraseña",
         "recoveryPlaceholder": "Palabras de recuperación"
     },
+    "lock": {
+        "title": "QxChat está bloqueado",
+        "subtitle": "Introduce tu PIN para descifrar los datos locales y reanudar la sesión.",
+        "pinPlaceholder": "Código PIN",
+        "unlock": "Desbloquear",
+        "backspace": "Borrar"
+    },
     "sidebar": {
         "searchPlaceholder": "Buscar",
         "newConversation": "Nueva conversación",
@@ -211,7 +218,21 @@
             "username": "Nombre de usuario",
             "downloadRecovery": "Descargar palabras de recuperación",
             "logout": "Cerrar sesión",
-            "recoveryNote": "Las palabras de recuperación solo se muestran tras la creación o recuperación de la cuenta en este navegador."
+            "recoveryNote": "Las palabras de recuperación solo se muestran tras la creación o recuperación de la cuenta en este navegador.",
+            "clientLock": "Bloqueo del cliente",
+            "clientLockEnabled": "Bloquear QxChat con un PIN",
+            "pinLength": "Longitud del PIN",
+            "pinDigits": "PIN de {count} dígitos",
+            "pinPlaceholder": "PIN",
+            "pinConfirmPlaceholder": "Confirmar PIN",
+            "enableLock": "Activar bloqueo",
+            "encrypting": "Cifrando…",
+            "encryptingNote": "Cifrando datos locales. Mantén esta ventana abierta.",
+            "lockNow": "Bloquear ahora",
+            "disableLock": "Desactivar bloqueo",
+            "disableLockConfirm": "¿Desactivar el bloqueo del cliente y volver a guardar los datos locales sin cifrar?",
+            "pinMismatch": "Los PIN no coinciden.",
+            "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar."
         },
         "privacy": {
             "title": "Privacidad",
