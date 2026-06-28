@@ -674,12 +674,13 @@ async function putClientLockPayload(payload) {
 async function getClientLockPayload() {
   const db = await openClientLockDb();
   try {
-    return await new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       const tx = db.transaction(CLIENT_LOCK_STORE, "readonly");
       const request = tx.objectStore(CLIENT_LOCK_STORE).get(CLIENT_LOCK_PAYLOAD_KEY);
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error || new Error("Could not read client lock storage."));
     });
+    return result;
   } finally {
     db.close();
   }
@@ -1064,11 +1065,12 @@ function buildPersistedPayload(state) {
 }
 
 async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
+  const serialized = JSON.stringify(payload);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
-    new TextEncoder().encode(JSON.stringify(payload)),
+    new TextEncoder().encode(serialized),
   );
   return {
     version: 5,
@@ -1107,7 +1109,7 @@ async function writeLockedPersistedPayload(lockedPayload) {
     writePersistedPayloadStrict(lockedPayload);
     await deleteClientLockPayload();
     return lockedPayload;
-  } catch {
+  } catch (error) {
     await putClientLockPayload(lockedPayload);
     const metadata = {
       ...lockedPayload,
@@ -1729,12 +1731,26 @@ export function useMessenger() {
   const myStatus = computed(() => sanitizePresenceStatus(state.status));
 
   function applyPersistedPayload(payload) {
-    const normalized = (() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      const loaded = loadPersisted();
-      localStorage.removeItem(STORAGE_KEY);
-      return loaded;
-    })();
+    const normalized = defaultPersisted({
+      ...payload,
+      authToken: String(payload?.authToken || ""),
+      userId: String(payload?.userId || ""),
+      admin: Boolean(payload?.admin),
+      recoveryWords: Array.isArray(payload?.recoveryWords) ? payload.recoveryWords : [],
+      username: sanitizeUsername(payload?.username),
+      status: sanitizePresenceStatus(payload?.status),
+      activeRoom: isValidRoomId(payload?.activeRoom) ? sanitizeRoomId(payload.activeRoom) : "",
+      rooms: Array.isArray(payload?.rooms) ? payload.rooms : [],
+      joinedRooms: Array.isArray(payload?.joinedRooms) ? payload.joinedRooms : [],
+      usersByRoom: payload?.usersByRoom && typeof payload.usersByRoom === "object" ? payload.usersByRoom : {},
+      profilesByUser: payload?.profilesByUser && typeof payload.profilesByUser === "object" ? payload.profilesByUser : {},
+      messagesByRoom: payload?.messagesByRoom && typeof payload.messagesByRoom === "object" ? payload.messagesByRoom : {},
+      unreadByRoom: payload?.unreadByRoom && typeof payload.unreadByRoom === "object" ? payload.unreadByRoom : {},
+      roomKeysByRoom: sanitizeRoomKeys(payload?.roomKeysByRoom),
+      profile: normalizeProfile(payload?.profile),
+      callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
+      roomNotes: sanitizeRoomNotes(payload?.roomNotes),
+    });
     state.authToken = normalized.authToken;
     state.userId = normalized.userId;
     state.admin = normalized.admin;
@@ -1887,7 +1903,7 @@ export function useMessenger() {
       state.clientLockStorage = "";
       state.clientLockFailedAttempts = 0;
       state.clientLockPinLength = String(pin).length;
-      await persist();
+      persistClientLockFailedAttempts();
       connect();
       showToast("QxChat unlocked.");
       return true;
