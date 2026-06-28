@@ -241,6 +241,33 @@ function mergeProfiles(base, incoming) {
   });
 }
 
+function normalizeProfilePatch(profile: unknown) {
+  const source =
+    profile && typeof profile === "object"
+      ? (profile as Record<string, unknown>)
+      : {};
+  const patch: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(source, "avatar")) {
+    patch.avatar = normalizeProfileImage(source.avatar, MAX_PROFILE_AVATAR_BYTES);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "banner")) {
+    patch.banner = normalizeProfileImage(source.banner, MAX_PROFILE_BANNER_BYTES);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "description")) {
+    patch.description = sanitizeProfileText(
+      String(source.description || ""),
+      MAX_PROFILE_DESCRIPTION_LENGTH,
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "pronouns")) {
+    patch.pronouns = sanitizeProfileText(
+      String(source.pronouns || ""),
+      MAX_PROFILE_PRONOUNS_LENGTH,
+    );
+  }
+  return patch;
+}
+
 function normalizeProfileMime(value) {
   const mime = String(value || "")
     .trim()
@@ -3322,8 +3349,11 @@ export function useMessenger() {
       clientId: localClientId,
       platform: currentLocalPlatform(),
     };
-    if (includeProfile)
-      d.profile = normalizeProfile(profileOverride ?? state.profile);
+    if (includeProfile) {
+      d.profile = profileOverride
+        ? normalizeProfilePatch(profileOverride)
+        : normalizeProfile(state.profile);
+    }
     send({ op: 8, d });
   }
 
