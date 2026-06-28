@@ -14,8 +14,9 @@
     "build:tauri": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js"
   },
   "dependencies": {
-    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@fontsource/inter": "^5.2.8",
     "@tauri-apps/api": "2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "fflate": "^0.8.2",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
