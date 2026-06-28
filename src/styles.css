@@ -3911,9 +3911,17 @@ textarea {
   font-size: 22px;
 }
 
-.lock-card__error {
+.lock-card__attempts {
   margin: 16px 0 0;
+  color: var(--muted) !important;
+  text-align: center;
+  font-size: 13px;
+}
+
+.lock-card__error {
+  margin: 12px 0 0;
   color: var(--red) !important;
+  text-align: center;
 }
 
 .admin-list {

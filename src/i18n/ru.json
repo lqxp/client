@@ -28,7 +28,8 @@
         "subtitle": "Введите PIN, чтобы расшифровать локальные данные и продолжить сеанс.",
         "pinPlaceholder": "PIN-код",
         "unlock": "Разблокировать",
-        "backspace": "Удалить"
+        "backspace": "Удалить",
+        "attemptsRemaining": "Осталось попыток до локального сброса: {count}"
     },
     "landing": {
         "brandAlt": "Логотип LQXP",

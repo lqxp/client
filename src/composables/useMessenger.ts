@@ -45,6 +45,11 @@ const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const CLIENT_LOCK_PBKDF2_ITERATIONS = 250000;
 const CLIENT_LOCK_PIN_LENGTHS = [4, 6, 8];
+const CLIENT_LOCK_DB_NAME = "qxprotocol-client-lock";
+const CLIENT_LOCK_DB_VERSION = 1;
+const CLIENT_LOCK_STORE = "payloads";
+const CLIENT_LOCK_PAYLOAD_KEY = "current";
+const CLIENT_LOCK_MAX_FAILED_ATTEMPTS = 10;
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "💀", "🧢"];
 const MAX_ROOMS_SHOWN = 100;
 const MAX_HISTORY_PER_ROOM = 500;
@@ -630,12 +635,68 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockLoading: false,
     clientLockProgress: 0,
     clientLockPinLength: 6,
+    clientLockStorage: "",
+    clientLockFailedAttempts: 0,
+    clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
     ...overrides,
   };
 }
 
 function localDataLockedPayload(raw) {
-  return raw && raw.version === 5 && raw.locked === true && typeof raw.ciphertext === "string";
+  return raw && raw.version === 5 && raw.locked === true && (typeof raw.ciphertext === "string" || raw.storage === "indexeddb");
+}
+
+function openClientLockDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(CLIENT_LOCK_DB_NAME, CLIENT_LOCK_DB_VERSION);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(CLIENT_LOCK_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open client lock storage."));
+  });
+}
+
+async function putClientLockPayload(payload) {
+  const db = await openClientLockDb();
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(CLIENT_LOCK_STORE, "readwrite");
+      tx.objectStore(CLIENT_LOCK_STORE).put(payload, CLIENT_LOCK_PAYLOAD_KEY);
+      tx.oncomplete = () => resolve(undefined);
+      tx.onerror = () => reject(tx.error || new Error("Could not write client lock storage."));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function getClientLockPayload() {
+  const db = await openClientLockDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(CLIENT_LOCK_STORE, "readonly");
+      const request = tx.objectStore(CLIENT_LOCK_STORE).get(CLIENT_LOCK_PAYLOAD_KEY);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error("Could not read client lock storage."));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function deleteClientLockPayload() {
+  const db = await openClientLockDb();
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(CLIENT_LOCK_STORE, "readwrite");
+      tx.objectStore(CLIENT_LOCK_STORE).delete(CLIENT_LOCK_PAYLOAD_KEY);
+      tx.oncomplete = () => resolve(undefined);
+      tx.onerror = () => reject(tx.error || new Error("Could not clear client lock storage."));
+    });
+  } finally {
+    db.close();
+  }
 }
 
 function loadPersisted() {
@@ -648,6 +709,7 @@ function loadPersisted() {
         clientLockIv: String(raw.iv || ""),
         clientLockCiphertext: String(raw.ciphertext || ""),
         clientLockLocked: true,
+        clientLockStorage: String(raw.storage || ""),
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
       });
     }
@@ -829,6 +891,10 @@ function loadPersisted() {
       clientLockIv: "",
       clientLockCiphertext: "",
       clientLockLocked: false,
+      clientLockStorage: "",
+      clientLockFailedAttempts: 0,
+      clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
+      clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
     };
   } catch {
     return defaultPersisted();
@@ -1010,6 +1076,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     kdf: "PBKDF2-SHA256",
     iterations: CLIENT_LOCK_PBKDF2_ITERATIONS,
     pinLength,
+    failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
     ciphertext: bytesToBase64(new Uint8Array(encrypted)),
@@ -1031,6 +1098,27 @@ function writePersistedPayload(payload) {
   }
 }
 
+function writePersistedPayloadStrict(payload) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+async function writeLockedPersistedPayload(lockedPayload) {
+  try {
+    writePersistedPayloadStrict(lockedPayload);
+    await deleteClientLockPayload();
+    return lockedPayload;
+  } catch {
+    await putClientLockPayload(lockedPayload);
+    const metadata = {
+      ...lockedPayload,
+      storage: "indexeddb",
+      ciphertext: "",
+    };
+    writePersistedPayloadStrict(metadata);
+    return metadata;
+  }
+}
+
 async function savePersisted(state) {
   const payload = buildPersistedPayload(state);
   if (state.clientLockEnabled && activeClientLockKey && state.clientLockSalt) {
@@ -1040,7 +1128,7 @@ async function savePersisted(state) {
       state.clientLockSalt,
       state.clientLockPinLength,
     );
-    writePersistedPayload(lockedPayload);
+    await writeLockedPersistedPayload(lockedPayload);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
     return;
   }
@@ -1383,6 +1471,9 @@ export function useMessenger() {
     clientLockLoading: false,
     clientLockProgress: 0,
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number((persisted as any).clientLockPinLength)) ? Number((persisted as any).clientLockPinLength) : 6,
+    clientLockStorage: (persisted as any).clientLockStorage || "",
+    clientLockFailedAttempts: Math.max(0, Number((persisted as any).clientLockFailedAttempts) || 0),
+    clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
 
     username: persisted.username,
     status: persisted.status,
@@ -1720,6 +1811,52 @@ export function useMessenger() {
     }
   }
 
+  function persistClientLockFailedAttempts() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      if (!localDataLockedPayload(raw)) return;
+      raw.failedAttempts = state.clientLockFailedAttempts;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function resetAfterClientLockFailures() {
+    if (state.inCall) endCall();
+    if (state.recording) stopRecordingVoiceMemo(true);
+    disconnect();
+    await deleteClientLockPayload();
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+    activeClientLockKey = null;
+    state.authToken = "";
+    state.userId = "";
+    state.username = "";
+    state.recoveryWords = [];
+    state.clientLockEnabled = false;
+    state.clientLockLocked = false;
+    state.clientLockSalt = "";
+    state.clientLockIv = "";
+    state.clientLockCiphertext = "";
+    state.clientLockStorage = "";
+    state.clientLockFailedAttempts = 0;
+    state.rooms = [];
+    state.messagesByRoom = {};
+    state.unreadByRoom = {};
+    state.roomKeysByRoom = {};
+    state.usersByRoom = {};
+    state.profilesByUser = {};
+    state.statusesByUser = {};
+    state.profile = normalizeProfile(null);
+    state.status = "online";
+    state.activeRoom = "";
+    state.joinedRooms = [];
+    state.pendingJoinRooms = [];
+    state.lastError = "QxChat reset after too many invalid PIN attempts.";
+    showToast(state.lastError);
+  }
+
   async function unlockClientLock(pin) {
     const validation = validateClientLockPin(pin);
     if (validation) {
@@ -1729,11 +1866,14 @@ export function useMessenger() {
     }
     state.clientLockLoading = true;
     try {
+      const storedLockPayload: any = state.clientLockCiphertext
+        ? { iv: state.clientLockIv, ciphertext: state.clientLockCiphertext }
+        : await getClientLockPayload();
       const key = await deriveClientLockKey(pin, base64ToBytes(state.clientLockSalt));
       const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: base64ToBytes(state.clientLockIv) },
+        { name: "AES-GCM", iv: base64ToBytes(storedLockPayload?.iv) },
         key,
-        base64ToBytes(state.clientLockCiphertext),
+        base64ToBytes(storedLockPayload?.ciphertext),
       );
       const payload = JSON.parse(new TextDecoder().decode(decrypted));
       const salt = state.clientLockSalt;
@@ -1744,12 +1884,23 @@ export function useMessenger() {
       state.clientLockSalt = salt;
       state.clientLockIv = "";
       state.clientLockCiphertext = "";
+      state.clientLockStorage = "";
+      state.clientLockFailedAttempts = 0;
       state.clientLockPinLength = String(pin).length;
-      persist();
+      await persist();
       connect();
       showToast("QxChat unlocked.");
       return true;
     } catch {
+      state.clientLockFailedAttempts = Math.min(
+        CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
+        Number(state.clientLockFailedAttempts || 0) + 1,
+      );
+      persistClientLockFailedAttempts();
+      if (state.clientLockFailedAttempts >= CLIENT_LOCK_MAX_FAILED_ATTEMPTS) {
+        await resetAfterClientLockFailures();
+        return false;
+      }
       state.lastError = "Invalid PIN.";
       showToast(state.lastError);
       return false;
@@ -1766,7 +1917,7 @@ export function useMessenger() {
       state.clientLockSalt,
       state.clientLockPinLength,
     );
-    writePersistedPayload(lockedPayload);
+    const storedLockedPayload = await writeLockedPersistedPayload(lockedPayload);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
     disconnect();
     activeClientLockKey = null;
@@ -1784,23 +1935,25 @@ export function useMessenger() {
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
     state.clientLockSalt = String(lockedPayload.salt || state.clientLockSalt || "");
-    state.clientLockIv = String(lockedPayload.iv || "");
-    state.clientLockCiphertext = String(lockedPayload.ciphertext || "");
+    state.clientLockIv = String(storedLockedPayload.iv || "");
+    state.clientLockCiphertext = String(storedLockedPayload.ciphertext || "");
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
     return true;
   }
 
-  function disableClientLock() {
+  async function disableClientLock() {
     if (!state.clientLockEnabled) return true;
     state.clientLockEnabled = false;
     state.clientLockLocked = false;
     state.clientLockSalt = "";
     state.clientLockIv = "";
     state.clientLockCiphertext = "";
+    state.clientLockStorage = "";
     activeClientLockKey = null;
-    persist();
+    await deleteClientLockPayload();
+    await persist();
     showToast("Client lock disabled.");
     return true;
   }

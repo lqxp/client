@@ -30,7 +30,8 @@
         "subtitle": "Enter your PIN to decrypt local data and resume your session.",
         "pinPlaceholder": "PIN code",
         "unlock": "Unlock",
-        "backspace": "Backspace"
+        "backspace": "Backspace",
+        "attemptsRemaining": "{count} attempt(s) remaining before local reset"
     },
     "sidebar": {
         "searchPlaceholder": "Search",

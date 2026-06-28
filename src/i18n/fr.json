@@ -30,7 +30,8 @@
         "subtitle": "Entrez votre PIN pour déchiffrer les données locales et reprendre la session.",
         "pinPlaceholder": "Code PIN",
         "unlock": "Déverrouiller",
-        "backspace": "Effacer"
+        "backspace": "Effacer",
+        "attemptsRemaining": "{count} tentative(s) restante(s) avant reset local"
     },
     "sidebar": {
         "searchPlaceholder": "Rechercher",

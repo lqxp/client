@@ -10,6 +10,8 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const pin = ref("");
 const pinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
 const pinPlaceholder = computed(() => "•".repeat(pinLength.value));
+const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
+const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
 
 async function unlock() {
   const ok = await props.messenger.unlockClientLock(pin.value);
@@ -66,6 +68,9 @@ function backspace() {
         <button type="button" :aria-label="t('lock.backspace')" @click="backspace">⌫</button>
       </div>
 
+      <p v-if="failedAttempts > 0" class="lock-card__attempts">
+        {{ t('lock.attemptsRemaining', { count: String(remainingAttempts) }) }}
+      </p>
       <p v-if="props.messenger.state.lastError" class="lock-card__error">
         {{ props.messenger.state.lastError }}
       </p>

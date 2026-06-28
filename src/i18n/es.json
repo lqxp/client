@@ -30,7 +30,8 @@
         "subtitle": "Introduce tu PIN para descifrar los datos locales y reanudar la sesión.",
         "pinPlaceholder": "Código PIN",
         "unlock": "Desbloquear",
-        "backspace": "Borrar"
+        "backspace": "Borrar",
+        "attemptsRemaining": "Quedan {count} intento(s) antes del reinicio local"
     },
     "sidebar": {
         "searchPlaceholder": "Buscar",
