@@ -72,7 +72,10 @@ function removeHere() {
     </button>
 
     <div class="thread__who">
-      <span class="avatar avatar--md" :class="`avatar--${accent}`">
+      <span
+        class="avatar avatar--md thread__room-icon"
+        :class="roomIconIsImage ? 'thread__room-icon--image' : `avatar--${accent}`"
+      >
         <img v-if="roomIconIsImage" :src="roomIcon" alt="" class="thread__room-icon-image" />
         <template v-else>{{ initials }}</template>
       </span>
@@ -117,7 +120,16 @@ function removeHere() {
 </template>
 
 <style scoped>
+.thread__room-icon {
+  overflow: hidden;
+}
+
+.thread__room-icon--image {
+  background: transparent;
+}
+
 .thread__room-icon-image {
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
