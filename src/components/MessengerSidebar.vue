@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
           <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
 
           <button
-            v-if="!isMobile"
+            v-if="isMobile"
             class="conv__remove"
             type="button"
             :aria-label="t('sidebar.removeConversation', { room: c.name })"
