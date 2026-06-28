@@ -130,7 +130,8 @@ function findFirstLinkPreviewUrl(text) {
 }
 
 function normalizeProfileImage(value: unknown, maxBytes: number) {
-  if (!value || typeof value !== "object") return _normalizeProfileImageRaw(value, maxBytes);
+  if (!value || typeof value !== "object")
+    return _normalizeProfileImageRaw(value, maxBytes);
 
   const v = value as Record<string, unknown>;
 
@@ -155,7 +156,15 @@ function normalizeProfileImage(value: unknown, maxBytes: number) {
 function _normalizeProfileImageRaw(
   value: unknown,
   maxBytes: number,
-): { id?: string; url?: string; mimeType: string; size: number; width: number; height: number; dataB64?: string } | null {
+): {
+  id?: string;
+  url?: string;
+  mimeType: string;
+  size: number;
+  width: number;
+  height: number;
+  dataB64?: string;
+} | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
 
@@ -167,21 +176,28 @@ function _normalizeProfileImageRaw(
 
   // Validation taille uniquement si on a les données binaires
   if (dataB64 && size > maxBytes) return null;
-  if (dataB64 && dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8) return null;
+  if (dataB64 && dataB64.length > Math.ceil((maxBytes * 4) / 3) + 8)
+    return null;
 
   const url = sanitizeHttpUrl(v.url);
   const id = String(v.id || "").trim();
 
   // URL distante : on accepte même sans size (le serveur ne le fournit pas toujours)
   if (url) {
-    return { id: id || undefined, url, mimeType: mimeType || "image/jpeg", size, width, height };
+    return {
+      id: id || undefined,
+      url,
+      mimeType: mimeType || "image/jpeg",
+      size,
+      width,
+      height,
+    };
   }
 
   if (!dataB64) return null;
   if (!mimeType) return null;
   return { mimeType, size, width, height, dataB64 };
 }
-
 
 function normalizeProfile(profile: unknown): {
   avatar: ReturnType<typeof normalizeProfileImage>;
@@ -190,7 +206,9 @@ function normalizeProfile(profile: unknown): {
   pronouns: string;
 } {
   const source =
-    profile && typeof profile === "object" ? (profile as Record<string, unknown>) : {};
+    profile && typeof profile === "object"
+      ? (profile as Record<string, unknown>)
+      : {};
   return {
     // ← Correction : bon maxBytes pour chaque type
     avatar: normalizeProfileImage(source.avatar, MAX_PROFILE_AVATAR_BYTES),
@@ -276,7 +294,11 @@ function cacheBustedRoomIconUrl(value: unknown): string {
     const url = new URL(clean);
     url.searchParams.set("v", String(Date.now()));
     // En Tauri, ne jamais retourner de chemin relatif
-    if (!isTauriRuntime() && typeof window !== "undefined" && url.origin === window.location.origin) {
+    if (
+      !isTauriRuntime() &&
+      typeof window !== "undefined" &&
+      url.origin === window.location.origin
+    ) {
       return `${url.pathname}${url.search}${url.hash}`;
     }
     return url.toString();
@@ -556,22 +578,24 @@ function loadPersisted() {
     const profile = loadPersistedProfile();
     const rooms = Array.isArray(raw.rooms)
       ? raw.rooms
-        .filter(
-          (r) => r && typeof r === "object" && typeof r.roomId === "string",
-        )
-        .slice(0, MAX_ROOMS_SHOWN)
-        .map((r) => ({
-          roomId: sanitizeRoomId(r.roomId),
-          title: String(r.title || "")
-            .trim()
-            .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH),
-          lastPreview: String(r.lastPreview || ""),
-          lastTimestamp: Number(r.lastTimestamp) || 0,
-          lastSender: String(r.lastSender || ""),
-          iconUrl: sanitizeHttpUrl(r.iconUrl || r.icon?.url || r.icon?.file?.url),
-          members: sanitizeRoomUsers(r.members || []),
-        }))
-        .filter((r) => isValidRoomId(r.roomId))
+          .filter(
+            (r) => r && typeof r === "object" && typeof r.roomId === "string",
+          )
+          .slice(0, MAX_ROOMS_SHOWN)
+          .map((r) => ({
+            roomId: sanitizeRoomId(r.roomId),
+            title: String(r.title || "")
+              .trim()
+              .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH),
+            lastPreview: String(r.lastPreview || ""),
+            lastTimestamp: Number(r.lastTimestamp) || 0,
+            lastSender: String(r.lastSender || ""),
+            iconUrl: sanitizeHttpUrl(
+              r.iconUrl || r.icon?.url || r.icon?.file?.url,
+            ),
+            members: sanitizeRoomUsers(r.members || []),
+          }))
+          .filter((r) => isValidRoomId(r.roomId))
       : [];
 
     const messagesByRoom = {};
@@ -598,12 +622,12 @@ function loadPersisted() {
 
     const joinedRooms = Array.isArray(raw.joinedRooms)
       ? [
-        ...new Set(
-          raw.joinedRooms
-            .map((roomId) => sanitizeRoomId(roomId))
-            .filter((roomId) => isValidRoomId(roomId)),
-        ),
-      ]
+          ...new Set(
+            raw.joinedRooms
+              .map((roomId) => sanitizeRoomId(roomId))
+              .filter((roomId) => isValidRoomId(roomId)),
+          ),
+        ]
       : [];
 
     const usersByRoom = {};
@@ -630,9 +654,9 @@ function loadPersisted() {
       admin: Boolean(raw.admin),
       recoveryWords: Array.isArray(raw.recoveryWords)
         ? raw.recoveryWords
-          .map((word) => String(word || ""))
-          .filter(Boolean)
-          .slice(0, 16)
+            .map((word) => String(word || ""))
+            .filter(Boolean)
+            .slice(0, 16)
         : [],
       username: sanitizeUsername(raw.username),
       status: sanitizePresenceStatus(raw.status),
@@ -1003,24 +1027,24 @@ function normalizeMessage(message, fallbackRoomId) {
   const attachment =
     message.attachment && typeof message.attachment === "object"
       ? {
-        id: String(message.attachment.id || "").trim(),
-        url: sanitizeHttpUrl(message.attachment.url),
-        filename: String(message.attachment.filename || "file"),
-        mimeType: String(
-          message.attachment.mimeType || "application/octet-stream",
-        ),
-        size: Number(message.attachment.size) || 0,
-        dataB64: String(message.attachment.dataB64 || ""),
-      }
+          id: String(message.attachment.id || "").trim(),
+          url: sanitizeHttpUrl(message.attachment.url),
+          filename: String(message.attachment.filename || "file"),
+          mimeType: String(
+            message.attachment.mimeType || "application/octet-stream",
+          ),
+          size: Number(message.attachment.size) || 0,
+          dataB64: String(message.attachment.dataB64 || ""),
+        }
       : null;
   const encrypted =
     message.encrypted && typeof message.encrypted === "object"
       ? {
-        v: Number(message.encrypted.v) || 0,
-        alg: String(message.encrypted.alg || ""),
-        iv: String(message.encrypted.iv || ""),
-        ciphertext: String(message.encrypted.ciphertext || ""),
-      }
+          v: Number(message.encrypted.v) || 0,
+          alg: String(message.encrypted.alg || ""),
+          iv: String(message.encrypted.iv || ""),
+          ciphertext: String(message.encrypted.ciphertext || ""),
+        }
       : null;
 
   let kind = "text";
@@ -1040,12 +1064,12 @@ function normalizeMessage(message, fallbackRoomId) {
   const preview =
     message.preview && typeof message.preview === "object"
       ? {
-        url: sanitizeHttpUrl(message.preview.url),
-        title: String(message.preview.title || "").slice(0, 300),
-        description: String(message.preview.description || "").slice(0, 500),
-        image: sanitizeHttpUrl(message.preview.image),
-        siteName: String(message.preview.siteName || "").slice(0, 80),
-      }
+          url: sanitizeHttpUrl(message.preview.url),
+          title: String(message.preview.title || "").slice(0, 300),
+          description: String(message.preview.description || "").slice(0, 500),
+          image: sanitizeHttpUrl(message.preview.image),
+          siteName: String(message.preview.siteName || "").slice(0, 80),
+        }
       : null;
 
   return {
@@ -1820,15 +1844,15 @@ export function useMessenger() {
           attachment:
             decrypted?.attachment && typeof decrypted.attachment === "object"
               ? {
-                id: String(decrypted.attachment.id || "").trim(),
-                url: sanitizeHttpUrl(decrypted.attachment.url),
-                filename: String(decrypted.attachment.filename || "file"),
-                mimeType: String(
-                  decrypted.attachment.mimeType || "application/octet-stream",
-                ),
-                size: Number(decrypted.attachment.size) || 0,
-                dataB64: String(decrypted.attachment.dataB64 || ""),
-              }
+                  id: String(decrypted.attachment.id || "").trim(),
+                  url: sanitizeHttpUrl(decrypted.attachment.url),
+                  filename: String(decrypted.attachment.filename || "file"),
+                  mimeType: String(
+                    decrypted.attachment.mimeType || "application/octet-stream",
+                  ),
+                  size: Number(decrypted.attachment.size) || 0,
+                  dataB64: String(decrypted.attachment.dataB64 || ""),
+                }
               : null,
           preview: message.preview || null,
           locked: false,
@@ -1936,7 +1960,10 @@ export function useMessenger() {
             return;
           }
           const iconUrl = sanitizeHttpUrl(
-            payload?.room?.icon?.url || payload?.room?.icon?.file?.url || payload?.icon?.url || payload?.icon?.file?.url,
+            payload?.room?.icon?.url ||
+              payload?.room?.icon?.file?.url ||
+              payload?.icon?.url ||
+              payload?.icon?.file?.url,
           );
           if (!iconUrl) {
             state.lastError = "Invalid room icon URL returned by server.";
@@ -2120,9 +2147,13 @@ export function useMessenger() {
     persist();
     syncClientSettings(true, {
       description:
-        description !== undefined ? sanitizeProfileText(description, MAX_PROFILE_DESCRIPTION_LENGTH) : state.profile.description,
+        description !== undefined
+          ? sanitizeProfileText(description, MAX_PROFILE_DESCRIPTION_LENGTH)
+          : state.profile.description,
       pronouns:
-        pronouns !== undefined ? sanitizeProfileText(pronouns, MAX_PROFILE_PRONOUNS_LENGTH) : state.profile.pronouns,
+        pronouns !== undefined
+          ? sanitizeProfileText(pronouns, MAX_PROFILE_PRONOUNS_LENGTH)
+          : state.profile.pronouns,
     });
   }
 
@@ -2192,7 +2223,7 @@ export function useMessenger() {
       if (!AudioCtx) return null;
       if (!notificationAudioContext) notificationAudioContext = new AudioCtx();
       if (notificationAudioContext.state === "suspended") {
-        notificationAudioContext.resume().catch(() => { });
+        notificationAudioContext.resume().catch(() => {});
       }
       return notificationAudioContext;
     } catch {
@@ -2267,7 +2298,7 @@ export function useMessenger() {
             });
           }
         })
-        .catch(() => { });
+        .catch(() => {});
       return;
     }
     if (
@@ -2418,7 +2449,7 @@ export function useMessenger() {
       monitorSource.connect(analyser);
       outboundSource.connect(gate);
       gate.connect(destination);
-      context.resume?.().catch?.(() => { });
+      context.resume?.().catch?.(() => {});
       state.callAnalyser = { context, analyser, gate, monitorStream };
       state.callAnalyserData = new Uint8Array(analyser.fftSize);
       return destination.stream;
@@ -2439,7 +2470,7 @@ export function useMessenger() {
     const context = state.callAnalyser?.context;
     state.callAnalyser = null;
     state.callAnalyserData = null;
-    if (context) context.close().catch(() => { });
+    if (context) context.close().catch(() => {});
   }
 
   function primeCallAudioGate() {
@@ -2535,7 +2566,7 @@ export function useMessenger() {
     const context = micTestAnalyser?.context;
     micTestAnalyser = null;
     micTestAnalyserData = null;
-    if (context) context.close().catch(() => { });
+    if (context) context.close().catch(() => {});
     state.micTestActive = false;
     state.micTestLoading = false;
     state.micTestLevel = 0;
@@ -2577,7 +2608,7 @@ export function useMessenger() {
       micTestAudio.srcObject = stream;
       micTestAudio.volume = 0.75;
       await applyAudioOutput(micTestAudio);
-      micTestAudio.play().catch(() => { });
+      micTestAudio.play().catch(() => {});
 
       state.micTestActive = true;
       const tick = () => {
@@ -2797,7 +2828,8 @@ export function useMessenger() {
       clientId: localClientId,
       platform: currentLocalPlatform(),
     };
-    if (includeProfile) d.profile = normalizeProfile(profileOverride ?? state.profile);
+    if (includeProfile)
+      d.profile = normalizeProfile(profileOverride ?? state.profile);
     send({ op: 8, d });
   }
 
@@ -4160,7 +4192,9 @@ export function useMessenger() {
     if (index === -1) {
       const duplicateIndex = arr.findIndex((message) => {
         if (!message || message.deleted) return false;
-        if (String(message.username || "") !== String(normalized.username || ""))
+        if (
+          String(message.username || "") !== String(normalized.username || "")
+        )
           return false;
         if (String(message.text || "") !== String(normalized.text || ""))
           return false;
@@ -4178,9 +4212,11 @@ export function useMessenger() {
           normalized.attachment,
         );
         if (!sameEncrypted && !sameAttachment) return false;
-        return Math.abs(
-          Number(message.timestamp || 0) - Number(normalized.timestamp || 0),
-        ) <= DUPLICATE_MESSAGE_WINDOW_MS;
+        return (
+          Math.abs(
+            Number(message.timestamp || 0) - Number(normalized.timestamp || 0),
+          ) <= DUPLICATE_MESSAGE_WINDOW_MS
+        );
       });
       if (duplicateIndex !== -1) {
         const existing = arr[duplicateIndex];
@@ -4191,13 +4227,15 @@ export function useMessenger() {
           attachment:
             normalizedAttachment || existingAttachment
               ? {
-                ...(existingAttachment || {}),
-                ...(normalizedAttachment || {}),
-                url:
-                  normalizedAttachment?.url || existingAttachment?.url || "",
-                dataB64:
-                  normalizedAttachment?.dataB64 || existingAttachment?.dataB64 || "",
-              }
+                  ...(existingAttachment || {}),
+                  ...(normalizedAttachment || {}),
+                  url:
+                    normalizedAttachment?.url || existingAttachment?.url || "",
+                  dataB64:
+                    normalizedAttachment?.dataB64 ||
+                    existingAttachment?.dataB64 ||
+                    "",
+                }
               : null,
         };
         return false;
@@ -4226,8 +4264,10 @@ export function useMessenger() {
     touchRoom(roomId, normalized);
 
     const mine = isOwnMessage(normalized);
-    if (added && !mine) playMessageNotificationSound();
-    if (added && !mine) showAndroidMessageNotification(normalized, roomId);
+    const isDnd = sanitizePresenceStatus(state.status) === "dnd";
+    if (added && !mine && !isDnd) playMessageNotificationSound();
+    if (added && !mine && !isDnd)
+      showAndroidMessageNotification(normalized, roomId);
     if (!mine && roomId !== state.activeRoom) {
       state.unreadByRoom[roomId] = (state.unreadByRoom[roomId] || 0) + 1;
     }
@@ -4406,7 +4446,10 @@ export function useMessenger() {
             else if (typeof d?.isMobile === "boolean")
               rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
             if (d?.profile)
-              state.profilesByUser[key] = mergeProfiles(state.profilesByUser[key], d.profile);
+              state.profilesByUser[key] = mergeProfiles(
+                state.profilesByUser[key],
+                d.profile,
+              );
             if (d?.status)
               state.statusesByUser[key] = sanitizePresenceStatus(d.status);
           }
@@ -4510,7 +4553,11 @@ export function useMessenger() {
 
   function applyRoomSnapshot(d, fallbackRoomId = "") {
     const roomId = sanitizeRoomId(
-      d?.room?.room_id || d?.room?.roomId || d?.gameId || fallbackRoomId || state.activeRoom,
+      d?.room?.room_id ||
+        d?.room?.roomId ||
+        d?.gameId ||
+        fallbackRoomId ||
+        state.activeRoom,
     );
     if (!roomId) return "";
 
@@ -4520,10 +4567,10 @@ export function useMessenger() {
       .trim()
       .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
     const nextIconUrl = sanitizeHttpUrl(
-      roomPayload?.icon?.file?.url   // format Rust RoomIcon { file: StoredFile { url } }
-      ?? roomPayload?.icon?.url       // format plat potentiel
-      ?? roomPayload?.iconUrl         // champ direct
-      ?? "",
+      roomPayload?.icon?.file?.url ?? // format Rust RoomIcon { file: StoredFile { url } }
+        roomPayload?.icon?.url ?? // format plat potentiel
+        roomPayload?.iconUrl ?? // champ direct
+        "",
     );
     const mergedIconUrl = nextIconUrl || sanitizeHttpUrl(room?.iconUrl);
     const nextMembers = normalizeRoomUsers(roomPayload?.members || []);
@@ -4628,7 +4675,10 @@ export function useMessenger() {
 
     state.statusesByUser[key] = status;
     if (d?.profile)
-      state.profilesByUser[key] = mergeProfiles(state.profilesByUser[key], d.profile);
+      state.profilesByUser[key] = mergeProfiles(
+        state.profilesByUser[key],
+        d.profile,
+      );
     if (d?.platform) rememberClientPlatform(key, d.platform);
     if (key === me) state.status = status;
 
@@ -4715,8 +4765,8 @@ export function useMessenger() {
       return;
     const serverMessages = Array.isArray(d.messages)
       ? await Promise.all(
-        d.messages.map((m) => hydrateIncomingMessage(m, roomId)),
-      )
+          d.messages.map((m) => hydrateIncomingMessage(m, roomId)),
+        )
       : [];
     const localMessages = state.messagesByRoom[roomId] || [];
     const serverMessageIds = new Set(
@@ -4727,9 +4777,9 @@ export function useMessenger() {
     const keptLocalMessages = state.serverClearsLocalMessages
       ? []
       : localMessages.filter((message) => {
-        const messageId = String(message?.messageId || "");
-        return !messageId || !serverMessageIds.has(messageId);
-      });
+          const messageId = String(message?.messageId || "");
+          return !messageId || !serverMessageIds.has(messageId);
+        });
     const messages = mergeRoomHistory(
       keptLocalMessages,
       serverMessages,
@@ -4833,7 +4883,10 @@ export function useMessenger() {
 
         if (Array.isArray(data.rooms)) {
           const previousIcons = Object.fromEntries(
-            state.rooms.map((room) => [room.roomId, sanitizeHttpUrl(room.iconUrl)]),
+            state.rooms.map((room) => [
+              room.roomId,
+              sanitizeHttpUrl(room.iconUrl),
+            ]),
           );
           state.rooms = data.rooms
             .filter((r) => r && typeof r.roomId === "string")
@@ -4845,7 +4898,8 @@ export function useMessenger() {
                 lastPreview: String(r.lastPreview || ""),
                 lastTimestamp: Number(r.lastTimestamp) || 0,
                 lastSender: String(r.lastSender || ""),
-                iconUrl: sanitizeHttpUrl(r.iconUrl) || previousIcons[roomId] || "",
+                iconUrl:
+                  sanitizeHttpUrl(r.iconUrl) || previousIcons[roomId] || "",
               };
             })
             .filter((r) => isValidRoomId(r.roomId));
