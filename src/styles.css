@@ -1060,6 +1060,7 @@ textarea {
 }
 
 .side-status__toggle,
+.side-foot__lock,
 .side-foot__settings {
   width: 32px;
   height: 32px;

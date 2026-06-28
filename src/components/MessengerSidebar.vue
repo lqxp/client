@@ -321,6 +321,17 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <button
+        v-if="messenger.state.clientLockEnabled && !messenger.state.clientLockLocked"
+        class="icon-btn side-foot__lock"
+        type="button"
+        :aria-label="t('settings.security.lockNow')"
+        :title="t('settings.security.lockNow')"
+        @click="messenger.lockClient"
+      >
+        <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      </button>
+
       <button class="icon-btn side-foot__settings" type="button" :aria-label="t('sidebar.settings')" @click="openSettings">
         <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9c.23.62.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05A1.7 1.7 0 0 0 19.4 15Z"/></svg>
       </button>
@@ -331,12 +342,6 @@ onBeforeUnmount(() => {
         type="button"
         @click="messenger.connect"
       >{{ t('sidebar.connect') }}</button>
-      <button
-        v-else
-        class="btn--ghost side-foot__link"
-        type="button"
-        @click="messenger.disconnect"
-      >{{ t('sidebar.disconnect') }}</button>
     </div>
   </aside>
 </template>
