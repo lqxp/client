@@ -2019,6 +2019,22 @@ export function useMessenger() {
     return data;
   }
 
+  async function apiFormRequest(path, form: FormData) {
+    const headers = state.authToken
+      ? { authorization: `Bearer ${state.authToken}` }
+      : {};
+    const response = await fetch(apiUrl(path), {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      throw new Error(data?.error || `Request failed (${response.status})`);
+    }
+    return data;
+  }
+
   function applyAuthenticatedPayload(data) {
     if (!data?.user) throw new Error("Malformed account response.");
     const preservedSettings = {
@@ -2459,47 +2475,32 @@ export function useMessenger() {
       return false;
     }
 
-    const dataB64 = await blobToBase64(file);
-    return await new Promise((resolve) => {
-      send({
-        op: 32,
-        d: {
-          gameId: id,
-          file: {
-            filename: String(file.name || "room-icon"),
-            mimeType: String(file.type || "application/octet-stream"),
-            size: Number(file.size) || 0,
-            dataB64,
-          },
-        },
-        onAck(message) {
-          const payload = message?.d;
-          if (payload?.error) {
-            state.lastError = payload.error;
-            resolve(false);
-            return;
-          }
-          const iconUrl = sanitizeHttpUrl(
-            payload?.room?.icon?.url ||
-              payload?.room?.icon?.file?.url ||
-              payload?.icon?.url ||
-              payload?.icon?.file?.url,
-          );
-          if (!iconUrl) {
-            state.lastError = "Invalid room icon URL returned by server.";
-            resolve(false);
-            return;
-          }
-          touchRoom(id);
-          const room = state.rooms.find((entry) => entry.roomId === id);
-          if (room) {
-            room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
-          }
-          persist();
-          resolve(true);
-        },
-      });
-    });
+    try {
+      const form = new FormData();
+      form.append("file", file, String(file.name || "room-icon"));
+      const payload = await apiFormRequest(`/api/rooms/${encodeURIComponent(id)}/icon`, form);
+      const iconUrl = sanitizeHttpUrl(
+        payload?.room?.icon?.url ||
+          payload?.room?.icon?.file?.url ||
+          payload?.icon?.url ||
+          payload?.icon?.file?.url,
+      );
+      if (!iconUrl) {
+        state.lastError = "Invalid room icon URL returned by server.";
+        return false;
+      }
+      touchRoom(id);
+      const room = state.rooms.find((entry) => entry.roomId === id);
+      if (room) {
+        room.iconUrl = cacheBustedRoomIconUrl(iconUrl);
+      }
+      persist();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Could not upload room icon.";
+      showToast(state.lastError);
+      return false;
+    }
   }
 
   function setDeleteMessagesOnLeave(value) {
@@ -2699,11 +2700,13 @@ export function useMessenger() {
     try {
       const { width, height } = await imageDimensions(file);
       if (!width || !height) throw new Error("Invalid image dimensions.");
-      const dataB64 = await blobToBase64(file);
-      const image = { mimeType, size: file.size, width, height, dataB64 };
+      const form = new FormData();
+      form.append("kind", kind);
+      form.append("file", file, String(file.name || kind));
+      const payload = await apiFormRequest("/api/profile/image", form);
+      const image = payload?.[kind];
       state.profile = normalizeProfile({ ...state.profile, [kind]: image });
       persist();
-      syncClientSettings(true, { [kind]: image });
       return true;
     } catch (error) {
       state.lastError = error?.message || "Could not read profile image.";
