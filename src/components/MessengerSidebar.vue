@@ -212,7 +212,10 @@ onBeforeUnmount(() => {
           @keydown.enter.prevent="openConversation(c.roomId)"
           @contextmenu="onRoomContext($event, c.roomId)"
         >
-          <span class="avatar avatar--lg" :class="`avatar--${c.accent}`">
+          <span
+            class="avatar avatar--lg conv__icon"
+            :class="roomIconIsImage(c.roomId) ? 'conv__icon--image' : `avatar--${c.accent}`"
+          >
             <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
             <template v-else>{{ initialsOf(c.name) }}</template>
           </span>
@@ -350,9 +353,15 @@ onBeforeUnmount(() => {
 .conv__icon {
   font-size: 22px;
   line-height: 1;
+  overflow: hidden;
+}
+
+.conv__icon--image {
+  background: transparent;
 }
 
 .conv__icon-image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
