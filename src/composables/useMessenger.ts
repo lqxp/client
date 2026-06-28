@@ -648,6 +648,21 @@ function loadPersisted() {
       }
     }
 
+    const activeRoom = isValidRoomId(raw.activeRoom)
+      ? sanitizeRoomId(raw.activeRoom)
+      : "";
+    if (activeRoom && !rooms.some((room) => room.roomId === activeRoom)) {
+      rooms.unshift({
+        roomId: activeRoom,
+        title: "",
+        lastPreview: "",
+        lastTimestamp: 0,
+        lastSender: "",
+        iconUrl: "",
+        members: [],
+      });
+    }
+
     return {
       authToken: String(raw.authToken || ""),
       userId: String(raw.userId || ""),
@@ -660,9 +675,7 @@ function loadPersisted() {
         : [],
       username: sanitizeUsername(raw.username),
       status: sanitizePresenceStatus(raw.status),
-      activeRoom: isValidRoomId(raw.activeRoom)
-        ? sanitizeRoomId(raw.activeRoom)
-        : "",
+      activeRoom,
       rooms,
       joinedRooms,
       usersByRoom,
@@ -830,81 +843,86 @@ function stripAttachmentDataForStorage(arr) {
 }
 
 function savePersisted(state) {
-  try {
-    const messagesByRoom = {};
-    for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
-      string,
-      any[],
-    ][]) {
-      messagesByRoom[id] = stripAttachmentDataForStorage(
-        arr.slice(-MAX_HISTORY_PER_ROOM),
-      );
-    }
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        version: 4,
-        authToken: String(state.authToken || ""),
-        userId: String(state.userId || ""),
-        admin: Boolean(state.admin),
-        recoveryWords: Array.isArray(state.recoveryWords)
-          ? state.recoveryWords.slice(0, 16)
-          : [],
-        username: sanitizeUsername(state.username),
-        status: sanitizePresenceStatus(state.status),
-        activeRoom: sanitizeRoomId(state.activeRoom),
-        rooms: state.rooms,
-        joinedRooms: [
-          ...new Set(
-            (state.joinedRooms || [])
-              .map((roomId) => sanitizeRoomId(roomId))
-              .filter((roomId) => isValidRoomId(roomId)),
-          ),
-        ],
-        usersByRoom: Object.fromEntries(
-          Object.entries(state.usersByRoom || {})
-            .map(([roomId, users]) => [
-              sanitizeRoomId(roomId),
-              sanitizeRoomUsers(users),
-            ])
-            .filter(([roomId]) => isValidRoomId(roomId)),
-        ),
-        profilesByUser: Object.fromEntries(
-          Object.entries(state.profilesByUser || {})
-            .map(([username, profile]) => [
-              sanitizeUsername(username),
-              normalizeProfile(profile),
-            ])
-            .filter(([username]) => Boolean(username)),
-        ),
-        messagesByRoom,
-        unreadByRoom: state.unreadByRoom,
-        roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
-        selectedAudioInputId: state.selectedAudioInputId,
-        selectedAudioOutputId: state.selectedAudioOutputId,
-        microphoneThreshold: state.microphoneThreshold,
-        deleteMessagesOnLeave: state.deleteMessagesOnLeave,
-        shareScreenAudio: state.shareScreenAudio,
-        autoArchiveUploads: state.autoArchiveUploads,
-        streamerMode: state.streamerMode,
-        typingIndicatorsEnabled: state.typingIndicatorsEnabled,
-        messageSoundEnabled: state.messageSoundEnabled,
-        callSoundsEnabled: state.callSoundsEnabled,
-        soundFlags: { ...state.soundFlags },
-        themeMode: state.themeMode,
-        appAccent: state.appAccent,
-        messageStyle: state.messageStyle,
-        androidNotificationsEnabled: state.androidNotificationsEnabled,
-        serverClearsLocalMessages: state.serverClearsLocalMessages,
-        autoReconnectEnabled: state.autoReconnectEnabled,
-        reconnectMinDelayMs: state.reconnectMinDelayMs,
-        reconnectMaxDelayMs: state.reconnectMaxDelayMs,
-        callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
-        roomNotes: sanitizeRoomNotes(state.roomNotes),
-      }),
+  const messagesByRoom = {};
+  for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
+    string,
+    any[],
+  ][]) {
+    messagesByRoom[id] = stripAttachmentDataForStorage(
+      arr.slice(-MAX_HISTORY_PER_ROOM),
     );
+  }
+  const payload = {
+    version: 4,
+    authToken: String(state.authToken || ""),
+    userId: String(state.userId || ""),
+    admin: Boolean(state.admin),
+    recoveryWords: Array.isArray(state.recoveryWords)
+      ? state.recoveryWords.slice(0, 16)
+      : [],
+    username: sanitizeUsername(state.username),
+    status: sanitizePresenceStatus(state.status),
+    activeRoom: sanitizeRoomId(state.activeRoom),
+    rooms: state.rooms,
+    joinedRooms: [
+      ...new Set(
+        (state.joinedRooms || [])
+          .map((roomId) => sanitizeRoomId(roomId))
+          .filter((roomId) => isValidRoomId(roomId)),
+      ),
+    ],
+    usersByRoom: Object.fromEntries(
+      Object.entries(state.usersByRoom || {})
+        .map(([roomId, users]) => [
+          sanitizeRoomId(roomId),
+          sanitizeRoomUsers(users),
+        ])
+        .filter(([roomId]) => isValidRoomId(roomId)),
+    ),
+    profilesByUser: Object.fromEntries(
+      Object.entries(state.profilesByUser || {})
+        .map(([username, profile]) => [
+          sanitizeUsername(username),
+          normalizeProfile(profile),
+        ])
+        .filter(([username]) => Boolean(username)),
+    ),
+    messagesByRoom,
+    unreadByRoom: state.unreadByRoom,
+    roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
+    selectedAudioInputId: state.selectedAudioInputId,
+    selectedAudioOutputId: state.selectedAudioOutputId,
+    microphoneThreshold: state.microphoneThreshold,
+    deleteMessagesOnLeave: state.deleteMessagesOnLeave,
+    shareScreenAudio: state.shareScreenAudio,
+    autoArchiveUploads: state.autoArchiveUploads,
+    streamerMode: state.streamerMode,
+    typingIndicatorsEnabled: state.typingIndicatorsEnabled,
+    messageSoundEnabled: state.messageSoundEnabled,
+    callSoundsEnabled: state.callSoundsEnabled,
+    soundFlags: { ...state.soundFlags },
+    themeMode: state.themeMode,
+    appAccent: state.appAccent,
+    messageStyle: state.messageStyle,
+    androidNotificationsEnabled: state.androidNotificationsEnabled,
+    serverClearsLocalMessages: state.serverClearsLocalMessages,
+    autoReconnectEnabled: state.autoReconnectEnabled,
+    reconnectMinDelayMs: state.reconnectMinDelayMs,
+    reconnectMaxDelayMs: state.reconnectMaxDelayMs,
+    callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
+    roomNotes: sanitizeRoomNotes(state.roomNotes),
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
-    /* storage full — attachment bytes alone can exceed quota */
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ ...payload, messagesByRoom: {}, unreadByRoom: {} }),
+      );
+    } catch {
+      /* storage may be unavailable */
+    }
   }
   savePersistedProfile(state.profile);
 }
@@ -2865,8 +2883,19 @@ export function useMessenger() {
     state.activeRoom = id;
     state.unreadByRoom[id] = 0;
     if (state.editingMessage?.roomId !== id) cancelEditMessage();
-    touchRoom(id);
+    if (!state.rooms.some((room) => room.roomId === id)) {
+      state.rooms.unshift({
+        roomId: id,
+        title: "",
+        lastPreview: "",
+        lastTimestamp: 0,
+        lastSender: "",
+        iconUrl: "",
+        members: [],
+      });
+    }
     persist();
+    touchRoom(id);
     if (state.connected && state.identified) {
       if (
         !state.joinedRooms.includes(id) &&
@@ -4328,8 +4357,25 @@ export function useMessenger() {
             ...(state.rooms || [])
               .map((r) => sanitizeRoomId(r.roomId))
               .filter((r) => isValidRoomId(r)),
+            ...(isValidRoomId(state.activeRoom)
+              ? [sanitizeRoomId(state.activeRoom)]
+              : []),
           ]),
         ];
+        if (
+          isValidRoomId(state.activeRoom) &&
+          !state.rooms.some((room) => room.roomId === state.activeRoom)
+        ) {
+          state.rooms.unshift({
+            roomId: sanitizeRoomId(state.activeRoom),
+            title: "",
+            lastPreview: "",
+            lastTimestamp: 0,
+            lastSender: "",
+            iconUrl: "",
+            members: [],
+          });
+        }
         state.joinedRooms = [];
         state.pendingJoinRooms = [];
         state.usersByRoom = {};
@@ -4340,7 +4386,6 @@ export function useMessenger() {
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
         state.systemBanner = "";
         for (const roomId of allKnownRooms) touchRoom(roomId);
-        for (const roomId of allKnownRooms) requestJoin(roomId);
         if (
           state.activeRoom &&
           !persistedJoinedRooms.includes(state.activeRoom)
