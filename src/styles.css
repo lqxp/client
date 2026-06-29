@@ -3764,6 +3764,7 @@ textarea {
   max-width: 180px;
   letter-spacing: 0.18em;
   font-family: var(--mono);
+  -webkit-text-security: disc;
 }
 
 .settings-progress {

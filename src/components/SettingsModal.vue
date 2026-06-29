@@ -657,13 +657,6 @@ onBeforeUnmount(() => {
 
         <div class="settings-group">
           <h4>{{ t('settings.security.clientLock') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.security.clientLockEnabled') }}</span>
-            <input type="checkbox" :checked="messenger.state.clientLockEnabled"
-              @change="targetChecked($event) ? onEnableClientLock() : onDisableClientLock()" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-
           <div v-if="!messenger.state.clientLockEnabled" class="settings-lock-form">
             <label class="settings-select">
               <span>{{ lockPinLabel }}</span>
