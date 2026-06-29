@@ -924,6 +924,8 @@ function loadPersisted() {
       clientLockCiphertext: "",
       clientLockLocked: false,
       clientLockStorage: "",
+      clientLockDisplayName: "",
+      clientLockAvatar: null,
       clientLockFailedAttempts: 0,
       clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
