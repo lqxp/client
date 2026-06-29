@@ -3504,21 +3504,6 @@ textarea {
   border-top: 1px solid var(--line-strong);
 }
 
-.settings-group--language {
-  padding: 28px 24px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-}
-
-.settings-group--language .settings-select {
-  margin-bottom: 14px;
-}
-
-.settings-group--language:first-child {
-  border-top: 1px solid var(--line-strong);
-}
-
 .settings-group:first-child {
   border-top: 0;
 }
@@ -4057,6 +4042,12 @@ textarea {
   font-size: 14px;
 }
 
+.settings-kv--language {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-strong);
+}
+
 .settings-kv>div {
   display: flex;
   flex-direction: column;
@@ -4379,10 +4370,6 @@ textarea {
 
   .settings-group {
     padding: 20px 0;
-  }
-
-  .settings-group--language {
-    padding: 22px 18px;
   }
 
   .settings-field,

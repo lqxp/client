@@ -605,7 +605,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else-if="activeSection === 'language'" class="settings-page">
-        <div class="settings-group settings-group--language">
+        <div class="settings-group">
           <h4>{{ t('settings.language.title') }}</h4>
           <label class="settings-select">
             <span>{{ t('settings.language.appLanguage') }}</span>
@@ -615,7 +615,7 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
-          <dl class="settings-kv">
+          <dl class="settings-kv settings-kv--language">
             <div>
               <dt>{{ t('settings.language.currentLanguage') }}</dt>
               <dd>{{ LOCALE_LABELS[locale] || locale }}</dd>
