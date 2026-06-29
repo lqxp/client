@@ -38,9 +38,8 @@ function backspace() {
 <template>
   <main class="lock-screen" role="main" aria-labelledby="lock-title">
     <section class="lock-card">
-      <div class="lock-card__avatar" :class="{ 'lock-card__avatar--image': avatarSrc }" aria-hidden="true">
-        <img v-if="avatarSrc" :src="avatarSrc" alt="" />
-        <span v-else>Q</span>
+      <div class="lock-card__avatar lock-card__avatar--image" aria-hidden="true">
+        <img :src="avatarSrc" alt="" />
       </div>
       <div class="lock-card__copy">
         <h1 id="lock-title">{{ displayName }}</h1>
