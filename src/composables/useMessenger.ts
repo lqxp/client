@@ -668,6 +668,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockStorage: "",
     clientLockDisplayName: "",
     clientLockAvatar: null,
+    clientLockThemeMode: "dark",
     clientLockFailedAttempts: 0,
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
     ...overrides,
@@ -745,6 +746,7 @@ function loadPersisted() {
         clientLockStorage: String(raw.storage || ""),
         clientLockDisplayName: sanitizeUsername(raw.displayName || raw.username || ""),
         clientLockAvatar: normalizeProfileImage(raw.avatar, MAX_PROFILE_AVATAR_BYTES),
+        clientLockThemeMode: ["dark", "light", "adaptive"].includes(String(raw.themeMode || "").toLowerCase()) ? String(raw.themeMode).toLowerCase() : "dark",
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
       });
     }
@@ -929,6 +931,7 @@ function loadPersisted() {
       clientLockStorage: "",
       clientLockDisplayName: "",
       clientLockAvatar: null,
+      clientLockThemeMode: "dark",
       clientLockFailedAttempts: 0,
       clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
@@ -1116,6 +1119,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     pinLength,
     displayName: sanitizeUsername(payload?.username || ""),
     avatar: normalizeProfileImage(payload?.profile?.avatar, MAX_PROFILE_AVATAR_BYTES),
+    themeMode: ["dark", "light", "adaptive"].includes(String(payload?.themeMode || "").toLowerCase()) ? String(payload.themeMode).toLowerCase() : "dark",
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
@@ -1514,6 +1518,7 @@ export function useMessenger() {
     clientLockStorage: (persisted as any).clientLockStorage || "",
     clientLockDisplayName: String((persisted as any).clientLockDisplayName || ""),
     clientLockAvatar: normalizeProfileImage((persisted as any).clientLockAvatar, MAX_PROFILE_AVATAR_BYTES),
+    clientLockThemeMode: ["dark", "light", "adaptive"].includes(String((persisted as any).clientLockThemeMode || "").toLowerCase()) ? String((persisted as any).clientLockThemeMode).toLowerCase() : "dark",
     clientLockFailedAttempts: Math.max(0, Number((persisted as any).clientLockFailedAttempts) || 0),
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
 
@@ -1997,6 +2002,7 @@ export function useMessenger() {
     state.clientLockCiphertext = String(storedLockedPayload.ciphertext || "");
     state.clientLockDisplayName = String(lockedPayload.displayName || "");
     state.clientLockAvatar = normalizeProfileImage(lockedPayload.avatar, MAX_PROFILE_AVATAR_BYTES);
+    state.clientLockThemeMode = ["dark", "light", "adaptive"].includes(String(lockedPayload.themeMode || "").toLowerCase()) ? String(lockedPayload.themeMode).toLowerCase() : "dark";
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");

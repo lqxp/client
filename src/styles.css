@@ -3788,23 +3788,22 @@ textarea {
   display: grid;
   place-items: center;
   padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
-  background:
-    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.72) 0 8%, transparent 34%),
-    radial-gradient(ellipse at 82% 16%, rgba(255, 196, 132, 0.9) 0 9%, transparent 32%),
-    radial-gradient(ellipse at 72% 84%, rgba(60, 126, 255, 0.74) 0 12%, transparent 38%),
-    radial-gradient(ellipse at 18% 76%, rgba(255, 74, 139, 0.8) 0 10%, transparent 36%),
-    linear-gradient(135deg, #f8d7b6 0%, #f38f8f 24%, #b56fe8 48%, #4967f2 72%, #8ed3ff 100%);
+  background: #101014 url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
   color: white;
+}
+
+:root[data-theme="light"] .lock-screen {
+  background-image: url("https://qxch.at/assets/wp_light.jpg");
+  background-color: #f2f4f8;
 }
 
 .lock-screen::before {
   content: "";
   position: fixed;
   inset: 0;
-  /* top/right/bottom/left: 0 */
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(22px) saturate(1.15);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(24px) saturate(1.12);
 }
 
 .lock-card {
