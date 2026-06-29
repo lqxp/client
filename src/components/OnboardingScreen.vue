@@ -166,8 +166,12 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   display: grid;
   place-items: center;
   padding: 32px 16px;
-  background: #5865f2;
+  background: url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
   overflow: hidden;
+}
+
+:global(:root[data-theme="light"]) .onboarding {
+  background-image: url("https://qxch.at/assets/wp_light.jpg");
 }
 
 .onboarding__shell {
