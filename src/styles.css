@@ -4492,7 +4492,7 @@ textarea {
   }
 
   .lock-pad button {
-    min-height: 68px;
+    min-height: 0;
     border: 0;
     background: rgba(255, 255, 255, 0.2);
     font-size: 30px;
