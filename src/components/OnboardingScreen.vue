@@ -165,18 +165,42 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 32px 16px;
-  background: url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
+  padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
+  background: #101014 url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
+  color: white;
   overflow: hidden;
+}
+
+.onboarding::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(24px) saturate(1.12);
 }
 
 :global(:root[data-theme="light"]) .onboarding {
   background-image: url("https://qxch.at/assets/wp_light.jpg");
+  background-color: #f2f4f8;
+}
+
+:global(:root[data-theme="light"]) .onboarding::before {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+:global(:root[data-theme="light"]) .onboarding__card {
+  background: rgba(255, 255, 255, 0.34);
+  border-color: rgba(255, 255, 255, 0.52);
+  box-shadow:
+    0 30px 80px rgba(57, 72, 92, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
 .onboarding__shell {
   position: relative;
-  width: min(100%, 500px);
+  z-index: 1;
+  width: min(100%, 420px);
 }
 
 .onboarding__backdrop {
@@ -190,11 +214,14 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 32px;
-  border-radius: 0;
-  background: #101827;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(5, 14, 28, 0.28);
+  padding: 28px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(26px) saturate(1.18);
 }
 
 .onboarding__brand {
@@ -202,25 +229,28 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #f8fbff;
-  font-size: 1.1rem;
+  color: #fff;
+  font-size: 1.06rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.38);
 }
 
 .onboarding__brand-mark {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   flex: none;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.24));
 }
 
 .onboarding__brand-mark svg {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
 }
 
 .onboarding__card-head {
@@ -231,27 +261,32 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
 .onboarding__card-head h1 {
   margin: 0;
-  color: #f8fbff;
-  font-size: 1.55rem;
-  line-height: 1.2;
-  font-weight: 700;
+  color: #fff;
+  font-size: 1.68rem;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
 }
 
 .onboarding__copy {
   margin: 8px 0 0;
-  color: rgba(231, 239, 255, 0.76);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.96rem;
-  line-height: 1.35;
+  line-height: 1.4;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.34);
 }
 
 .onboarding__hero {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px;
-  border-radius: 0;
-  background: #0d1420;
-  border: 1px solid rgba(28, 113, 216, 0.28);
+  padding: 12px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(1.15);
 }
 
 .onboarding__hero-copy {
@@ -260,13 +295,14 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 }
 
 .onboarding__hero-copy strong {
-  color: #f8fbff;
+  color: #fff;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 650;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
 .onboarding__hero-copy span {
-  color: rgba(204, 220, 244, 0.74);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -275,29 +311,28 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 0;
-  border-radius: 0;
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(1.18);
 }
 
 .onboarding__tabs button {
-  min-height: 42px;
-  border-radius: 0;
-  color: #a9bddb;
-  font-size: 0.83rem;
+  min-height: 38px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.81rem;
   font-weight: 700;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.onboarding__tabs button + button {
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
 .onboarding__tabs button.is-active {
-  background: #1c71d8;
+  background: rgba(255, 255, 255, 0.32);
   color: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .onboarding__form {
@@ -315,15 +350,16 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #bfd2ee;
+  color: rgba(255, 255, 255, 0.84);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.24);
 }
 
 .onboarding__field-error {
-  color: #ff6b6b;
+  color: #ffd0d0;
   font-style: normal;
   font-size: 0.68rem;
   font-weight: 700;
@@ -334,34 +370,41 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 .onboarding__field input,
 .onboarding__field textarea {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  background: #0d1420;
-  color: #f8fbff;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
   font: inherit;
-  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.16),
+    0 8px 24px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(18px) saturate(1.16);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
 
 .onboarding__field input {
-  height: 44px;
-  padding: 10px 12px;
+  height: 46px;
+  padding: 10px 14px;
 }
 
 .onboarding__field textarea {
   min-height: 104px;
   resize: vertical;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 
 .onboarding__field input::placeholder,
 .onboarding__field textarea::placeholder {
-  color: #6f88aa;
+  color: rgba(255, 255, 255, 0.56);
 }
 
 .onboarding__field input:focus,
 .onboarding__field textarea:focus {
-  border-color: #1c71d8;
-  box-shadow: inset 0 0 0 1px #1c71d8;
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.14),
+    0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
 .onboarding__meta {
@@ -369,29 +412,34 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  color: #9cb5d8;
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
 .onboarding__error {
   margin: 0;
-  color: #ff7b7b;
+  color: #fff;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 650;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.44);
 }
 
 .onboarding__submit {
   height: 46px;
   margin-top: 2px;
-  border-radius: 0;
-  background: #1c71d8;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #fff;
   font-size: 0.98rem;
-  font-weight: 700;
+  font-weight: 750;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .onboarding__submit:hover {
-  background: #165cad;
+  background: rgba(255, 255, 255, 0.34);
 }
 
 @media (max-width: 640px) {
