@@ -9,7 +9,6 @@ const props = defineProps({
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const pin = ref("");
 const pinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
-const pinPlaceholder = computed(() => "•".repeat(pinLength.value));
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
 const FALLBACK_LOGO = "https://qxch.at/app-icon.svg";
