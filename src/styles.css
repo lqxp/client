@@ -3811,8 +3811,9 @@ textarea {
   position: relative;
   z-index: 1;
   width: min(100%, 360px);
-  display: grid;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 0;
   background: transparent;
   border: 0;
