@@ -3852,25 +3852,30 @@ textarea {
 }
 
 .lock-card__copy {
+  width: 100%;
   margin-top: 18px;
   text-align: center;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
 }
 
 .lock-card h1 {
+  width: 100%;
   margin: 0;
   color: white;
   font-size: 24px;
   font-weight: 650;
   line-height: 1.16;
   letter-spacing: -0.02em;
+  text-align: center;
 }
 
 .lock-card p {
-  margin: 8px 0 0;
+  width: 100%;
+  margin: 8px auto 0;
   color: rgba(255, 255, 255, 0.82);
   font-size: 13px;
   line-height: 1.45;
+  text-align: center;
 }
 
 .lock-form {
