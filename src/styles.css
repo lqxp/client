@@ -1481,6 +1481,7 @@ textarea {
 .profile-card__empty {
   color: var(--muted);
 }
+
 .profile-card__mutual-list {
   display: flex;
   flex-direction: column;
@@ -3800,6 +3801,7 @@ textarea {
   content: "";
   position: fixed;
   inset: 0;
+  /* top/right/bottom/left: 0 */
   pointer-events: none;
   background: rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(22px) saturate(1.15);
@@ -4411,13 +4413,39 @@ textarea {
   }
 
   .lock-screen {
+    min-height: var(--app-viewport-height);
+    display: flex;
+    width: 100%;
+    /* ← manquait, cause du décalage */
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding: calc(24px + var(--mobile-status-offset)) 18px calc(24px + env(safe-area-inset-bottom));
+    /* centrage horizontal explicite */
+    padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
+    background:
+      radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.72) 0 8%, transparent 34%),
+      radial-gradient(ellipse at 82% 16%, rgba(255, 196, 132, 0.9) 0 9%, transparent 32%),
+      radial-gradient(ellipse at 72% 84%, rgba(60, 126, 255, 0.74) 0 12%, transparent 38%),
+      radial-gradient(ellipse at 18% 76%, rgba(255, 74, 139, 0.8) 0 10%, transparent 36%),
+      linear-gradient(135deg, #f8d7b6 0%, #f38f8f 24%, #b56fe8 48%, #4967f2 72%, #8ed3ff 100%);
+    color: white;
+    box-sizing: border-box;
+    /* ← critique : inclut le padding dans la largeur */
+    width: 100%;
+    /* ← s'assure qu'il prend toute la largeur */
   }
 
   .lock-card {
-    width: 100%;
+    position: relative;
+    z-index: 1;
+    width: min(100%, 360px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* centre avatar, form, dots */
+    text-align: center;
   }
+
 
   .lock-card__avatar {
     width: 116px;
@@ -4436,7 +4464,14 @@ textarea {
   }
 
   .lock-form {
-    width: min(100%, 258px);
+    position: relative;
+    width: 238px;
+    /* largeur fixe, plus de min() */
+    display: flex;
+    /* block → flex pour aligner input + bouton */
+    align-items: center;
+    margin: 18px 0 0;
+    /* auto retiré, c'est align-items du parent qui centre */
   }
 
   .lock-dots span {
