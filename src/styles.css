@@ -3877,6 +3877,7 @@ textarea {
   color: white;
   font: 15px var(--mono);
   letter-spacing: 0.18em;
+  -webkit-text-security: disc;
   text-align: center;
   outline: none;
   box-shadow:

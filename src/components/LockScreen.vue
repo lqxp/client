@@ -12,8 +12,9 @@ const pinLength = computed(() => Number(props.messenger.state.clientLockPinLengt
 const pinPlaceholder = computed(() => "•".repeat(pinLength.value));
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
-const displayName = computed(() => String(props.messenger.state.username || "QxChat"));
-const avatarInitial = computed(() => displayName.value.trim().charAt(0).toUpperCase() || "Q");
+const username = computed(() => String(props.messenger.state.username || "").trim());
+const displayName = computed(() => username.value || "QxChat");
+const avatarSrc = computed(() => props.messenger.profileImageSrc?.(props.messenger.myProfile?.value?.avatar, "avatar") || "");
 
 async function unlock() {
   const ok = await props.messenger.unlockClientLock(pin.value);
@@ -36,8 +37,9 @@ function backspace() {
 <template>
   <main class="lock-screen" role="main" aria-labelledby="lock-title">
     <section class="lock-card">
-      <div class="lock-card__avatar" aria-hidden="true">
-        {{ avatarInitial }}
+      <div class="lock-card__avatar" :class="{ 'lock-card__avatar--image': avatarSrc }" aria-hidden="true">
+        <img v-if="avatarSrc" :src="avatarSrc" alt="" />
+        <span v-else>Q</span>
       </div>
       <div class="lock-card__copy">
         <h1 id="lock-title">{{ displayName }}</h1>
