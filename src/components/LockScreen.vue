@@ -48,15 +48,14 @@ function backspace() {
 
       <form class="lock-form" @submit.prevent="unlock">
         <input v-model="pin" class="lock-form__input" type="text" inputmode="numeric" pattern="[0-9]*"
-          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :placeholder="pinPlaceholder" autofocus />
+          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" autofocus />
+        <div class="lock-form__mask" aria-hidden="true">
+          <span v-for="index in pinLength" :key="index" :class="{ 'is-filled': pin.length >= index }"></span>
+        </div>
         <button type="submit" class="btn btn--primary lock-form__submit" :disabled="props.messenger.state.clientLockLoading">
           {{ t('lock.unlock') }}
         </button>
       </form>
-
-      <div class="lock-dots" aria-hidden="true">
-        <span v-for="index in pinLength" :key="index" :class="{ 'is-filled': pin.length >= index }"></span>
-      </div>
 
       <div class="lock-pad" aria-label="PIN keypad">
         <button v-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit" type="button" @click="appendDigit(digit)">

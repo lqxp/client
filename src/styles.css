@@ -3888,7 +3888,7 @@ textarea {
 .lock-form__input {
   min-height: 36px;
   width: 100%;
-  padding: 0 46px 0 18px;
+  padding: 0 44px;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
