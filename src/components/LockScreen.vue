@@ -12,6 +12,8 @@ const pinLength = computed(() => Number(props.messenger.state.clientLockPinLengt
 const pinPlaceholder = computed(() => "•".repeat(pinLength.value));
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
+const displayName = computed(() => String(props.messenger.state.username || "QxChat"));
+const avatarInitial = computed(() => displayName.value.trim().charAt(0).toUpperCase() || "Q");
 
 async function unlock() {
   const ok = await props.messenger.unlockClientLock(pin.value);
@@ -34,22 +36,17 @@ function backspace() {
 <template>
   <main class="lock-screen" role="main" aria-labelledby="lock-title">
     <section class="lock-card">
-      <div class="lock-card__mark">
-        <svg viewBox="0 0 24 24">
-          <rect x="5" y="10" width="14" height="10" rx="2" />
-          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-          <path d="M12 14v2.5" />
-        </svg>
+      <div class="lock-card__avatar" aria-hidden="true">
+        {{ avatarInitial }}
       </div>
       <div class="lock-card__copy">
-        <p class="lock-card__eyebrow">QxChat</p>
-        <h1 id="lock-title">{{ t('lock.title') }}</h1>
+        <h1 id="lock-title">{{ displayName }}</h1>
         <p>{{ t('lock.subtitle') }}</p>
       </div>
 
       <form class="lock-form" @submit.prevent="unlock">
-        <input v-model="pin" class="lock-form__input" type="password" inputmode="numeric" pattern="[0-9]*"
-          autocomplete="current-password" :maxlength="pinLength" :placeholder="pinPlaceholder" autofocus />
+        <input v-model="pin" class="lock-form__input" type="text" inputmode="numeric" pattern="[0-9]*"
+          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :placeholder="pinPlaceholder" autofocus />
         <button type="submit" class="btn btn--primary lock-form__submit" :disabled="props.messenger.state.clientLockLoading">
           {{ t('lock.unlock') }}
         </button>

@@ -3786,144 +3786,208 @@ textarea {
   min-height: var(--app-viewport-height);
   display: grid;
   place-items: center;
-  padding: calc(24px + var(--mobile-status-offset)) 24px 24px;
+  padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
   background:
-    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 34%),
-    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08), transparent 30%),
-    var(--bg);
-  color: var(--text);
+    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.72) 0 8%, transparent 34%),
+    radial-gradient(ellipse at 82% 16%, rgba(255, 196, 132, 0.9) 0 9%, transparent 32%),
+    radial-gradient(ellipse at 72% 84%, rgba(60, 126, 255, 0.74) 0 12%, transparent 38%),
+    radial-gradient(ellipse at 18% 76%, rgba(255, 74, 139, 0.8) 0 10%, transparent 36%),
+    linear-gradient(135deg, #f8d7b6 0%, #f38f8f 24%, #b56fe8 48%, #4967f2 72%, #8ed3ff 100%);
+  color: white;
+}
+
+.lock-screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(22px) saturate(1.15);
 }
 
 .lock-card {
-  width: min(100%, 460px);
-  padding: 34px;
-  border: 1px solid var(--line-strong);
-  border-radius: 28px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(18px);
+  position: relative;
+  z-index: 1;
+  width: min(100%, 360px);
+  display: grid;
+  justify-items: center;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: center;
 }
 
-.lock-card__mark {
-  width: 58px;
-  height: 58px;
+.lock-card__avatar {
+  width: 132px;
+  height: 132px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
-  background: var(--blue-soft);
-  color: var(--accent);
-}
-
-.lock-card__mark svg {
-  width: 30px;
-  height: 30px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  border-radius: 50%;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.52)),
+    color-mix(in srgb, var(--accent) 32%, white);
+  color: color-mix(in srgb, var(--accent) 68%, #26324a);
+  font-size: 58px;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  text-indent: -0.08em;
+  box-shadow:
+    0 22px 55px rgba(0, 0, 0, 0.28),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95);
 }
 
 .lock-card__copy {
-  margin-top: 22px;
-}
-
-.lock-card__eyebrow {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin-top: 18px;
+  text-align: center;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
 }
 
 .lock-card h1 {
   margin: 0;
-  font-size: clamp(28px, 5vw, 40px);
-  line-height: 1.05;
+  color: white;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.02em;
 }
 
 .lock-card p {
-  color: var(--muted);
-  line-height: 1.55;
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .lock-form {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  margin-top: 26px;
+  position: relative;
+  width: min(100%, 238px);
+  display: block;
+  margin: 18px auto 0;
 }
 
 .lock-form__input {
-  min-height: 52px;
-  padding: 0 16px;
-  border-radius: 14px;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  font: 18px var(--mono);
-  letter-spacing: 0.2em;
+  min-height: 36px;
+  width: 100%;
+  padding: 0 46px 0 18px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.23);
+  color: white;
+  font: 15px var(--mono);
+  letter-spacing: 0.18em;
+  text-align: center;
+  outline: none;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(20px) saturate(1.2);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lock-form__input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .lock-form__input:focus {
-  border-color: var(--accent);
+  border-color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.32);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.16),
+    0 10px 28px rgba(0, 0, 0, 0.2);
 }
 
 .lock-form__submit {
-  width: auto;
-  min-height: 52px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  height: 36px;
   margin: 0;
-  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.24);
+  color: transparent;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.lock-form__submit::before {
+  content: "→";
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.lock-form__submit:disabled {
+  opacity: 0.55;
 }
 
 .lock-dots {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin: 24px 0 10px;
+  gap: 8px;
+  margin: 16px 0 0;
 }
 
 .lock-dots span {
-  width: 12px;
-  height: 12px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.2);
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
 }
 
 .lock-dots span.is-filled {
-  background: var(--accent);
-  border-color: var(--accent);
+  transform: scale(1.18);
+  background: white;
+  border-color: white;
 }
 
 .lock-pad {
   display: none;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 .lock-pad button {
-  min-height: 56px;
-  border: 1px solid var(--line-strong);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
-  color: var(--text);
-  font-size: 22px;
+  min-height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 23px;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.lock-pad button:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .lock-card__attempts {
   margin: 16px 0 0;
-  color: var(--muted) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
   text-align: center;
   font-size: 13px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.34);
 }
 
 .lock-card__error {
   margin: 12px 0 0;
-  color: var(--red) !important;
+  color: white !important;
   text-align: center;
+  font-weight: 650;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.44);
 }
 
 .admin-list {
@@ -4215,12 +4279,14 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lock-card {
-    width: min(100%, 520px);
-  }
-
   .lock-pad {
     display: grid;
+    width: min(100%, 330px);
+  }
+
+  .lock-pad button {
+    min-height: 70px;
+    font-size: 28px;
   }
 }
 
@@ -4333,22 +4399,52 @@ textarea {
   }
 
   .lock-screen {
-    align-items: stretch;
-    padding: calc(16px + var(--mobile-status-offset)) 16px 16px;
+    align-items: center;
+    padding: calc(24px + var(--mobile-status-offset)) 18px calc(24px + env(safe-area-inset-bottom));
   }
 
   .lock-card {
-    align-self: center;
-    padding: 24px;
-    border-radius: 24px;
+    width: 100%;
+  }
+
+  .lock-card__avatar {
+    width: 116px;
+    height: 116px;
+    font-size: 50px;
+  }
+
+  .lock-card h1 {
+    font-size: 23px;
+  }
+
+  .lock-card p {
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .lock-form {
-    grid-template-columns: 1fr;
+    width: min(100%, 258px);
   }
 
-  .lock-form__submit {
-    width: 100%;
+  .lock-dots span {
+    width: 9px;
+    height: 9px;
+  }
+
+  .lock-pad {
+    gap: 14px;
+    width: min(100%, 318px);
+    margin-top: 24px;
+  }
+
+  .lock-pad button {
+    min-height: 68px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 30px;
+    font-weight: 500;
+    box-shadow: none;
   }
 }
 
