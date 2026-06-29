@@ -28,8 +28,10 @@
     "lock": {
         "title": "QxChat is locked",
         "subtitle": "Enter your PIN to decrypt local data and resume your session.",
+        "unlockSuccess": "QxChat unlocked.",
         "pinPlaceholder": "PIN code",
         "unlock": "Unlock",
+        "loginRequired": "Account login required.",
         "backspace": "Backspace",
         "attemptsRemaining": "{count} attempt(s) remaining before local reset"
     },

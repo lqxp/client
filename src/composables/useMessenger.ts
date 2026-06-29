@@ -1,4 +1,4 @@
-import { computed, nextTick, reactive } from "vue";
+import { computed, inject, nextTick, reactive } from "vue";
 import { zipSync } from "fflate";
 import {
   isPermissionGranted,
@@ -39,6 +39,7 @@ import {
   setCallSoundsActive,
   setSoundFlag,
 } from "@/calls/callSounds";
+import { useI18n } from "./useI18n";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -85,6 +86,8 @@ const pendingLinkPreviewRequests = new Set<string>();
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 function inferWebSocketUrl() {
   return appRuntimeConfig.wsUrl;
@@ -1944,7 +1947,7 @@ export function useMessenger() {
       state.clientLockPinLength = String(pin).length;
       persistClientLockFailedAttempts();
       connect();
-      showToast("QxChat unlocked.");
+      showToast(t("lock.unlockSuccess"));
       return true;
     } catch {
       state.clientLockFailedAttempts = Math.min(
@@ -3562,7 +3565,7 @@ export function useMessenger() {
     if (state.connected || state.ws) return;
     const username = sanitizeUsername(state.username);
     if (!state.authToken || !username) {
-      state.lastError = "Account login required.";
+      state.lastError = t("lock.loginRequired");
       return;
     }
     state.lastError = "";

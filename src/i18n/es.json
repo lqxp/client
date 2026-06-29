@@ -31,6 +31,8 @@
         "pinPlaceholder": "Código PIN",
         "unlock": "Desbloquear",
         "backspace": "Borrar",
+        "loginRequired": "Se requiere inicio de sesión.",
+        "unlockSuccess": "QxChat desbloqueado.",
         "attemptsRemaining": "Quedan {count} intento(s) antes del reinicio local"
     },
     "sidebar": {
