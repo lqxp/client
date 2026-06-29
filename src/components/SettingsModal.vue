@@ -189,9 +189,14 @@ async function onEnableClientLock() {
   }
 }
 
-function onDisableClientLock() {
+async function onDisableClientLock() {
+  const pin = prompt(t('settings.security.disableLockPrompt'));
+  if (!pin) return;
+  const unlocked = await props.messenger.verifyClientLockPin(pin);
+  if (!unlocked) return;
   if (!confirm(t('settings.security.disableLockConfirm'))) return;
-  props.messenger.disableClientLock();
+  const disabled = await props.messenger.disableClientLock();
+  if (disabled) alert(t('settings.security.disableLockSuccess'));
   lockPin.value = "";
   lockPinConfirm.value = "";
 }

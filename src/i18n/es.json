@@ -231,7 +231,9 @@
             "encryptingNote": "Cifrando datos locales. Mantén esta ventana abierta.",
             "lockNow": "Bloquear ahora",
             "disableLock": "Desactivar bloqueo",
-            "disableLockConfirm": "¿Desactivar el bloqueo del cliente y volver a guardar los datos locales sin cifrar?",
+            "disableLockPrompt": "Introduce el PIN para desactivar el bloqueo del cliente.",
+            "disableLockConfirm": "El PIN es correcto. ¿Confirmar la desactivación del bloqueo del cliente y volver a guardar los datos locales sin cifrar?",
+            "disableLockSuccess": "El bloqueo del cliente se ha desactivado.",
             "pinMismatch": "Los PIN no coinciden.",
             "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar."
         },

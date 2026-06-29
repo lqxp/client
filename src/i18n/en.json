@@ -234,7 +234,9 @@
             "encryptingNote": "Encrypting local data. Keep this window open.",
             "lockNow": "Lock now",
             "disableLock": "Disable lock",
-            "disableLockConfirm": "Disable client lock and rewrite local data in plain text?",
+            "disableLockPrompt": "Enter the PIN to disable client lock.",
+            "disableLockConfirm": "The PIN is correct. Confirm disabling client lock and rewriting local data in plain text?",
+            "disableLockSuccess": "Client lock has been disabled.",
             "pinMismatch": "PINs do not match.",
             "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted."
         },

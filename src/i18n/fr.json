@@ -234,7 +234,9 @@
             "encryptingNote": "Chiffrement des données locales en cours. Garde cette fenêtre ouverte.",
             "lockNow": "Verrouiller maintenant",
             "disableLock": "Désactiver le verrouillage",
-            "disableLockConfirm": "Désactiver le verrouillage client et réécrire les données locales en clair ?",
+            "disableLockPrompt": "Entre le PIN pour désactiver le verrouillage client.",
+            "disableLockConfirm": "Le PIN est correct. Confirmer la désactivation du verrouillage client et la réécriture des données locales en clair ?",
+            "disableLockSuccess": "Le verrouillage client a été désactivé.",
             "pinMismatch": "Les PIN ne correspondent pas.",
             "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées."
         },

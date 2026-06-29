@@ -1988,6 +1988,35 @@ export function useMessenger() {
     return true;
   }
 
+  async function verifyClientLockPin(pin) {
+    const validation = validateClientLockPin(pin);
+    if (validation) {
+      state.lastError = validation;
+      showToast(validation);
+      return false;
+    }
+    if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey || !state.clientLockSalt) return false;
+    try {
+      const probe = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: probe },
+        activeClientLockKey,
+        new TextEncoder().encode("verify"),
+      );
+      const candidateKey = await deriveClientLockKey(pin, base64ToBytes(state.clientLockSalt));
+      await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: probe },
+        candidateKey,
+        encrypted,
+      );
+      return true;
+    } catch {
+      state.lastError = "Invalid PIN.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
   async function disableClientLock() {
     if (!state.clientLockEnabled) return true;
     state.clientLockEnabled = false;
@@ -5622,6 +5651,7 @@ export function useMessenger() {
     downloadRecoveryWords,
     enableClientLock,
     unlockClientLock,
+    verifyClientLockPin,
     lockClient,
     disableClientLock,
     loadAdminOverview,
