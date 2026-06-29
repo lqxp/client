@@ -27,6 +27,7 @@
         "title": "QxChat заблокирован",
         "subtitle": "Введите PIN, чтобы расшифровать локальные данные и продолжить сеанс.",
         "pinPlaceholder": "PIN-код",
+        "incorrectPin": "Неверный PIN-код.",
         "unlock": "Разблокировать",
         "loginRequired": "Требуется вход в аккаунт.",
         "backspace": "Удалить",

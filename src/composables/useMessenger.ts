@@ -2035,7 +2035,7 @@ export function useMessenger() {
       );
       return true;
     } catch {
-      state.lastError = "Invalid PIN.";
+      state.lastError = t("lock.incorrectPin");
       showToast(state.lastError);
       return false;
     }

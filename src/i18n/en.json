@@ -31,6 +31,7 @@
         "unlockSuccess": "QxChat unlocked.",
         "pinPlaceholder": "PIN code",
         "unlock": "Unlock",
+        "incorrectPin": "Invalid PIN.",
         "loginRequired": "Account login required.",
         "backspace": "Backspace",
         "attemptsRemaining": "{count} attempt(s) remaining before local reset"

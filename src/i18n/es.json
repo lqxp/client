@@ -30,6 +30,7 @@
         "subtitle": "Introduce tu PIN para descifrar los datos locales y reanudar la sesión.",
         "pinPlaceholder": "Código PIN",
         "unlock": "Desbloquear",
+        "incorrectPin": "PIN incorrecto.",
         "backspace": "Borrar",
         "loginRequired": "Se requiere inicio de sesión.",
         "unlockSuccess": "QxChat desbloqueado.",
