@@ -3792,9 +3792,14 @@ textarea {
   color: white;
 }
 
-:root[data-theme="light"] .lock-screen {
+:root[data-lock-theme="light"] .lock-screen {
   background-image: url("https://qxch.at/assets/wp_light.jpg");
   background-color: #f2f4f8;
+}
+
+:root[data-lock-theme="dark"] .lock-screen {
+  background-image: url("https://qxch.at/assets/wp_dark.jpg");
+  background-color: #101014;
 }
 
 .lock-screen::before {

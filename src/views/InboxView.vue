@@ -36,17 +36,23 @@ watch(() => messenger.state.activeRoom, (room) => {
   mobileThreadOpen.value = !!room;
 }, { immediate: true });
 
-function applyAppearance() {
+function resolveThemeMode(mode) {
   const hour = new Date().getHours();
   const adaptiveTheme = (hour >= 7 && hour < 19) ? "light" : "dark";
-  const theme = messenger.state.themeMode === "adaptive" ? adaptiveTheme : messenger.state.themeMode;
+  return mode === "adaptive" ? adaptiveTheme : mode;
+}
+
+function applyAppearance() {
+  const theme = resolveThemeMode(messenger.state.themeMode);
+  const lockTheme = resolveThemeMode(messenger.state.clientLockThemeMode || messenger.state.themeMode);
 
   document.documentElement.setAttribute("data-theme", theme || "dark");
+  document.documentElement.setAttribute("data-lock-theme", lockTheme || "dark");
   document.documentElement.setAttribute("data-accent", messenger.state.appAccent || "blue");
   document.documentElement.setAttribute("data-message-style", messenger.state.messageStyle || "bubble");
 }
 
-watch(() => [messenger.state.themeMode, messenger.state.appAccent, messenger.state.messageStyle], () => {
+watch(() => [messenger.state.themeMode, messenger.state.clientLockThemeMode, messenger.state.appAccent, messenger.state.messageStyle], () => {
   applyAppearance();
 }, { immediate: true });
 
