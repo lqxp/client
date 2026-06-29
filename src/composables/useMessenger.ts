@@ -663,6 +663,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockProgress: 0,
     clientLockPinLength: 6,
     clientLockStorage: "",
+    clientLockDisplayName: "",
+    clientLockAvatar: null,
     clientLockFailedAttempts: 0,
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
     ...overrides,
@@ -738,6 +740,8 @@ function loadPersisted() {
         clientLockCiphertext: String(raw.ciphertext || ""),
         clientLockLocked: true,
         clientLockStorage: String(raw.storage || ""),
+        clientLockDisplayName: sanitizeUsername(raw.displayName || raw.username || ""),
+        clientLockAvatar: normalizeProfileImage(raw.avatar, MAX_PROFILE_AVATAR_BYTES),
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
       });
     }
@@ -1105,6 +1109,8 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     kdf: "PBKDF2-SHA256",
     iterations: CLIENT_LOCK_PBKDF2_ITERATIONS,
     pinLength,
+    displayName: sanitizeUsername(payload?.username || ""),
+    avatar: normalizeProfileImage(payload?.profile?.avatar, MAX_PROFILE_AVATAR_BYTES),
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
@@ -1501,6 +1507,8 @@ export function useMessenger() {
     clientLockProgress: 0,
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number((persisted as any).clientLockPinLength)) ? Number((persisted as any).clientLockPinLength) : 6,
     clientLockStorage: (persisted as any).clientLockStorage || "",
+    clientLockDisplayName: String((persisted as any).clientLockDisplayName || ""),
+    clientLockAvatar: normalizeProfileImage((persisted as any).clientLockAvatar, MAX_PROFILE_AVATAR_BYTES),
     clientLockFailedAttempts: Math.max(0, Number((persisted as any).clientLockFailedAttempts) || 0),
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
 
@@ -1982,6 +1990,8 @@ export function useMessenger() {
     state.clientLockSalt = String(lockedPayload.salt || state.clientLockSalt || "");
     state.clientLockIv = String(storedLockedPayload.iv || "");
     state.clientLockCiphertext = String(storedLockedPayload.ciphertext || "");
+    state.clientLockDisplayName = String(lockedPayload.displayName || "");
+    state.clientLockAvatar = normalizeProfileImage(lockedPayload.avatar, MAX_PROFILE_AVATAR_BYTES);
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
