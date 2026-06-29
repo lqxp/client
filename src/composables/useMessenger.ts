@@ -1902,6 +1902,9 @@ export function useMessenger() {
     state.clientLockIv = "";
     state.clientLockCiphertext = "";
     state.clientLockStorage = "";
+    state.clientLockDisplayName = "";
+    state.clientLockAvatar = null;
+    state.clientLockThemeMode = "dark";
     state.clientLockFailedAttempts = 0;
     state.rooms = [];
     state.messagesByRoom = {};
@@ -2046,6 +2049,9 @@ export function useMessenger() {
     state.clientLockIv = "";
     state.clientLockCiphertext = "";
     state.clientLockStorage = "";
+    state.clientLockDisplayName = "";
+    state.clientLockAvatar = null;
+    state.clientLockThemeMode = "dark";
     activeClientLockKey = null;
     await deleteClientLockPayload();
     await persist();
