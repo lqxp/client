@@ -2788,38 +2788,6 @@ textarea {
   font-size: 12.5px;
 }
 
-.text-viewer__traffic {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.text-viewer__traffic-btn {
-  width: 12px;
-  height: 12px;
-  min-width: 0;
-  padding: 0;
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
-}
-
-.text-viewer__traffic-btn:hover {
-  filter: brightness(1.08);
-}
-
-.text-viewer__traffic-btn--minimize {
-  background: #febc2e;
-}
-
-.text-viewer__traffic-btn--maximize {
-  background: #28c840;
-}
-
-.text-viewer__traffic-btn--close {
-  background: #ff5f57;
-}
-
 .text-viewer__title {
   min-width: 0;
   overflow: hidden;
