@@ -2775,16 +2775,6 @@ textarea {
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
 }
 
-.text-viewer__stage.is-minimized {
-  width: min(420px, 86vw);
-  height: 42px;
-}
-
-.text-viewer__stage.is-maximized {
-  width: calc(100vw - 56px);
-  height: calc(100vh - 108px);
-}
-
 .text-viewer__titlebar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
