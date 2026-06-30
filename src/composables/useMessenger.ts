@@ -995,8 +995,57 @@ function sanitizeRoomNotes(raw) {
 
 function stripAttachmentDataForStorage(arr) {
   return (arr || []).map((m) => {
-    if (!m?.attachment) return m;
-    return { ...m, attachment: { ...m.attachment } };
+    const message = normalizeMessage(m, m?.roomId || "");
+    const attachment = message.attachment
+      ? {
+          id: String(message.attachment.id || "").trim(),
+          url: sanitizeHttpUrl(message.attachment.url),
+          filename: String(message.attachment.filename || "file"),
+          mimeType: String(message.attachment.mimeType || "application/octet-stream"),
+          size: Number(message.attachment.size) || 0,
+        }
+      : null;
+    const preview =
+      message.preview && typeof message.preview === "object"
+        ? {
+            url: sanitizeHttpUrl(message.preview.url),
+            title: String(message.preview.title || "").slice(0, 300),
+            description: String(message.preview.description || "").slice(0, 500),
+            image: sanitizeHttpUrl(message.preview.image),
+            siteName: String(message.preview.siteName || "").slice(0, 80),
+          }
+        : null;
+    const encrypted =
+      message.encrypted && typeof message.encrypted === "object"
+        ? {
+            v: Number(message.encrypted.v) || 0,
+            alg: String(message.encrypted.alg || ""),
+            iv: String(message.encrypted.iv || ""),
+            ciphertext: message.locked ? String(message.encrypted.ciphertext || "") : "",
+          }
+        : null;
+    return {
+      messageId: message.messageId,
+      roomId: message.roomId,
+      user: message.user,
+      username: message.username,
+      text: message.text,
+      rawText: message.rawText,
+      timestamp: message.timestamp,
+      system: message.system,
+      deleted: message.deleted,
+      reactions: message.reactions,
+      replyToMessageId: message.replyToMessageId,
+      attachment,
+      encrypted,
+      preview,
+      kind: message.kind,
+      voiceDuration: message.voiceDuration,
+      jumboEmoji: message.jumboEmoji,
+      locked: message.locked,
+      editedAt: message.editedAt,
+      mentioned: message.mentioned,
+    };
   });
 }
 
