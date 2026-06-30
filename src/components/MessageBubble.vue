@@ -6,6 +6,7 @@ import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
+import { TEXT_ATTACHMENT_EXTENSIONS } from "@/composables/useMessenger";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -66,10 +67,7 @@ const avatarSrc = computed(() => {
 
 const attachmentUrl = computed(() => props.messenger.attachmentUrlFor(props.message));
 const attachmentKind = computed(() => props.message.kind);
-const textFileExtensions = new Set([
-  "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
-  "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
-]);
+
 const isTextAttachment = computed(() => {
   const attachment = props.message.attachment;
   const mimeType = String(attachment?.mimeType || "").toLowerCase();
@@ -77,7 +75,7 @@ const isTextAttachment = computed(() => {
   if (["application/json", "application/xml", "application/javascript", "application/x-javascript", "application/typescript", "application/x-sh", "application/x-shellscript"].includes(mimeType)) return true;
   const filename = String(attachment?.filename || "").toLowerCase();
   const ext = filename.match(/\.([a-z0-9]+)$/)?.[1] || "";
-  return textFileExtensions.has(ext);
+  return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
 });
 const jumbo = computed(() => props.message.jumboEmoji && !props.message.deleted);
 const deleted = computed(() => props.message.deleted);

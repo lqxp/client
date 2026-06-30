@@ -12,6 +12,8 @@ const emit = defineEmits(["close"]);
 const content = ref("");
 const loading = ref(false);
 const error = ref("");
+const minimized = ref(false);
+const maximized = ref(false);
 
 const languageLabel = computed(() => {
   const ext = String(props.filename || "").split(".").pop()?.toLowerCase() || "txt";
@@ -36,6 +38,16 @@ async function loadText() {
 
 function close() {
   emit("close");
+}
+
+function toggleMinimized() {
+  minimized.value = !minimized.value;
+  if (minimized.value) maximized.value = false;
+}
+
+function toggleMaximized() {
+  maximized.value = !maximized.value;
+  if (maximized.value) minimized.value = false;
 }
 
 function downloadFile() {
@@ -85,17 +97,17 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <figure class="text-viewer__stage" @click.self="close">
+      <figure class="text-viewer__stage" :class="{ 'is-minimized': minimized, 'is-maximized': maximized }" @click.self="close">
         <figcaption class="text-viewer__titlebar">
-          <span class="text-viewer__traffic" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
           <span class="text-viewer__title">{{ filename }}</span>
           <span class="text-viewer__size" v-if="sizeLabel">{{ sizeLabel }}</span>
+          <span class="text-viewer__traffic">
+            <button class="text-viewer__traffic-btn text-viewer__traffic-btn--minimize" type="button" :aria-label="minimized ? 'Restore text preview' : 'Minimize text preview'" @click="toggleMinimized"></button>
+            <button class="text-viewer__traffic-btn text-viewer__traffic-btn--maximize" type="button" :aria-label="maximized ? 'Restore text preview' : 'Maximize text preview'" @click="toggleMaximized"></button>
+            <button class="text-viewer__traffic-btn text-viewer__traffic-btn--close" type="button" aria-label="Close text preview" @click="close"></button>
+          </span>
         </figcaption>
-        <div class="text-viewer__editor" role="region" :aria-label="`Text file content: ${filename}`">
+        <div v-show="!minimized" class="text-viewer__editor" role="region" :aria-label="`Text file content: ${filename}`">
           <div v-if="loading" class="text-viewer__state">Loading preview…</div>
           <div v-else-if="error" class="text-viewer__state">{{ error }}</div>
           <pre v-else class="text-viewer__code"><code>{{ content }}</code></pre>

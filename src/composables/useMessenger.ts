@@ -87,7 +87,7 @@ const pendingLinkPreviewRequests = new Set<string>();
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
-const TEXT_ATTACHMENT_EXTENSIONS = new Set([
+export const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
   "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
 ]);
