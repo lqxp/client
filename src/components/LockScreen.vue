@@ -56,6 +56,10 @@ function backspace() {
         </button>
       </form>
 
+      <div v-if="props.messenger.state.clientLockLoading" class="lock-progress" role="progressbar" :aria-valuenow="props.messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
+        <span :style="{ width: `${props.messenger.state.clientLockProgress || 8}%` }"></span>
+      </div>
+
       <div class="lock-pad" :aria-label="t('lock.pinPlaceholder')">
         <button v-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit" type="button" @click="appendDigit(digit)">
           {{ digit }}

@@ -1030,6 +1030,10 @@ async function deriveClientLockKey(pin, saltBytes) {
 
 let activeClientLockKey: CryptoKey | null = null;
 
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 function buildPersistedPayload(state) {
   const messagesByRoom = {};
   for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
@@ -1836,6 +1840,18 @@ export function useMessenger() {
     state.roomNotes = normalized.roomNotes;
   }
 
+  async function applyPersistedPayloadAfterUnlock(payload) {
+    const messagesByRoom = payload?.messagesByRoom;
+    const unreadByRoom = payload?.unreadByRoom;
+    applyPersistedPayload({ ...payload, messagesByRoom: {}, unreadByRoom: {} });
+    state.clientLockProgress = 75;
+    await yieldToBrowser();
+    state.messagesByRoom = messagesByRoom && typeof messagesByRoom === "object" ? messagesByRoom : {};
+    state.unreadByRoom = unreadByRoom && typeof unreadByRoom === "object" ? unreadByRoom : {};
+    state.clientLockProgress = 90;
+    await yieldToBrowser();
+  }
+
   function persist() {
     if (state.clientLockLocked) return Promise.resolve();
     return savePersisted(state);
@@ -1932,20 +1948,31 @@ export function useMessenger() {
       return false;
     }
     state.clientLockLoading = true;
+    state.clientLockProgress = 8;
+    await yieldToBrowser();
     try {
       const storedLockPayload: any = state.clientLockCiphertext
         ? { iv: state.clientLockIv, ciphertext: state.clientLockCiphertext }
         : await getClientLockPayload();
+      state.clientLockProgress = 18;
+      await yieldToBrowser();
       const key = await deriveClientLockKey(pin, base64ToBytes(state.clientLockSalt));
+      state.clientLockProgress = 42;
+      await yieldToBrowser();
       const decrypted = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv: base64ToBytes(storedLockPayload?.iv) },
         key,
         base64ToBytes(storedLockPayload?.ciphertext),
       );
-      const payload = JSON.parse(new TextDecoder().decode(decrypted));
+      state.clientLockProgress = 60;
+      await yieldToBrowser();
+      const payloadText = new TextDecoder().decode(decrypted);
+      state.clientLockProgress = 68;
+      await yieldToBrowser();
+      const payload = JSON.parse(payloadText);
       const salt = state.clientLockSalt;
       activeClientLockKey = key;
-      applyPersistedPayload(payload);
+      await applyPersistedPayloadAfterUnlock(payload);
       state.clientLockEnabled = true;
       state.clientLockLocked = false;
       state.clientLockSalt = salt;
@@ -1954,7 +1981,9 @@ export function useMessenger() {
       state.clientLockStorage = "";
       state.clientLockFailedAttempts = 0;
       state.clientLockPinLength = String(pin).length;
+      state.clientLockProgress = 100;
       persistClientLockFailedAttempts();
+      await yieldToBrowser();
       connect();
       showToast(t("lock.unlockSuccess"));
       return true;
