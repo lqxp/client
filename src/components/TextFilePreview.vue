@@ -18,6 +18,85 @@ const languageLabel = computed(() => {
   return ext === props.filename ? "txt" : ext;
 });
 
+const highlightedContent = computed(() => highlightSyntax(content.value, languageLabel.value));
+
+function escapeHtml(value: string) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function spanToken(className: string, value: string) {
+  return `<span class="syntax-${className}">${escapeHtml(value)}</span>`;
+}
+
+function highlightSyntax(value: string, extension: string) {
+  const ext = String(extension || "txt").toLowerCase();
+  const source = String(value || "");
+  if (!source) return "";
+
+  if (["html", "vue", "xml", "svelte"].includes(ext)) {
+    return escapeHtml(source).replace(
+      /(&lt;\/?)([\w:-]+)([^&]*?)(\/?&gt;)/g,
+      (_match: string, open: string, tag: string, attrs: string, close: string) => `${open}${spanToken("tag", tag)}${attrs.replace(/([\w:-]+)(=)(&quot;.*?&quot;|&#39;.*?&#39;)/g, (_attr: string, name: string, eq: string, attrValue: string) => `${spanToken("attr", name)}${eq}${spanToken("string", attrValue.replace(/^&quot;|&quot;$/g, '"').replace(/^&#39;|&#39;$/g, "'"))}`)}${close}`
+    );
+  }
+
+  if (["json"].includes(ext)) {
+    return escapeHtml(source).replace(
+      /(&quot;(?:\\.|[^&])*?&quot;)(\s*:)?|\b(true|false|null)\b|-?\b\d+(?:\.\d+)?\b/g,
+      (match, stringValue, colon, literal) => {
+        if (stringValue) return `${spanToken(colon ? "key" : "string", stringValue.replace(/^&quot;|&quot;$/g, '"'))}${colon || ""}`;
+        if (literal) return spanToken("literal", literal);
+        return spanToken("number", match);
+      }
+    );
+  }
+
+  if (["css", "scss"].includes(ext)) {
+    return escapeHtml(source).replace(
+      /(\/\*[\s\S]*?\*\/)|(&quot;.*?&quot;|&#39;.*?&#39;)|(#(?:[0-9a-f]{3,8})\b)|\b([a-z-]+)(\s*:)|([{}])/gi,
+      (match, comment, stringValue, color, property, colon, brace) => {
+        if (comment) return spanToken("comment", comment);
+        if (stringValue) return spanToken("string", stringValue.replace(/^&quot;|&quot;$/g, '"').replace(/^&#39;|&#39;$/g, "'"));
+        if (color) return spanToken("number", color);
+        if (property) return `${spanToken("key", property)}${colon}`;
+        if (brace) return spanToken("punct", brace);
+        return match;
+      }
+    );
+  }
+
+  if (["md", "markdown"].includes(ext)) {
+    return escapeHtml(source).replace(
+      /(^|\n)(#{1,6}\s.*)|(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\([^)]+\))/g,
+      (match, lineStart, heading, inlineCode, bold, link) => {
+        if (heading) return `${lineStart || ""}${spanToken("tag", heading)}`;
+        if (inlineCode) return spanToken("string", inlineCode);
+        if (bold) return spanToken("keyword", bold);
+        if (link) return spanToken("attr", link);
+        return match;
+      }
+    );
+  }
+
+  const keywordExtensions = ["bat", "c", "cpp", "cs", "go", "java", "js", "jsx", "lua", "php", "py", "rb", "rs", "sh", "sql", "ts", "tsx"];
+  if (!keywordExtensions.includes(ext)) return escapeHtml(source);
+
+  const keywords = "abstract|and|as|async|await|break|case|catch|class|const|continue|def|default|defer|delete|do|else|enum|export|extends|false|final|finally|fn|for|from|func|function|go|if|implements|import|in|interface|let|match|mod|new|null|or|package|private|protected|public|return|self|static|struct|super|switch|this|throw|trait|true|try|type|typeof|use|var|void|while|yield";
+  const codeRegex = new RegExp(`(//.*|#.*|/\\*[\\s\\S]*?\\*/)|(\\"(?:\\\\.|[^\\"])*\\"|'(?:\\\\.|[^'])*'|\`(?:\\\\.|[^\`])*\`)|(\\b(?:${keywords})\\b)|(-?\\b\\d+(?:\\.\\d+)?\\b)`, "g");
+  return escapeHtml(source).replace(codeRegex, (match, comment, stringValue, keyword, numberValue) => {
+    if (comment) return spanToken("comment", comment);
+    if (stringValue) return spanToken("string", stringValue);
+    if (keyword) return spanToken("keyword", keyword);
+    if (numberValue) return spanToken("number", numberValue);
+    return match;
+  });
+}
+
 async function loadText() {
   if (!props.src) return;
   loading.value = true;
@@ -93,7 +172,7 @@ onBeforeUnmount(() => {
         <div class="text-viewer__editor" role="region" :aria-label="`Text file content: ${filename}`">
           <div v-if="loading" class="text-viewer__state">Loading preview…</div>
           <div v-else-if="error" class="text-viewer__state">{{ error }}</div>
-          <pre v-else class="text-viewer__code"><code>{{ content }}</code></pre>
+          <pre v-else class="text-viewer__code"><code v-html="highlightedContent"></code></pre>
         </div>
       </figure>
     </div>

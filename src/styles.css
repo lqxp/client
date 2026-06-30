@@ -2828,6 +2828,37 @@ textarea {
   font-size: 12.5px;
 }
 
+.syntax-keyword {
+  color: #ff7ab2;
+}
+
+.syntax-string {
+  color: #ffd580;
+}
+
+.syntax-comment {
+  color: #7f8c98;
+  font-style: italic;
+}
+
+.syntax-number,
+.syntax-literal {
+  color: #b7a8ff;
+}
+
+.syntax-tag {
+  color: #7ee787;
+}
+
+.syntax-attr,
+.syntax-key {
+  color: #79c0ff;
+}
+
+.syntax-punct {
+  color: #c9d1d9;
+}
+
 .image-viewer {
   position: fixed;
   inset: 0;
