@@ -3494,10 +3494,12 @@ export function useMessenger() {
     if (state.deleteMessagesOnLeave || state.serverClearsLocalMessages) {
       removeRoom(id);
     } else {
+      state.rooms = state.rooms.filter((room) => room.roomId !== id);
       delete state.usersByRoom[id];
       delete state.voiceMembersByRoom[id];
       delete state.callClientsByRoom[id];
       delete state.typingByRoom[id];
+      delete state.unreadByRoom[id];
       if (state.activeRoom === id) state.activeRoom = "";
       persist();
     }
@@ -5336,10 +5338,12 @@ export function useMessenger() {
         removeRoom(roomId);
         return;
       }
+      state.rooms = state.rooms.filter((room) => room.roomId !== roomId);
       delete state.usersByRoom[roomId];
       delete state.voiceMembersByRoom[roomId];
       delete state.callClientsByRoom[roomId];
       delete state.typingByRoom[roomId];
+      delete state.unreadByRoom[roomId];
       applyDeletedMessageIds(roomId, d.deletedMessageIds);
       if (roomId === state.activeRoom) state.activeRoom = "";
       persist();
