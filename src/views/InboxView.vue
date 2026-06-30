@@ -25,6 +25,7 @@ const callRoomLabel = computed(() => messenger.displayRoomName(callRoom.value));
 const callRoomDifferent = computed(() => inCall.value && callRoom.value !== messenger.state.activeRoom);
 const callElapsed = computed(() => messenger.formatDuration(messenger.state.callElapsed));
 let adaptiveThemeTimer: ReturnType<typeof setInterval> | null = null;
+let systemThemeMedia: MediaQueryList | null = null;
 
 watch(needsOnboarding, (required) => {
   if (!required && !messenger.state.connected && !messenger.state.ws) {
@@ -36,15 +37,21 @@ watch(() => messenger.state.activeRoom, (room) => {
   mobileThreadOpen.value = !!room;
 }, { immediate: true });
 
-function resolveThemeMode(mode) {
+function systemTheme() {
+  if (typeof window === "undefined" || !window.matchMedia) return "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function resolveThemeMode(mode: string) {
+  if (mode === "system") return systemTheme();
   const hour = new Date().getHours();
   const adaptiveTheme = (hour >= 7 && hour < 19) ? "light" : "dark";
   return mode === "adaptive" ? adaptiveTheme : mode;
 }
 
 function applyAppearance() {
-  const theme = resolveThemeMode(messenger.state.themeMode);
-  const lockTheme = resolveThemeMode(messenger.state.clientLockThemeMode || messenger.state.themeMode);
+  const theme = resolveThemeMode(messenger.state.themeMode || "system");
+  const lockTheme = resolveThemeMode(messenger.state.clientLockThemeMode || messenger.state.themeMode || "system");
 
   document.documentElement.setAttribute("data-theme", theme || "dark");
   document.documentElement.setAttribute("data-lock-theme", lockTheme || "dark");
@@ -52,18 +59,27 @@ function applyAppearance() {
   document.documentElement.setAttribute("data-message-style", messenger.state.messageStyle || "bubble");
 }
 
-watch(() => [messenger.state.themeMode, messenger.state.clientLockThemeMode, messenger.state.appAccent, messenger.state.messageStyle], () => {
-  applyAppearance();
-}, { immediate: true });
-
-watch(() => messenger.state.themeMode, (mode) => {
+function syncAppearanceWatchers() {
   if (adaptiveThemeTimer) {
     clearInterval(adaptiveThemeTimer);
     adaptiveThemeTimer = null;
   }
-  if (mode === "adaptive") {
+  systemThemeMedia?.removeEventListener("change", applyAppearance);
+  systemThemeMedia = null;
+
+  const modes = [messenger.state.themeMode, messenger.state.clientLockThemeMode];
+  if (modes.includes("adaptive")) {
     adaptiveThemeTimer = setInterval(applyAppearance, 60_000);
   }
+  if (modes.includes("system") && typeof window !== "undefined" && window.matchMedia) {
+    systemThemeMedia = window.matchMedia("(prefers-color-scheme: light)");
+    systemThemeMedia.addEventListener("change", applyAppearance);
+  }
+}
+
+watch(() => [messenger.state.themeMode, messenger.state.clientLockThemeMode, messenger.state.appAccent, messenger.state.messageStyle], () => {
+  syncAppearanceWatchers();
+  applyAppearance();
 }, { immediate: true });
 
 onMounted(() => {
@@ -72,6 +88,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
+  systemThemeMedia?.removeEventListener("change", applyAppearance);
 });
 
 function showConversationList() {

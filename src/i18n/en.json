@@ -189,6 +189,7 @@
         "ui": {
             "theme": "Theme",
             "themeLabel": "Application theme",
+            "system": "System",
             "dark": "Dark",
             "light": "Light",
             "adaptive": "Adaptive (time based)",

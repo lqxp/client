@@ -186,6 +186,7 @@
         "ui": {
             "theme": "Tema",
             "themeLabel": "Tema de la aplicación",
+            "system": "Sistema",
             "dark": "Oscuro",
             "light": "Claro",
             "adaptive": "Adaptativo (según la hora)",

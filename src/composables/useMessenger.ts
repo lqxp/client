@@ -78,6 +78,7 @@ const PROFILE_IMAGE_MIME_TYPES = new Set([
   "image/webp",
 ]);
 const PRESENCE_STATUSES = ["online", "invisible", "dnd"];
+const THEME_MODES = ["dark", "light", "adaptive", "system"];
 const DUPLICATE_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const E2EE_MESSAGE_PLACEHOLDER = "Encrypted message";
@@ -646,7 +647,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
       screenOff: true,
       message: true,
     },
-    themeMode: "dark",
+    themeMode: "system",
     appAccent: "blue",
     messageStyle: "bubble",
     androidNotificationsEnabled: true,
@@ -668,7 +669,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockStorage: "",
     clientLockDisplayName: "",
     clientLockAvatar: null,
-    clientLockThemeMode: "dark",
+    clientLockThemeMode: "system",
     clientLockFailedAttempts: 0,
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
     ...overrides,
@@ -746,7 +747,7 @@ function loadPersisted() {
         clientLockStorage: String(raw.storage || ""),
         clientLockDisplayName: sanitizeUsername(raw.displayName || raw.username || ""),
         clientLockAvatar: normalizeProfileImage(raw.avatar, MAX_PROFILE_AVATAR_BYTES),
-        clientLockThemeMode: ["dark", "light", "adaptive"].includes(String(raw.themeMode || "").toLowerCase()) ? String(raw.themeMode).toLowerCase() : "dark",
+        clientLockThemeMode: THEME_MODES.includes(String(raw.themeMode || "").toLowerCase()) ? String(raw.themeMode).toLowerCase() : "system",
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
       });
     }
@@ -885,11 +886,11 @@ function loadPersisted() {
         screenOff: raw.soundFlags?.screenOff !== false,
         message: raw.soundFlags?.message !== false,
       },
-      themeMode: ["dark", "light", "adaptive"].includes(
+      themeMode: THEME_MODES.includes(
         String(raw.themeMode || "").toLowerCase(),
       )
         ? String(raw.themeMode).toLowerCase()
-        : "dark",
+        : "system",
       appAccent: ["blue", "violet", "emerald", "rose", "amber"].includes(
         String(raw.appAccent || "").toLowerCase(),
       )
@@ -931,7 +932,7 @@ function loadPersisted() {
       clientLockStorage: "",
       clientLockDisplayName: "",
       clientLockAvatar: null,
-      clientLockThemeMode: "dark",
+      clientLockThemeMode: "system",
       clientLockFailedAttempts: 0,
       clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
@@ -1119,7 +1120,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     pinLength,
     displayName: sanitizeUsername(payload?.username || ""),
     avatar: normalizeProfileImage(payload?.profile?.avatar, MAX_PROFILE_AVATAR_BYTES),
-    themeMode: ["dark", "light", "adaptive"].includes(String(payload?.themeMode || "").toLowerCase()) ? String(payload.themeMode).toLowerCase() : "dark",
+    themeMode: THEME_MODES.includes(String(payload?.themeMode || "").toLowerCase()) ? String(payload.themeMode).toLowerCase() : "system",
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
@@ -1518,7 +1519,7 @@ export function useMessenger() {
     clientLockStorage: (persisted as any).clientLockStorage || "",
     clientLockDisplayName: String((persisted as any).clientLockDisplayName || ""),
     clientLockAvatar: normalizeProfileImage((persisted as any).clientLockAvatar, MAX_PROFILE_AVATAR_BYTES),
-    clientLockThemeMode: ["dark", "light", "adaptive"].includes(String((persisted as any).clientLockThemeMode || "").toLowerCase()) ? String((persisted as any).clientLockThemeMode).toLowerCase() : "dark",
+    clientLockThemeMode: THEME_MODES.includes(String((persisted as any).clientLockThemeMode || "").toLowerCase()) ? String((persisted as any).clientLockThemeMode).toLowerCase() : "system",
     clientLockFailedAttempts: Math.max(0, Number((persisted as any).clientLockFailedAttempts) || 0),
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
 
@@ -2005,7 +2006,7 @@ export function useMessenger() {
     state.clientLockCiphertext = String(storedLockedPayload.ciphertext || "");
     state.clientLockDisplayName = String(lockedPayload.displayName || "");
     state.clientLockAvatar = normalizeProfileImage(lockedPayload.avatar, MAX_PROFILE_AVATAR_BYTES);
-    state.clientLockThemeMode = ["dark", "light", "adaptive"].includes(String(lockedPayload.themeMode || "").toLowerCase()) ? String(lockedPayload.themeMode).toLowerCase() : "dark";
+    state.clientLockThemeMode = THEME_MODES.includes(String(lockedPayload.themeMode || "").toLowerCase()) ? String(lockedPayload.themeMode).toLowerCase() : "system";
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
@@ -2639,11 +2640,11 @@ export function useMessenger() {
   }
 
   function setThemeMode(value) {
-    const next = ["dark", "light", "adaptive"].includes(
+    const next = THEME_MODES.includes(
       String(value || "").toLowerCase(),
     )
       ? String(value).toLowerCase()
-      : "dark";
+      : "system";
     state.themeMode = next;
     persist();
   }

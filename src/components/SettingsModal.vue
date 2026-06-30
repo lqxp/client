@@ -570,6 +570,7 @@ onBeforeUnmount(() => {
           <label class="settings-select">
             <span>{{ t('settings.ui.themeLabel') }}</span>
             <select :value="messenger.state.themeMode" @change="messenger.setThemeMode(targetValue($event))">
+              <option value="system">{{ t('settings.ui.system') }}</option>
               <option value="dark">{{ t('settings.ui.dark') }}</option>
               <option value="light">{{ t('settings.ui.light') }}</option>
               <option value="adaptive">{{ t('settings.ui.adaptive') }}</option>
