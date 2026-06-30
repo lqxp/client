@@ -133,6 +133,10 @@ function initialsOf(name) {
   return trimmed.slice(0, 2).toUpperCase();
 }
 
+function avatarSrcOf(username) {
+  return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
+}
+
 function isSelf(username) {
   return String(username || "") === String(props.messenger.state.username || "");
 }
@@ -269,7 +273,15 @@ function syncPanelWindow() {
     } else {
       const empty = doc.createElement("div");
       empty.className = "empty";
-      empty.textContent = initialsOf(tile.username);
+      const avatarSrc = avatarSrcOf(tile.username);
+      if (avatarSrc) {
+        const img = doc.createElement("img");
+        img.src = avatarSrc;
+        img.alt = `${tile.username} avatar`;
+        empty.appendChild(img);
+      } else {
+        empty.textContent = initialsOf(tile.username);
+      }
       card.appendChild(empty);
     }
     mount.appendChild(card);
@@ -279,7 +291,7 @@ function syncPanelWindow() {
 function openPanelWindow() {
   panelWindow = window.open("", "qxp-voice-panel", "popup=yes,width=1180,height=760");
   if (!panelWindow) return;
-  panelWindow.document.write(`<!doctype html><html><head><title>QxChat Call Panel</title><style>html,body{margin:0;min-height:100%;background:#111318;color:#f4f4f5;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#1d2129;border:1px solid rgba(255,255,255,.08)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(10,12,16,.64);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}</style></head><body><main id="tiles" class="grid"></main></body></html>`);
+  panelWindow.document.write(`<!doctype html><html><head><title>QxChat Call Panel</title><style>html,body{margin:0;min-height:100%;background:#111318;color:#f4f4f5;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#1d2129;border:1px solid rgba(255,255,255,.08)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(10,12,16,.64);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}.empty img{width:96px;height:96px;border-radius:50%;object-fit:cover}</style></head><body><main id="tiles" class="grid"></main></body></html>`);
   panelWindow.document.close();
   syncPanelWindow();
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
@@ -416,8 +428,11 @@ function toggleLocalMute(username) {
         <div v-else class="calltile__empty">
           <span
             class="calltile__avatar"
-            :class="`avatar--${messenger.accentFor(tile.username)}`"
-          >{{ initialsOf(tile.username) }}</span>
+            :class="avatarSrcOf(tile.username) ? 'calltile__avatar--image' : `avatar--${messenger.accentFor(tile.username)}`"
+          >
+            <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="`${tile.username} avatar`" />
+            <template v-else>{{ initialsOf(tile.username) }}</template>
+          </span>
         </div>
         <div v-if="tile.video" class="calltile__tools">
           <button type="button" :title="t('call.zoom')" :aria-label="t('call.zoom')" @click="setFocusedTile(tile)">

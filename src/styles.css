@@ -4912,10 +4912,22 @@ textarea {
   border-radius: 50%;
   display: grid;
   place-items: center;
+  overflow: hidden;
   font-size: clamp(20px, 3vw, 34px);
   font-weight: 800;
   color: #fff;
   flex: none;
+}
+
+.calltile__avatar--image {
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+
+.calltile__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .calltile__empty {
