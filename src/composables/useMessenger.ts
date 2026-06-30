@@ -144,13 +144,17 @@ function findFirstLinkPreviewUrl(text) {
   return match ? match[0] : "";
 }
 
+function isTextAttachmentByFilename(filename) {
+  const ext = String(filename || "").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
+  return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
+}
+
 function isTextAttachmentFile(file) {
   const mimeType = String(file?.type || "").toLowerCase();
+  if (isTextAttachmentByFilename(file?.name)) return true;
   if (mimeType.startsWith("text/")) return true;
   if (["application/json", "application/xml", "application/javascript", "application/x-javascript", "application/typescript", "application/x-sh", "application/x-shellscript"].includes(mimeType)) return true;
-  const filename = String(file?.name || "").toLowerCase();
-  const ext = filename.match(/\.([a-z0-9]+)$/)?.[1] || "";
-  return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
+  return false;
 }
 
 function normalizeProfileImage(value: unknown, maxBytes: number) {
@@ -1340,7 +1344,8 @@ function normalizeMessage(message, fallbackRoomId) {
   if (message.deleted) kind = "deleted";
   else if (voiceDuration) kind = "voice";
   else if (attachment) {
-    if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
+    if (isTextAttachmentByFilename(attachment.filename)) kind = "file";
+    else if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
     else if ((attachment.mimeType || "").startsWith("image/")) kind = "image";
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
     else kind = "file";
