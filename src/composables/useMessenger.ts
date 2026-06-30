@@ -87,6 +87,10 @@ const pendingLinkPreviewRequests = new Set<string>();
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
+const TEXT_ATTACHMENT_EXTENSIONS = new Set([
+  "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
+  "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
+]);
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -138,6 +142,15 @@ function sanitizeProfileText(value, limit) {
 function findFirstLinkPreviewUrl(text) {
   const match = String(text || "").match(LINK_PREVIEW_URL_RE);
   return match ? match[0] : "";
+}
+
+function isTextAttachmentFile(file) {
+  const mimeType = String(file?.type || "").toLowerCase();
+  if (mimeType.startsWith("text/")) return true;
+  if (["application/json", "application/xml", "application/javascript", "application/x-javascript", "application/typescript", "application/x-sh", "application/x-shellscript"].includes(mimeType)) return true;
+  const filename = String(file?.name || "").toLowerCase();
+  const ext = filename.match(/\.([a-z0-9]+)$/)?.[1] || "";
+  return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
 }
 
 function normalizeProfileImage(value: unknown, maxBytes: number) {
@@ -3772,7 +3785,8 @@ export function useMessenger() {
         !String(caption || "").startsWith("[voice:") &&
         !String(file.type || "").startsWith("image/") &&
         !String(file.type || "").startsWith("video/") &&
-        !String(file.type || "").startsWith("audio/");
+        !String(file.type || "").startsWith("audio/") &&
+        !isTextAttachmentFile(file);
       const uploadFile = shouldArchive ? await archiveFileAsZip(file) : file;
       if (uploadFile.size > MAX_ATTACHMENT_BYTES) {
         state.lastError = `File too large after zip archive: ${uploadFile.name} (${formatSize(uploadFile.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;

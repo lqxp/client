@@ -4,6 +4,7 @@ import { useI18n } from "@/composables/useI18n";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
+import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -65,6 +66,19 @@ const avatarSrc = computed(() => {
 
 const attachmentUrl = computed(() => props.messenger.attachmentUrlFor(props.message));
 const attachmentKind = computed(() => props.message.kind);
+const textFileExtensions = new Set([
+  "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
+  "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
+]);
+const isTextAttachment = computed(() => {
+  const attachment = props.message.attachment;
+  const mimeType = String(attachment?.mimeType || "").toLowerCase();
+  if (mimeType.startsWith("text/")) return true;
+  if (["application/json", "application/xml", "application/javascript", "application/x-javascript", "application/typescript", "application/x-sh", "application/x-shellscript"].includes(mimeType)) return true;
+  const filename = String(attachment?.filename || "").toLowerCase();
+  const ext = filename.match(/\.([a-z0-9]+)$/)?.[1] || "";
+  return textFileExtensions.has(ext);
+});
 const jumbo = computed(() => props.message.jumboEmoji && !props.message.deleted);
 const deleted = computed(() => props.message.deleted);
 const preview = computed(() => props.message.preview);
@@ -83,6 +97,7 @@ const effectiveMentioned = computed(() => {
 });
 
 const imageViewerOpen = ref(false);
+const textViewerOpen = ref(false);
 const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
@@ -344,6 +359,10 @@ function onReplyClick() {
 
 function download() {
   if (!attachmentUrl.value || !props.message.attachment) return;
+  if (isTextAttachment.value) {
+    textViewerOpen.value = true;
+    return;
+  }
   const a = document.createElement("a");
   a.href = attachmentUrl.value;
   a.download = props.message.attachment.filename || "file";
@@ -645,6 +664,8 @@ onBeforeUnmount(() => {
             </svg>
           </span>
         </button>
+        <TextFilePreview v-if="textViewerOpen && attachmentUrl" :src="attachmentUrl" :filename="message.attachment.filename"
+          :size-label="messenger.formatSize(message.attachment.size)" @close="textViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
             @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
