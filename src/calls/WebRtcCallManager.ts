@@ -31,9 +31,6 @@ interface WebRtcCallManagerOptions {
   onRemoteLeft: (username: string) => void;
 }
 
-const relayUrls = rtcRuntimeConfig.turnUrls;
-const relayUsername = rtcRuntimeConfig.turnUsername;
-const relayCredential = rtcRuntimeConfig.turnCredential;
 
 export function webRtcSupported() {
   return typeof RTCPeerConnection !== "undefined";
@@ -42,9 +39,9 @@ export function webRtcSupported() {
 export function relayCallsConfigured() {
   return webRtcSupported()
     && rtcRuntimeConfig.callsEnabled
-    && relayUrls.length > 0
-    && !!relayUsername
-    && !!relayCredential;
+    && rtcRuntimeConfig.turnUrls.length > 0
+    && !!rtcRuntimeConfig.turnUsername
+    && !!rtcRuntimeConfig.turnCredential;
 }
 
 export function relayCallsRequirementMessage() {
@@ -56,19 +53,21 @@ export function relayCallsRequirementMessage() {
     || "Calls are disabled until a TURN relay is configured. Direct peer-to-peer calls were turned off to avoid exposing participant IP addresses.";
 }
 
-const rtcConfig: RTCConfiguration = relayCallsConfigured()
-  ? {
-      iceTransportPolicy: "relay",
-      iceServers: [{
-        urls: relayUrls,
-        username: relayUsername,
-        credential: relayCredential
-      }]
-    }
-  : {
-      iceTransportPolicy: "relay",
-      iceServers: []
-    };
+function rtcConfig(): RTCConfiguration {
+  return relayCallsConfigured()
+    ? {
+        iceTransportPolicy: "relay",
+        iceServers: [{
+          urls: rtcRuntimeConfig.turnUrls,
+          username: rtcRuntimeConfig.turnUsername,
+          credential: rtcRuntimeConfig.turnCredential
+        }]
+      }
+    : {
+        iceTransportPolicy: "relay",
+        iceServers: []
+      };
+}
 
 export class WebRtcCallManager {
   private readonly peers = new Map<string, PeerState>();
@@ -237,7 +236,7 @@ export class WebRtcCallManager {
   }
 
   private createPeer(peerName: string): PeerState {
-    const pc = new RTCPeerConnection(rtcConfig);
+    const pc = new RTCPeerConnection(rtcConfig());
     const stream = new MediaStream();
     const peer: PeerState = {
       pc,

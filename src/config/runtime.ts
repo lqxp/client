@@ -17,6 +17,10 @@ interface RuntimeConfigPayload {
   serverOrigin?: string;
   apiBaseUrl?: string;
   wsUrl?: string;
+  api?: {
+    origin?: string;
+    wsUrl?: string;
+  };
   rtc?: RuntimeRtcConfig;
 }
 
@@ -111,9 +115,10 @@ function normalizedRuntimePayload(value: unknown): RuntimeConfigPayload {
 }
 
 function runtimeServerOrigin(runtime: RuntimeConfigPayload) {
+  const runtimeOrigin = normalizeHttpUrl(runtime.serverOrigin) || normalizeHttpUrl(runtime.api?.origin);
   return isEmbeddedAppOrigin()
-    ? envServerOrigin || normalizeHttpUrl(runtime.serverOrigin) || DEFAULT_SERVER_ORIGIN
-    : normalizeHttpUrl(runtime.serverOrigin) || envServerOrigin || normalizeHttpUrl(window.location.origin);
+    ? envServerOrigin || runtimeOrigin || DEFAULT_SERVER_ORIGIN
+    : runtimeOrigin || envServerOrigin || normalizeHttpUrl(window.location.origin);
 }
 
 function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
@@ -121,9 +126,11 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
   const serverOrigin = runtimeServerOrigin(runtime);
   const apiBaseUrl = envApiBaseUrl
     || normalizeHttpUrl(runtime.apiBaseUrl)
+    || normalizeHttpUrl(runtime.api?.origin)
     || serverOrigin;
   const wsUrl = envWsUrl
     || normalizeWebSocketUrl(runtime.wsUrl)
+    || normalizeWebSocketUrl(runtime.api?.wsUrl)
     || webSocketUrlFromHttpBase(apiBaseUrl);
 
   return {
