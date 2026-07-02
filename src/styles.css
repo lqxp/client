@@ -4153,13 +4153,13 @@ textarea {
 .lock-form__input {
   min-height: 36px;
   width: 100%;
-  padding: 0 44px;
+  padding: 0;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.23);
   color: transparent;
-  caret-color: white;
+  caret-color: transparent;
   font: 15px var(--mono);
   letter-spacing: 0.18em;
   text-align: center;
@@ -4181,7 +4181,7 @@ textarea {
 
 .lock-form__mask {
   position: absolute;
-  inset: 0 44px;
+  inset: 0;
   height: 36px;
   display: flex;
   align-items: center;
