@@ -3630,6 +3630,9 @@ textarea {
 
 .settings__close {
   display: inline-grid;
+  place-items: center;
+  flex: 0 0 40px;
+  align-self: center;
 }
 
 .settings__back,
@@ -4455,6 +4458,9 @@ textarea {
     position: sticky;
     top: calc(-16px - env(safe-area-inset-top));
     z-index: 2;
+    display: grid;
+    grid-template-columns: 52px 1fr 52px;
+    align-items: center;
     min-height: 58px;
     margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
     padding: calc(16px + env(safe-area-inset-top)) 16px 0;
@@ -4463,13 +4469,16 @@ textarea {
   }
 
   .settings__side-head h2 {
-    position: absolute;
-    left: 72px;
-    right: 72px;
-    bottom: 15px;
+    grid-column: 2;
+    justify-self: center;
     text-align: center;
     font-size: 22px;
     letter-spacing: 0;
+  }
+
+  .settings__close {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .settings__card {
