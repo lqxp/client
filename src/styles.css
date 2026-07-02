@@ -1443,14 +1443,45 @@ textarea {
 }
 
 .profile-card__badge {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 24px;
   height: 24px;
+  cursor: help;
+  overflow: visible;
+  outline: none;
 }
 
 .profile-card__badge svg {
   display: block;
+}
+
+.profile-card__badge::after {
+  content: attr(data-title);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.profile-card__badge:hover::after,
+.profile-card__badge:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .profile-card__identity strong {

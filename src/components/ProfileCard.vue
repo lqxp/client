@@ -87,7 +87,7 @@ function initialsFor(name: string) {
           <div class="profile-card__name-row">
             <strong>@{{ username }}</strong>
             <div v-if="badges.length" class="profile-card__badges">
-              <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`" :title="badgeLabel(badge)" :aria-label="badgeLabel(badge)">
+              <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`" :data-title="badgeLabel(badge)" :aria-label="badgeLabel(badge)" tabindex="0">
                 <svg v-if="badge === 'admin'" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <g fill="#5865f2">
                     <path d="m5.92127 6.03526s.22115-.33086.31286-.47743c.09172-.14657-.23743-.49286-.36514-.60257-.12772-.10971-.32914-.05486-.32914-.05486-1.60715.71229-2.41115 2.17372-2.52086 2.466-.10972.29229.27943.61115.56657.76715.132.072.342-.08743.47143-.20572l.04371-.04457.06772-.06857.00085-.00086 4.37229 4.35517.59743-.5975 1.09801-1.098-4.32173-4.43224z" />
