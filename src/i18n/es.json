@@ -383,5 +383,10 @@
     },
     "audio": {
         "download": "Descargar audio"
+    },
+    "camera": {
+        "title": "Tomar foto",
+        "capture": "Capturar",
+        "cancel": "Cancelar"
     }
 }

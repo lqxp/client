@@ -351,5 +351,10 @@
             "yes": "Yes",
             "no": "No"
         }
+    },
+    "camera": {
+        "title": "Take photo",
+        "capture": "Capture",
+        "cancel": "Cancel"
     }
 }

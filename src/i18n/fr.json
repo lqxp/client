@@ -351,5 +351,10 @@
             "yes": "Oui",
             "no": "Non"
         }
+    },
+    "camera": {
+        "title": "Prendre une photo",
+        "capture": "Capturer",
+        "cancel": "Annuler"
     }
 }
