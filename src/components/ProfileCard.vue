@@ -84,11 +84,16 @@ function initialsFor(name: string) {
           </svg>
         </button>
         <div class="profile-card__identity">
-          <strong>@{{ username }}</strong>
-          <div v-if="badges.length" class="profile-card__badges">
-            <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`">
-              {{ badgeLabel(badge) }}
-            </span>
+          <div class="profile-card__name-row">
+            <strong>@{{ username }}</strong>
+            <div v-if="badges.length" class="profile-card__badges">
+              <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`" :title="badgeLabel(badge)" :aria-label="badgeLabel(badge)">
+                <svg v-if="badge === 'admin'" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.75 19.25 6v5.35c0 4.6-2.9 8.7-7.25 10-4.35-1.3-7.25-5.4-7.25-10V6L12 2.75Z" />
+                  <path d="m9.5 12 1.65 1.65L14.8 10" />
+                </svg>
+              </span>
+            </div>
           </div>
           <small>
             <span class="members__dot" :class="{
