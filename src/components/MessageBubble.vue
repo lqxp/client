@@ -512,7 +512,6 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="bubble" :class="{
-      'bubble--media': attachmentKind === 'image' || attachmentKind === 'video',
       'bubble--deleted': deleted
     }" @contextmenu.prevent.stop="onMessageContextMenu">
       <div class="bubble-actions" :style="discordActionsStyle" @contextmenu.prevent.stop="onMessageContextMenu">
@@ -592,11 +591,12 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template v-else-if="attachmentKind === 'image' && attachmentUrl">
-        <button type="button" class="att-image-link" :aria-label="`Open image preview: ${message.attachment.filename}`"
+      <template v-else-if="attachmentKind === 'image'">
+        <button v-if="attachmentUrl" type="button" class="att-image-link" :aria-label="`Open image preview: ${message.attachment.filename}`"
           @click="openImageViewer" @contextmenu.prevent.stop="onMessageContextMenu">
           <img :src="attachmentUrl" :alt="message.attachment.filename" class="att-image" />
         </button>
+        <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
         <ImageViewer v-if="imageViewerOpen" :src="attachmentUrl" :filename="message.attachment.filename"
           :size-label="messenger.formatSize(message.attachment.size)" @close="imageViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
@@ -609,9 +609,10 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <template v-else-if="attachmentKind === 'video' && attachmentUrl">
-        <VideoPlayer :src="attachmentUrl" :filename="message.attachment.filename"
+      <template v-else-if="attachmentKind === 'video'">
+        <VideoPlayer v-if="attachmentUrl" :src="attachmentUrl" :filename="message.attachment.filename"
           :size-label="messenger.formatSize(message.attachment.size)" />
+        <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
             @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>

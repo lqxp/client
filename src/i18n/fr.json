@@ -120,6 +120,7 @@
         "video": "Vidéo",
         "voiceMessage": "Message vocal",
         "fileAttachment": "Fichier joint",
+        "attachmentExpired": "Pièce jointe expirée",
         "originalNotLoaded": "Le message original n’est pas chargé.",
         "messageDeleted": "Message supprimé"
     },

@@ -120,6 +120,7 @@
         "video": "Video",
         "voiceMessage": "Voice message",
         "fileAttachment": "File attachment",
+        "attachmentExpired": "Attachment expired",
         "originalNotLoaded": "Original message is not loaded.",
         "messageDeleted": "Message deleted"
     },

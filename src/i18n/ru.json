@@ -141,6 +141,7 @@
         "video": "Видео",
         "voiceMessage": "Голосовое сообщение",
         "fileAttachment": "Вложение",
+        "attachmentExpired": "Вложение истекло",
         "originalNotLoaded": "Исходное сообщение ещё не загружено.",
         "messageDeleted": "Сообщение удалено"
     },
