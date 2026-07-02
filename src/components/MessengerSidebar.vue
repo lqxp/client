@@ -245,6 +245,7 @@ onBeforeUnmount(() => {
     >
       <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
       <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameRoom') }}</button>
+      <button class="room-context__danger" type="button" role="menuitem" @click="leaveRoomFromContext">{{ t('thread.leaveRoom') }}</button>
     </div>
 
     <input
