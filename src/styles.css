@@ -150,6 +150,23 @@
   box-sizing: border-box;
 }
 
+:root.is-android-runtime *,
+:root.is-android-runtime *::before,
+:root.is-android-runtime *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root.is-android-runtime button,
+:root.is-android-runtime a,
+:root.is-android-runtime [role="button"],
+:root.is-android-runtime [tabindex] {
+  touch-action: manipulation;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 html,
 body,
 #app {
