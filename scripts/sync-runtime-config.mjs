@@ -1,5 +1,18 @@
+import { existsSync, watch } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+
+const initialEnvKeys = new Set(Object.keys(process.env));
+const dotenvKeys = new Set();
+const dotenvFiles = [
+  resolve(".env.local"),
+  resolve(".env"),
+  resolve("../.env.local"),
+  resolve("../.env")
+];
+let lastOutputScript = "";
+let syncTimer;
+let syncing = false;
 
 function parseDotEnvValue(value) {
   const trimmed = String(value || "").trim();
@@ -22,22 +35,34 @@ async function loadDotEnvFile(filepath) {
       const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
       if (!match) continue;
       const [, key, rawValue] = match;
+      if (initialEnvKeys.has(key) && typeof process.env[key] === "string" && process.env[key].trim()) continue;
       if (typeof process.env[key] === "string" && process.env[key].trim()) continue;
       process.env[key] = parseDotEnvValue(rawValue);
+      dotenvKeys.add(key);
     }
   } catch {
     /* optional dotenv file */
   }
 }
 
-await loadDotEnvFile(resolve(".env.local"));
-await loadDotEnvFile(resolve(".env"));
-await loadDotEnvFile(resolve("../.env.local"));
-await loadDotEnvFile(resolve("../.env"));
+async function loadDotEnvFiles() {
+  for (const key of dotenvKeys) {
+    if (!initialEnvKeys.has(key)) delete process.env[key];
+  }
+  dotenvKeys.clear();
+
+  for (const filepath of dotenvFiles) {
+    await loadDotEnvFile(filepath);
+  }
+}
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : "";
+}
+
+function hasArg(name) {
+  return process.argv.includes(name);
 }
 
 function firstEnv(...names) {
@@ -176,68 +201,115 @@ async function fetchRuntimeConfigScript(configUrl, htmlPayload) {
   return JSON.parse(match[1]);
 }
 
-const configUrl = argValue("--url") || firstEnv("QXP_RUNTIME_CONFIG_URL");
-const outputPath = resolve(argValue("--out") || "dist/runtime-config.js");
-const envPayload = buildEnvRuntimePayload();
+function parseOutputScript(outputScript) {
+  return JSON.parse(outputScript.match(/window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*\})\s*;?\s*$/m)?.[1] || "{}");
+}
 
-let outputScript;
-let configSource;
-let rtcStatus = "unknown";
+async function buildOutputScript() {
+  await loadDotEnvFiles();
 
-if (configUrl) {
-  const response = await fetch(configUrl);
-  if (!response.ok) {
-    throw new Error(`Could not fetch ${configUrl}: HTTP ${response.status}`);
+  const configUrl = argValue("--url") || firstEnv("QXP_RUNTIME_CONFIG_URL");
+  const envPayload = buildEnvRuntimePayload();
+
+  if (configUrl) {
+    const response = await fetch(configUrl);
+    if (!response.ok) {
+      throw new Error(`Could not fetch ${configUrl}: HTTP ${response.status}`);
+    }
+
+    const htmlPayload = extractRuntimeConfigFromHtml(await response.text());
+    const runtimeConfig = await fetchRuntimeConfigScript(configUrl, htmlPayload);
+    const payload = {
+      ...runtimeConfig,
+      ...(envPayload || {}),
+      rtc: {
+        ...(runtimeConfig.rtc || {}),
+        ...(envPayload?.rtc || {})
+      }
+    };
+
+    return {
+      outputScript: runtimeScript(payload),
+      configSource: configUrl,
+      rtcStatus: payload.rtc?.callsEnabled ? "enabled" : "disabled"
+    };
   }
 
-  const htmlPayload = extractRuntimeConfigFromHtml(await response.text());
-  const runtimeConfig = await fetchRuntimeConfigScript(configUrl, htmlPayload);
-  const payload = {
-    ...runtimeConfig,
-    ...(envPayload || {}),
-    rtc: {
-      ...(runtimeConfig.rtc || {}),
-      ...(envPayload?.rtc || {})
-    }
-  };
-
-  outputScript = runtimeScript(payload);
-  configSource = configUrl;
-  rtcStatus = payload.rtc?.callsEnabled ? "enabled" : "disabled";
-} else {
-  const localRuntimePath = resolve("public/runtime-config.js");
-  const localRuntime = await readFile(localRuntimePath, "utf8");
-
   if (envPayload) {
-    outputScript = runtimeScript(envPayload);
-    rtcStatus = envPayload.rtc?.callsEnabled ? "enabled" : envPayload.rtc ? "disabled" : "unknown";
-    configSource = "environment";
-  } else {
-    outputScript = localRuntime;
-    configSource = localRuntimePath;
+    return {
+      outputScript: runtimeScript(envPayload),
+      configSource: "environment",
+      rtcStatus: envPayload.rtc?.callsEnabled ? "enabled" : envPayload.rtc ? "disabled" : "unknown"
+    };
+  }
+
+  const localRuntimePath = resolve("public/runtime-config.js");
+  return {
+    outputScript: await readFile(localRuntimePath, "utf8"),
+    configSource: localRuntimePath,
+    rtcStatus: "unknown"
+  };
+}
+
+async function syncRuntimeConfig() {
+  if (syncing) return;
+  syncing = true;
+
+  try {
+    const outputPath = resolve(argValue("--out") || "dist/runtime-config.js");
+    const { outputScript, configSource, rtcStatus } = await buildOutputScript();
+
+    if (outputScript !== lastOutputScript) {
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, outputScript, "utf8");
+      lastOutputScript = outputScript;
+    }
+
+    const writtenPayload = parseOutputScript(outputScript);
+    const summary = {
+      configSource,
+      outputPath,
+      serverOrigin: writtenPayload.serverOrigin || "",
+      apiBaseUrl: writtenPayload.apiBaseUrl || "",
+      wsUrl: writtenPayload.wsUrl || "",
+      rtc: {
+        relayOnly: writtenPayload.rtc?.relayOnly,
+        turnUrlsCount: Array.isArray(writtenPayload.rtc?.turnUrls) ? writtenPayload.rtc.turnUrls.length : 0,
+        turnUsername: writtenPayload.rtc?.turnUsername ? "***set***" : "",
+        turnCredential: writtenPayload.rtc?.turnCredential ? "***set***" : "",
+        callsEnabled: writtenPayload.rtc?.callsEnabled,
+        callsUnavailableReason: writtenPayload.rtc?.callsUnavailableReason || ""
+      }
+    };
+
+    console.log(`Wrote ${outputPath} from ${configSource} with RTC ${rtcStatus}.`);
+    console.log("Runtime config summary:");
+    console.log(JSON.stringify(summary, null, 2));
+  } finally {
+    syncing = false;
   }
 }
 
-await mkdir(dirname(outputPath), { recursive: true });
-await writeFile(outputPath, outputScript, "utf8");
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncRuntimeConfig().catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  }, 100);
+}
 
-const writtenPayload = JSON.parse(outputScript.match(/window\.__QXP_RUNTIME__\s*=\s*(\{[\s\S]*\})\s*;?\s*$/m)?.[1] || "{}");
-const summary = {
-  configSource,
-  outputPath,
-  serverOrigin: writtenPayload.serverOrigin || "",
-  apiBaseUrl: writtenPayload.apiBaseUrl || "",
-  wsUrl: writtenPayload.wsUrl || "",
-  rtc: {
-    relayOnly: writtenPayload.rtc?.relayOnly,
-    turnUrlsCount: Array.isArray(writtenPayload.rtc?.turnUrls) ? writtenPayload.rtc.turnUrls.length : 0,
-    turnUsername: writtenPayload.rtc?.turnUsername ? "***set***" : "",
-    turnCredential: writtenPayload.rtc?.turnCredential ? "***set***" : "",
-    callsEnabled: writtenPayload.rtc?.callsEnabled,
-    callsUnavailableReason: writtenPayload.rtc?.callsUnavailableReason || ""
+await syncRuntimeConfig();
+
+if (hasArg("--watch")) {
+  const outputPath = resolve(argValue("--out") || "dist/runtime-config.js");
+  const watchFiles = [...dotenvFiles, resolve("public/runtime-config.js"), outputPath];
+
+  for (const filepath of watchFiles) {
+    if (!existsSync(filepath)) continue;
+    watch(filepath, { persistent: true }, scheduleSync);
   }
-};
 
-console.log(`Wrote ${outputPath} from ${configSource} with RTC ${rtcStatus}.`);
-console.log("Runtime config summary:");
-console.log(JSON.stringify(summary, null, 2));
+  console.log("Watching runtime config inputs.");
+}
