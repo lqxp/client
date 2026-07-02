@@ -4390,6 +4390,11 @@ textarea {
   background: var(--surface-hover);
 }
 
+:root[data-theme="light"] .mention-picker__item:hover,
+:root[data-theme="light"] .mention-picker__item.is-active {
+  background: #0a0c0d1c;
+}
+
 :root[data-theme="light"] .profile-card {
   background: rgba(12, 22, 34, 0.22);
 }
