@@ -72,6 +72,17 @@ const mentionOptions = computed<string[]>(() => {
 const mentionOpen = computed(() => mentionOptions.value.length > 0 && mentionSearch.value?.start !== mentionSuppressedStart.value);
 const selectedMention = computed<string>(() => mentionOptions.value[Math.min(mentionIndex.value, mentionOptions.value.length - 1)] || "");
 
+function initialsFor(name: string) {
+  const clean = String(name || "?").trim();
+  const parts = clean.split(/[\s\-_]+/).filter(Boolean).slice(0, 2);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return clean.slice(0, 2).toUpperCase() || "?";
+}
+
+function mentionAvatarSrc(username: string) {
+  return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
+}
+
 function syncComposerHeight() {
   const input = inputRef.value;
   if (!input) return;
@@ -183,12 +194,20 @@ function send() {
   nextTick(() => focusInput());
 }
 
-function syncCursor() {
+function syncCursor(options: { resetMentionIndex?: boolean } = {}) {
   const input = inputRef.value;
   cursorPosition.value = input?.selectionStart ?? String(props.messenger.state.messageInput || "").length;
-  mentionIndex.value = 0;
+  if (options.resetMentionIndex ?? true) mentionIndex.value = 0;
   props.messenger.setTyping?.(Boolean(String(props.messenger.state.messageInput || "").trim()));
   syncComposerHeight();
+}
+
+function onComposerClick() {
+  syncCursor();
+}
+
+function onComposerKeyup() {
+  syncCursor({ resetMentionIndex: !mentionOpen.value });
 }
 
 async function insertMention(username: string) {
@@ -579,13 +598,15 @@ onBeforeUnmount(() => {
       <label class="composer__input">
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
           :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false" @input="onInput"
-          @click="syncCursor" @keyup="syncCursor" @keydown="onComposerKeydown"></textarea>
+          @click="onComposerClick" @keyup="onComposerKeyup" @keydown="onComposerKeydown"></textarea>
         <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
           <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
             :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"
             @mousedown.prevent="insertMention(username)">
-            <span class="mention-picker__avatar" :class="`avatar--${messenger.accentFor(username)}`">{{
-              username.slice(0, 2).toUpperCase() }}</span>
+            <span class="mention-picker__avatar" :class="mentionAvatarSrc(username) ? 'mention-picker__avatar--image' : `avatar--${messenger.accentFor(username)}`">
+              <img v-if="mentionAvatarSrc(username)" :src="mentionAvatarSrc(username)" alt="" />
+              <template v-else>{{ initialsFor(username) }}</template>
+            </span>
             <span class="mention-picker__name">@{{ username }}</span>
           </button>
         </div>

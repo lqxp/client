@@ -3482,6 +3482,13 @@ textarea {
   place-items: center;
   font-size: 11px;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.mention-picker__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .mention-picker__name {
