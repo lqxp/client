@@ -14,6 +14,13 @@ const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.stat
 const FALLBACK_LOGO = "https://qxch.at/app-icon.svg";
 const username = computed(() => String(props.messenger.state.username || props.messenger.state.clientLockDisplayName || "").trim());
 const displayName = computed(() => username.value || "QxChat");
+const greetingKey = computed(() => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "lock.goodMorning";
+  if (hour < 18) return "lock.goodAfternoon";
+  return "lock.goodEvening";
+});
+const greeting = computed(() => t(greetingKey.value, { username: displayName.value }));
 const avatarSrc = computed(() => props.messenger.profileImageSrc?.(props.messenger.myProfile?.value?.avatar || props.messenger.state.clientLockAvatar, "avatar") || FALLBACK_LOGO);
 
 async function unlock() {
@@ -32,6 +39,23 @@ function appendDigit(digit: string) {
 function backspace() {
   pin.value = pin.value.slice(0, -1);
 }
+
+function onPinKeydown(event: KeyboardEvent) {
+  if (/^[0-9]$/.test(event.key)) {
+    event.preventDefault();
+    appendDigit(event.key);
+    return;
+  }
+  if (event.key === "Backspace") {
+    event.preventDefault();
+    backspace();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    unlock();
+  }
+}
 </script>
 
 <template>
@@ -41,13 +65,14 @@ function backspace() {
         <img :src="avatarSrc" alt="" />
       </div>
       <div class="lock-card__copy">
-        <h1 id="lock-title">{{ displayName }}</h1>
+        <h1 id="lock-title">{{ greeting }}</h1>
         <p>{{ t('lock.subtitle') }}</p>
       </div>
 
       <form class="lock-form" :aria-label="t('lock.subtitle')" @submit.prevent="unlock">
-        <input v-model="pin" class="lock-form__input" type="text" inputmode="numeric" pattern="[0-9]*"
-          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :aria-label="t('lock.pinPlaceholder')" autofocus />
+        <input :value="''" class="lock-form__input" type="text" inputmode="numeric" pattern="[0-9]*"
+          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :aria-label="t('lock.pinPlaceholder')" autofocus
+          @keydown="onPinKeydown" @paste.prevent />
         <div class="lock-form__mask" aria-hidden="true">
           <span v-for="index in pinLength" :key="index" :class="{ 'is-filled': pin.length >= index }"></span>
         </div>

@@ -28,6 +28,9 @@
     "lock": {
         "title": "QxChat is locked",
         "subtitle": "Enter your PIN to decrypt local data and resume your session.",
+        "goodMorning": "Good morning, {username}",
+        "goodAfternoon": "Good afternoon, {username}",
+        "goodEvening": "Good evening, {username}",
         "unlockSuccess": "QxChat unlocked.",
         "pinPlaceholder": "PIN code",
         "unlock": "Unlock",

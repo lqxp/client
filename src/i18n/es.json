@@ -28,6 +28,9 @@
     "lock": {
         "title": "QxChat está bloqueado",
         "subtitle": "Introduce tu PIN para descifrar los datos locales y reanudar la sesión.",
+        "goodMorning": "Buenos días, {username}",
+        "goodAfternoon": "Buenas tardes, {username}",
+        "goodEvening": "Buenas noches, {username}",
         "pinPlaceholder": "Código PIN",
         "unlock": "Desbloquear",
         "incorrectPin": "PIN incorrecto.",
