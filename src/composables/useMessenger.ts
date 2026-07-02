@@ -1407,14 +1407,13 @@ function normalizeMessage(message, fallbackRoomId) {
 
   let kind = "text";
   if (message.deleted) kind = "deleted";
-  else if (voiceDuration) kind = "voice";
   else if (attachment) {
     if (isTextAttachmentByFilename(attachment.filename)) kind = "file";
     else if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
     else if ((attachment.mimeType || "").startsWith("image/")) kind = "image";
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
     else kind = "file";
-  }
+  } else if (voiceDuration) kind = "voice";
 
   const rawText = message.text || "";
   const jumboEmoji =

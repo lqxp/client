@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <template v-else-if="attachmentKind === 'audio' && attachmentUrl">
+      <template v-else-if="(attachmentKind === 'audio' || attachmentKind === 'voice') && attachmentUrl">
         <AudioPlayer :src="attachmentUrl" :filename="message.attachment.filename"
           :size-label="messenger.formatSize(message.attachment.size)" :fallback-duration="message.voiceDuration || ''"
           :messenger="messenger" />
