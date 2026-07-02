@@ -4159,7 +4159,9 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.23);
   color: transparent;
+  -webkit-text-fill-color: transparent;
   caret-color: transparent;
+  user-select: none;
   font: 15px var(--mono);
   letter-spacing: 0.18em;
   text-align: center;
@@ -4169,6 +4171,12 @@ textarea {
     0 8px 24px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(20px) saturate(1.2);
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lock-form__input::selection {
+  color: transparent;
+  background: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .lock-form__input:focus {
