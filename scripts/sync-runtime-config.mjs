@@ -119,6 +119,109 @@ function parseStringArray(value) {
     .filter(Boolean);
 }
 
+function parseTomlScalar(value) {
+  const text = String(value || "").trim().replace(/,$/, "");
+  if (
+    (text.startsWith('"') && text.endsWith('"'))
+    || (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    return text.slice(1, -1);
+  }
+  if (text === "true") return true;
+  if (text === "false") return false;
+  return text;
+}
+
+function parseRuntimeToml(raw) {
+  const config = {};
+  let section = "";
+  let arrayKey = "";
+  let arrayValues = [];
+
+  function commitArray() {
+    if (!arrayKey) return;
+    config[section] ||= {};
+    config[section][arrayKey] = arrayValues;
+    arrayKey = "";
+    arrayValues = [];
+  }
+
+  for (const line of String(raw || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    if (arrayKey) {
+      if (trimmed.startsWith("]")) {
+        commitArray();
+        continue;
+      }
+      arrayValues.push(parseTomlScalar(trimmed));
+      continue;
+    }
+
+    const sectionMatch = trimmed.match(/^\[([^\]]+)\]$/);
+    if (sectionMatch) {
+      commitArray();
+      section = sectionMatch[1].trim();
+      continue;
+    }
+
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match || !section) continue;
+    const [, key, rawValue] = match;
+    config[section] ||= {};
+    if (rawValue.trim() === "[") {
+      arrayKey = key;
+      arrayValues = [];
+    } else {
+      config[section][key] = parseTomlScalar(rawValue);
+    }
+  }
+
+  commitArray();
+  return config;
+}
+
+async function buildConfigRuntimePayload() {
+  const configPath = resolve("../files/config.custom.toml");
+  try {
+    const config = parseRuntimeToml(await readFile(configPath, "utf8"));
+    const api = config.api || {};
+    const rtc = config.rtc || {};
+    const publicDomain = String(api.publicDomain || "").trim();
+    const serverOrigin = publicDomain ? httpOrigin(publicDomain) : "";
+    const apiBaseUrl = serverOrigin;
+    const wsUrl = apiBaseUrl ? webSocketUrlFromOrigin(apiBaseUrl) : "";
+    const turnUrls = Array.isArray(rtc.turnUrls) ? rtc.turnUrls.map(String).filter(Boolean) : [];
+    const turnUsername = String(rtc.turnUsername || "").trim();
+    const turnCredential = String(rtc.turnCredential || "").trim();
+    const relayOnly = typeof rtc.relayOnly === "boolean" ? rtc.relayOnly : undefined;
+    const hasRtc = turnUrls.length || turnUsername || turnCredential || relayOnly !== undefined;
+    const hasApp = serverOrigin || apiBaseUrl || wsUrl;
+    if (!hasApp && !hasRtc) return null;
+
+    return {
+      ...(serverOrigin ? { serverOrigin } : {}),
+      ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(wsUrl ? { wsUrl } : {}),
+      ...(hasRtc
+        ? {
+            rtc: {
+              ...(relayOnly !== undefined ? { relayOnly } : {}),
+              ...(turnUrls.length ? { turnUrls } : {}),
+              ...(turnUsername ? { turnUsername } : {}),
+              ...(turnCredential ? { turnCredential } : {}),
+              callsEnabled: true,
+              callsUnavailableReason: ""
+            }
+          }
+        : {})
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildEnvRuntimePayload() {
   const serverOriginRaw = argValue("--server-origin") || firstEnv("QXP_SERVER_ORIGIN", "VITE_QXP_SERVER_ORIGIN");
   const apiBaseUrlRaw = argValue("--api-base-url") || firstEnv("QXP_API_BASE_URL", "VITE_QXP_API_BASE_URL");
@@ -250,6 +353,16 @@ async function buildOutputScript() {
     };
   }
 
+  const configPayload = await buildConfigRuntimePayload();
+  if (configPayload) {
+    return {
+      outputScript: runtimeScript(configPayload),
+      summaryPayload: configPayload,
+      configSource: "files/config.custom.toml",
+      rtcStatus: configPayload.rtc?.callsEnabled ? "enabled" : configPayload.rtc ? "disabled" : "unknown"
+    };
+  }
+
   const localRuntimePath = resolve("public/runtime-config.js");
   return {
     outputScript: await readFile(localRuntimePath, "utf8"),
@@ -311,7 +424,7 @@ await syncRuntimeConfig();
 
 if (hasArg("--watch")) {
   const outputPath = resolve(argValue("--out") || "dist/runtime-config.js");
-  const watchFiles = [...dotenvFiles, resolve("public/runtime-config.js"), outputPath];
+  const watchFiles = [...dotenvFiles, resolve("../files/config.custom.toml"), resolve("public/runtime-config.js"), outputPath];
 
   for (const filepath of watchFiles) {
     if (!existsSync(filepath)) continue;
