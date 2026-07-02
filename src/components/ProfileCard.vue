@@ -30,6 +30,7 @@ const statusLabel = computed(() => {
   }
 });
 const platforms = computed(() => props.messenger.platformsForUser?.(props.username) || []);
+const badges = computed(() => props.messenger.badgesFor?.(props.username) || []);
 const mutualRooms = computed(() => props.messenger.mutualRoomsWith?.(props.username) || []);
 const mutualRoomOptions = computed(() =>
   mutualRooms.value.map((room) => ({
@@ -84,6 +85,11 @@ function initialsFor(name: string) {
         </button>
         <div class="profile-card__identity">
           <strong>@{{ username }}</strong>
+          <div v-if="badges.length" class="profile-card__badges">
+            <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`">
+              {{ badgeLabel(badge) }}
+            </span>
+          </div>
           <small>
             <span class="members__dot" :class="{
               'is-call': voiceMembers.has(username),
