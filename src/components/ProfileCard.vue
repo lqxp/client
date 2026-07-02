@@ -118,7 +118,7 @@ function initialsFor(name: string) {
           <p v-else class="profile-card__empty">{{ t('profile.noDescription') }}</p>
         </div>
 
-        <div class="profile-card__section">
+        <div v-if="!isSelf" class="profile-card__section">
           <h4>{{ t('profile.mutualRooms') }}</h4>
           <div v-if="mutualRoomOptions.length" class="profile-card__mutual-list" role="list">
             <button v-for="room in mutualRoomOptions" :key="room.roomId" type="button" class="profile-card__mutual-room"
