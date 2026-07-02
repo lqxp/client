@@ -5193,24 +5193,6 @@ export function useMessenger() {
         }
         break;
       case 13:
-        {
-          const key = sanitizeUsername(d?.username || d?.user);
-          if (key) {
-            rememberUserId(key, d?.id || d?.userId || d?.uuid);
-            if (d?.platform) rememberClientPlatform(key, d.platform);
-            else if (typeof d?.isMobile === "boolean")
-              rememberClientPlatform(key, d.isMobile ? "mobile" : "desktop");
-            if (d?.profile)
-              state.profilesByUser[key] = mergeProfiles(
-                state.profilesByUser[key],
-                d.profile,
-              );
-            if (d?.status)
-              state.statusesByUser[key] = sanitizePresenceStatus(d.status);
-            if (Array.isArray(d?.badges))
-              state.badgesByUser[key] = normalizeUserBadges(d.badges);
-          }
-        }
         break;
       case 87:
         state.systemBanner = d?.msg || state.systemBanner;
