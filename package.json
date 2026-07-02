@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "inject": "node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js",
-    "build": "vite build",
-    "build:web": "vite build && npm run inject",
+    "build": "vite build && bun run inject",
+    "build:web": "bun run build",
     "sync:runtime": "node ./scripts/sync-runtime-config.mjs",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",

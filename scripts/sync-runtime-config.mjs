@@ -30,7 +30,9 @@ async function loadDotEnvFile(filepath) {
   }
 }
 
+await loadDotEnvFile(resolve(".env.local"));
 await loadDotEnvFile(resolve(".env"));
+await loadDotEnvFile(resolve("../.env.local"));
 await loadDotEnvFile(resolve("../.env"));
 
 function argValue(name) {
