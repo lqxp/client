@@ -638,6 +638,10 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
+      <template v-else-if="attachmentKind === 'audio' || attachmentKind === 'voice'">
+        <div class="att-expired" role="status">{{ t('message.voiceMessageExpired') }}</div>
+      </template>
+
       <template v-else-if="attachmentKind === 'file' && message.attachment">
         <button class="att-file" type="button" @click="download" :disabled="!attachmentUrl" @contextmenu.prevent.stop="onMessageContextMenu">
           <span class="att-file-icon">

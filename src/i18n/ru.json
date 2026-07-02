@@ -140,6 +140,7 @@
         "photo": "Фото",
         "video": "Видео",
         "voiceMessage": "Голосовое сообщение",
+        "voiceMessageExpired": "Голосовое сообщение истекло",
         "fileAttachment": "Вложение",
         "attachmentExpired": "Вложение истекло",
         "originalNotLoaded": "Исходное сообщение ещё не загружено.",

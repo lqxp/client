@@ -119,6 +119,7 @@
         "photo": "Foto",
         "video": "Vídeo",
         "voiceMessage": "Mensaje de voz",
+        "voiceMessageExpired": "Mensaje de voz caducado",
         "fileAttachment": "Archivo adjunto",
         "attachmentExpired": "Adjunto caducado",
         "originalNotLoaded": "El mensaje original no está cargado.",

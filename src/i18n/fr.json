@@ -119,6 +119,7 @@
         "photo": "Photo",
         "video": "Vidéo",
         "voiceMessage": "Message vocal",
+        "voiceMessageExpired": "Message vocal expiré",
         "fileAttachment": "Fichier joint",
         "attachmentExpired": "Pièce jointe expirée",
         "originalNotLoaded": "Le message original n’est pas chargé.",
