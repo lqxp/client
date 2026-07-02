@@ -11,7 +11,6 @@ const emit = defineEmits(["conversation-selected"]);
 
 const composeRef = ref(null);
 const statusMenuOpen = ref(false);
-const isMobile = ref(false);
 const roomContextOpen = ref(false);
 const roomContextRoomId = ref("");
 const roomContextPos = ref({ x: 0, y: 0 });
@@ -57,11 +56,14 @@ function onComposeKey(event) {
   if (event.key.length === 1 && !/[a-z0-9]/i.test(event.key)) event.preventDefault();
 }
 
-function removeConversation(event, roomId) {
-  event.stopPropagation();
-  event.preventDefault();
-  if (!confirm(t("sidebar.removeConversationConfirm", { room: props.messenger.displayRoomName(roomId) }))) return;
-  props.messenger.removeRoom(roomId);
+function leaveRoomFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  const label = props.messenger.displayRoomName(roomId);
+  const suffix = props.messenger.state.deleteMessagesOnLeave ? ` ${t("thread.leaveRoomDeletesLocal")}` : "";
+  if (!confirm(t("thread.leaveRoomConfirm", { room: label, suffix }))) return;
+  props.messenger.leaveRoom(roomId);
+  closeRoomContext();
 }
 
 function roomIcon(roomId) {
@@ -141,17 +143,10 @@ function onDocumentClick() {
   closeRoomContext();
 }
 
-function syncMobile() {
-  isMobile.value = window.matchMedia("(max-width: 820px)").matches;
-}
-
 onMounted(() => {
-  syncMobile();
-  window.addEventListener("resize", syncMobile, { passive: true });
   document.addEventListener("click", onDocumentClick);
 });
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", syncMobile);
   document.removeEventListener("click", onDocumentClick);
 });
 </script>
@@ -234,15 +229,6 @@ onBeforeUnmount(() => {
 
           <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
 
-          <button
-            v-if="isMobile"
-            class="conv__remove"
-            type="button"
-            :aria-label="t('sidebar.removeConversation', { room: c.name })"
-            @click="removeConversation($event, c.roomId)"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
         </div>
       </template>
       <div v-else class="conv--empty">
