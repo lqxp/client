@@ -4203,36 +4203,6 @@ textarea {
   opacity: 1;
 }
 
-.lock-form__submit {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  height: 36px;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.24);
-  color: transparent;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px) saturate(1.2);
-}
-
-.lock-form__submit::before {
-  content: "→";
-  color: white;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.lock-form__submit:disabled {
-  opacity: 0.55;
-}
-
 .lock-progress {
   width: min(100%, 238px);
   height: 6px;
@@ -4767,12 +4737,8 @@ textarea {
   .lock-form {
     position: relative;
     width: 238px;
-    /* largeur fixe, plus de min() */
-    display: flex;
-    /* block → flex pour aligner input + bouton */
-    align-items: center;
+    display: block;
     margin: 18px 0 0;
-    /* auto retiré, c'est align-items du parent qui centre */
   }
 
   .lock-dots span {

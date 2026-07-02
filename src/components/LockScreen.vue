@@ -51,9 +51,6 @@ function backspace() {
         <div class="lock-form__mask" aria-hidden="true">
           <span v-for="index in pinLength" :key="index" :class="{ 'is-filled': pin.length >= index }"></span>
         </div>
-        <button type="submit" class="btn btn--primary lock-form__submit" :disabled="props.messenger.state.clientLockLoading">
-          {{ t('lock.unlock') }}
-        </button>
       </form>
 
       <div v-if="props.messenger.state.clientLockLoading" class="lock-progress" role="progressbar" :aria-valuenow="props.messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
