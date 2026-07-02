@@ -15,17 +15,28 @@ const currentTime = ref(0);
 const duration = ref(0);
 const canPlay = ref(false);
 let frameId = 0;
+let playbackStartedAt = 0;
+let playbackBaseTime = 0;
+
+const fallbackDurationSeconds = computed(() => parseClock(props.fallbackDuration));
+const effectiveDuration = computed(() => duration.value || fallbackDurationSeconds.value);
 
 const progress = computed(() => {
-  if (!duration.value) return 0;
-  return Math.min(100, (currentTime.value / duration.value) * 100);
+  if (!effectiveDuration.value) return 0;
+  return Math.min(100, (currentTime.value / effectiveDuration.value) * 100);
 });
 
 const elapsedLabel = computed(() => formatClock(currentTime.value));
 const durationLabel = computed(() => {
-  if (duration.value) return formatClock(duration.value);
-  return props.fallbackDuration || "--:--";
+  if (effectiveDuration.value) return formatClock(effectiveDuration.value);
+  return "--:--";
 });
+
+function parseClock(value) {
+  const match = /^(\d+):(\d{2})$/.exec(String(value || "").trim());
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
 
 function formatClock(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -37,8 +48,10 @@ function formatClock(seconds) {
 function syncAudioState() {
   const audio = audioRef.value;
   if (!audio) return;
-  currentTime.value = audio.currentTime || 0;
-  duration.value = Number.isFinite(audio.duration) ? audio.duration : 0;
+  const nextDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+  duration.value = nextDuration;
+  const nextTime = audio.currentTime || 0;
+  if (nextTime || !isPlaying.value) currentTime.value = nextTime;
 }
 
 function stopProgressLoop() {
@@ -49,14 +62,28 @@ function stopProgressLoop() {
 
 function startProgressLoop() {
   stopProgressLoop();
+  playbackStartedAt = performance.now();
+  playbackBaseTime = currentTime.value;
 
   const tick = () => {
-    syncAudioState();
     const audio = audioRef.value;
     if (!audio || audio.paused || audio.ended) {
       frameId = 0;
       return;
     }
+
+    const mediaTime = audio.currentTime || 0;
+    if (mediaTime > currentTime.value) {
+      currentTime.value = mediaTime;
+      playbackStartedAt = performance.now();
+      playbackBaseTime = mediaTime;
+    } else if (effectiveDuration.value) {
+      const elapsed = (performance.now() - playbackStartedAt) / 1000;
+      currentTime.value = Math.min(effectiveDuration.value, playbackBaseTime + elapsed);
+    }
+
+    const nextDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    if (nextDuration) duration.value = nextDuration;
     frameId = requestAnimationFrame(tick);
   };
 
@@ -80,10 +107,12 @@ async function togglePlayback() {
 
 function seek(event) {
   const audio = audioRef.value;
-  if (!audio || !duration.value) return;
-  const nextTime = (Number(event.target.value) / 100) * duration.value;
+  if (!audio || !effectiveDuration.value) return;
+  const nextTime = (Number(event.target.value) / 100) * effectiveDuration.value;
   audio.currentTime = nextTime;
   currentTime.value = nextTime;
+  playbackStartedAt = performance.now();
+  playbackBaseTime = nextTime;
 }
 
 function downloadAudio() {
@@ -99,7 +128,20 @@ function downloadAudio() {
 function onLoadedMetadata() {
   props.messenger?.applyAudioOutput?.(audioRef.value);
   canPlay.value = true;
-  syncAudioState();
+
+  const audio = audioRef.value;
+  if (audio && (audio.duration === Infinity || Number.isNaN(audio.duration))) {
+    // Force Chrome to recalculate the duration/position
+    audio.currentTime = 1e101;
+    const fixHandler = () => {
+      audio.currentTime = 0;
+      audio.removeEventListener("timeupdate", fixHandler);
+      syncAudioState();
+    };
+    audio.addEventListener("timeupdate", fixHandler);
+  } else {
+    syncAudioState();
+  }
 }
 
 watch(
@@ -122,6 +164,7 @@ function onEnded() {
   isPlaying.value = false;
   stopProgressLoop();
   syncAudioState();
+  if (effectiveDuration.value) currentTime.value = effectiveDuration.value;
 }
 
 watch(
@@ -179,7 +222,7 @@ onBeforeUnmount(() => {
           max="100"
           step="0.1"
           :value="progress"
-          :disabled="!canPlay"
+          :disabled="!canPlay && !effectiveDuration"
           :style="{ '--progress': `${progress}%` }"
           @input="seek"
         />
