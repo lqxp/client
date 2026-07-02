@@ -100,6 +100,15 @@ const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
 const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
+const reactionTooltip = ref<{
+  emoji: string;
+  count: number;
+  users: string[];
+  left: number;
+  top: number;
+  placement: "top" | "bottom";
+} | null>(null);
+let reactionTooltipHideTimer: number | null = null;
 const repliedMessage = computed(() =>
   props.messenger.findMessageById(props.message.roomId, props.message.replyToMessageId)
 );
@@ -122,6 +131,47 @@ const isTextCollapsible = computed(() =>
   && textLineCount.value > 10
   && ["text", "file", "audio", "video", "image"].includes(String(attachmentKind.value || "text"))
 );
+
+function reactionUsers(reaction) {
+  return (Array.isArray(reaction?.users) ? reaction.users : [])
+    .map((user) => String(user || "").trim())
+    .filter(Boolean);
+}
+
+function showReactionTooltip(event: MouseEvent, reaction) {
+  const users = reactionUsers(reaction);
+  if (!users.length) return;
+  if (reactionTooltipHideTimer) {
+    window.clearTimeout(reactionTooltipHideTimer);
+    reactionTooltipHideTimer = null;
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const width = 220;
+  const padding = 8;
+  const left = Math.min(Math.max(rect.left, padding), window.innerWidth - width - padding);
+  const placement: "top" | "bottom" = rect.top < 150 ? "bottom" : "top";
+  reactionTooltip.value = {
+    emoji: reaction.emoji,
+    count: reaction.count,
+    users,
+    left,
+    top: placement === "top" ? rect.top - 10 : rect.bottom + 10,
+    placement
+  };
+}
+
+function scheduleHideReactionTooltip() {
+  reactionTooltipHideTimer = window.setTimeout(() => {
+    reactionTooltip.value = null;
+  }, 100);
+}
+
+function keepReactionTooltip() {
+  if (reactionTooltipHideTimer) {
+    window.clearTimeout(reactionTooltipHideTimer);
+    reactionTooltipHideTimer = null;
+  }
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -446,6 +496,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("pointerdown", onGlobalPointerDown);
   window.removeEventListener("keydown", onGlobalKeydown);
+  if (reactionTooltipHideTimer) window.clearTimeout(reactionTooltipHideTimer);
 });
 </script>
 
@@ -476,7 +527,8 @@ onBeforeUnmount(() => {
       </span>
       <div v-if="message.reactions.length" class="reactions reactions--standalone" @contextmenu.prevent.stop="onMessageContextMenu">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
+          type="button" @click="messenger.toggleReaction(message, reaction.emoji)"
+          @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
@@ -712,7 +764,8 @@ onBeforeUnmount(() => {
         @contextmenu.prevent.stop="onMessageContextMenu"
       >
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="messenger.toggleReaction(message, reaction.emoji)">
+          type="button" @click="messenger.toggleReaction(message, reaction.emoji)"
+          @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
@@ -748,6 +801,17 @@ onBeforeUnmount(() => {
         <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem" @click="onDelete">
           <span>Delete message</span>
         </button>
+      </div>
+    </div>
+    <div v-if="reactionTooltip" class="reaction-tooltip" :class="`is-${reactionTooltip.placement}`"
+      :style="{ left: `${reactionTooltip.left}px`, top: `${reactionTooltip.top}px` }" role="tooltip"
+      @mouseenter="keepReactionTooltip" @mouseleave="scheduleHideReactionTooltip">
+      <div class="reaction-tooltip__head">
+        <span v-html="renderDiscordEmoji(reactionTooltip.emoji)"></span>
+        <strong>{{ reactionTooltip.count }}</strong>
+      </div>
+      <div class="reaction-tooltip__list">
+        <span v-for="user in reactionTooltip.users" :key="user" class="reaction-tooltip__user">{{ user }}</span>
       </div>
     </div>
     <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />

@@ -2279,6 +2279,7 @@ textarea {
 }
 
 .reaction {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -2289,6 +2290,71 @@ textarea {
 
 .reaction:hover {
   opacity: 0.8;
+}
+
+.reaction-tooltip {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  max-height: 220px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: #000;
+  color: #fff;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+}
+
+.reaction-tooltip.is-top {
+  transform: translateY(-100%);
+}
+
+.reaction-tooltip__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.reaction-tooltip__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 160px;
+  margin-top: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
+}
+
+.reaction-tooltip__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reaction-tooltip__list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.reaction-tooltip__user {
+  padding: 7px 8px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reaction-tooltip__user:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Keep the hover toolbar below the message so it never covers the text. */
