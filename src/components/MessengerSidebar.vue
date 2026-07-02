@@ -382,6 +382,15 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
+.room-context__danger {
+  color: var(--red) !important;
+}
+
+.room-context__danger:hover {
+  background: rgba(255, 107, 112, 0.14) !important;
+  color: var(--red) !important;
+}
+
 .room-context button:hover :is(svg, img) {
   color: currentColor;
 }

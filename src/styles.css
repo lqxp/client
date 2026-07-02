@@ -932,30 +932,6 @@ textarea {
   font-weight: 700;
 }
 
-.conv__remove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity 80ms ease, background 80ms ease;
-  background: transparent;
-}
-
-.conv:hover .conv__remove {
-  opacity: 1;
-}
-
-.conv__remove:hover {
-  background: var(--surface-active);
-  color: var(--text);
-}
-
 .conv--empty {
   margin: 24px auto;
   text-align: center;
@@ -5710,11 +5686,6 @@ textarea {
     width: 42px;
     height: 42px;
     font-size: 15px;
-  }
-
-  .conv__remove {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.04);
   }
 
   .side__foot {
