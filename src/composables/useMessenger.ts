@@ -121,6 +121,11 @@ function sanitizePresenceStatus(value) {
   return PRESENCE_STATUSES.includes(status) ? status : "online";
 }
 
+function normalizeUserBadges(value) {
+  const badges = Array.isArray(value) ? value : [];
+  return [...new Set(badges.map((badge) => String(badge || "").trim().toLowerCase()).filter(Boolean))];
+}
+
 function presenceStatusLabel(status) {
   switch (sanitizePresenceStatus(status)) {
     case "invisible":
@@ -640,6 +645,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     joinedRooms: [],
     usersByRoom: {},
     profilesByUser: {},
+    badgesByUser: {},
     messagesByRoom: {},
     unreadByRoom: {},
     roomKeysByRoom: {},
@@ -841,6 +847,15 @@ function loadPersisted() {
       }
     }
 
+    const badgesByUser = {};
+    if (raw.badgesByUser && typeof raw.badgesByUser === "object") {
+      for (const [username, badges] of Object.entries(raw.badgesByUser)) {
+        const key = sanitizeUsername(username);
+        if (!key) continue;
+        badgesByUser[key] = normalizeUserBadges(badges);
+      }
+    }
+
     const activeRoom = isValidRoomId(raw.activeRoom)
       ? sanitizeRoomId(raw.activeRoom)
       : "";
@@ -873,6 +888,7 @@ function loadPersisted() {
       joinedRooms,
       usersByRoom,
       profilesByUser,
+      badgesByUser,
       messagesByRoom,
       unreadByRoom,
       roomKeysByRoom: sanitizeRoomKeys(raw.roomKeysByRoom),
@@ -1606,6 +1622,7 @@ export function useMessenger() {
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
+    badgesByUser: { ...persisted.badgesByUser },
     statusesByUser: {},
     userIdsByUsername: {},
     clientPlatformsByUser: {},
@@ -1862,6 +1879,7 @@ export function useMessenger() {
       joinedRooms: Array.isArray(payload?.joinedRooms) ? payload.joinedRooms : [],
       usersByRoom: payload?.usersByRoom && typeof payload.usersByRoom === "object" ? payload.usersByRoom : {},
       profilesByUser: payload?.profilesByUser && typeof payload.profilesByUser === "object" ? payload.profilesByUser : {},
+      badgesByUser: payload?.badgesByUser && typeof payload.badgesByUser === "object" ? payload.badgesByUser : {},
       messagesByRoom: payload?.messagesByRoom && typeof payload.messagesByRoom === "object" ? payload.messagesByRoom : {},
       unreadByRoom: payload?.unreadByRoom && typeof payload.unreadByRoom === "object" ? payload.unreadByRoom : {},
       roomKeysByRoom: sanitizeRoomKeys(payload?.roomKeysByRoom),
@@ -1996,6 +2014,7 @@ export function useMessenger() {
     state.roomKeysByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
+    state.badgesByUser = {};
     state.statusesByUser = {};
     state.userIdsByUsername = {};
     state.profile = normalizeProfile(null);
@@ -2435,6 +2454,12 @@ export function useMessenger() {
     if (!key) return normalizeProfile(null);
     if (key === sanitizeUsername(state.username)) return myProfile.value;
     return normalizeProfile(state.profilesByUser[key]);
+  }
+
+  function badgesFor(username) {
+    const key = sanitizeUsername(username);
+    if (!key) return [];
+    return normalizeUserBadges(state.badgesByUser[key]);
   }
 
   function statusFor(username) {
@@ -3476,6 +3501,7 @@ export function useMessenger() {
     state.pendingJoinRooms = [];
     state.usersByRoom = {};
     state.profilesByUser = {};
+    state.badgesByUser = {};
     state.statusesByUser = {};
     state.userIdsByUsername = {};
     state.typingByRoom = {};
@@ -4624,6 +4650,7 @@ export function useMessenger() {
     state.roomKeysByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
+    state.badgesByUser = {};
     state.statusesByUser = {};
     state.userIdsByUsername = {};
     state.profile = normalizeProfile(null);
@@ -5025,6 +5052,7 @@ export function useMessenger() {
         state.userId = String(d.uuid || state.userId || "");
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
+        if (state.username) state.badgesByUser[state.username] = normalizeUserBadges(d?.badges);
         state.identified = true;
         const persistedJoinedRooms = [
           ...new Set(
@@ -5180,6 +5208,8 @@ export function useMessenger() {
               );
             if (d?.status)
               state.statusesByUser[key] = sanitizePresenceStatus(d.status);
+            if (Array.isArray(d?.badges))
+              state.badgesByUser[key] = normalizeUserBadges(d.badges);
           }
         }
         break;
@@ -5243,6 +5273,13 @@ export function useMessenger() {
     for (const [username, status] of Object.entries(statuses || {})) {
       const key = sanitizeUsername(username);
       if (key) state.statusesByUser[key] = sanitizePresenceStatus(status);
+    }
+  }
+
+  function applyPlayerBadges(players) {
+    for (const player of Array.isArray(players) ? players : []) {
+      const key = sanitizeUsername(player?.user || player?.username || player?.name);
+      if (key && Array.isArray(player?.badges)) state.badgesByUser[key] = normalizeUserBadges(player.badges);
     }
   }
 
@@ -5330,6 +5367,7 @@ export function useMessenger() {
     if (d?.statuses && typeof d.statuses === "object") {
       applyStatuses(d.statuses);
     }
+    applyPlayerBadges(d?.players);
     applyPlatformsMap(d?.platforms);
     if (Array.isArray(d?.voicePlayers)) {
       state.voiceMembersByRoom[roomId] = normalizeRoomUsers(d.voicePlayers);
@@ -5760,6 +5798,7 @@ export function useMessenger() {
     hasRoomKey,
     roomAccessToken,
     profileFor,
+    badgesFor,
     statusFor,
     presenceStatusLabel,
     profileImageSrc,

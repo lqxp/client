@@ -47,6 +47,15 @@ function openSelectedMutualRoom() {
   emit("close");
 }
 
+function badgeLabel(badge: string) {
+  switch (badge) {
+    case "admin":
+      return "Admin";
+    default:
+      return badge;
+  }
+}
+
 function initialsFor(name: string) {
   const clean = String(name || "?").trim();
   const parts = clean.split(/[\s\-_]+/).filter(Boolean).slice(0, 2);
