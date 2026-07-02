@@ -2475,9 +2475,9 @@ textarea {
   width: 188px;
   padding: 6px;
   border-radius: 8px;
-  background: #111214;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--bg) 44%, transparent);
 }
 
 .composer__actions-pop button {
@@ -2504,6 +2504,7 @@ textarea {
 .composer__actions-pop svg {
   width: 18px;
   height: 18px;
+  color: var(--muted);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
