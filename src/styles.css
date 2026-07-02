@@ -2625,8 +2625,14 @@ textarea {
 .camera-modal__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
   padding: 12px 14px 14px;
+}
+
+.camera-modal__actions .btn {
+  min-width: 110px;
+  justify-content: center;
 }
 
 @media (max-width: 640px) {
@@ -5842,6 +5848,11 @@ textarea {
 
   .camera-modal__actions {
     padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .camera-modal__actions .btn {
+    flex: 1;
+    min-width: 0;
   }
 
   .call-pip {
