@@ -3352,25 +3352,41 @@ textarea {
 }
 
 /* Composer recording state */
-.composer__recording {
-  flex: 1;
+.voice-recorder {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px;
-  border-radius: 20px;
+  padding: 8px 12px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
   font-size: 13.5px;
 }
 
-.rec-dot {
+.voice-recorder__pulse {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: var(--red);
   flex: none;
   animation: rec-pulse 1.2s infinite ease-in-out;
+}
+
+.voice-recorder>span {
+  min-width: 0;
+  flex: 1;
+}
+
+.voice-recorder__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
 }
 
 @keyframes rec-pulse {
@@ -5868,10 +5884,14 @@ textarea {
     padding: 7px 8px 7px 10px;
   }
 
-  .composer__recording {
+  .voice-recorder {
     min-width: 0;
     flex-wrap: wrap;
     border-radius: 16px;
+  }
+
+  .voice-recorder__actions {
+    width: 100%;
   }
 
   .emoji-picker {
