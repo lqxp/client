@@ -2302,16 +2302,16 @@ textarea {
 }
 
 /* Bubble mode: hide the reaction count (only shown in the hover tooltip) */
-:root:not([data-message-style="discord"]) .reaction > :nth-child(2) {
+:root:not([data-message-style="discord"]) .reaction> :nth-child(2) {
   display: none;
 }
 
 /* Bubble mode: reserve room at the bottom of the bubble for the reactions badge */
-:root:not([data-message-style="discord"]) .msg.has-reactions > .bubble {
+:root:not([data-message-style="discord"]) .msg.has-reactions>.bubble {
   padding-bottom: 28px;
 }
 
-:root:not([data-message-style="discord"]) .msg.has-reactions > .bubble > .bubble__time {
+:root:not([data-message-style="discord"]) .msg.has-reactions>.bubble>.bubble__time {
   position: absolute;
   bottom: 8px;
   right: 10px;

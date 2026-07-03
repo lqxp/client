@@ -525,8 +525,9 @@ onBeforeUnmount(() => {
     </span>
     <span v-else class="msg__spacer"></span>
 
-    <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }" @contextmenu.prevent.stop="onMessageContextMenu">
-      <div v-if="showAuthor && !isOwn" class="jumbo__author">
+    <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }"
+      @contextmenu.prevent.stop="onMessageContextMenu">
+      <div v-if="showAuthor" class="jumbo__author">
         {{ message.username }}
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
@@ -534,10 +535,11 @@ onBeforeUnmount(() => {
       <span v-if="showTimestamp && !isDiscordStyle" class="jumbo__time">
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
-      <div v-if="message.reactions.length" class="reactions reactions--standalone" @contextmenu.prevent.stop="onMessageContextMenu">
+      <div v-if="message.reactions.length" class="reactions reactions--standalone"
+        @contextmenu.prevent.stop="onMessageContextMenu">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="onReactionClick(reaction)"
-          @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
+          type="button" @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
+          @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
@@ -604,14 +606,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <button
-        v-if="message.replyToMessageId && isDiscordStyle"
-        type="button"
-        class="reply-ref"
-        :class="{ 'is-missing': !repliedMessage }"
-        @click="onReplyClick"
-        @contextmenu.prevent.stop="onMessageContextMenu"
-      >
+      <button v-if="message.replyToMessageId && isDiscordStyle" type="button" class="reply-ref"
+        :class="{ 'is-missing': !repliedMessage }" @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu">
         <span class="reply-ref__hook" aria-hidden="true"></span>
         <span v-if="replyAvatarSrc" class="reply-ref__avatar reply-ref__avatar--image">
           <img :src="replyAvatarSrc" :alt="`${replyLabel} avatar`" />
@@ -630,13 +627,8 @@ onBeforeUnmount(() => {
         <span v-if="replyEdited" class="reply-ref__edited">(edited)</span>
       </button>
 
-      <button
-        v-else-if="message.replyToMessageId"
-        type="button"
-        class="reply-card"
-        @click="onReplyClick"
-        @contextmenu.prevent.stop="onMessageContextMenu"
-      >
+      <button v-else-if="message.replyToMessageId" type="button" class="reply-card" @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu">
         <span class="reply-card__author">{{ replyLabel }}</span>
         <span class="reply-card__text" v-html="renderDiscordEmoji(replyText)"></span>
       </button>
@@ -653,8 +645,9 @@ onBeforeUnmount(() => {
       </template>
 
       <template v-else-if="attachmentKind === 'image'">
-        <button v-if="attachmentUrl" type="button" class="att-image-link" :aria-label="`Open image preview: ${message.attachment.filename}`"
-          @click="openImageViewer" @contextmenu.prevent.stop="onMessageContextMenu">
+        <button v-if="attachmentUrl" type="button" class="att-image-link"
+          :aria-label="`Open image preview: ${message.attachment.filename}`" @click="openImageViewer"
+          @contextmenu.prevent.stop="onMessageContextMenu">
           <img :src="attachmentUrl" :alt="message.attachment.filename" class="att-image" />
         </button>
         <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
@@ -662,7 +655,8 @@ onBeforeUnmount(() => {
           :size-label="messenger.formatSize(message.attachment.size)" @close="imageViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -676,7 +670,8 @@ onBeforeUnmount(() => {
         <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -690,7 +685,8 @@ onBeforeUnmount(() => {
           :messenger="messenger" />
         <div v-if="message.text && !message.text.startsWith('[voice:')" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible && message.text && !message.text.startsWith('[voice:')" type="button"
@@ -704,7 +700,8 @@ onBeforeUnmount(() => {
       </template>
 
       <template v-else-if="attachmentKind === 'file' && message.attachment">
-        <button class="att-file" type="button" @click="download" :disabled="!attachmentUrl" @contextmenu.prevent.stop="onMessageContextMenu">
+        <button class="att-file" type="button" @click="download" :disabled="!attachmentUrl"
+          @contextmenu.prevent.stop="onMessageContextMenu">
           <span class="att-file-icon">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"
               stroke-linecap="round" stroke-linejoin="round">
@@ -728,11 +725,13 @@ onBeforeUnmount(() => {
             </svg>
           </span>
         </button>
-        <TextFilePreview v-if="textViewerOpen && attachmentUrl" :src="attachmentUrl" :filename="message.attachment.filename"
-          :size-label="messenger.formatSize(message.attachment.size)" @close="textViewerOpen = false" />
+        <TextFilePreview v-if="textViewerOpen && attachmentUrl" :src="attachmentUrl"
+          :filename="message.attachment.filename" :size-label="messenger.formatSize(message.attachment.size)"
+          @close="textViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -743,7 +742,8 @@ onBeforeUnmount(() => {
       <template v-else>
         <div class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)"></div>
+            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
           <span v-if="isDiscordStyle && edited && !deleted" class="bubble__edited">(edited)</span>
         </div>
         <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
@@ -751,7 +751,8 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer" class="embed" @contextmenu.prevent.stop="onMessageContextMenu">
+      <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer"
+        class="embed" @contextmenu.prevent.stop="onMessageContextMenu">
         <div v-if="preview.image" class="embed__media">
           <img :src="preview.image" :alt="preview.title || preview.url" loading="lazy" referrerpolicy="no-referrer" />
         </div>
@@ -766,15 +767,11 @@ onBeforeUnmount(() => {
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
 
-      <div
-        v-if="message.reactions.length && !deleted"
-        class="reactions"
-        :class="{ 'reactions--bubble-mode': keepBubbleReactions }"
-        @contextmenu.prevent.stop="onMessageContextMenu"
-      >
+      <div v-if="message.reactions.length && !deleted" class="reactions"
+        :class="{ 'reactions--bubble-mode': keepBubbleReactions }" @contextmenu.prevent.stop="onMessageContextMenu">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="onReactionClick(reaction)"
-          @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
+          type="button" @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
+          @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
         </button>
@@ -791,14 +788,9 @@ onBeforeUnmount(() => {
         <div v-if="!deleted" class="msg__context-section">
           <div class="msg__context-label">React</div>
           <div class="msg__context-reactions">
-            <button
-              v-for="emoji in messenger.QUICK_REACTIONS"
-              :key="`context-${message.messageId}-${emoji}`"
-              type="button"
-              class="msg__context-reaction"
-              @click="onToggleReaction(emoji)"
-              v-html="renderDiscordEmoji(emoji)"
-            ></button>
+            <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-${message.messageId}-${emoji}`"
+              type="button" class="msg__context-reaction" @click="onToggleReaction(emoji)"
+              v-html="renderDiscordEmoji(emoji)"></button>
           </div>
         </div>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
@@ -807,7 +799,8 @@ onBeforeUnmount(() => {
         <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
           <span>Copy user ID</span>
         </button>
-        <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem" @click="onDelete">
+        <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem"
+          @click="onDelete">
           <span>Delete message</span>
         </button>
       </div>
@@ -1358,7 +1351,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-:global(:root[data-message-style="discord"] .msg:not(.is-own) .jumbo) {
+:global(:root[data-message-style="discord"] .msg .jumbo) {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1492,6 +1485,11 @@ onBeforeUnmount(() => {
   word-break: break-word;
   line-height: 1;
 }
+
+:global(:root[data-message-style="discord"] .msg.is-own .jumbo__glyph) {
+  margin-left: 0;
+}
+
 :deep(.twemoji) {
   display: inline-block;
   width: 1.12em;
