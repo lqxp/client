@@ -173,6 +173,15 @@ function keepReactionTooltip() {
   }
 }
 
+function onReactionClick(reaction) {
+  props.messenger.toggleReaction(props.message, reaction.emoji);
+  if (reactionTooltipHideTimer) {
+    window.clearTimeout(reactionTooltipHideTimer);
+    reactionTooltipHideTimer = null;
+  }
+  reactionTooltip.value = null;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -527,7 +536,7 @@ onBeforeUnmount(() => {
       </span>
       <div v-if="message.reactions.length" class="reactions reactions--standalone" @contextmenu.prevent.stop="onMessageContextMenu">
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="messenger.toggleReaction(message, reaction.emoji)"
+          type="button" @click="onReactionClick(reaction)"
           @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
@@ -764,7 +773,7 @@ onBeforeUnmount(() => {
         @contextmenu.prevent.stop="onMessageContextMenu"
       >
         <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="messenger.toggleReaction(message, reaction.emoji)"
+          type="button" @click="onReactionClick(reaction)"
           @mouseenter="showReactionTooltip($event, reaction)" @mouseleave="scheduleHideReactionTooltip">
           <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
           <span v-if="reaction.count > 1">{{ reaction.count }}</span>
