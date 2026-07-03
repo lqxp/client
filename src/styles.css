@@ -1793,7 +1793,7 @@ textarea {
 }
 
 .msg.has-reactions {
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 
 .msg.is-own {
@@ -2258,24 +2258,33 @@ textarea {
 
 /* Reactions */
 .reactions {
-  position: absolute;
-  display: flex;
+  position: inline-block;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 3px;
-  bottom: -10px;
-  padding: 2px 4px;
-  background: var(--surface);
+  align-items: center;
+  gap: 2px;
+  bottom: 6px;
+  left: 8px;
+  right: auto;
+  padding: 2px 7px;
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
   border-radius: 999px;
-  border: 1.5px solid var(--bg);
-  z-index: 2;
+  border: 0;
+  z-index: 1;
+  min-height: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .msg:not(.is-own) .reactions {
-  left: 12px;
+  left: 8px;
+  right: auto;
 }
 
 .msg.is-own .reactions {
-  right: 12px;
+  left: 8px;
+  right: auto;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .reaction {
@@ -2285,11 +2294,28 @@ textarea {
   gap: 3px;
   font-size: 12px;
   color: var(--text);
-  padding: 0 3px;
+  padding: 0 2px;
 }
 
 .reaction:hover {
-  opacity: 0.8;
+  opacity: 0.85;
+}
+
+/* Bubble mode: hide the reaction count (only shown in the hover tooltip) */
+:root:not([data-message-style="discord"]) .reaction > :nth-child(2) {
+  display: none;
+}
+
+/* Bubble mode: reserve room at the bottom of the bubble for the reactions badge */
+:root:not([data-message-style="discord"]) .msg.has-reactions > .bubble {
+  padding-bottom: 28px;
+}
+
+:root:not([data-message-style="discord"]) .msg.has-reactions > .bubble > .bubble__time {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  margin-top: 0;
 }
 
 .reaction-tooltip {
