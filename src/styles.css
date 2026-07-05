@@ -1831,6 +1831,8 @@ textarea {
 }
 
 .bubble {
+  width: fit-content;
+  max-width: 100%;
   position: relative;
   max-width: 100%;
   min-width: 0;
