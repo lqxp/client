@@ -1879,36 +1879,61 @@ textarea {
 }
 
 .msg.is-system {
-  justify-content: center;
+  align-self: center;
+  max-width: none;
+  width: auto;
+  margin: 22px 0 14px;
 }
 
-.msg.is-system .msg__spacer {
+.msg.is-system .msg__spacer,
+.msg.is-system .msg__main > .bubble > .bubble__author,
+.msg.is-system .msg__main > .bubble > .bubble__body,
+.msg.is-system .msg__main > .bubble > .bubble__more,
+.msg.is-system .msg__main > .bubble > .bubble__time {
   display: none;
 }
 
+.msg.is-system .msg__main {
+  width: auto;
+}
+
 .msg.is-system .bubble {
-  margin: 0 auto;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-2, var(--bubble-in)) 82%, transparent);
+  width: auto;
+  padding: 0;
+  background: transparent;
   color: var(--muted);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root:not([data-message-style="discord"]) .msg.is-system .bubble {
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--surface-2, var(--bubble-in)) 82%, transparent);
+  border-radius: 999px;
 }
 
 .msg.is-system .bubble__system {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: center;
   gap: 8px;
-  font-size: 12.5px;
-  line-height: 1.2;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .msg.is-system .bubble__system-line {
   font-weight: 600;
+  display: block;
 }
 
 .msg.is-system .bubble__system-time {
   opacity: 0.8;
   white-space: nowrap;
+  display: block;
 }
 
 .msg.is-system .bubble-actions,
