@@ -66,6 +66,29 @@ function leaveRoomFromContext() {
   closeRoomContext();
 }
 
+function clearLocalMessagesFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  if (!confirm(t("thread.clearLocalMessagesConfirm", { room: props.messenger.displayRoomName(roomId) }))) return;
+  props.messenger.clearLocalRoomMessages?.(roomId);
+  props.messenger.showToast?.(t("thread.clearLocalMessagesSuccess"));
+  closeRoomContext();
+}
+
+function shareRoomTokenFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  props.messenger.copyRoomInvite(roomId)
+    .then(() => {
+      props.messenger.showToast(t("thread.copyTokenSuccess"));
+      closeRoomContext();
+    })
+    .catch((error) => {
+      props.messenger.state.lastError = error?.message || t("thread.copyTokenError");
+      closeRoomContext();
+    });
+}
+
 function roomIcon(roomId) {
   return props.messenger.roomIcon?.(roomId) || "";
 }
@@ -245,6 +268,8 @@ onBeforeUnmount(() => {
     >
       <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
       <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameRoom') }}</button>
+      <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">{{ t('thread.clearLocalMessages') }}</button>
+      <button type="button" role="menuitem" @click="shareRoomTokenFromContext">{{ t('thread.shareToken') }}</button>
       <button class="room-context__danger" type="button" role="menuitem" @click="leaveRoomFromContext">{{ t('thread.leaveRoom') }}</button>
     </div>
 
@@ -358,20 +383,24 @@ onBeforeUnmount(() => {
 .room-context {
   position: fixed;
   z-index: 120;
-  min-width: 196px;
+  min-width: 168px;
+  width: max-content;
+  max-width: 220px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 96%, black 4%);
   border: 1px solid var(--line);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(16px);
-  padding: 6px;
+  padding: 4px;
 }
 
 .room-context button {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   text-align: left;
+  white-space: nowrap;
   border-radius: 4px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   color: var(--text);
   font-size: 13px;
   font-weight: 500;

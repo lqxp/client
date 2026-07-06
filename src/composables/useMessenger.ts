@@ -3385,6 +3385,12 @@ export function useMessenger() {
     persist();
   }
 
+  function clearLocalRoomMessages(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    clearRoomMessages(id);
+  }
+
   function removeRoom(roomId) {
     const id = sanitizeRoomId(roomId);
     state.rooms = state.rooms.filter((r) => r.roomId !== id);
@@ -5909,6 +5915,7 @@ export function useMessenger() {
     submitCompose,
     createRandomRoom,
     copyRoomInvite,
+    clearLocalRoomMessages,
     removeRoom,
     touchRoom,
     exportData,
