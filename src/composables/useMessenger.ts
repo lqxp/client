@@ -3538,7 +3538,7 @@ export function useMessenger() {
     send({ op: 8, d });
   }
 
-  function requestJoin(roomId) {
+  function requestJoin(roomId, options = { silentJoin: false }) {
     const id = sanitizeRoomId(roomId);
     const validation = validateRoomId(id);
     if (validation) {
@@ -3549,7 +3549,7 @@ export function useMessenger() {
     if (state.joinedRooms.includes(id)) return;
     if (state.pendingJoinRooms.includes(id)) return;
     state.pendingJoinRooms.push(id);
-    send({ op: 3, d: { gameId: id } });
+    send({ op: 3, d: { gameId: id, silentJoin: options?.silentJoin === true } });
   }
 
   function fetchHistory(roomId) {
@@ -5002,8 +5002,9 @@ export function useMessenger() {
 
     const mine = isOwnMessage(normalized);
     const isDnd = sanitizePresenceStatus(state.status) === "dnd";
-    if (added && !mine && !isDnd) playMessageNotificationSound();
-    if (added && !mine && !isDnd)
+    const isSilentSystem = Boolean(normalized.system);
+    if (added && !mine && !isDnd && !isSilentSystem) playMessageNotificationSound();
+    if (added && !mine && !isDnd && !isSilentSystem)
       showAndroidMessageNotification(normalized, roomId);
     if (!mine && roomId !== state.activeRoom) {
       state.unreadByRoom[roomId] = (state.unreadByRoom[roomId] || 0) + 1;
@@ -5217,6 +5218,10 @@ export function useMessenger() {
   function handleJoinOp(d) {
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
+
+    if (d?.system && d?.joined) {
+      showTransientSystemRoomEvent(roomId, d.joined, "join");
+    }
 
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
 
@@ -5527,6 +5532,7 @@ export function useMessenger() {
     const keptLocalMessages = state.serverClearsLocalMessages
       ? []
       : localMessages.filter((message) => {
+          if (message?.system) return false;
           const messageId = String(message?.messageId || "");
           return !messageId || !serverMessageIds.has(messageId);
         });
@@ -5540,6 +5546,37 @@ export function useMessenger() {
     touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
     for (const message of serverMessages) requestEncryptedLinkPreview(message);
     if (roomId === state.activeRoom) scrollToBottom();
+    persist();
+  }
+
+  function showTransientSystemRoomEvent(roomId, username, eventKind) {
+    const id = sanitizeRoomId(roomId);
+    const user = sanitizeUsername(username);
+    if (!id || !user) return;
+    const action = eventKind === "leave" ? "left" : "joined";
+    pushMessageToRoom(
+      id,
+      normalizeMessage(
+        {
+          messageId: `system-${eventKind}-${id}-${user}-${Date.now()}`,
+          roomId: id,
+          user: "[system]",
+          username: "System",
+          text: `${user} ${action} the room`,
+          timestamp: Date.now(),
+          system: true,
+          deleted: false,
+          reactions: [],
+          replyToMessageId: "",
+          attachment: null,
+          encrypted: null,
+          preview: null,
+          editedAt: 0,
+        },
+        id,
+      ),
+    );
+    touchRoom(id);
     persist();
   }
 

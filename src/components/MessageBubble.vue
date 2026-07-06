@@ -40,6 +40,7 @@ function previewTextFor(target, fallbackId = "") {
 }
 
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
+const isSystem = computed(() => Boolean(props.message.system));
 const isDiscordStyle = computed(() => props.messenger.state.messageStyle === "discord");
 const showTimestamp = computed(() => props.position === "end" || props.position === "single");
 const keepBubbleReactions = computed(() => isDiscordStyle.value && props.position === "mid");
@@ -511,7 +512,7 @@ onBeforeUnmount(() => {
 
 <template>
   <article :id="messageDomId(message.messageId)" class="msg" :class="[
-    { 'is-own': isOwn, 'is-jumbo': jumbo, 'is-deleted': deleted },
+    { 'is-own': isOwn, 'is-jumbo': jumbo, 'is-deleted': deleted, 'is-system': isSystem },
     { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle },
     {
       'has-reactions': message.reactions.length && !deleted,
@@ -519,7 +520,7 @@ onBeforeUnmount(() => {
     },
     runClass
   ]" @contextmenu.prevent.stop="onMessageContextMenu">
-    <span v-if="showAvatar" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
+    <span v-if="showAvatar && !isSystem" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
       <img v-if="avatarSrc" :src="avatarSrc" :alt="`${message.username} avatar`" />
       <template v-else>{{ avatarInitials }}</template>
     </span>
@@ -633,9 +634,14 @@ onBeforeUnmount(() => {
         <span class="reply-card__text" v-html="renderDiscordEmoji(replyText)"></span>
       </button>
 
-      <div v-if="showAuthor" class="bubble__author">
+      <div v-if="showAuthor && !isSystem" class="bubble__author">
         <span>{{ message.username }}</span>
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
+      </div>
+
+      <div v-else-if="isSystem" class="bubble__system">
+        <span class="bubble__system-line">{{ message.text }}</span>
+        <span class="bubble__system-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
 
       <template v-if="deleted">
@@ -739,7 +745,7 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <template v-else>
+      <template v-else-if="!isSystem">
         <div class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
             @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">

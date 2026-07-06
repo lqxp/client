@@ -1878,6 +1878,46 @@ textarea {
   color: #fff;
 }
 
+.msg.is-system {
+  justify-content: center;
+}
+
+.msg.is-system .msg__spacer {
+  display: none;
+}
+
+.msg.is-system .bubble {
+  margin: 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2, var(--bubble-in)) 82%, transparent);
+  color: var(--muted);
+}
+
+.msg.is-system .bubble__system {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.msg.is-system .bubble__system-line {
+  font-weight: 600;
+}
+
+.msg.is-system .bubble__system-time {
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.msg.is-system .bubble-actions,
+.msg.is-system .bubble__time,
+.msg.is-system .reactions,
+.msg.is-system .embed {
+  display: none;
+}
+
 :root[data-message-style="discord"] .feed {
   gap: 0;
 }
