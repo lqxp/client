@@ -857,50 +857,41 @@ onBeforeUnmount(() => {
 
 .msg__context-menu {
   position: fixed;
-  display: grid;
-  gap: 0.3rem;
-  width: min(220px, calc(100vw - 24px));
-  padding: 0.45rem;
+  z-index: 140;
+  min-width: 144px;
+  width: max-content;
+  max-width: 192px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 94%, black 6%);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(18px);
-}
-
-.msg__context-section {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.35rem 0.2rem 0.15rem;
-}
-
-.msg__context-label {
-  padding: 0 0.45rem;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  padding: 3px;
 }
 
 .msg__context-item {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border: 0;
-  border-radius: 12px;
+  text-align: left;
+  white-space: nowrap;
+  border-radius: 4px;
   background: transparent;
   color: var(--text);
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 0.7rem 0.8rem;
-  font: inherit;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .msg__context-item:hover,
 .msg__context-item:focus-visible {
-  background: color-mix(in srgb, var(--surface-2) 80%, white 20%);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  color: #fff;
   outline: none;
 }
 
@@ -910,37 +901,13 @@ onBeforeUnmount(() => {
 }
 
 .msg__context-item.is-danger {
-  color: #ff8c8c;
+  color: var(--red) !important;
 }
 
 .msg__context-item.is-danger:hover,
 .msg__context-item.is-danger:focus-visible {
-  color: #fff;
-  background: color-mix(in srgb, #ff6b70 78%, transparent);
-}
-
-.msg__context-reactions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0 0.25rem 0.25rem;
-}
-
-.msg__context-reaction {
-  width: 2rem;
-  height: 2rem;
-  border: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-2) 72%, white 10%);
-  display: inline-grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.msg__context-reaction:hover,
-.msg__context-reaction:focus-visible {
-  background: color-mix(in srgb, var(--surface-2) 60%, white 24%);
-  outline: none;
+  background: rgba(255, 107, 112, 0.14) !important;
+  color: var(--red) !important;
 }
 
 .msg__avatar--image,
