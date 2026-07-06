@@ -791,14 +791,6 @@ onBeforeUnmount(() => {
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
           <span>Reply</span>
         </button>
-        <div v-if="!deleted" class="msg__context-section">
-          <div class="msg__context-label">React</div>
-          <div class="msg__context-reactions">
-            <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-${message.messageId}-${emoji}`"
-              type="button" class="msg__context-reaction" @click="onToggleReaction(emoji)"
-              v-html="renderDiscordEmoji(emoji)"></button>
-          </div>
-        </div>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
           <span>View profile</span>
         </button>
