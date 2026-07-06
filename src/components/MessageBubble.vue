@@ -787,7 +787,7 @@ onBeforeUnmount(() => {
 
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
-      <div class="msg__context-menu" :style="contextMenuStyle" role="menu" aria-label="Message actions" @click.stop>
+      <div class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" aria-label="Message actions" @click.stop>
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
           <span>Reply</span>
         </button>
@@ -856,58 +856,16 @@ onBeforeUnmount(() => {
 }
 
 .msg__context-menu {
-  position: fixed;
   z-index: 140;
-  min-width: 144px;
-  width: max-content;
-  max-width: 192px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
-  padding: 3px;
 }
 
 .msg__context-item {
-  width: auto;
-  min-width: 100%;
   border: 0;
-  text-align: left;
-  white-space: nowrap;
-  border-radius: 4px;
   background: transparent;
-  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px 8px;
-  font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.msg__context-item:hover,
-.msg__context-item:focus-visible {
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  color: #fff;
-  outline: none;
-}
-
-.msg__context-item:hover :is(svg, .twemoji),
-.msg__context-item:focus-visible :is(svg, .twemoji) {
-  color: currentColor;
-}
-
-.msg__context-item.is-danger {
-  color: var(--red) !important;
-}
-
-.msg__context-item.is-danger:hover,
-.msg__context-item.is-danger:focus-visible {
-  background: rgba(255, 107, 112, 0.14) !important;
-  color: var(--red) !important;
 }
 
 .msg__avatar--image,

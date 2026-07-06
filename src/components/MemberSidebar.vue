@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="memberContextOpen"
-      class="members__context-menu"
+      class="members__context-menu context-menu-base"
       role="menu"
       :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
       @click.stop
@@ -282,34 +282,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .members__context-menu {
-  position: fixed;
   z-index: 140;
-  min-width: 144px;
-  width: max-content;
-  max-width: 192px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
-  padding: 3px;
-}
-
-.members__context-menu button {
-  width: auto;
-  min-width: 100%;
-  text-align: left;
-  white-space: nowrap;
-  border-radius: 4px;
-  padding: 6px 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.members__context-menu button:hover {
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  color: #fff;
 }
 </style>

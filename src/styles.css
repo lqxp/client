@@ -73,6 +73,76 @@
   --call-context-muted-2: rgba(208, 214, 228, 0.55);
   --call-context-label: rgba(232, 236, 244, 0.84);
   --call-context-divider: rgba(255, 255, 255, 0.08);
+
+  --context-menu-min-width: 144px;
+  --context-menu-max-width: 192px;
+  --context-menu-radius: 9px;
+  --context-menu-padding: 3px;
+  --context-menu-bg: color-mix(in srgb, var(--surface) 96%, black 4%);
+  --context-menu-border: 1px solid var(--line);
+  --context-menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  --context-menu-blur: blur(16px);
+  --context-menu-item-radius: 4px;
+  --context-menu-item-padding: 6px 8px;
+  --context-menu-item-font-size: 12px;
+  --context-menu-item-font-weight: 500;
+  --context-menu-item-hover-bg: color-mix(in srgb, var(--accent) 78%, transparent);
+  --context-menu-item-hover-color: #fff;
+  --context-menu-danger-bg: rgba(255, 107, 112, 0.14);
+}
+
+.context-menu-base {
+  position: fixed;
+  z-index: 140;
+  min-width: var(--context-menu-min-width);
+  width: max-content;
+  max-width: var(--context-menu-max-width);
+  border-radius: var(--context-menu-radius);
+  background: var(--context-menu-bg);
+  border: var(--context-menu-border);
+  box-shadow: var(--context-menu-shadow);
+  backdrop-filter: var(--context-menu-blur);
+  padding: var(--context-menu-padding);
+}
+
+.context-menu-base button,
+.context-menu-base .context-menu-item {
+  width: auto;
+  min-width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  border-radius: var(--context-menu-item-radius);
+  padding: var(--context-menu-item-padding);
+  color: var(--text);
+  font-size: var(--context-menu-item-font-size);
+  font-weight: var(--context-menu-item-font-weight);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.context-menu-base button:hover,
+.context-menu-base button:focus-visible,
+.context-menu-base .context-menu-item:hover,
+.context-menu-base .context-menu-item:focus-visible {
+  background: var(--context-menu-item-hover-bg);
+  color: var(--context-menu-item-hover-color);
+  outline: none;
+}
+
+.context-menu-base button:hover :is(svg, img, .twemoji),
+.context-menu-base button:focus-visible :is(svg, img, .twemoji),
+.context-menu-base .context-menu-item:hover :is(svg, img, .twemoji),
+.context-menu-base .context-menu-item:focus-visible :is(svg, img, .twemoji) {
+  color: currentColor;
+}
+
+.context-menu-danger {
+  color: var(--red) !important;
+}
+
+.context-menu-danger:hover,
+.context-menu-danger:focus-visible {
+  background: var(--context-menu-danger-bg) !important;
+  color: var(--red) !important;
 }
 
 :root.is-android-runtime {

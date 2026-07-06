@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="roomContextOpen"
-      class="room-context"
+      class="room-context context-menu-base"
       role="menu"
       :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }"
       @click.stop
@@ -270,7 +270,7 @@ onBeforeUnmount(() => {
       <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameRoom') }}</button>
       <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">{{ t('thread.clearLocalMessages') }}</button>
       <button type="button" role="menuitem" @click="shareRoomTokenFromContext">{{ t('thread.shareToken') }}</button>
-      <button class="room-context__danger" type="button" role="menuitem" @click="leaveRoomFromContext">{{ t('thread.leaveRoom') }}</button>
+      <button class="room-context__danger context-menu-danger" type="button" role="menuitem" @click="leaveRoomFromContext">{{ t('thread.leaveRoom') }}</button>
     </div>
 
     <input
@@ -381,47 +381,6 @@ onBeforeUnmount(() => {
 }
 
 .room-context {
-  position: fixed;
   z-index: 120;
-  min-width: 144px;
-  width: max-content;
-  max-width: 192px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
-  padding: 3px;
-}
-
-.room-context button {
-  width: auto;
-  min-width: 100%;
-  text-align: left;
-  white-space: nowrap;
-  border-radius: 4px;
-  padding: 6px 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.room-context button:hover {
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  color: #fff;
-}
-
-.room-context__danger {
-  color: var(--red) !important;
-}
-
-.room-context__danger:hover {
-  background: rgba(255, 107, 112, 0.14) !important;
-  color: var(--red) !important;
-}
-
-.room-context button:hover :is(svg, img) {
-  color: currentColor;
 }
 </style>
