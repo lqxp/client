@@ -5675,7 +5675,9 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
-    const action = eventKind === "leave" ? "left" : "joined";
+    const text = eventKind === "leave"
+      ? t("thread.roomLeft", { user })
+      : t("thread.roomJoined", { user });
     pushMessageToRoom(
       id,
       normalizeMessage(
@@ -5684,7 +5686,7 @@ export function useMessenger() {
           roomId: id,
           user: "[system]",
           username: "System",
-          text: `${user} ${action} the room`,
+          text,
           timestamp: Date.now(),
           system: true,
           deleted: false,

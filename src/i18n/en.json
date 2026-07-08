@@ -112,6 +112,8 @@
         "clearLocalMessagesConfirm": "Clear all local messages for \"{room}\"?",
         "leaveRoomDeletesLocal": "Local messages will be deleted.",
         "leaveRoomConfirm": "Leave \"{room}\"?{suffix}",
+        "roomJoined": "{user} joined the room",
+        "roomLeft": "{user} left the room",
         "typingOne": "{user} is typing…",
         "typingMany": "{count} people are typing…"
     },

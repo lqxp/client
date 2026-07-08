@@ -135,6 +135,8 @@
         "clearLocalMessagesConfirm": "Очистить все локальные сообщения для \"{room}\"?",
         "leaveRoomDeletesLocal": "Локальные сообщения будут удалены.",
         "leaveRoomConfirm": "Покинуть \"{room}\"?{suffix}",
+        "roomJoined": "{user} вошёл в комнату",
+        "roomLeft": "{user} покинул комнату",
         "typingOne": "{user} печатает…",
         "typingMany": "Печатают {count} человек…"
     },
