@@ -251,10 +251,18 @@ onBeforeUnmount(() => {
       :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
       @click.stop
     >
-      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">{{ t('members.seeAvatar') }}</button>
-      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">{{ t('members.seeBanner') }}</button>
-      <button type="button" role="menuitem" @click="openProfileFromContext">{{ t('members.viewProfile') }}</button>
-      <button type="button" role="menuitem" @click="copyUserIdFromContext">{{ t('members.copyUserId') }}</button>
+      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">
+        <span>{{ t('members.seeAvatar') }}</span>
+      </button>
+      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">
+        <span>{{ t('members.seeBanner') }}</span>
+      </button>
+      <button type="button" role="menuitem" @click="openProfileFromContext">
+        <span>{{ t('members.viewProfile') }}</span>
+      </button>
+      <button type="button" role="menuitem" @click="copyUserIdFromContext">
+        <span>{{ t('members.copyUserId') }}</span>
+      </button>
     </div>
 
     <Teleport to="body">

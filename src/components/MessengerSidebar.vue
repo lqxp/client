@@ -280,11 +280,21 @@ onBeforeUnmount(() => {
       :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }"
       @click.stop
     >
-      <button type="button" role="menuitem" @click="pickRoomImageFromContext">{{ t('sidebar.contextChangeImage') }}</button>
-      <button type="button" role="menuitem" @click="renameRoomFromContext">{{ t('sidebar.contextRenameRoom') }}</button>
-      <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">{{ t('thread.clearLocalMessages') }}</button>
-      <button type="button" role="menuitem" @click="shareRoomTokenFromContext">{{ t('thread.shareToken') }}</button>
-      <button class="room-context__danger context-menu-danger" type="button" role="menuitem" @click="leaveRoomFromContext">{{ t('thread.leaveRoom') }}</button>
+      <button type="button" role="menuitem" @click="pickRoomImageFromContext">
+        <span>{{ t('sidebar.contextChangeImage') }}</span>
+      </button>
+      <button type="button" role="menuitem" @click="renameRoomFromContext">
+        <span>{{ t('sidebar.contextRenameRoom') }}</span>
+      </button>
+      <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
+        <span>{{ t('thread.clearLocalMessages') }}</span>
+      </button>
+      <button type="button" role="menuitem" @click="shareRoomTokenFromContext">
+        <span>{{ t('thread.shareToken') }}</span>
+      </button>
+      <button class="room-context__danger context-menu-danger" type="button" role="menuitem" @click="leaveRoomFromContext">
+        <span>{{ t('thread.leaveRoom') }}</span>
+      </button>
     </div>
 
     <input

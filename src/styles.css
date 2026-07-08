@@ -74,7 +74,7 @@
   --call-context-label: rgba(232, 236, 244, 0.84);
   --call-context-divider: rgba(255, 255, 255, 0.08);
 
-  --context-menu-min-width: 144px;
+  --context-menu-min-width: 0px;
   --context-menu-max-width: min(340px, calc(100vw - 24px));
   --context-menu-radius: 9px;
   --context-menu-padding: 3px;
@@ -95,7 +95,7 @@
   position: fixed;
   z-index: 140;
   min-width: var(--context-menu-min-width);
-  width: max-content;
+  width: fit-content;
   max-width: var(--context-menu-max-width);
   overflow-wrap: anywhere;
   border-radius: var(--context-menu-radius);
@@ -109,6 +109,7 @@
 .context-menu-base button,
 .context-menu-base .context-menu-item {
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   text-align: left;
   white-space: normal;
@@ -119,6 +120,14 @@
   font-size: var(--context-menu-item-font-size);
   font-weight: var(--context-menu-item-font-weight);
   transition: background-color 120ms ease, color 120ms ease;
+}
+
+.context-menu-base button > span,
+.context-menu-base .context-menu-item > span {
+  display: block;
+  max-width: calc(var(--context-menu-max-width) - 24px);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .context-menu-base button:hover,
