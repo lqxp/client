@@ -251,9 +251,9 @@ async function lockClientNow() {
     display: flex;
     align-items: center;
     padding: 0 12px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, black 6%);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px) saturate(1.08);
     -webkit-app-region: drag;
   }
 
