@@ -792,19 +792,19 @@ onBeforeUnmount(() => {
 
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
-      <div class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" aria-label="Message actions" @click.stop>
+      <div class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
-          <span>Reply</span>
+          <span>{{ t('message.reply') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
-          <span>View profile</span>
+          <span>{{ t('message.viewProfile') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
-          <span>Copy user ID</span>
+          <span>{{ t('message.copyUserId') }}</span>
         </button>
         <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem"
           @click="onDelete">
-          <span>Delete message</span>
+          <span>{{ t('message.deleteMessage') }}</span>
         </button>
       </div>
     </div>
