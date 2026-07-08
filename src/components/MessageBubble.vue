@@ -1042,7 +1042,7 @@ onBeforeUnmount(() => {
 }
 
 .msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img, .att-image, .embed__media, .video-player) {
-  filter: blur(16px);
+  filter: blur(28px);
 }
 
 .msg.is-streamer-blur .att-image-link {

@@ -15,7 +15,8 @@
         "enableStreamer": "Activar modo streamer",
         "disableStreamer": "Desactivar modo streamer",
         "moveToTray": "Mover {action} a la bandeja",
-        "moveFromTray": "Sacar {action} de la bandeja"
+        "moveFromTray": "Sacar {action} de la bandeja",
+        "rightClickHint": "Haz clic derecho en un icono de la barra para moverlo a la bandeja."
     },
     "onboarding": {
         "register": "Registrarse",

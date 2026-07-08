@@ -15,7 +15,8 @@
         "enableStreamer": "Enable streamer mode",
         "disableStreamer": "Disable streamer mode",
         "moveToTray": "Move {action} to tray",
-        "moveFromTray": "Move {action} out of tray"
+        "moveFromTray": "Move {action} out of tray",
+        "rightClickHint": "Right-click a title bar icon to move it to the tray."
     },
     "onboarding": {
         "register": "Register",

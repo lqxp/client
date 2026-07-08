@@ -144,6 +144,12 @@ function toggleTitlebarActionLocation(action: TitlebarAction) {
   persistTitlebarTrayItems();
 }
 
+function moveTitlebarActionToTray(action: TitlebarAction) {
+  if (isInTitlebarTray(action)) return;
+  titlebarTrayItems.value = [...titlebarTrayItems.value, action];
+  persistTitlebarTrayItems();
+}
+
 function runTitlebarAction(action: TitlebarAction) {
   if (action === "streamer") {
     toggleStreamerMode();
@@ -251,7 +257,7 @@ async function lockClientNow() {
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
       <div ref="titlebarTrayRef" class="desktop-titlebar__actions">
-        <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap">
+        <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap" @contextmenu.prevent="moveTitlebarActionToTray(action)">
           <button
             class="icon-btn"
             :class="{ 'desktop-titlebar__streamer': action === 'streamer', 'is-active': action === 'streamer' && messenger.state.streamerMode }"
@@ -281,15 +287,6 @@ async function lockClientNow() {
               <path d="M12 14v2" />
             </svg>
           </button>
-          <button
-            class="desktop-titlebar__move"
-            type="button"
-            :aria-label="t('titlebar.moveToTray', { action: titlebarActionLabel(action) })"
-            :title="t('titlebar.moveToTray', { action: titlebarActionLabel(action) })"
-            @click="toggleTitlebarActionLocation(action)"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18 15 12 9 6" /></svg>
-          </button>
         </div>
 
         <div class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
@@ -302,12 +299,11 @@ async function lockClientNow() {
             @click="toggleTitlebarTray"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 8h14l1.4 11H3.6L5 8Z" />
-              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-              <path d="M8 13h8" />
+              <path d="M6 15 12 9l6 6" />
             </svg>
           </button>
           <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" :aria-label="t('titlebar.quickActions')">
+            <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
             <div v-if="titlebarTrayEmpty" class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
             <template v-else>
             <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">

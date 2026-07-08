@@ -15,7 +15,8 @@
         "enableStreamer": "Включить режим стримера",
         "disableStreamer": "Выключить режим стримера",
         "moveToTray": "Переместить {action} в трей",
-        "moveFromTray": "Убрать {action} из трея"
+        "moveFromTray": "Убрать {action} из трея",
+        "rightClickHint": "Щёлкните правой кнопкой по значку в панели, чтобы переместить его в трей."
     },
     "onboarding": {
         "register": "Зарегистрироваться",
