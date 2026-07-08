@@ -14,8 +14,16 @@ import LockScreen from "@/components/LockScreen.vue";
 
 const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
+const TITLEBAR_ACTIONS = ["streamer", "settings", "lock"] as const;
+
+type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
+
 const mobileThreadOpen = ref(false);
 const settingsInitialSection = ref("profile");
+const titlebarTrayOpen = ref(false);
+const titlebarTrayRef = ref<HTMLElement | null>(null);
+const titlebarTrayItems = ref<TitlebarAction[]>([]);
 
 const isLocked = computed(() => messenger.state.clientLockLocked);
 const needsOnboarding = computed(
@@ -43,6 +51,10 @@ const desktopRoomIconIsImage = computed(() => {
   const icon = String(desktopRoomIcon.value || "").trim();
   return !!icon && !icon.startsWith("data:");
 });
+
+const titlebarMainItems = computed(() => TITLEBAR_ACTIONS.filter((action) => !titlebarTrayItems.value.includes(action)));
+const titlebarTrayActionItems = computed(() => TITLEBAR_ACTIONS.filter((action) => titlebarTrayItems.value.includes(action)));
+const titlebarTrayEmpty = computed(() => titlebarTrayActionItems.value.length === 0);
 
 let adaptiveThemeTimer: ReturnType<typeof setInterval> | null = null;
 let systemThemeMedia: MediaQueryList | null = null;
@@ -87,6 +99,69 @@ function applyAppearance() {
   document.documentElement.setAttribute("data-message-style", messenger.state.messageStyle || "bubble");
 }
 
+function onDocumentPointerDown(event: PointerEvent) {
+  if (!titlebarTrayOpen.value) return;
+  const target = event.target as Node | null;
+  if (target && titlebarTrayRef.value?.contains(target)) return;
+  titlebarTrayOpen.value = false;
+}
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") titlebarTrayOpen.value = false;
+}
+
+function toggleStreamerMode() {
+  messenger.setStreamerMode(!messenger.state.streamerMode);
+}
+
+function titlebarActionLabel(action: TitlebarAction) {
+  if (action === "streamer") return messenger.state.streamerMode ? "Désactiver le mode streamer" : "Activer le mode streamer";
+  if (action === "settings") return t("sidebar.settings");
+  return t("settings.security.lockNow");
+}
+
+function loadTitlebarTrayItems() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TITLEBAR_TRAY_STORAGE_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item): item is TitlebarAction => (TITLEBAR_ACTIONS as readonly string[]).includes(item));
+  } catch {
+    return [];
+  }
+}
+
+function persistTitlebarTrayItems() {
+  localStorage.setItem(TITLEBAR_TRAY_STORAGE_KEY, JSON.stringify(titlebarTrayItems.value));
+}
+
+function isInTitlebarTray(action: TitlebarAction) {
+  return titlebarTrayItems.value.includes(action);
+}
+
+function toggleTitlebarActionLocation(action: TitlebarAction) {
+  if (isInTitlebarTray(action)) titlebarTrayItems.value = titlebarTrayItems.value.filter((item) => item !== action);
+  else titlebarTrayItems.value = [...titlebarTrayItems.value, action];
+  persistTitlebarTrayItems();
+}
+
+function runTitlebarAction(action: TitlebarAction) {
+  if (action === "streamer") {
+    toggleStreamerMode();
+    return;
+  }
+  if (action === "settings") {
+    openSettings();
+    titlebarTrayOpen.value = false;
+    return;
+  }
+  lockClientNow();
+  titlebarTrayOpen.value = false;
+}
+
+function toggleTitlebarTray() {
+  titlebarTrayOpen.value = !titlebarTrayOpen.value;
+}
+
 function syncAppearanceWatchers() {
   if (adaptiveThemeTimer) {
     clearInterval(adaptiveThemeTimer);
@@ -115,12 +190,17 @@ watch(
 );
 
 onMounted(() => {
+  titlebarTrayItems.value = loadTitlebarTrayItems();
   if (messenger.state.authToken) messenger.refreshSession();
+  document.addEventListener("pointerdown", onDocumentPointerDown);
+  document.addEventListener("keydown", onDocumentKeydown);
 });
 
 onBeforeUnmount(() => {
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
   systemThemeMedia?.removeEventListener("change", applyAppearance);
+  document.removeEventListener("pointerdown", onDocumentPointerDown);
+  document.removeEventListener("keydown", onDocumentKeydown);
 });
 
 function showConversationList() {
@@ -170,20 +250,96 @@ async function lockClientNow() {
         </span>
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
-      <div class="desktop-titlebar__actions">
-        <button class="icon-btn" type="button" :aria-label="t('sidebar.settings')" @click="openSettings()">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
-          </svg>
-        </button>
-        <button class="icon-btn" type="button" :aria-label="t('settings.security.lockNow')" @click="lockClientNow">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M7 10V8a5 5 0 0 1 10 0v2" />
-            <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
-            <path d="M12 14v2" />
-          </svg>
-        </button>
+      <div ref="titlebarTrayRef" class="desktop-titlebar__actions">
+        <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap">
+          <button
+            class="icon-btn"
+            :class="{ 'desktop-titlebar__streamer': action === 'streamer', 'is-active': action === 'streamer' && messenger.state.streamerMode }"
+            type="button"
+            :aria-pressed="action === 'streamer' ? messenger.state.streamerMode : undefined"
+            :aria-label="titlebarActionLabel(action)"
+            :title="titlebarActionLabel(action)"
+            @click="runTitlebarAction(action)"
+          >
+            <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3l18 18" />
+              <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
+              <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
+              <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
+            </svg>
+            <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+              <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
+              <path d="M12 14v2" />
+            </svg>
+          </button>
+          <button
+            class="desktop-titlebar__move"
+            type="button"
+            :aria-label="`Ranger ${titlebarActionLabel(action)} dans le tray`"
+            :title="`Ranger ${titlebarActionLabel(action)} dans le tray`"
+            @click="toggleTitlebarActionLocation(action)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18 15 12 9 6" /></svg>
+          </button>
+        </div>
+
+        <div class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
+          <button
+            class="icon-btn desktop-titlebar__tray-toggle"
+            type="button"
+            :aria-expanded="titlebarTrayOpen"
+            aria-label="Ouvrir le tray"
+            title="Tray"
+            @click="toggleTitlebarTray"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 8h14l1.4 11H3.6L5 8Z" />
+              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+              <path d="M8 13h8" />
+            </svg>
+          </button>
+          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" aria-label="Actions rapides">
+            <div v-if="titlebarTrayEmpty" class="desktop-titlebar__tray-empty">Tray vide</div>
+            <template v-else>
+            <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
+              <button class="desktop-titlebar__tray-item" type="button" role="menuitem" @click="runTitlebarAction(action)">
+                <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18" />
+                  <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
+                  <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
+                  <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
+                </svg>
+                <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
+                  <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+                  <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
+                  <path d="M12 14v2" />
+                </svg>
+                <span>{{ titlebarActionLabel(action) }}</span>
+              </button>
+              <button class="desktop-titlebar__tray-move" type="button" :aria-label="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })" :title="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })" @click="toggleTitlebarActionLocation(action)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg>
+              </button>
+            </div>
+            </template>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -304,6 +460,7 @@ async function lockClientNow() {
   }
 
   .desktop-titlebar__actions {
+    position: relative;
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -313,6 +470,173 @@ async function lockClientNow() {
   .desktop-titlebar__actions .icon-btn {
     width: 30px;
     height: 30px;
+  }
+
+  .desktop-titlebar__action-wrap {
+    position: relative;
+  }
+
+  .desktop-titlebar__move {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
+  }
+
+  .desktop-titlebar__action-wrap:hover .desktop-titlebar__move,
+  .desktop-titlebar__move:focus-visible {
+    opacity: 1;
+  }
+
+  .desktop-titlebar__move:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .desktop-titlebar__move svg,
+  .desktop-titlebar__tray-move svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .desktop-titlebar__streamer.is-active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+  }
+
+  .desktop-titlebar__tray {
+    position: relative;
+  }
+
+  .desktop-titlebar__tray-toggle {
+    transition: transform 140ms ease, background-color 140ms ease;
+  }
+
+  .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
+    transform: translateY(1px) scale(0.96);
+    background: var(--surface-2);
+  }
+
+  .desktop-titlebar__tray-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 80;
+    min-width: 190px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface) 94%, black 6%);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(18px) saturate(1.1);
+  }
+
+  .desktop-titlebar__tray-menu::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 11px;
+    width: 10px;
+    height: 10px;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    background: inherit;
+    transform: rotate(45deg);
+  }
+
+  .desktop-titlebar__tray-empty {
+    position: relative;
+    z-index: 1;
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .desktop-titlebar__tray-row {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .desktop-titlebar__tray-item {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .desktop-titlebar__tray-item:hover {
+    background: var(--surface-2);
+  }
+
+  .desktop-titlebar__tray-move {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .desktop-titlebar__tray-move:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .desktop-titlebar__tray-item svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .desktop-titlebar__tray-item svg circle {
+    fill: none;
+  }
+
+  .desktop-titlebar__tray-move svg,
+  .desktop-titlebar__move svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   :deep(.thread__main) {

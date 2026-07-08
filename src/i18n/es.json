@@ -7,6 +7,16 @@
         "desktopDirectMessage": "Mensaje directo",
         "desktopGroupPlaceholder": "Conversación de grupo"
     },
+    "titlebar": {
+        "tray": "Bandeja",
+        "openTray": "Abrir bandeja",
+        "quickActions": "Acciones rápidas",
+        "emptyTray": "Bandeja vacía",
+        "enableStreamer": "Activar modo streamer",
+        "disableStreamer": "Desactivar modo streamer",
+        "moveToTray": "Mover {action} a la bandeja",
+        "moveFromTray": "Sacar {action} de la bandeja"
+    },
     "onboarding": {
         "register": "Registrarse",
         "login": "Iniciar sesión",

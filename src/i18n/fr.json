@@ -7,6 +7,16 @@
         "desktopDirectMessage": "Message direct",
         "desktopGroupPlaceholder": "Conversation de groupe"
     },
+    "titlebar": {
+        "tray": "Tray",
+        "openTray": "Ouvrir le tray",
+        "quickActions": "Actions rapides",
+        "emptyTray": "Tray vide",
+        "enableStreamer": "Activer le mode streamer",
+        "disableStreamer": "Désactiver le mode streamer",
+        "moveToTray": "Ranger {action} dans le tray",
+        "moveFromTray": "Sortir {action} du tray"
+    },
     "onboarding": {
         "register": "S'inscrire",
         "login": "Se connecter",

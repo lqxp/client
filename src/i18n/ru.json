@@ -7,6 +7,16 @@
         "desktopDirectMessage": "Личное сообщение",
         "desktopGroupPlaceholder": "Групповая беседа"
     },
+    "titlebar": {
+        "tray": "Трей",
+        "openTray": "Открыть трей",
+        "quickActions": "Быстрые действия",
+        "emptyTray": "Трей пуст",
+        "enableStreamer": "Включить режим стримера",
+        "disableStreamer": "Выключить режим стримера",
+        "moveToTray": "Переместить {action} в трей",
+        "moveFromTray": "Убрать {action} из трея"
+    },
     "onboarding": {
         "register": "Зарегистрироваться",
         "login": "Войти",
