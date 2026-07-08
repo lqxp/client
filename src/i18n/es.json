@@ -270,6 +270,14 @@
             "disableLockConfirm": "El PIN es correcto. ¿Confirmar la desactivación del bloqueo del cliente y volver a guardar los datos locales sin cifrar?",
             "disableLockSuccess": "El bloqueo del cliente se ha desactivado.",
             "pinMismatch": "Los PIN no coinciden.",
+            "autolockEnabled": "Bloquear automáticamente tras inactividad",
+            "autolockThreshold": "Duración de inactividad",
+            "autolockOneMinute": "1 minuto",
+            "autolockTenMinutes": "10 minutos",
+            "autolockThirtyMinutes": "30 minutos",
+            "autolockOneHour": "1 hora",
+            "autolockTwoHours": "2 horas",
+            "autolockFiveHours": "5 horas",
             "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar."
         },
         "privacy": {

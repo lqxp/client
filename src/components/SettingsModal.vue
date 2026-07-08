@@ -27,6 +27,26 @@ const lockPinConfirm = ref("");
 const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
 const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
+const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
+
+function autolockLabel(ms: number) {
+  switch (Number(ms)) {
+    case 60_000:
+      return t('settings.security.autolockOneMinute');
+    case 600_000:
+      return t('settings.security.autolockTenMinutes');
+    case 1_800_000:
+      return t('settings.security.autolockThirtyMinutes');
+    case 3_600_000:
+      return t('settings.security.autolockOneHour');
+    case 7_200_000:
+      return t('settings.security.autolockTwoHours');
+    case 18_000_000:
+      return t('settings.security.autolockFiveHours');
+    default:
+      return `${Math.round(Number(ms) / 60000)} min`;
+  }
+}
 
 watch(lockPinLength, (length) => {
   lockPin.value = lockPin.value.replace(/\D/g, "").slice(0, length);
@@ -225,6 +245,10 @@ function targetChecked(event: Event) {
 
 function targetValue(event: Event) {
   return (event.target as HTMLInputElement | HTMLSelectElement | null)?.value || "";
+}
+
+function targetNumber(event: Event) {
+  return Number((event.target as HTMLInputElement | HTMLSelectElement | null)?.value) || 0;
 }
 
 const microphones = computed(() =>
@@ -691,14 +715,32 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <div v-else class="settings-actions">
-            <button type="button" class="btn settings-btn" :disabled="messenger.state.clientLockLoading"
-              @click="messenger.lockClient">
-              {{ t('settings.security.lockNow') }}
-            </button>
-            <button type="button" class="btn settings-btn settings-btn--danger" @click="onDisableClientLock">
-              {{ t('settings.security.disableLock') }}
-            </button>
+          <div v-else>
+            <label class="settings-check">
+              <span>{{ t('settings.security.autolockEnabled') }}</span>
+              <input type="checkbox" :checked="messenger.state.clientLockAutolockEnabled"
+                @change="messenger.setClientLockAutolockEnabled(targetChecked($event))" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </label>
+            <label class="settings-select">
+              <span>{{ t('settings.security.autolockThreshold') }}</span>
+              <select :value="messenger.state.clientLockAutolockTimeoutMs"
+                :disabled="!messenger.state.clientLockAutolockEnabled"
+                @change="messenger.setClientLockAutolockTimeoutMs(targetNumber($event))">
+                <option v-for="ms in autolockOptions" :key="ms" :value="ms">
+                  {{ autolockLabel(ms) }}
+                </option>
+              </select>
+            </label>
+            <div class="settings-actions">
+              <button type="button" class="btn settings-btn" :disabled="messenger.state.clientLockLoading"
+                @click="messenger.lockClient">
+                {{ t('settings.security.lockNow') }}
+              </button>
+              <button type="button" class="btn settings-btn settings-btn--danger" @click="onDisableClientLock">
+                {{ t('settings.security.disableLock') }}
+              </button>
+            </div>
           </div>
           <p class="settings-note">
             {{ t('settings.security.clientLockNote') }}

@@ -273,6 +273,14 @@
             "disableLockConfirm": "The PIN is correct. Confirm disabling client lock and rewriting local data in plain text?",
             "disableLockSuccess": "Client lock has been disabled.",
             "pinMismatch": "PINs do not match.",
+            "autolockEnabled": "Automatically lock after inactivity",
+            "autolockThreshold": "Inactivity duration",
+            "autolockOneMinute": "1 minute",
+            "autolockTenMinutes": "10 minutes",
+            "autolockThirtyMinutes": "30 minutes",
+            "autolockOneHour": "1 hour",
+            "autolockTwoHours": "2 hours",
+            "autolockFiveHours": "5 hours",
             "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted."
         },
         "privacy": {

@@ -295,6 +295,14 @@
             "disableLockConfirm": "PIN-код верный. Подтвердить отключение блокировки клиента и повторное сохранение локальных данных без шифрования?",
             "disableLockSuccess": "Блокировка клиента отключена.",
             "pinMismatch": "PIN-коды не совпадают.",
+            "autolockEnabled": "Автоматически блокировать при бездействии",
+            "autolockThreshold": "Время бездействия",
+            "autolockOneMinute": "1 минута",
+            "autolockTenMinutes": "10 минут",
+            "autolockThirtyMinutes": "30 минут",
+            "autolockOneHour": "1 час",
+            "autolockTwoHours": "2 часа",
+            "autolockFiveHours": "5 часов",
             "clientLockNote": "Когда блокировка включена, локальные данные QxChat шифруются на этом устройстве ключом, полученным из PIN. Без PIN их нельзя расшифровать."
         },
         "privacy": {

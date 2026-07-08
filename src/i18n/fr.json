@@ -273,6 +273,14 @@
             "disableLockConfirm": "Le PIN est correct. Confirmer la désactivation du verrouillage client et la réécriture des données locales en clair ?",
             "disableLockSuccess": "Le verrouillage client a été désactivé.",
             "pinMismatch": "Les PIN ne correspondent pas.",
+            "autolockEnabled": "Verrouillage automatique après inactivité",
+            "autolockThreshold": "Durée d’inactivité",
+            "autolockOneMinute": "1 minute",
+            "autolockTenMinutes": "10 minutes",
+            "autolockThirtyMinutes": "30 minutes",
+            "autolockOneHour": "1 heure",
+            "autolockTwoHours": "2 heures",
+            "autolockFiveHours": "5 heures",
             "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées."
         },
         "privacy": {

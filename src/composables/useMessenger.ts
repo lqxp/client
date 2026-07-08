@@ -46,6 +46,8 @@ const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const CLIENT_LOCK_PBKDF2_ITERATIONS = 250000;
 const CLIENT_LOCK_PIN_LENGTHS = [4, 6, 8];
+const CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS = [60_000, 600_000, 1_800_000, 3_600_000, 7_200_000, 18_000_000];
+const CLIENT_LOCK_DEFAULT_AUTOLOCK_TIMEOUT_MS = 600_000;
 const CLIENT_LOCK_DB_NAME = "qxprotocol-client-lock";
 const CLIENT_LOCK_DB_VERSION = 1;
 const CLIENT_LOCK_STORE = "payloads";
@@ -407,6 +409,13 @@ function sanitizeClientId(value) {
     .slice(0, 48);
 }
 
+function sanitizeClientLockAutolockTimeoutMs(value) {
+  const timeoutMs = Math.round(Number(value) || 0);
+  return CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS.includes(timeoutMs)
+    ? timeoutMs
+    : CLIENT_LOCK_DEFAULT_AUTOLOCK_TIMEOUT_MS;
+}
+
 function getPersistentClientId() {
   try {
     const existing = sanitizeClientId(
@@ -689,6 +698,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockLoading: false,
     clientLockProgress: 0,
     clientLockPinLength: 6,
+    clientLockAutolockEnabled: false,
+    clientLockAutolockTimeoutMs: CLIENT_LOCK_DEFAULT_AUTOLOCK_TIMEOUT_MS,
     clientLockStorage: "",
     clientLockDisplayName: "",
     clientLockAvatar: null,
@@ -772,6 +783,8 @@ function loadPersisted() {
         clientLockAvatar: normalizeProfileImage(raw.avatar, MAX_PROFILE_AVATAR_BYTES),
         clientLockThemeMode: THEME_MODES.includes(String(raw.themeMode || "").toLowerCase()) ? String(raw.themeMode).toLowerCase() : "system",
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
+        clientLockAutolockEnabled: raw.autolockEnabled === true,
+        clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(raw.autolockTimeoutMs),
       });
     }
     const profile = loadPersistedProfile();
@@ -969,6 +982,8 @@ function loadPersisted() {
       clientLockFailedAttempts: 0,
       clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
+      clientLockAutolockEnabled: raw.clientLockAutolockEnabled === true,
+      clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(raw.clientLockAutolockTimeoutMs),
     };
   } catch {
     return defaultPersisted();
@@ -1186,6 +1201,9 @@ function buildPersistedPayload(state) {
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     profile: normalizeProfile(state.profile),
+    clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(state.clientLockPinLength)) ? Number(state.clientLockPinLength) : 6,
+    clientLockAutolockEnabled: state.clientLockAutolockEnabled === true,
+    clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(state.clientLockAutolockTimeoutMs),
   };
   return payload;
 }
@@ -1207,6 +1225,8 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     displayName: sanitizeUsername(payload?.username || ""),
     avatar: normalizeProfileImage(payload?.profile?.avatar, MAX_PROFILE_AVATAR_BYTES),
     themeMode: THEME_MODES.includes(String(payload?.themeMode || "").toLowerCase()) ? String(payload.themeMode).toLowerCase() : "system",
+    autolockEnabled: payload?.clientLockAutolockEnabled === true,
+    autolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
@@ -1602,6 +1622,8 @@ export function useMessenger() {
     clientLockLoading: false,
     clientLockProgress: 0,
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number((persisted as any).clientLockPinLength)) ? Number((persisted as any).clientLockPinLength) : 6,
+    clientLockAutolockEnabled: (persisted as any).clientLockAutolockEnabled === true,
+    clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs((persisted as any).clientLockAutolockTimeoutMs),
     clientLockStorage: (persisted as any).clientLockStorage || "",
     clientLockDisplayName: String((persisted as any).clientLockDisplayName || ""),
     clientLockAvatar: normalizeProfileImage((persisted as any).clientLockAvatar, MAX_PROFILE_AVATAR_BYTES),
@@ -1721,6 +1743,8 @@ export function useMessenger() {
   const localClientId = getPersistentClientId();
   const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let typingIdleTimer: ReturnType<typeof setTimeout> | null = null;
+  let clientLockAutolockTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastClientActivityAt = Date.now();
   let typingActiveRoomId = "";
   let typingLastSentAt = 0;
   function currentLocalPlatform() {
@@ -1885,6 +1909,9 @@ export function useMessenger() {
       profile: normalizeProfile(payload?.profile),
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
+      clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(payload?.clientLockPinLength)) ? Number(payload.clientLockPinLength) : 6,
+      clientLockAutolockEnabled: payload?.clientLockAutolockEnabled === true,
+      clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
     });
     state.authToken = normalized.authToken;
     state.userId = normalized.userId;
@@ -1922,6 +1949,9 @@ export function useMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
+    state.clientLockPinLength = normalized.clientLockPinLength;
+    state.clientLockAutolockEnabled = normalized.clientLockAutolockEnabled;
+    state.clientLockAutolockTimeoutMs = normalized.clientLockAutolockTimeoutMs;
   }
 
   async function applyPersistedPayloadAfterUnlock(payload) {
@@ -1939,6 +1969,54 @@ export function useMessenger() {
   function persist() {
     if (state.clientLockLocked) return Promise.resolve();
     return savePersisted(state);
+  }
+
+  function clearClientLockAutolockTimer() {
+    if (clientLockAutolockTimer) {
+      clearTimeout(clientLockAutolockTimer);
+      clientLockAutolockTimer = null;
+    }
+  }
+
+  function shouldRunClientLockAutolock() {
+    return Boolean(
+      state.clientLockEnabled &&
+      state.clientLockAutolockEnabled &&
+      !state.clientLockLocked &&
+      activeClientLockKey,
+    );
+  }
+
+  function scheduleClientLockAutolock() {
+    clearClientLockAutolockTimer();
+    if (!shouldRunClientLockAutolock()) return;
+    const timeoutMs = sanitizeClientLockAutolockTimeoutMs(state.clientLockAutolockTimeoutMs);
+    const remainingMs = Math.max(0, timeoutMs - (Date.now() - lastClientActivityAt));
+    clientLockAutolockTimer = setTimeout(async () => {
+      if (!shouldRunClientLockAutolock()) return;
+      if (Date.now() - lastClientActivityAt >= timeoutMs) {
+        await lockClient();
+        return;
+      }
+      scheduleClientLockAutolock();
+    }, remainingMs);
+  }
+
+  function markClientActivity() {
+    lastClientActivityAt = Date.now();
+    scheduleClientLockAutolock();
+  }
+
+  function setClientLockAutolockEnabled(value) {
+    state.clientLockAutolockEnabled = Boolean(value);
+    markClientActivity();
+    persist();
+  }
+
+  function setClientLockAutolockTimeoutMs(value) {
+    state.clientLockAutolockTimeoutMs = sanitizeClientLockAutolockTimeoutMs(value);
+    markClientActivity();
+    persist();
   }
 
   async function enableClientLock(pin) {
@@ -1961,6 +2039,9 @@ export function useMessenger() {
       state.clientLockEnabled = true;
       state.clientLockLocked = false;
       state.clientLockPinLength = String(pin).length;
+      state.clientLockAutolockEnabled = false;
+      state.clientLockAutolockTimeoutMs = sanitizeClientLockAutolockTimeoutMs(state.clientLockAutolockTimeoutMs);
+      markClientActivity();
       await persist();
       showToast("Client lock enabled.");
       return true;
@@ -2067,6 +2148,7 @@ export function useMessenger() {
       state.clientLockFailedAttempts = 0;
       state.clientLockPinLength = String(pin).length;
       state.clientLockProgress = 100;
+      markClientActivity();
       persistClientLockFailedAttempts();
       await yieldToBrowser();
       connect();
@@ -2092,6 +2174,7 @@ export function useMessenger() {
 
   async function lockClient() {
     if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey) return false;
+    clearClientLockAutolockTimer();
     const lockedPayload = await encryptClientLockPayload(
       buildPersistedPayload(state),
       activeClientLockKey,
@@ -2121,6 +2204,8 @@ export function useMessenger() {
     state.clientLockDisplayName = String(lockedPayload.displayName || "");
     state.clientLockAvatar = normalizeProfileImage(lockedPayload.avatar, MAX_PROFILE_AVATAR_BYTES);
     state.clientLockThemeMode = THEME_MODES.includes(String(lockedPayload.themeMode || "").toLowerCase()) ? String(lockedPayload.themeMode).toLowerCase() : "system";
+    state.clientLockAutolockEnabled = lockedPayload.autolockEnabled === true;
+    state.clientLockAutolockTimeoutMs = sanitizeClientLockAutolockTimeoutMs(lockedPayload.autolockTimeoutMs);
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
@@ -2167,12 +2252,32 @@ export function useMessenger() {
     state.clientLockDisplayName = "";
     state.clientLockAvatar = null;
     state.clientLockThemeMode = "dark";
+    state.clientLockAutolockEnabled = false;
+    clearClientLockAutolockTimer();
     activeClientLockKey = null;
     await deleteClientLockPayload();
     await persist();
     showToast("Client lock disabled.");
     return true;
   }
+
+  function installClientActivityListeners() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"];
+    for (const eventName of events) {
+      window.addEventListener(eventName, markClientActivity, { passive: true });
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        scheduleClientLockAutolock();
+      } else {
+        markClientActivity();
+      }
+    });
+    markClientActivity();
+  }
+
+  installClientActivityListeners();
 
   async function apiRequest(path, options: any = {}) {
     const headers = {
@@ -5870,6 +5975,9 @@ export function useMessenger() {
     verifyClientLockPin,
     lockClient,
     disableClientLock,
+    clientLockAutolockTimeoutsMs: CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS,
+    setClientLockAutolockEnabled,
+    setClientLockAutolockTimeoutMs,
     loadAdminOverview,
     setAdminFeature,
     setAdminUserDisabled,
