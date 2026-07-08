@@ -3,7 +3,9 @@
         "noConversation": "Aucune conversation sélectionnée",
         "noConversationHint": "Choisissez un salon dans la liste ou touchez l’icône crayon pour en démarrer un.",
         "inCall": "En appel · {room} · {elapsed}",
-        "endCall": "Terminer"
+        "endCall": "Terminer",
+        "desktopDirectMessage": "Direct Message",
+        "desktopGroupPlaceholder": "Placeholder"
     },
     "onboarding": {
         "register": "S'inscrire",

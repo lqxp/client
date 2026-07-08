@@ -3,7 +3,9 @@
         "noConversation": "Ninguna conversación seleccionada",
         "noConversationHint": "Elige una sala de la lista o toca el icono de lápiz para crear una.",
         "inCall": "En llamada · {room} · {elapsed}",
-        "endCall": "Terminar"
+        "endCall": "Terminar",
+        "desktopDirectMessage": "Mensaje directo",
+        "desktopGroupPlaceholder": "Placeholder"
     },
     "onboarding": {
         "register": "Registrarse",

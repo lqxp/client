@@ -1,7 +1,9 @@
 {
     "app": {
         "title": "LQXP",
-        "tagline": "Небольшой и быстрый чат для сообществ"
+        "tagline": "Небольшой и быстрый чат для сообществ",
+        "desktopDirectMessage": "Личное сообщение",
+        "desktopGroupPlaceholder": "Placeholder"
     },
     "onboarding": {
         "register": "Зарегистрироваться",

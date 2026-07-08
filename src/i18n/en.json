@@ -3,7 +3,9 @@
         "noConversation": "No conversation selected",
         "noConversationHint": "Pick a room from the list or tap the pencil icon to start one.",
         "inCall": "In call · {room} · {elapsed}",
-        "endCall": "End"
+        "endCall": "End",
+        "desktopDirectMessage": "Direct Message",
+        "desktopGroupPlaceholder": "Placeholder"
     },
     "onboarding": {
         "register": "Register",
