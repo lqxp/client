@@ -1032,16 +1032,17 @@ onBeforeUnmount(() => {
 .msg.is-streamer-blur .msg__avatar:hover img,
 .msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar img, .reply-ref__username, .reply-ref__text),
 .msg.is-streamer-blur .reply-card:hover :is(.reply-card__author, .reply-card__text),
-.msg.is-streamer-blur .att-image-link:hover .att-image,
-.msg.is-streamer-blur .audio-player:hover,
-.msg.is-streamer-blur .video-player:hover,
-.msg.is-streamer-blur .att-file:hover .att-file-meta,
-.msg.is-streamer-blur .embed:hover :is(.embed__media, .embed__body) {
+.msg.is-streamer-blur .att-file:hover .att-file-meta {
   filter: none;
   opacity: 1;
 }
 
-.msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img, .att-image, .embed__media, .video-player) {
+.msg.is-streamer-blur :is(.att-image-link, .att-image, .audio-player, .video-player, .embed__media) {
+  filter: blur(30px);
+  opacity: 0.72;
+}
+
+.msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img) {
   filter: blur(28px);
 }
 
