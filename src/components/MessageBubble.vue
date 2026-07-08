@@ -41,6 +41,11 @@ function previewTextFor(target, fallbackId = "") {
 
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
 const isSystem = computed(() => Boolean(props.message.system));
+const isSystemPresenceEvent = computed(() =>
+  String(props.message.systemKind || "") === "presence" ||
+  /^msg-system-(join|leave)-/.test(String(props.message.id || props.message.messageId || "")) ||
+  /^system-(join|leave)-/.test(String(props.message.messageId || ""))
+);
 const isDiscordStyle = computed(() => props.messenger.state.messageStyle === "discord");
 const streamerBlur = computed(() => Boolean(props.messenger.state.streamerMode) && !props.message.deleted && !isSystem.value);
 const showTimestamp = computed(() => props.position === "end" || props.position === "single");
@@ -656,7 +661,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else-if="isSystem" class="bubble__system">
-        <button type="button" class="bubble__system-author" @click="selectedProfile = 'system'">@system</button>
+        <button v-if="!isSystemPresenceEvent" type="button" class="bubble__system-author" @click="selectedProfile = 'system'">@system</button>
         <span class="bubble__system-line">{{ message.text }}</span>
         <span class="bubble__system-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
