@@ -7,7 +7,8 @@ const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object, required: true },
+  initialSection: { type: String, default: "profile" }
 });
 
 const draftName = ref(props.messenger.state.username || "");
@@ -97,6 +98,9 @@ watch(isOpen, async (v) => {
     draftName.value = props.messenger.state.username || "";
     draftDescription.value = props.messenger.state.profile?.description || "";
     draftPronouns.value = props.messenger.state.profile?.pronouns || "";
+    if (sections.value.some((section) => section.id === props.initialSection)) {
+      activeSection.value = props.initialSection;
+    }
     props.messenger.refreshAudioDevices();
     await nextTick();
     if (!isMobileSettings.value && activeSection.value === "profile") {

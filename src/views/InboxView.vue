@@ -15,6 +15,7 @@ import LockScreen from "@/components/LockScreen.vue";
 const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const mobileThreadOpen = ref(false);
+const settingsInitialSection = ref("profile");
 
 const isLocked = computed(() => messenger.state.clientLockLocked);
 const needsOnboarding = computed(
@@ -135,13 +136,18 @@ function goToCallRoom() {
   }
 }
 
-function openSettings() {
+function openSettings(section = "profile") {
+  settingsInitialSection.value = section;
   messenger.state.settingsOpen = true;
 }
 
 async function lockClientNow() {
+  if (!messenger.state.clientLockEnabled) {
+    openSettings("security");
+    return;
+  }
   const locked = await messenger.lockClient();
-  if (!locked) messenger.state.settingsOpen = true;
+  if (!locked) openSettings("security");
 }
 </script>
 
@@ -163,7 +169,7 @@ async function lockClientNow() {
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
       <div class="desktop-titlebar__actions">
-        <button class="icon-btn" type="button" :aria-label="t('sidebar.settings')" @click="openSettings">
+        <button class="icon-btn" type="button" :aria-label="t('sidebar.settings')" @click="openSettings()">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
@@ -213,7 +219,7 @@ async function lockClientNow() {
       <button type="button" class="btn--ghost" @click.stop="messenger.endCall">{{ t('app.endCall') }}</button>
     </div>
 
-    <SettingsModal :messenger="messenger" />
+    <SettingsModal :messenger="messenger" :initial-section="settingsInitialSection" />
   </div>
 </template>
 
