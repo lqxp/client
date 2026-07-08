@@ -5,7 +5,7 @@
         "inCall": "En llamada · {room} · {elapsed}",
         "endCall": "Terminar",
         "desktopDirectMessage": "Mensaje directo",
-        "desktopGroupPlaceholder": "Placeholder"
+        "desktopGroupPlaceholder": "Conversación de grupo"
     },
     "onboarding": {
         "register": "Registrarse",

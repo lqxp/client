@@ -30,7 +30,7 @@ const callRoomLabel = computed(() => messenger.displayRoomName(callRoom.value));
 const callRoomDifferent = computed(() => inCall.value && callRoom.value !== messenger.state.activeRoom);
 const callElapsed = computed(() => messenger.formatDuration(messenger.state.callElapsed));
 const desktopConversationSelected = computed(() => !!String(messenger.state.activeRoom || "").trim());
-const desktopTitle = computed(() => desktopConversationSelected.value ? messenger.displayRoomName(messenger.state.activeRoom) : "No conversation selected");
+const desktopTitle = computed(() => desktopConversationSelected.value ? messenger.displayRoomName(messenger.state.activeRoom) : t("app.noConversation"));
 const desktopAccent = computed(() => messenger.activeConversation.value?.accent || "slate");
 const desktopInitials = computed(() => {
   const name = String(desktopTitle.value || "?").trim();

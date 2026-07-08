@@ -2,8 +2,10 @@
     "app": {
         "title": "LQXP",
         "tagline": "Небольшой и быстрый чат для сообществ",
+        "noConversation": "Беседа не выбрана",
+        "noConversationHint": "Выберите комнату из списка или нажмите на значок карандаша, чтобы начать новую.",
         "desktopDirectMessage": "Личное сообщение",
-        "desktopGroupPlaceholder": "Placeholder"
+        "desktopGroupPlaceholder": "Групповая беседа"
     },
     "onboarding": {
         "register": "Зарегистрироваться",
