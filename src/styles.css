@@ -75,7 +75,7 @@
   --call-context-divider: rgba(255, 255, 255, 0.08);
 
   --context-menu-min-width: 144px;
-  --context-menu-max-width: 192px;
+  --context-menu-max-width: min(340px, calc(100vw - 24px));
   --context-menu-radius: 9px;
   --context-menu-padding: 3px;
   --context-menu-bg: color-mix(in srgb, var(--surface) 96%, black 4%);
@@ -97,6 +97,7 @@
   min-width: var(--context-menu-min-width);
   width: max-content;
   max-width: var(--context-menu-max-width);
+  overflow-wrap: anywhere;
   border-radius: var(--context-menu-radius);
   background: var(--context-menu-bg);
   border: var(--context-menu-border);
@@ -107,10 +108,11 @@
 
 .context-menu-base button,
 .context-menu-base .context-menu-item {
-  width: auto;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   border-radius: var(--context-menu-item-radius);
   padding: var(--context-menu-item-padding);
   color: var(--text);

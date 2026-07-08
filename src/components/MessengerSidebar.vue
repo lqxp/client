@@ -13,6 +13,7 @@ const composeRef = ref(null);
 const statusMenuOpen = ref(false);
 const roomContextOpen = ref(false);
 const roomContextRoomId = ref("");
+const roomContextMenuRef = ref<HTMLElement | null>(null);
 const roomContextPos = ref({ x: 0, y: 0 });
 const roomIconInputRef = ref<HTMLInputElement | null>(null);
 const roomIconUploadRoomId = ref("");
@@ -98,12 +99,24 @@ function roomIconIsImage(roomId) {
   return !!icon && !icon.startsWith("data:");
 }
 
+async function positionRoomContext(clientX: number, clientY: number) {
+  const padding = 12;
+  roomContextPos.value = { x: clientX, y: clientY };
+  await nextTick();
+  const rect = roomContextMenuRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  roomContextPos.value = {
+    x: Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding)),
+    y: Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding)),
+  };
+}
+
 function onRoomContext(event, roomId) {
   event.preventDefault();
   event.stopPropagation();
   roomContextRoomId.value = roomId;
-  roomContextPos.value = { x: event.clientX, y: event.clientY };
   roomContextOpen.value = true;
+  positionRoomContext(event.clientX, event.clientY);
 }
 
 function closeRoomContext() {
@@ -261,6 +274,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="roomContextOpen"
+      ref="roomContextMenuRef"
       class="room-context context-menu-base"
       role="menu"
       :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }"

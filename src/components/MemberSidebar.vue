@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
@@ -61,17 +61,18 @@ const selectedAvatarUser = ref("");
 const selectedBannerUser = ref("");
 const memberContextOpen = ref(false);
 const memberContextUser = ref("");
+const memberContextMenuRef = ref<HTMLElement | null>(null);
 const memberContextPos = ref({ x: 0, y: 0 });
 
-function clampMemberContextPosition(clientX: number, clientY: number) {
-  const menuWidth = 196;
-  const menuHeight = 220;
+async function positionMemberContext(clientX: number, clientY: number) {
   const padding = 12;
-  const maxLeft = Math.max(padding, window.innerWidth - menuWidth - padding);
-  const maxTop = Math.max(padding, window.innerHeight - menuHeight - padding);
-  return {
-    x: Math.min(Math.max(clientX, padding), maxLeft),
-    y: Math.min(Math.max(clientY, padding), maxTop),
+  memberContextPos.value = { x: clientX, y: clientY };
+  await nextTick();
+  const rect = memberContextMenuRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  memberContextPos.value = {
+    x: Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding)),
+    y: Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding)),
   };
 }
 
@@ -104,8 +105,8 @@ function openMemberContext(event: MouseEvent, username: string) {
   event.preventDefault();
   event.stopPropagation();
   memberContextUser.value = username;
-  memberContextPos.value = clampMemberContextPosition(event.clientX, event.clientY);
   memberContextOpen.value = true;
+  positionMemberContext(event.clientX, event.clientY);
 }
 
 function closeProfile() {
@@ -244,6 +245,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="memberContextOpen"
+      ref="memberContextMenuRef"
       class="members__context-menu context-menu-base"
       role="menu"
       :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"

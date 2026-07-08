@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
@@ -100,6 +100,7 @@ const textViewerOpen = ref(false);
 const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
+const contextMenuRef = ref<HTMLElement | null>(null);
 const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
 const reactionTooltip = ref<{
   emoji: string;
@@ -438,23 +439,28 @@ function closeContextMenu() {
   contextMenuOpen.value = false;
 }
 
-function positionContextMenu(clientX: number, clientY: number) {
-  const menuWidth = 220;
-  const menuHeight = 320;
+async function positionContextMenu(clientX: number, clientY: number) {
   const padding = 12;
-  const maxLeft = Math.max(padding, window.innerWidth - menuWidth - padding);
-  const maxTop = Math.max(padding, window.innerHeight - menuHeight - padding);
   contextMenuStyle.value = {
-    left: `${Math.min(clientX, maxLeft)}px`,
-    top: `${Math.min(clientY, maxTop)}px`
+    left: `${clientX}px`,
+    top: `${clientY}px`
+  };
+  await nextTick();
+  const rect = contextMenuRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  const left = Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding));
+  const top = Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding));
+  contextMenuStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`
   };
 }
 
 function onMessageContextMenu(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
-  positionContextMenu(event.clientX, event.clientY);
   contextMenuOpen.value = true;
+  positionContextMenu(event.clientX, event.clientY);
 }
 
 function onGlobalPointerDown(event: PointerEvent) {
@@ -792,7 +798,7 @@ onBeforeUnmount(() => {
 
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
-      <div class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
+      <div ref="contextMenuRef" class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
           <span>{{ t('message.reply') }}</span>
         </button>
