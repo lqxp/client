@@ -44,6 +44,8 @@ import { useI18n } from "./useI18n";
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
+const SYSTEM_USERNAME = "system";
+const SYSTEM_PROFILE_AVATAR_B64 = "PHN2ZyB3aWR0aD0iMTgwcHgiIGhlaWdodD0iMTgwcHgiIHZpZXdCb3g9Ii0zLjY4IC0zLjY4IDIzLjM2IDIzLjM2IiB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iLTMuNjgiIHk9Ii0zLjY4IiB3aWR0aD0iMjMuMzYiIGhlaWdodD0iMjMuMzYiIHJ4PSIxMS42OCIgZmlsbD0iIzFjNzFkOCIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2IDApIHNjYWxlKC0xIDEpIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwIDEpIiBmaWxsPSIjZmZmZmZmIj48cGF0aCBkPSJNNS45MzkgMEMyLjY2NiAwIDAuMDA5IDEuOTg3IDAuMDA5IDQuNDM4YzAgMi4yMzYgMi4yMTUgNC4wODIgNS4wOTIgNC4zODdMMy44OCAxMS4yNmw0LjI0OS0yLjdDMTAuMzE4IDcuOTA2IDEyIDYuMzA5IDEyIDQuNDM4IDEyIDEuOTg4IDkuMjEzIDAgNS45MzkgMFoiLz48cGF0aCBkPSJNMTUuOTQ3IDguODljMC0xLjEyNC0xLjA2Mi0yLjI4OC0yLjI4OS0yLjg2OC0uMzQ0IDEuOTUtMS45MjQgMy43NDUtNC40MTcgNC40NDdsLTEuMTg3LjY0MmMuNDU0LjM0IDEuMDEuNjExIDEuNjM0Ljc4OGwzLjYzOCAxLjk3MS0xLjMwMy0xLjc3NmMyLjIxNy0uMjI1IDMuOTI0LTEuNTcxIDMuOTI0LTMuMjA0WiIvPjwvZz48L2c+PC9zdmc+";
 const CLIENT_LOCK_PBKDF2_ITERATIONS = 250000;
 const CLIENT_LOCK_PIN_LENGTHS = [4, 6, 8];
 const CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS = [60_000, 600_000, 1_800_000, 3_600_000, 7_200_000, 18_000_000];
@@ -78,6 +80,7 @@ const PROFILE_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
   "image/webp",
+  "image/svg+xml",
 ]);
 const PRESENCE_STATUSES = ["online", "invisible", "dnd"];
 const THEME_MODES = ["dark", "light", "adaptive", "system"];
@@ -107,6 +110,17 @@ function sanitizeUsername(value) {
     .slice(0, 32);
 }
 
+function isSystemUsername(value) {
+  return sanitizeUsername(value) === SYSTEM_USERNAME;
+}
+
+function systemProfile() {
+  return normalizeProfile({
+    avatar: { dataB64: SYSTEM_PROFILE_AVATAR_B64, mimeType: "image/svg+xml", size: 651, width: 180, height: 180 },
+    description: "Official QxChat system account.",
+  });
+}
+
 function validateUsername(value) {
   const username = sanitizeUsername(value);
   if (username.length < 2 || username.length > 32)
@@ -115,6 +129,8 @@ function validateUsername(value) {
     return "Username can only use a-z, 0-9, underscore and period.";
   if (username.includes(".."))
     return "Username cannot contain two consecutive periods.";
+  if (username === SYSTEM_USERNAME)
+    return "Username is reserved.";
   return "";
 }
 
@@ -1453,8 +1469,8 @@ function normalizeMessage(message, fallbackRoomId) {
   return {
     messageId: message.messageId,
     roomId: message.roomId || fallbackRoomId || "",
-    user: message.user || message.username || "Unknown",
-    username: message.username || extractUsername(message.user),
+    user: message.system ? SYSTEM_USERNAME : (message.user || message.username || "Unknown"),
+    username: message.system ? SYSTEM_USERNAME : (message.username || extractUsername(message.user)),
     text: voiceDuration ? "Voice message" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
@@ -2556,6 +2572,7 @@ export function useMessenger() {
   function profileFor(username) {
     const key = sanitizeUsername(username);
     if (!key) return normalizeProfile(null);
+    if (isSystemUsername(key)) return systemProfile();
     if (key === sanitizeUsername(state.username)) return myProfile.value;
     return normalizeProfile(state.profilesByUser[key]);
   }
@@ -2563,12 +2580,14 @@ export function useMessenger() {
   function badgesFor(username) {
     const key = sanitizeUsername(username);
     if (!key) return [];
+    if (isSystemUsername(key)) return ["system"];
     return normalizeUserBadges(state.badgesByUser[key]);
   }
 
   function statusFor(username) {
     const key = sanitizeUsername(username);
     if (!key) return "online";
+    if (isSystemUsername(key)) return "online";
     if (key === sanitizeUsername(state.username)) return myStatus.value;
     return sanitizePresenceStatus(state.statusesByUser[key]);
   }
@@ -4195,6 +4214,7 @@ export function useMessenger() {
   function userIdForUsername(username) {
     const key = sanitizeUsername(username);
     if (!key) return "";
+    if (isSystemUsername(key)) return "qxchat-system";
     if (key === sanitizeUsername(state.username)) return String(state.userId || state.uuid || "").trim();
     return String(state.userIdsByUsername[key] || "").trim();
   }
@@ -5684,8 +5704,8 @@ export function useMessenger() {
         {
           messageId: `system-${eventKind}-${id}-${user}-${Date.now()}`,
           roomId: id,
-          user: "[system]",
-          username: "System",
+          user: SYSTEM_USERNAME,
+          username: SYSTEM_USERNAME,
           text,
           timestamp: Date.now(),
           system: true,

@@ -84,11 +84,15 @@ const deleted = computed(() => props.message.deleted);
 const preview = computed(() => props.message.preview);
 const edited = computed(() => Number(props.message.editedAt || 0) > 0 && !props.message.deleted);
 const canEdit = computed(() => props.messenger.canEditMessage?.(props.message));
-const validMentionUsers = computed(() => new Set(
-  (props.messenger.state.usersByRoom?.[props.message.roomId || props.messenger.state.activeRoom] || [])
-    .map((name) => String(name || "").trim().toLowerCase())
-    .filter(Boolean)
-));
+const validMentionUsers = computed(() => {
+  const users = new Set(
+    (props.messenger.state.usersByRoom?.[props.message.roomId || props.messenger.state.activeRoom] || [])
+      .map((name) => String(name || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  users.add("system");
+  return users;
+});
 const effectiveMentioned = computed(() => {
   const me = String(props.messenger.state.username || "").trim().toLowerCase();
   if (!me || !validMentionUsers.value.has(me) || props.messenger.isOwnMessage(props.message)) return false;
@@ -652,6 +656,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else-if="isSystem" class="bubble__system">
+        <button type="button" class="bubble__system-author" @click="selectedProfile = 'system'">@system</button>
         <span class="bubble__system-line">{{ message.text }}</span>
         <span class="bubble__system-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
@@ -929,6 +934,22 @@ onBeforeUnmount(() => {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.bubble__system-author {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bubble__system-author:hover,
+.bubble__system-author:focus-visible {
+  text-decoration: underline;
 }
 
 :global(.mention[data-mention]) {

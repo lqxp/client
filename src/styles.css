@@ -1531,6 +1531,12 @@ textarea {
   display: block;
 }
 
+.profile-card__badge-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
 .profile-card__badge::after {
   content: attr(data-title);
   position: absolute;
