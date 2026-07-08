@@ -5189,7 +5189,7 @@ export function useMessenger() {
         if (d?.error) {
           state.lastError = d.error;
         } else {
-          applyRoomSnapshot(d, d?.gameId);
+          applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
         }
         break;
       case 33:
@@ -5308,7 +5308,7 @@ export function useMessenger() {
     state.voiceMembersByRoom[roomId] = [...members];
   }
 
-  function applyRoomSnapshot(d, fallbackRoomId = "") {
+  function applyRoomSnapshot(d, fallbackRoomId = "", options: { preserveTokenTitle?: boolean } = {}) {
     const roomId = sanitizeRoomId(
       d?.room?.room_id ||
         d?.room?.roomId ||
@@ -5320,12 +5320,17 @@ export function useMessenger() {
 
     const roomPayload = d?.room && typeof d.room === "object" ? d.room : null;
     const room = state.rooms.find((entry) => entry.roomId === roomId);
+    const existingTitle = String(room?.title || "").trim();
     const hasTitle = roomPayload && Object.prototype.hasOwnProperty.call(roomPayload, "title");
-    const nextTitle = hasTitle
+    const incomingTitle = hasTitle
       ? String(roomPayload?.title || "")
           .trim()
           .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH)
-      : String(room?.title || "");
+      : "";
+    const nextTitle =
+      hasTitle && !(options.preserveTokenTitle && existingTitle && incomingTitle === roomId)
+        ? incomingTitle
+        : existingTitle;
     const nextIconUrl = sanitizeHttpUrl(
       roomPayload?.icon?.file?.url ?? // format Rust RoomIcon { file: StoredFile { url } }
         roomPayload?.icon?.url ?? // format plat potentiel
@@ -5374,7 +5379,7 @@ export function useMessenger() {
   }
 
   function applyProfileUpdate(d) {
-    applyRoomSnapshot(d, d?.gameId);
+    applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
     const key = sanitizeUsername(d?.user);
     if (!key) return;
     const profile = mergeProfiles(state.profilesByUser[key], d?.profile);
@@ -5426,7 +5431,7 @@ export function useMessenger() {
   }
 
   function applyPresenceStatus(d) {
-    const roomId = applyRoomSnapshot(d, d?.gameId);
+    const roomId = applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
     const key = sanitizeUsername(d?.user);
     const me = sanitizeUsername(state.username);
 
@@ -5694,11 +5699,16 @@ export function useMessenger() {
               const roomId = sanitizeRoomId(r.roomId);
               const previous = previousRooms[roomId] || {};
               const hasTitle = Object.prototype.hasOwnProperty.call(r, "title");
+              const previousTitle = String(previous.title || "").trim();
+              const incomingTitle = hasTitle
+                ? String(r.title || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH)
+                : "";
               return {
                 roomId,
-                title: hasTitle
-                  ? String(r.title || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH)
-                  : String(previous.title || ""),
+                title:
+                  hasTitle && !(previousTitle && incomingTitle === roomId)
+                    ? incomingTitle
+                    : previousTitle,
                 lastPreview: String(r.lastPreview || ""),
                 lastTimestamp: Number(r.lastTimestamp) || 0,
                 lastSender: String(r.lastSender || ""),
