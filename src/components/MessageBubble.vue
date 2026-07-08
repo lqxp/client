@@ -42,6 +42,7 @@ function previewTextFor(target, fallbackId = "") {
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
 const isSystem = computed(() => Boolean(props.message.system));
 const isDiscordStyle = computed(() => props.messenger.state.messageStyle === "discord");
+const streamerBlur = computed(() => Boolean(props.messenger.state.streamerMode) && !props.message.deleted && !isSystem.value);
 const showTimestamp = computed(() => props.position === "end" || props.position === "single");
 const keepBubbleReactions = computed(() => isDiscordStyle.value && props.position === "mid");
 const discordActionsStyle = computed(() => (
@@ -524,7 +525,7 @@ onBeforeUnmount(() => {
 <template>
   <article :id="messageDomId(message.messageId)" class="msg" :class="[
     { 'is-own': isOwn, 'is-jumbo': jumbo, 'is-deleted': deleted, 'is-system': isSystem },
-    { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle },
+    { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle, 'is-streamer-blur': streamerBlur },
     {
       'has-reactions': message.reactions.length && !deleted,
       'has-discord-reply': message.replyToMessageId && isDiscordStyle
@@ -1018,6 +1019,30 @@ onBeforeUnmount(() => {
 
 :global(:root[data-message-style="discord"] .msg.is-jump-highlight) {
   background-color: rgba(88, 101, 242, 0.16);
+}
+
+.msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-image, .audio-player, .video-player, .att-file-meta, .embed__media, .embed__body, .reactions, .jumbo__glyph) {
+  filter: blur(8px);
+  opacity: 0.72;
+  transition: filter 120ms ease, opacity 120ms ease;
+}
+
+.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):hover,
+.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):focus-within,
+.msg.is-streamer-blur .msg__avatar:hover img,
+.msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar img, .reply-ref__username, .reply-ref__text),
+.msg.is-streamer-blur .reply-card:hover :is(.reply-card__author, .reply-card__text),
+.msg.is-streamer-blur .att-image-link:hover .att-image,
+.msg.is-streamer-blur .audio-player:hover,
+.msg.is-streamer-blur .video-player:hover,
+.msg.is-streamer-blur .att-file:hover .att-file-meta,
+.msg.is-streamer-blur .embed:hover :is(.embed__media, .embed__body) {
+  filter: none;
+  opacity: 1;
+}
+
+.msg.is-streamer-blur .att-image-link {
+  overflow: hidden;
 }
 
 :global(:root[data-message-style="discord"] .msg__avatar) {
