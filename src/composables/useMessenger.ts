@@ -5055,7 +5055,7 @@ export function useMessenger() {
           break;
         }
         state.uuid = d.uuid;
-        state.userId = String(d.uuid || state.userId || "");
+        if (d?.id || d?.userId) state.userId = String(d.id || d.userId || state.userId || "");
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
         if (state.username) state.badgesByUser[state.username] = normalizeUserBadges(d?.badges);

@@ -468,8 +468,13 @@ function onGlobalKeydown(event: KeyboardEvent) {
 }
 
 async function onCopyUserId() {
-  const userId = String(props.message.username || "").trim();
-  if (!userId) return;
+  const username = String(props.message.username || "").trim();
+  const userId = String(props.messenger.userIdForUsername?.(username) || "").trim();
+  if (!userId) {
+    props.messenger.showToast?.("User ID unavailable.");
+    closeContextMenu();
+    return;
+  }
   const copied = await copyText(userId);
   if (copied) props.messenger.state.toastMessage = "User ID copied.";
   closeContextMenu();
