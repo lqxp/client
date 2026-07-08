@@ -4081,6 +4081,9 @@ export function useMessenger() {
     const key = sanitizeUsername(username);
     const id = String(userId || "").trim();
     if (!key || !id) return;
+    const self = sanitizeUsername(state.username);
+    const selfId = String(state.userId || state.uuid || "").trim();
+    if (key !== self && selfId && id === selfId) return;
     state.userIdsByUsername[key] = id;
   }
 
