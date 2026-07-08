@@ -30,13 +30,13 @@ function messageDomId(messageId) {
 }
 
 function previewTextFor(target, fallbackId = "") {
-  if (!target) return fallbackId ? "Original message is not loaded." : "";
-  if (target.deleted) return "Message deleted";
-  if (target.kind === "image") return "Photo";
-  if (target.kind === "video") return "Video";
-  if (target.kind === "audio" || target.kind === "voice") return "Voice message";
-  if (target.kind === "file") return target.attachment?.filename || "File attachment";
-  return target.text || "Message";
+  if (!target) return fallbackId ? t("message.originalNotLoaded") : "";
+  if (target.deleted) return t("message.messageDeleted");
+  if (target.kind === "image") return t("message.photo");
+  if (target.kind === "video") return t("message.video");
+  if (target.kind === "audio" || target.kind === "voice") return t("message.voiceMessage");
+  if (target.kind === "file") return target.attachment?.filename || t("message.fileAttachment");
+  return target.text || t("composer.placeholder");
 }
 
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
