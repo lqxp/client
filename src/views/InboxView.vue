@@ -472,35 +472,6 @@ async function lockClientNow() {
     position: relative;
   }
 
-  .desktop-titlebar__move {
-    position: absolute;
-    right: -5px;
-    bottom: -5px;
-    width: 16px;
-    height: 16px;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--muted);
-    opacity: 0;
-    cursor: pointer;
-    transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
-  }
-
-  .desktop-titlebar__action-wrap:hover .desktop-titlebar__move,
-  .desktop-titlebar__move:focus-visible {
-    opacity: 1;
-  }
-
-  .desktop-titlebar__move:hover {
-    background: var(--surface-2);
-    color: var(--text);
-  }
-
-  .desktop-titlebar__move svg,
   .desktop-titlebar__tray-move svg {
     width: 12px;
     height: 12px;
@@ -550,6 +521,20 @@ async function lockClientNow() {
     border-top: 1px solid var(--line);
     background: inherit;
     transform: rotate(45deg);
+  }
+
+  .desktop-titlebar__tray-hint {
+    position: relative;
+    z-index: 1;
+    max-width: 220px;
+    padding: 8px 10px 10px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .desktop-titlebar__tray-hint {
+    border-bottom: 1px solid var(--line);
   }
 
   .desktop-titlebar__tray-empty {
@@ -626,8 +611,7 @@ async function lockClientNow() {
     fill: none;
   }
 
-  .desktop-titlebar__tray-move svg,
-  .desktop-titlebar__move svg {
+  .desktop-titlebar__tray-move svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
