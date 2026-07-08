@@ -166,7 +166,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   display: grid;
   place-items: center;
   padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
-  background: #101014 url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
+  background: #101014 url("/assets/wp_dark.jpg") center / cover no-repeat;
   color: white;
   overflow: hidden;
 }
@@ -181,7 +181,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 }
 
 :global(:root[data-theme="light"]) .onboarding {
-  background-image: url("https://qxch.at/assets/wp_light.jpg");
+  background-image: url("/assets/wp_light.jpg");
   background-color: #f2f4f8;
 }
 

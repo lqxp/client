@@ -4289,17 +4289,17 @@ textarea {
   display: grid;
   place-items: center;
   padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
-  background: #101014 url("https://qxch.at/assets/wp_dark.jpg") center / cover no-repeat;
+  background: #101014 url("/assets/wp_dark.jpg") center / cover no-repeat;
   color: white;
 }
 
 :root[data-lock-theme="light"] .lock-screen {
-  background-image: url("https://qxch.at/assets/wp_light.jpg");
+  background-image: url("/assets/wp_light.jpg");
   background-color: #f2f4f8;
 }
 
 :root[data-lock-theme="dark"] .lock-screen {
-  background-image: url("https://qxch.at/assets/wp_dark.jpg");
+  background-image: url("/assets/wp_dark.jpg");
   background-color: #101014;
 }
 
