@@ -101,7 +101,7 @@ watch(isOpen, async (v) => {
     if (sections.value.some((section) => section.id === props.initialSection)) {
       activeSection.value = props.initialSection;
     }
-    props.messenger.refreshAudioDevices();
+    if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
     await nextTick();
     if (!isMobileSettings.value && activeSection.value === "profile") {
       firstInputRef.value?.focus();

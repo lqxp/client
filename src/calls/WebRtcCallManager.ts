@@ -38,7 +38,7 @@ export function webRtcSupported() {
 
 export function relayCallsConfigured() {
   return webRtcSupported()
-    && rtcRuntimeConfig.callsEnabled
+    && rtcRuntimeConfig.callsEnabled !== false
     && rtcRuntimeConfig.turnUrls.length > 0
     && !!rtcRuntimeConfig.turnUsername
     && !!rtcRuntimeConfig.turnCredential;
