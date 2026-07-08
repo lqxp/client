@@ -259,8 +259,8 @@ onBeforeUnmount(() => {
             <span class="conv__time">{{ c.timestampLabel }}</span>
           </span>
 
-          <span class="conv__preview">
-            {{ c.preview }}
+          <span class="conv__preview" :class="{ 'conv__preview--hidden': messenger.state.streamerMode }">
+            {{ messenger.state.streamerMode ? t('sidebar.streamerPreviewHidden') : c.preview }}
           </span>
 
           <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
@@ -402,6 +402,11 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+}
+
+.conv__preview--hidden {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .room-context {

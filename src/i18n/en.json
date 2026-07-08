@@ -72,6 +72,7 @@
         "contextChangeImage": "Choose image",
         "contextRenameRoom": "Rename room",
         "promptRoomName": "Room name",
+        "streamerPreviewHidden": "Message hidden",
         "anonymous": "anonymous"
     },
     "members": {

@@ -72,6 +72,7 @@
         "contextChangeImage": "Choisir une image",
         "contextRenameRoom": "Renommer le salon",
         "promptRoomName": "Nom du salon",
+        "streamerPreviewHidden": "Message masqué",
         "anonymous": "anonyme"
     },
     "members": {

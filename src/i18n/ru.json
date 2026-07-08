@@ -95,6 +95,7 @@
         "contextChangeImage": "Выбрать изображение",
         "contextRenameRoom": "Переименовать комнату",
         "promptRoomName": "Имя комнаты",
+        "streamerPreviewHidden": "Сообщение скрыто",
         "anonymous": "аноним"
     },
     "members": {
