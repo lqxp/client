@@ -67,7 +67,11 @@
         "presence": "Presencia",
         "online": "en línea",
         "you": "Tú",
-        "openProfile": "Abrir el perfil de {username}"
+        "openProfile": "Abrir el perfil de {username}",
+        "seeAvatar": "Ver avatar",
+        "seeBanner": "Ver banner",
+        "viewProfile": "Ver perfil",
+        "copyUserId": "Copiar ID de usuario"
     },
     "profile": {
         "close": "Cerrar perfil",
@@ -381,7 +385,11 @@
         "online": "En línea",
         "presence": "Presencia",
         "you": "tú",
-        "openProfile": "Abrir perfil: {username}"
+        "openProfile": "Abrir perfil: {username}",
+        "seeAvatar": "Ver avatar",
+        "seeBanner": "Ver banner",
+        "viewProfile": "Ver perfil",
+        "copyUserId": "Copiar ID de usuario"
     },
     "profile": {
         "close": "Cerrar perfil",

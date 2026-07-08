@@ -90,7 +90,11 @@
         "presence": "Присутствие",
         "online": "в сети",
         "you": "Вы",
-        "openProfile": "Открыть профиль {username}"
+        "openProfile": "Открыть профиль {username}",
+        "seeAvatar": "Посмотреть аватар",
+        "seeBanner": "Посмотреть баннер",
+        "viewProfile": "Посмотреть профиль",
+        "copyUserId": "Скопировать ID пользователя"
     },
     "profile": {
         "close": "Закрыть профиль",

@@ -67,7 +67,11 @@
         "presence": "Presence",
         "online": "online",
         "you": "You",
-        "openProfile": "Open profile of {username}"
+        "openProfile": "Open profile of {username}",
+        "seeAvatar": "See Avatar",
+        "seeBanner": "See Banner",
+        "viewProfile": "View Profile",
+        "copyUserId": "Copy User ID"
     },
     "profile": {
         "close": "Close profile",

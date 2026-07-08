@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
             <div class="members__meta">
               <div class="members__name">
                 {{ username }}
-                <span class="platforms" :aria-label="`Platforms: ${platformsFor(username).map((p) => messenger.platformLabel(p)).join(', ') || 'unknown'}`">
+                <span class="platforms" :aria-label="`Platforms: ${platformsFor(username).map((p: string) => messenger.platformLabel(p)).join(', ') || 'unknown'}`">
                   <span
                     v-for="platform in platformsFor(username)"
                     :key="platform"
@@ -249,10 +249,10 @@ onBeforeUnmount(() => {
       :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
       @click.stop
     >
-      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">See Avatar</button>
-      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">See Banner</button>
-      <button type="button" role="menuitem" @click="openProfileFromContext">View Profile</button>
-      <button type="button" role="menuitem" @click="copyUserIdFromContext">Copy User Id</button>
+      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">{{ t('members.seeAvatar') }}</button>
+      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">{{ t('members.seeBanner') }}</button>
+      <button type="button" role="menuitem" @click="openProfileFromContext">{{ t('members.viewProfile') }}</button>
+      <button type="button" role="menuitem" @click="copyUserIdFromContext">{{ t('members.copyUserId') }}</button>
     </div>
 
     <Teleport to="body">

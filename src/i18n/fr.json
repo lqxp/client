@@ -67,7 +67,11 @@
         "presence": "Présence",
         "online": "en ligne",
         "you": "Vous",
-        "openProfile": "Ouvrir le profil de {username}"
+        "openProfile": "Ouvrir le profil de {username}",
+        "seeAvatar": "Voir l’avatar",
+        "seeBanner": "Voir la bannière",
+        "viewProfile": "Voir le profil",
+        "copyUserId": "Copier l’ID utilisateur"
     },
     "profile": {
         "close": "Fermer le profil",
