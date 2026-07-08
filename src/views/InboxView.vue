@@ -115,7 +115,7 @@ function toggleStreamerMode() {
 }
 
 function titlebarActionLabel(action: TitlebarAction) {
-  if (action === "streamer") return messenger.state.streamerMode ? "Désactiver le mode streamer" : "Activer le mode streamer";
+  if (action === "streamer") return messenger.state.streamerMode ? t("titlebar.disableStreamer") : t("titlebar.enableStreamer");
   if (action === "settings") return t("sidebar.settings");
   return t("settings.security.lockNow");
 }
@@ -284,8 +284,8 @@ async function lockClientNow() {
           <button
             class="desktop-titlebar__move"
             type="button"
-            :aria-label="`Ranger ${titlebarActionLabel(action)} dans le tray`"
-            :title="`Ranger ${titlebarActionLabel(action)} dans le tray`"
+            :aria-label="t('titlebar.moveToTray', { action: titlebarActionLabel(action) })"
+            :title="t('titlebar.moveToTray', { action: titlebarActionLabel(action) })"
             @click="toggleTitlebarActionLocation(action)"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18 15 12 9 6" /></svg>
@@ -297,8 +297,8 @@ async function lockClientNow() {
             class="icon-btn desktop-titlebar__tray-toggle"
             type="button"
             :aria-expanded="titlebarTrayOpen"
-            aria-label="Ouvrir le tray"
-            title="Tray"
+            :aria-label="t('titlebar.openTray')"
+            :title="t('titlebar.tray')"
             @click="toggleTitlebarTray"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -307,8 +307,8 @@ async function lockClientNow() {
               <path d="M8 13h8" />
             </svg>
           </button>
-          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" aria-label="Actions rapides">
-            <div v-if="titlebarTrayEmpty" class="desktop-titlebar__tray-empty">Tray vide</div>
+          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" :aria-label="t('titlebar.quickActions')">
+            <div v-if="titlebarTrayEmpty" class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
             <template v-else>
             <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
               <button class="desktop-titlebar__tray-item" type="button" role="menuitem" @click="runTitlebarAction(action)">
