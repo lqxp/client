@@ -5320,9 +5320,12 @@ export function useMessenger() {
 
     const roomPayload = d?.room && typeof d.room === "object" ? d.room : null;
     const room = state.rooms.find((entry) => entry.roomId === roomId);
-    const nextTitle = String(roomPayload?.title || "")
-      .trim()
-      .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
+    const hasTitle = roomPayload && Object.prototype.hasOwnProperty.call(roomPayload, "title");
+    const nextTitle = hasTitle
+      ? String(roomPayload?.title || "")
+          .trim()
+          .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH)
+      : String(room?.title || "");
     const nextIconUrl = sanitizeHttpUrl(
       roomPayload?.icon?.file?.url ?? // format Rust RoomIcon { file: StoredFile { url } }
         roomPayload?.icon?.url ?? // format plat potentiel
@@ -5675,10 +5678,13 @@ export function useMessenger() {
         state.profile = mergeProfiles(state.profile, data.profile);
 
         if (Array.isArray(data.rooms)) {
-          const previousIcons = Object.fromEntries(
+          const previousRooms = Object.fromEntries(
             state.rooms.map((room) => [
               room.roomId,
-              sanitizeHttpUrl(room.iconUrl),
+              {
+                title: String(room.title || ""),
+                iconUrl: sanitizeHttpUrl(room.iconUrl),
+              },
             ]),
           );
           state.rooms = data.rooms
@@ -5686,13 +5692,18 @@ export function useMessenger() {
             .slice(0, MAX_ROOMS_SHOWN)
             .map((r) => {
               const roomId = sanitizeRoomId(r.roomId);
+              const previous = previousRooms[roomId] || {};
+              const hasTitle = Object.prototype.hasOwnProperty.call(r, "title");
               return {
                 roomId,
+                title: hasTitle
+                  ? String(r.title || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH)
+                  : String(previous.title || ""),
                 lastPreview: String(r.lastPreview || ""),
                 lastTimestamp: Number(r.lastTimestamp) || 0,
                 lastSender: String(r.lastSender || ""),
                 iconUrl:
-                  sanitizeHttpUrl(r.iconUrl) || previousIcons[roomId] || "",
+                  sanitizeHttpUrl(r.iconUrl) || previous.iconUrl || "",
               };
             })
             .filter((r) => isValidRoomId(r.roomId));
