@@ -29,7 +29,8 @@ const callRoom = computed(() => messenger.state.callRoom);
 const callRoomLabel = computed(() => messenger.displayRoomName(callRoom.value));
 const callRoomDifferent = computed(() => inCall.value && callRoom.value !== messenger.state.activeRoom);
 const callElapsed = computed(() => messenger.formatDuration(messenger.state.callElapsed));
-const desktopTitle = computed(() => messenger.displayRoomName(messenger.state.activeRoom));
+const desktopConversationSelected = computed(() => !!String(messenger.state.activeRoom || "").trim());
+const desktopTitle = computed(() => desktopConversationSelected.value ? messenger.displayRoomName(messenger.state.activeRoom) : "No conversation selected");
 const desktopAccent = computed(() => messenger.activeConversation.value?.accent || "slate");
 const desktopInitials = computed(() => {
   const name = String(desktopTitle.value || "?").trim();
@@ -160,6 +161,7 @@ async function lockClientNow() {
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
         <span
+          v-if="desktopConversationSelected"
           class="avatar avatar--sm desktop-titlebar__room-icon"
           :class="desktopRoomIconIsImage ? 'desktop-titlebar__room-icon--image' : `avatar--${desktopAccent}`"
         >
