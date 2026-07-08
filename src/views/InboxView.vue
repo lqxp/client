@@ -303,8 +303,10 @@ async function lockClientNow() {
             </svg>
           </button>
           <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" :aria-label="t('titlebar.quickActions')">
-            <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
-            <div v-if="titlebarTrayEmpty" class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
+            <template v-if="titlebarTrayEmpty">
+              <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
+              <div class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
+            </template>
             <template v-else>
             <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
               <button class="desktop-titlebar__tray-item" type="button" role="menuitem" @click="runTitlebarAction(action)">
@@ -531,10 +533,6 @@ async function lockClientNow() {
     color: var(--muted);
     font-size: 12px;
     line-height: 1.35;
-  }
-
-  .desktop-titlebar__tray-hint {
-    border-bottom: 1px solid var(--line);
   }
 
   .desktop-titlebar__tray-empty {
