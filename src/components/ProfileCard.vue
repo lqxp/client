@@ -15,7 +15,7 @@ const profile = computed(() => props.messenger.profileFor(props.username));
 const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar, "avatar"));
 const bannerSrc = computed(() => props.messenger.profileImageSrc(profile.value.banner, "banner"));
 const accent = computed(() => props.messenger.accentFor(props.username));
-const isSystem = computed(() => props.messenger.isSystemUsername?.(props.username));
+const isSystem = computed(() => props.messenger.isSystemUsername?.(props.username) || props.username.trim().toLowerCase() === "system");
 const displayName = computed(() => isSystem.value ? "QxChat System" : `@${props.username}`);
 const isSelf = computed(() => String(props.messenger.state.username || "").trim() === props.username);
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
@@ -138,7 +138,7 @@ function initialsFor(name: string) {
           <p v-else class="profile-card__empty">{{ t('profile.noDescription') }}</p>
         </div>
 
-        <div v-if="!isSelf" class="profile-card__section">
+        <div v-if="!isSelf && !isSystem" class="profile-card__section">
           <h4>{{ t('profile.mutualRooms') }}</h4>
           <div v-if="mutualRoomOptions.length" class="profile-card__mutual-list" role="list">
             <button v-for="room in mutualRoomOptions" :key="room.roomId" type="button" class="profile-card__mutual-room"

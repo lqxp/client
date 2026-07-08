@@ -5968,6 +5968,7 @@ export function useMessenger() {
     attachmentUrlFor,
     displayRoomName,
     validateUsername,
+    isSystemUsername,
     validateRoomId,
     isValidRoomId,
     hasRoomKey,
