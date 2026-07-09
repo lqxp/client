@@ -5661,6 +5661,9 @@ export function useMessenger() {
       roomId !== state.activeRoom
     )
       return;
+    if (d?.profiles && typeof d.profiles === "object") {
+      applyProfiles(d.profiles);
+    }
     const serverMessages = Array.isArray(d.messages)
       ? await Promise.all(
           d.messages.map((m) => hydrateIncomingMessage(m, roomId)),
