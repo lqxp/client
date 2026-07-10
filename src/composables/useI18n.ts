@@ -10,7 +10,7 @@ const locales: Record<string, DeepRecord> = { en, fr, es, ru };
 
 export const LOCALE_LABELS: Record<string, string> = {
   en: "English",
-  fr: "Français",
+  fr: "French",
   es: "Español",
   ru: "Русский"
 };

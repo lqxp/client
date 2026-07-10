@@ -295,6 +295,11 @@
             "duressNote": "Si este PIN se introduce en la pantalla de bloqueo, se ejecuta la acción OpSec configurada en vez del desbloqueo normal.",
             "requiresLock": "Activa primero la pantalla de bloqueo: la contraseña de coacción solo se activa desde la pantalla de PIN.",
             "requiresUnlockedLock": "Desbloquea y activa primero la pantalla de bloqueo antes de guardar un PIN de coacción.",
+            "decoyTitle": "Perfil señuelo",
+            "configureDecoy": "Configurar perfil señuelo",
+            "decoyConfigured": "Hay un perfil señuelo configurado en este dispositivo.",
+            "decoyNote": "La configuración cierra tu sesión temporalmente y abre el onboarding. Registra o inicia sesión en una cuenta señuelo separada, personalízala y luego recarga la app para volver a la pantalla de bloqueo real.",
+            "decoySetupConfirm": "Esto cerrará tu sesión temporalmente y abrirá el onboarding para configurar el perfil señuelo. Después de crear o iniciar sesión en la cuenta señuelo, recarga la app para volver a la pantalla de bloqueo real. ¿Continuar?",
             "ramOnlyTitle": "Solo RAM",
             "ramOnlyEnabled": "No persistir nada en disco",
             "ramOnlyNote": "Cuando está activo, QxChat deja de escribir en LocalStorage/IndexedDB y borra la persistencia local existente. Los datos desaparecen al cerrar o recargar."

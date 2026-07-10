@@ -222,6 +222,11 @@ async function onSaveDuressPin() {
   }
 }
 
+async function onStartDecoySetup() {
+  if (!confirm(t('settings.opsec.decoySetupConfirm'))) return;
+  await props.messenger.startOpsecDecoySetup();
+}
+
 async function onEnableClientLock() {
   if (lockPin.value !== lockPinConfirm.value) {
     alert(t('settings.security.pinMismatch'));
@@ -855,6 +860,17 @@ onBeforeUnmount(() => {
           </div>
           <p class="settings-note" v-if="!messenger.state.clientLockEnabled">{{ t('settings.opsec.requiresLock') }}</p>
           <p class="settings-note">{{ t('settings.opsec.duressNote') }}</p>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.opsec.decoyTitle') }}</h4>
+          <div class="settings-actions">
+            <button type="button" class="btn settings-btn" :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked" @click="onStartDecoySetup">
+              {{ t('settings.opsec.configureDecoy') }}
+            </button>
+          </div>
+          <p class="settings-note" v-if="messenger.state.opsecDecoyConfigured">{{ t('settings.opsec.decoyConfigured') }}</p>
+          <p class="settings-note">{{ t('settings.opsec.decoyNote') }}</p>
         </div>
 
         <div class="settings-group">

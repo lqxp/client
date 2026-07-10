@@ -43,6 +43,7 @@ import { useI18n } from "./useI18n";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
+const OPSEC_DECOY_STORAGE_KEY = "qxprotocol-opsec-decoy-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const SYSTEM_USERNAME = "system";
 const SYSTEM_PROFILE_AVATAR_B64 = "PHN2ZyB3aWR0aD0iMTgwcHgiIGhlaWdodD0iMTgwcHgiIHZpZXdCb3g9Ii0zLjY4IC0zLjY4IDIzLjM2IDIzLjM2IiB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iLTMuNjgiIHk9Ii0zLjY4IiB3aWR0aD0iMjMuMzYiIGhlaWdodD0iMjMuMzYiIHJ4PSIxMS42OCIgZmlsbD0iIzFjNzFkOCIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2IDApIHNjYWxlKC0xIDEpIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwIDEpIiBmaWxsPSIjZmZmZmZmIj48cGF0aCBkPSJNNS45MzkgMEMyLjY2NiAwIDAuMDA5IDEuOTg3IDAuMDA5IDQuNDM4YzAgMi4yMzYgMi4yMTUgNC4wODIgNS4wOTIgNC4zODdMMy44OCAxMS4yNmw0LjI0OS0yLjdDMTAuMzE4IDcuOTA2IDEyIDYuMzA5IDEyIDQuNDM4IDEyIDEuOTg4IDkuMjEzIDAgNS45MzkgMFoiLz48cGF0aCBkPSJNMTUuOTQ3IDguODljMC0xLjEyNC0xLjA2Mi0yLjI4OC0yLjI4OS0yLjg2OC0uMzQ0IDEuOTUtMS45MjQgMy43NDUtNC40MTcgNC40NDdsLTEuMTg3LjY0MmMuNDU0LjM0IDEuMDEuNjExIDEuNjM0Ljc4OGwzLjYzOCAxLjk3MS0xLjMwMy0xLjc3NmMyLjIxNy0uMjI1IDMuOTI0LTEuNTcxIDMuOTI0LTMuMjA0WiIvPjwvZz48L2c+PC9zdmc+";
@@ -729,6 +730,9 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     opsecDuressSalt: "",
     opsecDuressHash: "",
     opsecDuressAction: "wipe",
+    opsecDecoySetupActive: false,
+    opsecDecoyConfigured: false,
+    opsecDecoyActive: false,
     ...overrides,
   };
 }
@@ -1295,6 +1299,49 @@ function writePersistedPayloadStrict(payload) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
+function writeDecoyPersistedPayload(payload) {
+  try {
+    localStorage.setItem(OPSEC_DECOY_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    try {
+      localStorage.setItem(
+        OPSEC_DECOY_STORAGE_KEY,
+        JSON.stringify({ ...payload, messagesByRoom: {}, unreadByRoom: {} }),
+      );
+    } catch {
+      /* storage may be unavailable */
+    }
+  }
+}
+
+function loadDecoyPersistedPayload() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OPSEC_DECOY_STORAGE_KEY) || "{}");
+    return raw && typeof raw === "object" && !localDataLockedPayload(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function decoyPersistedPayload(payload) {
+  return {
+    ...payload,
+    clientLockEnabled: false,
+    clientLockLocked: false,
+    clientLockSalt: "",
+    clientLockIv: "",
+    clientLockCiphertext: "",
+    clientLockStorage: "",
+    clientLockDisplayName: "",
+    clientLockAvatar: null,
+    opsecDuressEnabled: false,
+    opsecDuressSalt: "",
+    opsecDuressHash: "",
+    opsecDuressAction: "wipe",
+    opsecRamOnlyEnabled: false,
+  };
+}
+
 async function writeLockedPersistedPayload(lockedPayload) {
   try {
     writePersistedPayloadStrict(lockedPayload);
@@ -1315,6 +1362,10 @@ async function writeLockedPersistedPayload(lockedPayload) {
 async function savePersisted(state) {
   if (state.opsecRamOnlyEnabled) return;
   const payload = buildPersistedPayload(state);
+  if (state.opsecDecoyActive || state.opsecDecoySetupActive) {
+    writeDecoyPersistedPayload(decoyPersistedPayload(payload));
+    return;
+  }
   if (state.clientLockEnabled && activeClientLockKey && state.clientLockSalt) {
     const lockedPayload = await encryptClientLockPayload(
       payload,
@@ -1331,7 +1382,7 @@ async function savePersisted(state) {
 }
 
 function savePersistedProfile(profile) {
-  if (singleton?.state?.opsecRamOnlyEnabled) return;
+  if (singleton?.state?.opsecRamOnlyEnabled || singleton?.state?.opsecDecoyActive || singleton?.state?.opsecDecoySetupActive) return;
   try {
     localStorage.setItem(
       PROFILE_STORAGE_KEY,
@@ -1680,6 +1731,9 @@ export function useMessenger() {
     opsecDuressSalt: String((persisted as any).opsecDuressSalt || ""),
     opsecDuressHash: String((persisted as any).opsecDuressHash || ""),
     opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String((persisted as any).opsecDuressAction || "")) ? String((persisted as any).opsecDuressAction) : "wipe",
+    opsecDecoySetupActive: false,
+    opsecDecoyConfigured: Boolean(loadDecoyPersistedPayload()),
+    opsecDecoyActive: false,
 
     username: persisted.username,
     status: persisted.status,
@@ -2120,6 +2174,10 @@ export function useMessenger() {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
       if (!localDataLockedPayload(raw)) return;
       raw.failedAttempts = state.clientLockFailedAttempts;
+      if (state.opsecDecoySetupActive && !state.opsecDecoyActive) {
+        state.opsecDecoySetupActive = false;
+        state.opsecDecoyConfigured = Boolean(loadDecoyPersistedPayload());
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
     } catch {
       /* ignore */
@@ -2177,33 +2235,72 @@ export function useMessenger() {
     }
   }
 
+  async function startOpsecDecoySetup() {
+    if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey || !state.clientLockSalt) {
+      state.lastError = t("settings.opsec.requiresUnlockedLock");
+      showToast(state.lastError);
+      return false;
+    }
+    await persist();
+    if (state.authToken) {
+      try {
+        await apiRequest("/api/auth/logout", { method: "POST" });
+      } catch {
+        /* local setup still wins */
+      }
+    }
+    disconnect();
+    state.opsecDecoySetupActive = true;
+    state.opsecDecoyActive = false;
+    state.authToken = "";
+    state.userId = "";
+    state.admin = false;
+    state.username = "";
+    state.uuid = null;
+    state.recoveryWords = [];
+    state.profile = normalizeProfile(null);
+    state.status = "online";
+    state.rooms = [];
+    state.joinedRooms = [];
+    state.usersByRoom = {};
+    state.profilesByUser = {};
+    state.messagesByRoom = {};
+    state.unreadByRoom = {};
+    state.roomKeysByRoom = {};
+    state.activeRoom = "";
+    writeDecoyPersistedPayload(decoyPersistedPayload(buildPersistedPayload(state)));
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+    state.settingsOpen = false;
+    state.lastError = "";
+    showToast("Decoy setup started. Register or log in to the decoy account, customize it, then refresh the app to return to the real lock screen.");
+    return true;
+  }
+
   async function activateDecoyProfile() {
     disconnect();
     activeClientLockKey = null;
-    Object.assign(state, {
-      authToken: "",
-      userId: "",
-      admin: false,
-      username: "alex",
-      recoveryWords: [],
-      clientLockLocked: false,
-      clientLockEnabled: false,
-      clientLockSalt: "",
-      clientLockIv: "",
-      clientLockCiphertext: "",
-      rooms: [{ roomId: "general-chat", title: "Général", lastPreview: "Je regarde ça plus tard.", lastTimestamp: Date.now() - 600000, lastSender: "sam", iconUrl: "" }],
-      activeRoom: "general-chat",
-      joinedRooms: ["general-chat"],
-      usersByRoom: { "general-chat": ["alex", "sam"] },
-      messagesByRoom: { "general-chat": [
-        normalizeMessage({ username: "sam", text: "Tu as vu le planning ?", timestamp: Date.now() - 900000, roomId: "general-chat" }, "general-chat"),
-        normalizeMessage({ username: "alex", text: "Oui, rien de spécial.", timestamp: Date.now() - 600000, roomId: "general-chat" }, "general-chat"),
-      ] },
-      unreadByRoom: {},
-      roomKeysByRoom: {},
-      settingsOpen: false,
-      lastError: "",
-    });
+    const decoyPayload = loadDecoyPersistedPayload();
+    if (decoyPayload) {
+      applyPersistedPayload(decoyPayload);
+    } else {
+      applyPersistedPayload(defaultPersisted());
+    }
+    state.clientLockLocked = false;
+    state.clientLockEnabled = false;
+    state.clientLockSalt = "";
+    state.clientLockIv = "";
+    state.clientLockCiphertext = "";
+    state.clientLockStorage = "";
+    state.clientLockDisplayName = "";
+    state.clientLockAvatar = null;
+    state.clientLockThemeMode = "system";
+    state.clientLockFailedAttempts = 0;
+    state.opsecDecoySetupActive = false;
+    state.opsecDecoyConfigured = Boolean(decoyPayload);
+    state.opsecDecoyActive = true;
+    state.settingsOpen = false;
+    state.lastError = "";
+    if (state.authToken) connect();
   }
 
   async function handleDuressUnlock() {
@@ -2222,6 +2319,7 @@ export function useMessenger() {
     await deleteClientLockPayload();
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
+    localStorage.removeItem(OPSEC_DECOY_STORAGE_KEY);
     activeClientLockKey = null;
     state.authToken = "";
     state.userId = "";
@@ -2442,6 +2540,7 @@ export function useMessenger() {
       await deleteClientLockPayload().catch(() => {});
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(PROFILE_STORAGE_KEY);
+      localStorage.removeItem(OPSEC_DECOY_STORAGE_KEY);
     } else {
       await persist();
     }
@@ -6224,6 +6323,7 @@ export function useMessenger() {
     setOpsecDuressPin,
     clearOpsecDuressPin,
     setOpsecDuressAction,
+    startOpsecDecoySetup,
     setOpsecRamOnlyEnabled,
     loadAdminOverview,
     setAdminFeature,

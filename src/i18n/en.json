@@ -298,6 +298,11 @@
             "duressNote": "If this PIN is entered on the lock screen, the configured OpSec action runs instead of the normal unlock.",
             "requiresLock": "Enable the Lock Screen first: the Duress Password only triggers from the PIN entry screen.",
             "requiresUnlockedLock": "Unlock and enable the Lock Screen before saving a Duress PIN.",
+            "decoyTitle": "Decoy profile",
+            "configureDecoy": "Configure decoy profile",
+            "decoyConfigured": "A decoy profile is configured on this device.",
+            "decoyNote": "Configuration logs you out temporarily and opens onboarding. Register or log in to a separate decoy account, customize it, then refresh the app to return to the real lock screen.",
+            "decoySetupConfirm": "This will temporarily log you out and open onboarding so you can configure the decoy profile. After creating or logging in to the decoy account, refresh the app to return to the real lock screen. Continue?",
             "ramOnlyTitle": "RAM-only",
             "ramOnlyEnabled": "Persist nothing to disk",
             "ramOnlyNote": "When enabled, QxChat stops writing to LocalStorage/IndexedDB and clears existing local persistence. Data disappears after close or reload."
