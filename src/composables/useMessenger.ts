@@ -730,6 +730,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     opsecDuressSalt: "",
     opsecDuressHash: "",
     opsecDuressAction: "wipe",
+    opsecHideLockIdentity: true,
     opsecDecoySetupActive: false,
     opsecDecoyConfigured: false,
     opsecDecoyActive: false,
@@ -816,6 +817,7 @@ function loadPersisted() {
         opsecDuressSalt: String(raw.opsecDuressSalt || ""),
         opsecDuressHash: String(raw.opsecDuressHash || ""),
         opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(raw.opsecDuressAction || "")) ? String(raw.opsecDuressAction) : "wipe",
+        opsecHideLockIdentity: raw.opsecHideLockIdentity !== false,
       });
     }
     const profile = loadPersistedProfile();
@@ -1731,6 +1733,7 @@ export function useMessenger() {
     opsecDuressSalt: String((persisted as any).opsecDuressSalt || ""),
     opsecDuressHash: String((persisted as any).opsecDuressHash || ""),
     opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String((persisted as any).opsecDuressAction || "")) ? String((persisted as any).opsecDuressAction) : "wipe",
+    opsecHideLockIdentity: (persisted as any).opsecHideLockIdentity !== false,
     opsecDecoySetupActive: false,
     opsecDecoyConfigured: Boolean(loadDecoyPersistedPayload()),
     opsecDecoyActive: false,
@@ -2454,6 +2457,7 @@ export function useMessenger() {
     state.opsecDuressSalt = String(lockedPayload.opsecDuressSalt || "");
     state.opsecDuressHash = String(lockedPayload.opsecDuressHash || "");
     state.opsecDuressAction = OPSEC_DURESS_ACTIONS.includes(String(lockedPayload.opsecDuressAction || "")) ? String(lockedPayload.opsecDuressAction) : "wipe";
+    state.opsecHideLockIdentity = (lockedPayload as any).opsecHideLockIdentity !== false;
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
@@ -2524,6 +2528,11 @@ export function useMessenger() {
 
   function setOpsecDuressAction(value) {
     state.opsecDuressAction = OPSEC_DURESS_ACTIONS.includes(String(value || "")) ? String(value) : "wipe";
+    persist();
+  }
+
+  function setOpsecHideLockIdentity(value) {
+    state.opsecHideLockIdentity = Boolean(value);
     persist();
   }
 

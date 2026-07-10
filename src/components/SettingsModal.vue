@@ -836,6 +836,17 @@ onBeforeUnmount(() => {
 
       <section v-else-if="activeSection === 'opsec'" class="settings-page">
         <div class="settings-group">
+          <h4>{{ t('settings.opsec.lockScreenPrivacyTitle') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.opsec.hideLockIdentity') }}</span>
+            <input type="checkbox" :checked="messenger.state.opsecHideLockIdentity"
+              @change="messenger.setOpsecHideLockIdentity(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">{{ t('settings.opsec.hideLockIdentityNote') }}</p>
+        </div>
+
+        <div class="settings-group">
           <h4>{{ t('settings.opsec.duressTitle') }}</h4>
           <label class="settings-select">
             <span>{{ t('settings.opsec.duressAction') }}</span>

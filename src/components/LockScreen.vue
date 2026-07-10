@@ -12,8 +12,9 @@ const pinLength = computed(() => Number(props.messenger.state.clientLockPinLengt
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
 const FALLBACK_LOGO = "https://qxch.at/app-icon.svg";
+const lockIdentityHidden = computed(() => props.messenger.state.opsecHideLockIdentity !== false);
 const username = computed(() => String(props.messenger.state.username || props.messenger.state.clientLockDisplayName || "").trim());
-const displayName = computed(() => username.value || "QxChat");
+const displayName = computed(() => lockIdentityHidden.value ? "QxChat" : username.value || "QxChat");
 const greetingKey = computed(() => {
   const hour = new Date().getHours();
   if (hour < 12) return "lock.goodMorning";
@@ -21,7 +22,7 @@ const greetingKey = computed(() => {
   return "lock.goodEvening";
 });
 const greeting = computed(() => t(greetingKey.value, { username: displayName.value }));
-const avatarSrc = computed(() => props.messenger.profileImageSrc?.(props.messenger.myProfile?.value?.avatar || props.messenger.state.clientLockAvatar, "avatar") || FALLBACK_LOGO);
+const avatarSrc = computed(() => lockIdentityHidden.value ? FALLBACK_LOGO : props.messenger.profileImageSrc?.(props.messenger.myProfile?.value?.avatar || props.messenger.state.clientLockAvatar, "avatar") || FALLBACK_LOGO);
 
 async function unlock() {
   const ok = await props.messenger.unlockClientLock(pin.value);
