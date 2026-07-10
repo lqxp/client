@@ -189,6 +189,7 @@
             "language": "Language",
             "rooms": "Rooms",
             "security": "Security",
+            "opsec": "OpSec",
             "privacy": "Privacy",
             "notifications": "Notifications",
             "calls": "Calls",
@@ -284,6 +285,20 @@
             "autolockTwoHours": "2 hours",
             "autolockFiveHours": "5 hours",
             "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted."
+        },
+        "opsec": {
+            "duressTitle": "Duress password",
+            "duressAction": "Duress PIN action",
+            "actionWipe": "Panic: local wipe then apparent crash",
+            "actionDecoy": "Decoy profile",
+            "duressPin": "Duress PIN",
+            "confirmDuressPin": "Confirm PIN",
+            "saveDuressPin": "Save duress PIN",
+            "disableDuressPin": "Disable duress PIN",
+            "duressNote": "If this PIN is entered on the lock screen, the configured OpSec action runs instead of the normal unlock.",
+            "ramOnlyTitle": "RAM-only",
+            "ramOnlyEnabled": "Persist nothing to disk",
+            "ramOnlyNote": "When enabled, QxChat stops writing to LocalStorage/IndexedDB and clears existing local persistence. Data disappears after close or reload."
         },
         "privacy": {
             "title": "Privacy",

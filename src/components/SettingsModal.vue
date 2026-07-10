@@ -25,6 +25,8 @@ const settingsSearch = ref("");
 const isMobileSettings = ref(false);
 const lockPin = ref("");
 const lockPinConfirm = ref("");
+const duressPin = ref("");
+const duressPinConfirm = ref("");
 const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
 const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
@@ -97,6 +99,7 @@ const allSections = computed(() => [
   { id: "ui", label: t("settings.sections.ui") },
   { id: "language", label: t("settings.sections.language") },
   { id: "security", label: t("settings.sections.security") },
+  { id: "opsec", label: t("settings.sections.opsec") },
   { id: "notifications", label: t("settings.sections.notifications") },
   { id: "calls", label: t("settings.sections.calls") },
   { id: "advanced", label: t("settings.sections.advanced") },
@@ -205,6 +208,18 @@ function onClear() {
 function onLogout() {
   props.messenger.logoutAccount();
   close();
+}
+
+async function onSaveDuressPin() {
+  if (duressPin.value !== duressPinConfirm.value) {
+    alert(t('settings.security.pinMismatch'));
+    return;
+  }
+  const ok = await props.messenger.setOpsecDuressPin(duressPin.value);
+  if (ok) {
+    duressPin.value = "";
+    duressPinConfirm.value = "";
+  }
 }
 
 async function onEnableClientLock() {
@@ -447,6 +462,13 @@ onBeforeUnmount(() => {
             <rect x="5" y="10" width="14" height="10" rx="2" />
             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
             <path d="M12 14v2.5" />
+          </svg>
+          <svg v-else-if='section.id === "opsec"' viewBox="0 0 24 24">
+            <path d="M14 18a2 2 0 0 0-4 0" />
+            <path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11" />
+            <path d="M2 11h20" />
+            <circle cx="17" cy="18" r="3" />
+            <circle cx="7" cy="18" r="3" />
           </svg>
           <svg v-else-if="section.id === 'notifications'" viewBox="0 0 24 24">
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
@@ -804,6 +826,45 @@ onBeforeUnmount(() => {
           <p class="settings-note">
             {{ t('settings.security.clientLockNote') }}
           </p>
+        </div>
+      </section>
+
+      <section v-else-if="activeSection === 'opsec'" class="settings-page">
+        <div class="settings-group">
+          <h4>{{ t('settings.opsec.duressTitle') }}</h4>
+          <label class="settings-select">
+            <span>{{ t('settings.opsec.duressAction') }}</span>
+            <select :value="messenger.state.opsecDuressAction" @change="messenger.setOpsecDuressAction(targetValue($event))">
+              <option value="wipe">{{ t('settings.opsec.actionWipe') }}</option>
+              <option value="decoy">{{ t('settings.opsec.actionDecoy') }}</option>
+            </select>
+          </label>
+          <div class="settings-inline settings-inline--lock">
+            <input v-model="duressPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+              autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
+            <input v-model="duressPinConfirm" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+              autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
+            <button type="button" class="btn btn--primary settings-btn" @click="onSaveDuressPin">
+              {{ t('settings.opsec.saveDuressPin') }}
+            </button>
+          </div>
+          <div class="settings-actions" v-if="messenger.state.opsecDuressEnabled">
+            <button type="button" class="btn settings-btn settings-btn--danger" @click="messenger.clearOpsecDuressPin">
+              {{ t('settings.opsec.disableDuressPin') }}
+            </button>
+          </div>
+          <p class="settings-note">{{ t('settings.opsec.duressNote') }}</p>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.opsec.ramOnlyTitle') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.opsec.ramOnlyEnabled') }}</span>
+            <input type="checkbox" :checked="messenger.state.opsecRamOnlyEnabled"
+              @change="messenger.setOpsecRamOnlyEnabled(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">{{ t('settings.opsec.ramOnlyNote') }}</p>
         </div>
       </section>
 

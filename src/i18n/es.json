@@ -186,6 +186,7 @@
             "language": "Idioma",
             "rooms": "Salas",
             "security": "Seguridad",
+            "opsec": "OpSec",
             "privacy": "Privacidad",
             "notifications": "Notificaciones",
             "calls": "Llamadas",
@@ -281,6 +282,20 @@
             "autolockTwoHours": "2 horas",
             "autolockFiveHours": "5 horas",
             "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar."
+        },
+        "opsec": {
+            "duressTitle": "Contraseña bajo coacción",
+            "duressAction": "Acción del PIN de coacción",
+            "actionWipe": "Pánico: borrado local y cierre aparente",
+            "actionDecoy": "Perfil señuelo",
+            "duressPin": "PIN de coacción",
+            "confirmDuressPin": "Confirmar PIN",
+            "saveDuressPin": "Guardar PIN de coacción",
+            "disableDuressPin": "Desactivar PIN de coacción",
+            "duressNote": "Si este PIN se introduce en la pantalla de bloqueo, se ejecuta la acción OpSec configurada en vez del desbloqueo normal.",
+            "ramOnlyTitle": "Solo RAM",
+            "ramOnlyEnabled": "No persistir nada en disco",
+            "ramOnlyNote": "Cuando está activo, QxChat deja de escribir en LocalStorage/IndexedDB y borra la persistencia local existente. Los datos desaparecen al cerrar o recargar."
         },
         "privacy": {
             "title": "Privacidad",

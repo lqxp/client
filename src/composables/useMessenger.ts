@@ -55,6 +55,7 @@ const CLIENT_LOCK_DB_VERSION = 1;
 const CLIENT_LOCK_STORE = "payloads";
 const CLIENT_LOCK_PAYLOAD_KEY = "current";
 const CLIENT_LOCK_MAX_FAILED_ATTEMPTS = 10;
+const OPSEC_DURESS_ACTIONS = ["wipe", "decoy"];
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "💀", "🧢"];
 const MAX_ROOMS_SHOWN = 100;
 const MAX_HISTORY_PER_ROOM = 500;
@@ -1002,6 +1003,11 @@ function loadPersisted() {
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.clientLockPinLength)) ? Number(raw.clientLockPinLength) : 6,
       clientLockAutolockEnabled: raw.clientLockAutolockEnabled === true,
       clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(raw.clientLockAutolockTimeoutMs),
+      opsecRamOnlyEnabled: false,
+      opsecDuressEnabled: raw.opsecDuressEnabled === true,
+      opsecDuressSalt: String(raw.opsecDuressSalt || ""),
+      opsecDuressHash: String(raw.opsecDuressHash || ""),
+      opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(raw.opsecDuressAction || "")) ? String(raw.opsecDuressAction) : "wipe",
     };
   } catch {
     return defaultPersisted();
@@ -1307,6 +1313,7 @@ async function savePersisted(state) {
 }
 
 function savePersistedProfile(profile) {
+  if (singleton?.state?.opsecRamOnlyEnabled) return;
   try {
     localStorage.setItem(
       PROFILE_STORAGE_KEY,
@@ -1650,6 +1657,11 @@ export function useMessenger() {
     clientLockThemeMode: THEME_MODES.includes(String((persisted as any).clientLockThemeMode || "").toLowerCase()) ? String((persisted as any).clientLockThemeMode).toLowerCase() : "system",
     clientLockFailedAttempts: Math.max(0, Number((persisted as any).clientLockFailedAttempts) || 0),
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
+    opsecRamOnlyEnabled: (persisted as any).opsecRamOnlyEnabled === true,
+    opsecDuressEnabled: (persisted as any).opsecDuressEnabled === true,
+    opsecDuressSalt: String((persisted as any).opsecDuressSalt || ""),
+    opsecDuressHash: String((persisted as any).opsecDuressHash || ""),
+    opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String((persisted as any).opsecDuressAction || "")) ? String((persisted as any).opsecDuressAction) : "wipe",
 
     username: persisted.username,
     status: persisted.status,
@@ -1933,6 +1945,10 @@ export function useMessenger() {
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(payload?.clientLockPinLength)) ? Number(payload.clientLockPinLength) : 6,
       clientLockAutolockEnabled: payload?.clientLockAutolockEnabled === true,
       clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
+      opsecDuressEnabled: payload?.opsecDuressEnabled === true,
+      opsecDuressSalt: String(payload?.opsecDuressSalt || ""),
+      opsecDuressHash: String(payload?.opsecDuressHash || ""),
+      opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(payload?.opsecDuressAction || "")) ? String(payload.opsecDuressAction) : "wipe",
     });
     state.authToken = normalized.authToken;
     state.userId = normalized.userId;
@@ -2088,6 +2104,95 @@ export function useMessenger() {
     }
   }
 
+  async function hashOpsecPin(pin, saltB64 = "") {
+    const salt = saltB64 ? base64ToBytes(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+    const bytes = new Uint8Array([
+      ...salt,
+      ...new TextEncoder().encode(String(pin || "")),
+    ]);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return { salt: bytesToBase64(salt), hash: bytesToBase64(new Uint8Array(digest)) };
+  }
+
+  async function matchesOpsecDuressPin(pin) {
+    if (!state.opsecDuressEnabled || !state.opsecDuressSalt || !state.opsecDuressHash) return false;
+    const result = await hashOpsecPin(pin, state.opsecDuressSalt);
+    return result.hash === state.opsecDuressHash;
+  }
+
+  async function wipeBrowserPersistence() {
+    const random = crypto.getRandomValues(new Uint8Array(4096));
+    const noise = bytesToBase64(random);
+    try {
+      for (const key of Object.keys(localStorage)) localStorage.setItem(key, noise);
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
+    try {
+      for (const key of Object.keys(sessionStorage)) sessionStorage.setItem(key, noise);
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+    if (indexedDB?.databases) {
+      try {
+        const databases = await indexedDB.databases();
+        await Promise.all(
+          databases
+            .map((db) => db.name)
+            .filter(Boolean)
+            .map((name) => new Promise((resolve) => {
+              const request = indexedDB.deleteDatabase(name as string);
+              request.onsuccess = request.onerror = request.onblocked = () => resolve(undefined);
+            })),
+        );
+      } catch {
+        await deleteClientLockPayload().catch(() => {});
+      }
+    } else {
+      await deleteClientLockPayload().catch(() => {});
+    }
+  }
+
+  async function activateDecoyProfile() {
+    disconnect();
+    activeClientLockKey = null;
+    Object.assign(state, {
+      authToken: "",
+      userId: "",
+      admin: false,
+      username: "alex",
+      recoveryWords: [],
+      clientLockLocked: false,
+      clientLockEnabled: false,
+      clientLockSalt: "",
+      clientLockIv: "",
+      clientLockCiphertext: "",
+      rooms: [{ roomId: "general-chat", title: "Général", lastPreview: "Je regarde ça plus tard.", lastTimestamp: Date.now() - 600000, lastSender: "sam", iconUrl: "" }],
+      activeRoom: "general-chat",
+      joinedRooms: ["general-chat"],
+      usersByRoom: { "general-chat": ["alex", "sam"] },
+      messagesByRoom: { "general-chat": [
+        normalizeMessage({ username: "sam", text: "Tu as vu le planning ?", timestamp: Date.now() - 900000, roomId: "general-chat" }, "general-chat"),
+        normalizeMessage({ username: "alex", text: "Oui, rien de spécial.", timestamp: Date.now() - 600000, roomId: "general-chat" }, "general-chat"),
+      ] },
+      unreadByRoom: {},
+      roomKeysByRoom: {},
+      settingsOpen: false,
+      lastError: "",
+    });
+  }
+
+  async function handleDuressUnlock() {
+    if (state.opsecDuressAction === "decoy") {
+      await activateDecoyProfile();
+      return;
+    }
+    await wipeBrowserPersistence();
+    window.location.reload();
+  }
+
   async function resetAfterClientLockFailures() {
     if (state.inCall) endCall();
     if (state.recording) stopRecordingVoiceMemo(true);
@@ -2134,6 +2239,10 @@ export function useMessenger() {
       state.lastError = validation;
       showToast(validation);
       return false;
+    }
+    if (await matchesOpsecDuressPin(pin)) {
+      await handleDuressUnlock();
+      return true;
     }
     state.clientLockLoading = true;
     state.clientLockProgress = 8;
@@ -2260,6 +2369,50 @@ export function useMessenger() {
       state.lastError = t("lock.incorrectPin");
       showToast(state.lastError);
       return false;
+    }
+  }
+
+  async function setOpsecDuressPin(pin) {
+    const validation = validateClientLockPin(pin);
+    if (validation) {
+      state.lastError = validation;
+      showToast(validation);
+      return false;
+    }
+    if (!crypto?.subtle) {
+      state.lastError = "OpSec requires Web Crypto.";
+      showToast(state.lastError);
+      return false;
+    }
+    const result = await hashOpsecPin(pin);
+    state.opsecDuressSalt = result.salt;
+    state.opsecDuressHash = result.hash;
+    state.opsecDuressEnabled = true;
+    await persist();
+    showToast("Duress PIN enabled.");
+    return true;
+  }
+
+  async function clearOpsecDuressPin() {
+    state.opsecDuressEnabled = false;
+    state.opsecDuressSalt = "";
+    state.opsecDuressHash = "";
+    await persist();
+  }
+
+  function setOpsecDuressAction(value) {
+    state.opsecDuressAction = OPSEC_DURESS_ACTIONS.includes(String(value || "")) ? String(value) : "wipe";
+    persist();
+  }
+
+  async function setOpsecRamOnlyEnabled(value) {
+    state.opsecRamOnlyEnabled = Boolean(value);
+    if (state.opsecRamOnlyEnabled) {
+      await deleteClientLockPayload().catch(() => {});
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PROFILE_STORAGE_KEY);
+    } else {
+      await persist();
     }
   }
 
@@ -6037,6 +6190,10 @@ export function useMessenger() {
     clientLockAutolockTimeoutsMs: CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS,
     setClientLockAutolockEnabled,
     setClientLockAutolockTimeoutMs,
+    setOpsecDuressPin,
+    clearOpsecDuressPin,
+    setOpsecDuressAction,
+    setOpsecRamOnlyEnabled,
     loadAdminOverview,
     setAdminFeature,
     setAdminUserDisabled,

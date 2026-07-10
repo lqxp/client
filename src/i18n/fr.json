@@ -189,6 +189,7 @@
             "language": "Langue",
             "rooms": "Salons",
             "security": "Sécurité",
+            "opsec": "OpSec",
             "privacy": "Confidentialité",
             "notifications": "Notifications",
             "calls": "Appels",
@@ -284,6 +285,20 @@
             "autolockTwoHours": "2 heures",
             "autolockFiveHours": "5 heures",
             "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées."
+        },
+        "opsec": {
+            "duressTitle": "Mot de passe sous contrainte",
+            "duressAction": "Action du PIN sous contrainte",
+            "actionWipe": "Panique : wipe local puis crash apparent",
+            "actionDecoy": "Faux profil leurre",
+            "duressPin": "PIN sous contrainte",
+            "confirmDuressPin": "Confirmer le PIN",
+            "saveDuressPin": "Enregistrer le PIN sous contrainte",
+            "disableDuressPin": "Désactiver le PIN sous contrainte",
+            "duressNote": "Si ce PIN est saisi sur l’écran de verrouillage, l’action OpSec configurée est exécutée au lieu du déverrouillage normal.",
+            "ramOnlyTitle": "RAM-only",
+            "ramOnlyEnabled": "Ne rien persister sur le disque",
+            "ramOnlyNote": "Quand ce mode est actif, QxChat arrête d’écrire dans LocalStorage/IndexedDB et efface la persistance locale existante. Les données disparaissent à la fermeture ou au rechargement."
         },
         "privacy": {
             "title": "Confidentialité",
