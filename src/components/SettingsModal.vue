@@ -840,9 +840,9 @@ onBeforeUnmount(() => {
             </select>
           </label>
           <div class="settings-inline settings-inline--lock">
-            <input v-model="duressPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+            <input v-model="duressPin" class="settings-input settings-input--pin settings-input--duress" inputmode="numeric" pattern="[0-9]*"
               autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
-            <input v-model="duressPinConfirm" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
+            <input v-model="duressPinConfirm" class="settings-input settings-input--pin settings-input--duress" inputmode="numeric" pattern="[0-9]*"
               autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
             <button type="button" class="btn btn--primary settings-btn" @click="onSaveDuressPin">
               {{ t('settings.opsec.saveDuressPin') }}

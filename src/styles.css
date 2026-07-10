@@ -4353,6 +4353,11 @@ textarea {
   -webkit-text-security: disc;
 }
 
+.settings-input--duress {
+  letter-spacing: normal;
+  font-family: var(--font);
+}
+
 .settings-progress {
   height: 8px;
   margin-top: 14px;
