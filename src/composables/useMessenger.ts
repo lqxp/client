@@ -1248,6 +1248,7 @@ function buildPersistedPayload(state) {
     opsecDuressSalt: String(state.opsecDuressSalt || ""),
     opsecDuressHash: String(state.opsecDuressHash || ""),
     opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(state.opsecDuressAction || "")) ? String(state.opsecDuressAction) : "wipe",
+    opsecHideLockIdentity: state.opsecHideLockIdentity !== false,
   };
   return payload;
 }
@@ -2024,6 +2025,7 @@ export function useMessenger() {
       opsecDuressSalt: String(payload?.opsecDuressSalt || ""),
       opsecDuressHash: String(payload?.opsecDuressHash || ""),
       opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(payload?.opsecDuressAction || "")) ? String(payload.opsecDuressAction) : "wipe",
+      opsecHideLockIdentity: payload?.opsecHideLockIdentity !== false,
     });
     state.authToken = normalized.authToken;
     state.userId = normalized.userId;
@@ -2531,9 +2533,9 @@ export function useMessenger() {
     persist();
   }
 
-  function setOpsecHideLockIdentity(value) {
+  async function setOpsecHideLockIdentity(value) {
     state.opsecHideLockIdentity = Boolean(value);
-    persist();
+    await persist();
   }
 
   async function setOpsecRamOnlyEnabled(value) {
