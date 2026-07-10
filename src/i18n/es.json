@@ -44,6 +44,7 @@
         "goodMorning": "Buenos días, {username}",
         "goodAfternoon": "Buenas tardes, {username}",
         "goodEvening": "Buenas noches, {username}",
+        "hiddenUser": "Usuario",
         "pinPlaceholder": "Código PIN",
         "unlock": "Desbloquear",
         "incorrectPin": "PIN incorrecto.",

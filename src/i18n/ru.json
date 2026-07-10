@@ -44,6 +44,7 @@
         "goodMorning": "Доброе утро, {username}",
         "goodAfternoon": "Добрый день, {username}",
         "goodEvening": "Добрый вечер, {username}",
+        "hiddenUser": "Пользователь",
         "pinPlaceholder": "PIN-код",
         "incorrectPin": "Неверный PIN-код.",
         "unlock": "Разблокировать",

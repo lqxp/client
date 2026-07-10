@@ -14,7 +14,7 @@ const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.stat
 const FALLBACK_LOGO = "https://qxch.at/app-icon.svg";
 const lockIdentityHidden = computed(() => props.messenger.state.opsecHideLockIdentity !== false);
 const username = computed(() => String(props.messenger.state.username || props.messenger.state.clientLockDisplayName || "").trim());
-const displayName = computed(() => lockIdentityHidden.value ? "QxChat" : username.value || "QxChat");
+const displayName = computed(() => lockIdentityHidden.value ? t("lock.hiddenUser") : username.value || "QxChat");
 const greetingKey = computed(() => {
   const hour = new Date().getHours();
   if (hour < 12) return "lock.goodMorning";

@@ -817,7 +817,7 @@ function loadPersisted() {
         opsecDuressSalt: String(raw.opsecDuressSalt || ""),
         opsecDuressHash: String(raw.opsecDuressHash || ""),
         opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(raw.opsecDuressAction || "")) ? String(raw.opsecDuressAction) : "wipe",
-        opsecHideLockIdentity: raw.opsecHideLockIdentity !== false,
+        opsecHideLockIdentity: raw.opsecHideLockIdentity === undefined ? true : raw.opsecHideLockIdentity === true,
       });
     }
     const profile = loadPersistedProfile();
@@ -2537,6 +2537,15 @@ export function useMessenger() {
   async function setOpsecHideLockIdentity(value) {
     state.opsecHideLockIdentity = Boolean(value);
     await persist();
+    if (state.clientLockEnabled && !state.clientLockLocked && activeClientLockKey && state.clientLockSalt) {
+      const lockedPayload = await encryptClientLockPayload(
+        buildPersistedPayload(state),
+        activeClientLockKey,
+        state.clientLockSalt,
+        state.clientLockPinLength,
+      );
+      await writeLockedPersistedPayload(lockedPayload);
+    }
   }
 
   async function setOpsecRamOnlyEnabled(value) {

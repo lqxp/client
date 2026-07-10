@@ -44,6 +44,7 @@
         "goodMorning": "Good morning, {username}",
         "goodAfternoon": "Good afternoon, {username}",
         "goodEvening": "Good evening, {username}",
+        "hiddenUser": "User",
         "unlockSuccess": "QxChat unlocked.",
         "pinPlaceholder": "PIN code",
         "unlock": "Unlock",
