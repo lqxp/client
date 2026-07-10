@@ -676,6 +676,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     roomKeysByRoom: {},
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
+    selectedVideoInputId: "",
     microphoneThreshold: 0,
     deleteMessagesOnLeave: false,
     shareScreenAudio: true,
@@ -923,6 +924,7 @@ function loadPersisted() {
       roomKeysByRoom: sanitizeRoomKeys(raw.roomKeysByRoom),
       selectedAudioInputId: String(raw.selectedAudioInputId || ""),
       selectedAudioOutputId: String(raw.selectedAudioOutputId || ""),
+      selectedVideoInputId: String(raw.selectedVideoInputId || ""),
       microphoneThreshold: Math.max(
         0,
         Math.min(100, Number(raw.microphoneThreshold) || 0),
@@ -1197,6 +1199,7 @@ function buildPersistedPayload(state) {
     roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
     selectedAudioInputId: state.selectedAudioInputId,
     selectedAudioOutputId: state.selectedAudioOutputId,
+    selectedVideoInputId: state.selectedVideoInputId,
     microphoneThreshold: state.microphoneThreshold,
     deleteMessagesOnLeave: state.deleteMessagesOnLeave,
     shareScreenAudio: state.shareScreenAudio,
@@ -1684,6 +1687,7 @@ export function useMessenger() {
     audioDevices: [],
     selectedAudioInputId: persisted.selectedAudioInputId,
     selectedAudioOutputId: persisted.selectedAudioOutputId,
+    selectedVideoInputId: persisted.selectedVideoInputId,
     microphoneThreshold: persisted.microphoneThreshold,
     deleteMessagesOnLeave: persisted.deleteMessagesOnLeave,
     shareScreenAudio: persisted.shareScreenAudio,
@@ -1947,6 +1951,7 @@ export function useMessenger() {
     state.roomKeysByRoom = normalized.roomKeysByRoom;
     state.selectedAudioInputId = normalized.selectedAudioInputId;
     state.selectedAudioOutputId = normalized.selectedAudioOutputId;
+    state.selectedVideoInputId = normalized.selectedVideoInputId;
     state.microphoneThreshold = normalized.microphoneThreshold;
     state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
     state.shareScreenAudio = normalized.shareScreenAudio;
@@ -2343,6 +2348,7 @@ export function useMessenger() {
       androidNotificationsEnabled: state.androidNotificationsEnabled,
       selectedAudioInputId: state.selectedAudioInputId,
       selectedAudioOutputId: state.selectedAudioOutputId,
+      selectedVideoInputId: state.selectedVideoInputId,
       microphoneThreshold: state.microphoneThreshold,
       appAccent: state.appAccent,
       themeMode: state.themeMode,
@@ -3155,6 +3161,15 @@ export function useMessenger() {
     };
   }
 
+  function videoConstraints() {
+    return {
+      video: state.selectedVideoInputId
+        ? { deviceId: { exact: state.selectedVideoInputId } }
+        : true,
+      audio: false,
+    };
+  }
+
   function mediaErrorMessage(prefix, error) {
     const name = String(error?.name || "Error").trim();
     const message = String(error?.message || "").trim();
@@ -3224,6 +3239,25 @@ export function useMessenger() {
     state.selectedAudioOutputId = String(deviceId || "");
     applyAudioOutput(micTestAudio);
     persist();
+  }
+
+  function setVideoInput(deviceId) {
+    state.selectedVideoInputId = String(deviceId || "");
+    persist();
+  }
+
+  async function getPreferredVideoStream() {
+    try {
+      return await navigator.mediaDevices.getUserMedia(videoConstraints());
+    } catch (error) {
+      const selectedDeviceId = String(state.selectedVideoInputId || "").trim();
+      const errorName = String(error?.name || "").trim();
+      if (!selectedDeviceId || errorName !== "OverconstrainedError") throw error;
+
+      state.selectedVideoInputId = "";
+      persist();
+      return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
   }
 
   function setMicrophoneThreshold(value) {
@@ -4429,10 +4463,7 @@ export function useMessenger() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      const stream = await getPreferredVideoStream();
       stopStreamTracks(state.cameraStream);
       state.cameraStream = stream;
       state.callCameraEnabled = true;
@@ -6016,6 +6047,7 @@ export function useMessenger() {
     stopMicTest,
     setAudioInput,
     setAudioOutput,
+    setVideoInput,
     setMicrophoneThreshold,
     setDeleteMessagesOnLeave,
     setStreamerMode,

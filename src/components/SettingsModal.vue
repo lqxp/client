@@ -18,6 +18,7 @@ const fileInputRef = ref(null);
 const avatarInputRef = ref(null);
 const bannerInputRef = ref(null);
 const firstInputRef = ref(null);
+const cameraPreviewRef = ref<HTMLVideoElement | null>(null);
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
@@ -134,7 +135,10 @@ watch(activeSection, async (section) => {
   if (!isOpen.value) return;
   if (section === "calls") props.messenger.refreshAudioDevices();
   if (section === "admin") props.messenger.loadAdminOverview();
-  if (section !== "calls") props.messenger.stopMicTest();
+  if (section !== "calls") {
+    props.messenger.stopMicTest();
+    stopCameraPreview();
+  }
   if (section === "profile") {
     await nextTick();
     firstInputRef.value?.focus();
@@ -143,6 +147,7 @@ watch(activeSection, async (section) => {
 
 function close() {
   props.messenger.stopMicTest();
+  stopCameraPreview();
   mobileSectionOpen.value = false;
   props.messenger.state.settingsOpen = false;
 }
@@ -154,6 +159,7 @@ function selectSection(sectionId: string) {
 
 function backToSettingsList() {
   props.messenger.stopMicTest();
+  stopCameraPreview();
   mobileSectionOpen.value = false;
 }
 
@@ -257,6 +263,58 @@ const microphones = computed(() =>
 const headphones = computed(() =>
   props.messenger.state.audioDevices.filter((device) => device.kind === "audiooutput")
 );
+const cameras = computed(() =>
+  props.messenger.state.audioDevices.filter((device) => device.kind === "videoinput")
+);
+const cameraPreviewActive = ref(false);
+const cameraPreviewLoading = ref(false);
+const cameraPreviewError = ref("");
+let cameraPreviewStream: MediaStream | null = null;
+
+function stopCameraPreview() {
+  if (cameraPreviewStream) {
+    for (const track of cameraPreviewStream.getTracks()) track.stop();
+    cameraPreviewStream = null;
+  }
+  if (cameraPreviewRef.value) cameraPreviewRef.value.srcObject = null;
+  cameraPreviewActive.value = false;
+  cameraPreviewLoading.value = false;
+}
+
+async function startCameraPreview() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    cameraPreviewError.value = t('settings.calls.cameraUnavailable');
+    return;
+  }
+  stopCameraPreview();
+  cameraPreviewError.value = "";
+  cameraPreviewActive.value = true;
+  cameraPreviewLoading.value = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: props.messenger.state.selectedVideoInputId
+        ? { deviceId: { exact: props.messenger.state.selectedVideoInputId } }
+        : true,
+      audio: false
+    });
+    cameraPreviewStream = stream;
+    await props.messenger.refreshAudioDevices();
+    if (cameraPreviewRef.value) {
+      cameraPreviewRef.value.srcObject = stream;
+      await cameraPreviewRef.value.play().catch(() => {});
+    }
+  } catch (error) {
+    cameraPreviewError.value = error instanceof Error ? error.message : t('settings.calls.cameraPreviewError');
+    stopCameraPreview();
+  } finally {
+    cameraPreviewLoading.value = false;
+  }
+}
+
+async function onVideoInputChanged(deviceId: string) {
+  props.messenger.setVideoInput(deviceId);
+  if (cameraPreviewActive.value) await startCameraPreview();
+}
 
 const runtimePlatform = computed(() => {
   const messengerPlatform = String(props.messenger.platformsForUser?.(props.messenger.state.username || "")?.[0] || "").trim();
@@ -327,6 +385,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
   document.removeEventListener("keydown", onKey);
+  stopCameraPreview();
 });
 </script>
 
@@ -903,6 +962,31 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
+
+          <label class="settings-select">
+            <span>{{ t('settings.calls.camera') }}</span>
+            <select :value="messenger.state.selectedVideoInputId"
+              @change="onVideoInputChanged(targetValue($event))">
+              <option value="">{{ t('settings.calls.systemDefault') }}</option>
+              <option v-for="(device, index) in cameras" :key="device.deviceId || `camera-${index}`"
+                :value="device.deviceId">
+                {{ deviceLabel(device, `${t('settings.calls.camera')} ${Number(index) + 1}`) }}
+              </option>
+            </select>
+          </label>
+
+          <div class="settings-camera-preview">
+            <video ref="cameraPreviewRef" autoplay muted playsinline></video>
+            <div v-if="!cameraPreviewActive && !cameraPreviewError" class="settings-camera-preview__empty">
+              {{ t('settings.calls.cameraPreview') }}
+            </div>
+            <div v-if="cameraPreviewError" class="settings-camera-preview__error">{{ cameraPreviewError }}</div>
+          </div>
+          <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': cameraPreviewActive }"
+            :disabled="cameraPreviewLoading"
+            @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
+            {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ? t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
+          </button>
 
           <p class="settings-note" v-if="messenger.state.audioDevicesPermission !== 'granted'">
             {{ t('settings.calls.devicesNote') }}
