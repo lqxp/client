@@ -386,7 +386,7 @@ async function lockClientNow() {
 
 @media (min-width: 901px) {
   .app.app--desktop-titlebar {
-    grid-template-rows: 42px minmax(0, 1fr);
+    grid-template-rows: 30px minmax(0, 1fr);
     align-content: stretch;
   }
 
@@ -401,10 +401,10 @@ async function lockClientNow() {
     grid-column: 1 / -1;
     grid-row: 1;
     width: 100%;
-    height: 42px;
+    height: 30px;
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 8px;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, black 6%);
     backdrop-filter: blur(16px) saturate(1.08);
@@ -419,18 +419,18 @@ async function lockClientNow() {
     position: absolute;
     left: 50%;
     top: 50%;
-    max-width: min(520px, calc(100% - 180px));
+    max-width: min(520px, calc(100% - 160px));
     min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transform: translate(-50%, -50%);
   }
 
   .desktop-titlebar__room-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     overflow: hidden;
     flex: none;
   }
@@ -449,7 +449,8 @@ async function lockClientNow() {
 
   .desktop-titlebar__title {
     min-width: 0;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1;
     font-weight: 700;
     color: var(--text);
     white-space: nowrap;
@@ -461,13 +462,18 @@ async function lockClientNow() {
     position: relative;
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 4px;
     -webkit-app-region: no-drag;
   }
 
   .desktop-titlebar__actions .icon-btn {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .desktop-titlebar__actions .icon-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
   .desktop-titlebar__action-wrap {
