@@ -2242,13 +2242,6 @@ export function useMessenger() {
       return false;
     }
     await persist();
-    if (state.authToken) {
-      try {
-        await apiRequest("/api/auth/logout", { method: "POST" });
-      } catch {
-        /* local setup still wins */
-      }
-    }
     disconnect();
     state.opsecDecoySetupActive = true;
     state.opsecDecoyActive = false;
@@ -5495,6 +5488,7 @@ export function useMessenger() {
       case 2:
         if (d?.error) {
           state.lastError = d.error;
+          if (String(d.error) === "Invalid account session") disconnect();
           break;
         }
         state.uuid = d.uuid;
