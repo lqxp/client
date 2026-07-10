@@ -296,6 +296,8 @@
             "saveDuressPin": "Enregistrer le PIN sous contrainte",
             "disableDuressPin": "Désactiver le PIN sous contrainte",
             "duressNote": "Si ce PIN est saisi sur l’écran de verrouillage, l’action OpSec configurée est exécutée au lieu du déverrouillage normal.",
+            "requiresLock": "Active d’abord le Lock Screen : le Duress Password se déclenche uniquement depuis l’écran de saisie du PIN.",
+            "requiresUnlockedLock": "Déverrouille et active d’abord le Lock Screen avant d’enregistrer un Duress PIN.",
             "ramOnlyTitle": "RAM-only",
             "ramOnlyEnabled": "Ne rien persister sur le disque",
             "ramOnlyNote": "Quand ce mode est actif, QxChat arrête d’écrire dans LocalStorage/IndexedDB et efface la persistance locale existante. Les données disparaissent à la fermeture ou au rechargement."

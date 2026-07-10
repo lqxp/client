@@ -100,7 +100,7 @@ export function playLeaveSound(preview = false): void {
   ], 0.16, preview ? undefined : "leave");
 }
 
-/** Caméra activée — bip court montant */
+/** Camera enabled — short rising beep */
 export function playCameraOnSound(preview = false): void {
   playTones([
     { freq: 880, dur: 0.06, gap: 0.02 },
@@ -125,7 +125,7 @@ export function playScreenOnSound(preview = false): void {
   ], 0.13, preview ? undefined : "screenOn");
 }
 
-/** Partage d'écran désactivé — bip triple descendant */
+/** Screen share disabled — triple falling beep */
 export function playScreenOffSound(preview = false): void {
   playTones([
     { freq: 880, dur: 0.06, gap: 0.02 },

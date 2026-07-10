@@ -844,7 +844,7 @@ onBeforeUnmount(() => {
               autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
             <input v-model="duressPinConfirm" class="settings-input settings-input--pin settings-input--duress" inputmode="numeric" pattern="[0-9]*"
               autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
-            <button type="button" class="btn btn--primary settings-btn" @click="onSaveDuressPin">
+            <button type="button" class="btn btn--primary settings-btn" :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked" @click="onSaveDuressPin">
               {{ t('settings.opsec.saveDuressPin') }}
             </button>
           </div>
@@ -853,6 +853,7 @@ onBeforeUnmount(() => {
               {{ t('settings.opsec.disableDuressPin') }}
             </button>
           </div>
+          <p class="settings-note" v-if="!messenger.state.clientLockEnabled">{{ t('settings.opsec.requiresLock') }}</p>
           <p class="settings-note">{{ t('settings.opsec.duressNote') }}</p>
         </div>
 

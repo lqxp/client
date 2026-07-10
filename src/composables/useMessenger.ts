@@ -724,6 +724,11 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockThemeMode: "system",
     clientLockFailedAttempts: 0,
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
+    opsecRamOnlyEnabled: false,
+    opsecDuressEnabled: false,
+    opsecDuressSalt: "",
+    opsecDuressHash: "",
+    opsecDuressAction: "wipe",
     ...overrides,
   };
 }
@@ -803,6 +808,10 @@ function loadPersisted() {
         clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(raw.pinLength)) ? Number(raw.pinLength) : 6,
         clientLockAutolockEnabled: raw.autolockEnabled === true,
         clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(raw.autolockTimeoutMs),
+        opsecDuressEnabled: raw.opsecDuressEnabled === true,
+        opsecDuressSalt: String(raw.opsecDuressSalt || ""),
+        opsecDuressHash: String(raw.opsecDuressHash || ""),
+        opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(raw.opsecDuressAction || "")) ? String(raw.opsecDuressAction) : "wipe",
       });
     }
     const profile = loadPersistedProfile();
@@ -1229,6 +1238,10 @@ function buildPersistedPayload(state) {
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(state.clientLockPinLength)) ? Number(state.clientLockPinLength) : 6,
     clientLockAutolockEnabled: state.clientLockAutolockEnabled === true,
     clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(state.clientLockAutolockTimeoutMs),
+    opsecDuressEnabled: state.opsecDuressEnabled === true,
+    opsecDuressSalt: String(state.opsecDuressSalt || ""),
+    opsecDuressHash: String(state.opsecDuressHash || ""),
+    opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(state.opsecDuressAction || "")) ? String(state.opsecDuressAction) : "wipe",
   };
   return payload;
 }
@@ -1252,6 +1265,10 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     themeMode: THEME_MODES.includes(String(payload?.themeMode || "").toLowerCase()) ? String(payload.themeMode).toLowerCase() : "system",
     autolockEnabled: payload?.clientLockAutolockEnabled === true,
     autolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
+    opsecDuressEnabled: payload?.opsecDuressEnabled === true,
+    opsecDuressSalt: String(payload?.opsecDuressSalt || ""),
+    opsecDuressHash: String(payload?.opsecDuressHash || ""),
+    opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(payload?.opsecDuressAction || "")) ? String(payload.opsecDuressAction) : "wipe",
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
@@ -1296,6 +1313,7 @@ async function writeLockedPersistedPayload(lockedPayload) {
 }
 
 async function savePersisted(state) {
+  if (state.opsecRamOnlyEnabled) return;
   const payload = buildPersistedPayload(state);
   if (state.clientLockEnabled && activeClientLockKey && state.clientLockSalt) {
     const lockedPayload = await encryptClientLockPayload(
@@ -1990,6 +2008,10 @@ export function useMessenger() {
     state.clientLockPinLength = normalized.clientLockPinLength;
     state.clientLockAutolockEnabled = normalized.clientLockAutolockEnabled;
     state.clientLockAutolockTimeoutMs = normalized.clientLockAutolockTimeoutMs;
+    state.opsecDuressEnabled = normalized.opsecDuressEnabled;
+    state.opsecDuressSalt = normalized.opsecDuressSalt;
+    state.opsecDuressHash = normalized.opsecDuressHash;
+    state.opsecDuressAction = normalized.opsecDuressAction;
   }
 
   async function applyPersistedPayloadAfterUnlock(payload) {
@@ -2337,6 +2359,10 @@ export function useMessenger() {
     state.clientLockThemeMode = THEME_MODES.includes(String(lockedPayload.themeMode || "").toLowerCase()) ? String(lockedPayload.themeMode).toLowerCase() : "system";
     state.clientLockAutolockEnabled = lockedPayload.autolockEnabled === true;
     state.clientLockAutolockTimeoutMs = sanitizeClientLockAutolockTimeoutMs(lockedPayload.autolockTimeoutMs);
+    state.opsecDuressEnabled = lockedPayload.opsecDuressEnabled === true;
+    state.opsecDuressSalt = String(lockedPayload.opsecDuressSalt || "");
+    state.opsecDuressHash = String(lockedPayload.opsecDuressHash || "");
+    state.opsecDuressAction = OPSEC_DURESS_ACTIONS.includes(String(lockedPayload.opsecDuressAction || "")) ? String(lockedPayload.opsecDuressAction) : "wipe";
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
@@ -2373,6 +2399,11 @@ export function useMessenger() {
   }
 
   async function setOpsecDuressPin(pin) {
+    if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey || !state.clientLockSalt) {
+      state.lastError = t("settings.opsec.requiresUnlockedLock");
+      showToast(state.lastError);
+      return false;
+    }
     const validation = validateClientLockPin(pin);
     if (validation) {
       state.lastError = validation;

@@ -293,6 +293,8 @@
             "saveDuressPin": "Guardar PIN de coacción",
             "disableDuressPin": "Desactivar PIN de coacción",
             "duressNote": "Si este PIN se introduce en la pantalla de bloqueo, se ejecuta la acción OpSec configurada en vez del desbloqueo normal.",
+            "requiresLock": "Activa primero la pantalla de bloqueo: la contraseña de coacción solo se activa desde la pantalla de PIN.",
+            "requiresUnlockedLock": "Desbloquea y activa primero la pantalla de bloqueo antes de guardar un PIN de coacción.",
             "ramOnlyTitle": "Solo RAM",
             "ramOnlyEnabled": "No persistir nada en disco",
             "ramOnlyNote": "Cuando está activo, QxChat deja de escribir en LocalStorage/IndexedDB y borra la persistencia local existente. Los datos desaparecen al cerrar o recargar."
