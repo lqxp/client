@@ -1,11 +1,11 @@
 const ROOM_ID_BYTES = 16;
-const ROOM_KEY_BYTES = 16;
+const ROOM_KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 
 export const E2EE_ENVELOPE_VERSION = 1;
-export const E2EE_ALGORITHM = "A128GCM";
+export const E2EE_ALGORITHM = "A256GCM";
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
@@ -73,7 +73,7 @@ export function generateRoomKey() {
 
 export function normalizeRoomAccessToken(rawValue: string) {
   const normalized = String(rawValue || "").trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+  if (!/^[0-9a-f]{96}$/.test(normalized)) {
     throw new Error("Invalid room token.");
   }
   return normalized;

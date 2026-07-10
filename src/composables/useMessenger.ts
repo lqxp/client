@@ -4104,7 +4104,7 @@ export function useMessenger() {
     const raw = String(state.composeInput || "").trim();
     let id = "";
     try {
-      if (/^[0-9a-f]{64}$/i.test(raw)) {
+      if (/^[0-9a-f]{96}$/i.test(raw)) {
         const parsed = parseRoomAccessToken(raw);
         id = parsed.roomId;
         importRoomKey(parsed.roomId, parsed.roomKey);
