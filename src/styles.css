@@ -4343,7 +4343,14 @@ textarea {
 
 .settings-inline--lock {
   margin-left: 0;
-  align-items: center;
+  align-items: stretch;
+}
+
+.settings-inline--lock .settings-btn {
+  width: auto;
+  min-height: 44px;
+  height: 44px;
+  margin-top: 0;
 }
 
 .settings-input--pin {
