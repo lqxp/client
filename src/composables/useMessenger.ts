@@ -6326,6 +6326,7 @@ export function useMessenger() {
     setOpsecDuressPin,
     clearOpsecDuressPin,
     setOpsecDuressAction,
+    setOpsecHideLockIdentity,
     startOpsecDecoySetup,
     setOpsecRamOnlyEnabled,
     loadAdminOverview,
