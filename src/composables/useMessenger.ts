@@ -1276,6 +1276,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
     opsecDuressSalt: String(payload?.opsecDuressSalt || ""),
     opsecDuressHash: String(payload?.opsecDuressHash || ""),
     opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(String(payload?.opsecDuressAction || "")) ? String(payload.opsecDuressAction) : "wipe",
+    opsecHideLockIdentity: payload?.opsecHideLockIdentity !== false,
     failedAttempts: 0,
     salt,
     iv: bytesToBase64(iv),
