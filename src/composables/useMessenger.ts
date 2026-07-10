@@ -632,6 +632,17 @@ function sanitizeRoomKeys(raw) {
   return next;
 }
 
+function sanitizeRoomRatchets(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const next = {};
+  for (const [roomId, counter] of Object.entries(raw)) {
+    const id = sanitizeRoomId(roomId);
+    if (!isValidRoomId(id)) continue;
+    next[id] = Math.max(0, Math.floor(Number(counter) || 0));
+  }
+  return next;
+}
+
 function parseInviteLink() {
   try {
     const hash = String(window.location.hash || "");
@@ -1091,6 +1102,8 @@ function stripAttachmentDataForStorage(arr) {
             v: Number(message.encrypted.v) || 0,
             alg: String(message.encrypted.alg || ""),
             iv: String(message.encrypted.iv || ""),
+            salt: String(message.encrypted.salt || ""),
+            n: Number(message.encrypted.n) || 0,
             ciphertext: message.locked ? String(message.encrypted.ciphertext || "") : "",
           }
         : null;
@@ -1218,6 +1231,7 @@ function buildPersistedPayload(state) {
     messagesByRoom,
     unreadByRoom: state.unreadByRoom,
     roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
+    roomRatchetsByRoom: sanitizeRoomRatchets(state.roomRatchetsByRoom),
     selectedAudioInputId: state.selectedAudioInputId,
     selectedAudioOutputId: state.selectedAudioOutputId,
     selectedVideoInputId: state.selectedVideoInputId,
@@ -1449,6 +1463,8 @@ function sameEncryptedPayload(left, right) {
     Number(left.v) === Number(right.v) &&
     String(left.alg || "") === String(right.alg || "") &&
     String(left.iv || "") === String(right.iv || "") &&
+    String(left.salt || "") === String(right.salt || "") &&
+    Number(left.n || 0) === Number(right.n || 0) &&
     String(left.ciphertext || "") === String(right.ciphertext || "")
   );
 }
@@ -1520,6 +1536,8 @@ function normalizeMessage(message, fallbackRoomId) {
           v: Number(message.encrypted.v) || 0,
           alg: String(message.encrypted.alg || ""),
           iv: String(message.encrypted.iv || ""),
+          salt: String(message.encrypted.salt || ""),
+          n: Number(message.encrypted.n) || 0,
           ciphertext: String(message.encrypted.ciphertext || ""),
         }
       : null;
@@ -1746,6 +1764,7 @@ export function useMessenger() {
     activeRoom: persisted.activeRoom,
     rooms: persisted.rooms,
     roomKeysByRoom: persisted.roomKeysByRoom,
+    roomRatchetsByRoom: (persisted as any).roomRatchetsByRoom || {},
 
     joinedRooms: persisted.joinedRooms,
     pendingJoinRooms: [],
@@ -2266,6 +2285,7 @@ export function useMessenger() {
     state.messagesByRoom = {};
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
+    state.roomRatchetsByRoom = {};
     state.activeRoom = "";
     writeDecoyPersistedPayload(decoyPersistedPayload(buildPersistedPayload(state)));
     localStorage.removeItem(PROFILE_STORAGE_KEY);
@@ -2338,6 +2358,7 @@ export function useMessenger() {
     state.messagesByRoom = {};
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
+    state.roomRatchetsByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.badgesByUser = {};
@@ -2935,6 +2956,14 @@ export function useMessenger() {
     return `${id}${key}`;
   }
 
+  function openImportedRoomToken(token) {
+    const parsed = parseRoomAccessToken(token);
+    importRoomKey(parsed.roomId, parsed.roomKey);
+    selectConversation(parsed.roomId);
+    if (state.connected && state.identified) requestJoin(parsed.roomId, { force: true });
+    return parsed.roomId;
+  }
+
   async function copyRoomInvite(roomId, { createIfMissing = true } = {}) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
@@ -3014,7 +3043,11 @@ export function useMessenger() {
         "This room needs its room token key before you can send encrypted messages.",
       );
     }
-    return encryptRoomPayload(roomKey, id, payload);
+    const nextCounter = Math.max(0, Math.floor(Number(state.roomRatchetsByRoom[id]) || 0)) + 1;
+    const encrypted = await encryptRoomPayload(roomKey, id, payload, nextCounter);
+    state.roomRatchetsByRoom[id] = nextCounter;
+    persist();
+    return encrypted;
   }
 
   function displayRoomName(roomId) {
@@ -4001,7 +4034,7 @@ export function useMessenger() {
     send({ op: 8, d });
   }
 
-  function requestJoin(roomId, options = { silentJoin: false }) {
+  function requestJoin(roomId, options: any = {}) {
     const id = sanitizeRoomId(roomId);
     const validation = validateRoomId(id);
     if (validation) {
@@ -4010,7 +4043,10 @@ export function useMessenger() {
     }
     if (!state.identified) return;
     if (state.joinedRooms.includes(id)) return;
-    if (state.pendingJoinRooms.includes(id)) return;
+    if (state.pendingJoinRooms.includes(id)) {
+      if (!options?.force) return;
+      state.pendingJoinRooms = state.pendingJoinRooms.filter((roomId) => roomId !== id);
+    }
     state.pendingJoinRooms.push(id);
     send({ op: 3, d: { gameId: id, silentJoin: options?.silentJoin === true } });
   }
@@ -4102,12 +4138,11 @@ export function useMessenger() {
 
   function submitCompose() {
     const raw = String(state.composeInput || "").trim();
+    const compactToken = raw.replace(/\s+/g, "");
     let id = "";
     try {
-      if (/^[0-9a-f]{96}$/i.test(raw)) {
-        const parsed = parseRoomAccessToken(raw);
-        id = parsed.roomId;
-        importRoomKey(parsed.roomId, parsed.roomKey);
+      if (/^[0-9a-f]{96}$/i.test(compactToken)) {
+        id = openImportedRoomToken(compactToken);
       } else {
         id = sanitizeRoomId(raw);
         const validation = validateRoomId(id);
@@ -4124,7 +4159,7 @@ export function useMessenger() {
     }
     state.composing = false;
     state.composeInput = "";
-    selectConversation(id);
+    if (!/^[0-9a-f]{96}$/i.test(compactToken)) selectConversation(id);
   }
 
   function showToast(message) {
@@ -4272,6 +4307,18 @@ export function useMessenger() {
 
   function sendChat() {
     const text = state.messageInput.trim();
+    const compactToken = text.replace(/\s+/g, "");
+    if (/^[0-9a-f]{96}$/i.test(compactToken)) {
+      try {
+        openImportedRoomToken(compactToken);
+        state.messageInput = "";
+        showToast("Room token imported. Joining room…");
+      } catch (error) {
+        state.lastError = error?.message || "Invalid room token.";
+        showToast(state.lastError);
+      }
+      return;
+    }
     const roomId = state.activeRoom;
     if (!text || !roomId) return;
     if (state.editingMessage) {
@@ -5101,6 +5148,7 @@ export function useMessenger() {
     state.messagesByRoom = {};
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
+    state.roomRatchetsByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.badgesByUser = {};

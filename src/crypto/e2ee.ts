@@ -1,11 +1,12 @@
 const ROOM_ID_BYTES = 16;
 const ROOM_KEY_BYTES = 32;
 const IV_BYTES = 12;
+const MESSAGE_SALT_BYTES = 32;
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 
-export const E2EE_ENVELOPE_VERSION = 1;
-export const E2EE_ALGORITHM = "A256GCM";
+export const E2EE_ENVELOPE_VERSION = 2;
+export const E2EE_ALGORITHM = "QXDR-A256GCM-HKDFSHA256";
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
@@ -40,6 +41,10 @@ function base64ToBytes(base64: string) {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
+}
+
+function strictBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 export function encodeBase64Url(bytes: Uint8Array) {
@@ -103,11 +108,19 @@ export function parseRoomAccessToken(rawValue: string) {
   };
 }
 
-async function importRoomKey(roomKey: string) {
+async function deriveMessageKey(roomKey: string, roomId: string, salt: Uint8Array, counter: number) {
   if (!cryptoAvailable()) throw new Error("Web Crypto is unavailable.");
   const raw = hexToBytes(roomKey);
   if (raw.length !== ROOM_KEY_BYTES) throw new Error("Invalid room key.");
-  return globalThis.crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  const baseKey = await globalThis.crypto.subtle.importKey("raw", strictBuffer(raw), "HKDF", false, ["deriveKey"]);
+  const info = TEXT_ENCODER.encode(`qxchat:e2ee:v2:${roomId}:${counter}`);
+  return globalThis.crypto.subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: strictBuffer(salt), info: strictBuffer(info) },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
 }
 
 export function isEncryptedEnvelope(value: any) {
@@ -117,25 +130,32 @@ export function isEncryptedEnvelope(value: any) {
     && Number(value.v) === E2EE_ENVELOPE_VERSION
     && String(value.alg || "") === E2EE_ALGORITHM
     && typeof value.iv === "string"
+    && typeof value.salt === "string"
+    && Number.isSafeInteger(Number(value.n))
     && typeof value.ciphertext === "string"
   );
 }
 
-export async function encryptRoomPayload(roomKey: string, roomId: string, payload: unknown) {
+export async function encryptRoomPayload(roomKey: string, roomId: string, payload: unknown, counter = Date.now()) {
   const normalizedRoomId = String(roomId || "");
-  const key = await importRoomKey(roomKey);
+  const n = Number.isSafeInteger(counter) && counter > 0 ? counter : Date.now();
+  const salt = new Uint8Array(MESSAGE_SALT_BYTES);
   const iv = new Uint8Array(IV_BYTES);
+  globalThis.crypto.getRandomValues(salt);
   globalThis.crypto.getRandomValues(iv);
+  const key = await deriveMessageKey(roomKey, normalizedRoomId, salt, n);
   const plaintext = TEXT_ENCODER.encode(JSON.stringify(payload));
-  const aad = TEXT_ENCODER.encode(normalizedRoomId);
+  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}`);
   const ciphertext = await globalThis.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv, additionalData: aad },
+    { name: "AES-GCM", iv: strictBuffer(iv), additionalData: strictBuffer(aad) },
     key,
-    plaintext
+    strictBuffer(plaintext)
   );
   return {
     v: E2EE_ENVELOPE_VERSION,
     alg: E2EE_ALGORITHM,
+    n,
+    salt: encodeBase64Url(salt),
     iv: encodeBase64Url(iv),
     ciphertext: encodeBase64Url(new Uint8Array(ciphertext)),
     roomId: normalizedRoomId
@@ -144,14 +164,17 @@ export async function encryptRoomPayload(roomKey: string, roomId: string, payloa
 
 export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: any) {
   if (!isEncryptedEnvelope(envelope)) throw new Error("Invalid encrypted payload.");
-  const key = await importRoomKey(roomKey);
+  const normalizedRoomId = String(roomId || "");
+  const n = Number(envelope.n);
+  const salt = decodeBase64Url(envelope.salt);
   const iv = decodeBase64Url(envelope.iv);
   const ciphertext = decodeBase64Url(envelope.ciphertext);
-  const aad = TEXT_ENCODER.encode(String(roomId || ""));
+  const key = await deriveMessageKey(roomKey, normalizedRoomId, salt, n);
+  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}`);
   const plaintext = await globalThis.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv, additionalData: aad },
+    { name: "AES-GCM", iv: strictBuffer(iv), additionalData: strictBuffer(aad) },
     key,
-    ciphertext
+    strictBuffer(ciphertext)
   );
   return JSON.parse(TEXT_DECODER.decode(plaintext));
 }
