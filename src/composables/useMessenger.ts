@@ -2982,6 +2982,7 @@ export function useMessenger() {
         {
           ...message,
           text: String(decrypted?.text || ""),
+          replyToMessageId: String(decrypted?.replyToMessageId || message.replyToMessageId || ""),
           attachment:
             decrypted?.attachment && typeof decrypted.attachment === "object"
               ? {
@@ -4285,12 +4286,10 @@ export function useMessenger() {
       buildEncryptedOutgoingMessage(roomId, {
         text: text.slice(0, MESSAGE_LIMIT),
         attachment: null,
+        replyToMessageId: state.replyingTo?.messageId || "",
       })
         .then((encrypted) => {
-          const d: any = { text: "", gameId: roomId, encrypted };
-          if (state.replyingTo?.messageId)
-            d.replyToMessageId = state.replyingTo.messageId;
-          send({ op: 7, d });
+          send({ op: 7, d: { encrypted } });
           state.messageInput = "";
           state.replyingTo = null;
           setTyping(false);
@@ -4344,6 +4343,7 @@ export function useMessenger() {
           size: uploadFile.size,
           dataB64,
         },
+        replyToMessageId: state.replyingTo?.messageId || "",
       });
       const optimisticMessage = normalizeMessage(
         {
@@ -4353,6 +4353,7 @@ export function useMessenger() {
           username: state.username || "You",
           text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
           timestamp: Date.now(),
+          replyToMessageId: state.replyingTo?.messageId || "",
           attachment: {
             id: "",
             url: previewUrl,
@@ -4368,17 +4369,7 @@ export function useMessenger() {
       touchRoom(roomId, optimisticMessage);
       if (roomId === state.activeRoom) scrollToBottom();
 
-      send({
-        op: 7,
-        d: {
-          text: "",
-          gameId: roomId,
-          ...(state.replyingTo?.messageId
-            ? { replyToMessageId: state.replyingTo.messageId }
-            : {}),
-          encrypted,
-        },
-      });
+      send({ op: 7, d: { encrypted } });
       state.replyingTo = null;
       persist();
     } catch (err) {

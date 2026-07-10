@@ -122,11 +122,12 @@ export function isEncryptedEnvelope(value: any) {
 }
 
 export async function encryptRoomPayload(roomKey: string, roomId: string, payload: unknown) {
+  const normalizedRoomId = String(roomId || "");
   const key = await importRoomKey(roomKey);
   const iv = new Uint8Array(IV_BYTES);
   globalThis.crypto.getRandomValues(iv);
   const plaintext = TEXT_ENCODER.encode(JSON.stringify(payload));
-  const aad = TEXT_ENCODER.encode(String(roomId || ""));
+  const aad = TEXT_ENCODER.encode(normalizedRoomId);
   const ciphertext = await globalThis.crypto.subtle.encrypt(
     { name: "AES-GCM", iv, additionalData: aad },
     key,
@@ -136,7 +137,8 @@ export async function encryptRoomPayload(roomKey: string, roomId: string, payloa
     v: E2EE_ENVELOPE_VERSION,
     alg: E2EE_ALGORITHM,
     iv: encodeBase64Url(iv),
-    ciphertext: encodeBase64Url(new Uint8Array(ciphertext))
+    ciphertext: encodeBase64Url(new Uint8Array(ciphertext)),
+    roomId: normalizedRoomId
   };
 }
 
