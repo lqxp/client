@@ -3864,7 +3864,7 @@ textarea {
 /* Settings */
 .settings {
   position: fixed;
-  inset: 0;
+  inset: 30px 0 0;
   z-index: 45;
   display: grid;
   grid-template-columns: 330px 1fr;
@@ -4746,6 +4746,7 @@ textarea {
 
 @media (max-width: 820px) {
   .settings {
+    inset: 0;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
     height: var(--app-viewport-height);
