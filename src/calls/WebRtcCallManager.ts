@@ -32,13 +32,19 @@ interface WebRtcCallManagerOptions {
 }
 
 
+function rtcPeerConnectionConstructor() {
+  return globalThis.RTCPeerConnection
+    || (globalThis as typeof globalThis & { webkitRTCPeerConnection?: typeof RTCPeerConnection }).webkitRTCPeerConnection;
+}
+
 export function webRtcSupported() {
-  return typeof RTCPeerConnection !== "undefined";
+  return typeof rtcPeerConnectionConstructor() !== "undefined";
 }
 
 export function relayCallsConfigured() {
   return webRtcSupported()
     && rtcRuntimeConfig.callsEnabled !== false
+    && Array.isArray(rtcRuntimeConfig.turnUrls)
     && rtcRuntimeConfig.turnUrls.length > 0
     && !!rtcRuntimeConfig.turnUsername
     && !!rtcRuntimeConfig.turnCredential;
@@ -49,8 +55,19 @@ export function relayCallsRequirementMessage() {
     return "Calls are not available in this runtime because WebRTC is not supported.";
   }
 
-  return rtcRuntimeConfig.callsUnavailableReason
-    || "Calls are disabled until a TURN relay is configured. Direct peer-to-peer calls were turned off to avoid exposing participant IP addresses.";
+  if (rtcRuntimeConfig.callsEnabled === false) {
+    return rtcRuntimeConfig.callsUnavailableReason || "Calls are disabled by runtime configuration.";
+  }
+
+  if (!Array.isArray(rtcRuntimeConfig.turnUrls) || rtcRuntimeConfig.turnUrls.length === 0) {
+    return "Calls are disabled until TURN URLs are configured.";
+  }
+
+  if (!rtcRuntimeConfig.turnUsername || !rtcRuntimeConfig.turnCredential) {
+    return "Calls are disabled until TURN credentials are configured.";
+  }
+
+  return "Calls are available.";
 }
 
 function rtcConfig(): RTCConfiguration {
@@ -236,7 +253,12 @@ export class WebRtcCallManager {
   }
 
   private createPeer(peerName: string): PeerState {
-    const pc = new RTCPeerConnection(rtcConfig());
+    const RtcPeerConnection = rtcPeerConnectionConstructor();
+    if (!RtcPeerConnection) {
+      throw new Error(relayCallsRequirementMessage());
+    }
+
+    const pc = new RtcPeerConnection(rtcConfig());
     const stream = new MediaStream();
     const peer: PeerState = {
       pc,

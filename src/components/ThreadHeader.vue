@@ -87,7 +87,7 @@ function removeHere() {
             {{ t('call.live') }} · {{ callElapsed }}
           </template>
           <template v-else-if="callsAvailable">{{ t('thread.roomConversation') }} · {{ securityLabel }}</template>
-          <template v-else>{{ t('thread.roomConversation') }} · {{ securityLabel }} · {{ t('thread.callsUnavailable') }}</template>
+          <template v-else>{{ t('thread.roomConversation') }} · {{ securityLabel }} · {{ callsUnavailableReason }}</template>
         </div>
       </div>
     </div>
