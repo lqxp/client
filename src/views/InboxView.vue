@@ -271,7 +271,39 @@ async function lockClientNow() {
 </script>
 
 <template>
-  <LockScreen v-if="isLocked" :messenger="messenger" />
+  <div v-if="isLocked" class="app app--desktop-titlebar app--lock-titlebar" :class="{ 'is-tauri': isTauri }">
+    <header v-if="isTauri" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+      <div class="desktop-titlebar__spacer"></div>
+      <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M2 8.5h8" />
+          </svg>
+        </button>
+        <button
+          class="desktop-titlebar__window-button"
+          type="button"
+          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
+          @click="toggleNativeMaximize()"
+        >
+          <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M4.5 2.5h5v5" />
+            <path d="M2.5 4.5h5v5h-5z" />
+          </svg>
+          <svg v-else viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3 3h6v6H3z" />
+          </svg>
+        </button>
+        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="m3 3 6 6" />
+            <path d="m9 3-6 6" />
+          </svg>
+        </button>
+      </div>
+    </header>
+    <LockScreen :messenger="messenger" />
+  </div>
   <OnboardingScreen v-else-if="needsOnboarding" :messenger="messenger" />
 
   <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen }">
@@ -448,6 +480,25 @@ async function lockClientNow() {
   .app.app--desktop-titlebar {
     grid-template-rows: 30px minmax(0, 1fr);
     align-content: stretch;
+  }
+
+  .app.app--lock-titlebar {
+    display: grid;
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .app.app--lock-titlebar.is-tauri {
+    grid-template-rows: 30px minmax(0, 1fr);
+  }
+
+  .app.app--lock-titlebar > .lock-screen {
+    grid-row: 1;
+  }
+
+  .app.app--lock-titlebar.is-tauri > .lock-screen {
+    grid-row: 2;
   }
 
   .app.app--desktop-titlebar > .side,
