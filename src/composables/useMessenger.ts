@@ -4979,6 +4979,12 @@ export function useMessenger() {
   }
 
   function handleCallState(d) {
+    if (d?.error) {
+      state.lastError = d.error;
+      showToast(d.error);
+      if (state.inCall) endCall();
+      return;
+    }
     const roomId = sanitizeRoomId(d?.gameId);
     const user = sanitizeUsername(d?.user);
     if (!roomId || !user) return;
@@ -5062,6 +5068,12 @@ export function useMessenger() {
   }
 
   function handleVoiceState(d) {
+    if (d?.error) {
+      state.lastError = d.error;
+      showToast(d.error);
+      if (state.inCall) endCall();
+      return;
+    }
     const roomId = sanitizeRoomId(d?.gameId);
     if (!roomId) return;
     const user = sanitizeUsername(d?.user);
