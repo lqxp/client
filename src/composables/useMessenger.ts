@@ -22,6 +22,8 @@ import {
   cryptoAvailable,
   decryptRoomPayload,
   encryptRoomPayload,
+  generateDeviceId,
+  generateDeviceSigningKeyPair,
   generateRoomAccessToken,
   generateRoomKey,
   parseRoomAccessToken,
@@ -687,6 +689,10 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     messagesByRoom: {},
     unreadByRoom: {},
     roomKeysByRoom: {},
+    roomRatchetsByRoom: {},
+    deviceId: "",
+    deviceSigningPublicKey: null,
+    deviceSigningPrivateKey: null,
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
     selectedVideoInputId: "",
@@ -949,6 +955,10 @@ function loadPersisted() {
       messagesByRoom,
       unreadByRoom,
       roomKeysByRoom: sanitizeRoomKeys(raw.roomKeysByRoom),
+      roomRatchetsByRoom: sanitizeRoomRatchets(raw.roomRatchetsByRoom),
+      deviceId: String(raw.deviceId || ""),
+      deviceSigningPublicKey: raw.deviceSigningPublicKey || null,
+      deviceSigningPrivateKey: raw.deviceSigningPrivateKey || null,
       selectedAudioInputId: String(raw.selectedAudioInputId || ""),
       selectedAudioOutputId: String(raw.selectedAudioOutputId || ""),
       selectedVideoInputId: String(raw.selectedVideoInputId || ""),
@@ -1104,6 +1114,9 @@ function stripAttachmentDataForStorage(arr) {
             iv: String(message.encrypted.iv || ""),
             salt: String(message.encrypted.salt || ""),
             n: Number(message.encrypted.n) || 0,
+            senderDeviceId: String(message.encrypted.senderDeviceId || ""),
+            senderSigningKey: message.encrypted.senderSigningKey || null,
+            signature: String(message.encrypted.signature || ""),
             ciphertext: message.locked ? String(message.encrypted.ciphertext || "") : "",
           }
         : null;
@@ -1232,6 +1245,9 @@ function buildPersistedPayload(state) {
     unreadByRoom: state.unreadByRoom,
     roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
     roomRatchetsByRoom: sanitizeRoomRatchets(state.roomRatchetsByRoom),
+    deviceId: String(state.deviceId || ""),
+    deviceSigningPublicKey: state.deviceSigningPublicKey || null,
+    deviceSigningPrivateKey: state.deviceSigningPrivateKey || null,
     selectedAudioInputId: state.selectedAudioInputId,
     selectedAudioOutputId: state.selectedAudioOutputId,
     selectedVideoInputId: state.selectedVideoInputId,
@@ -1465,6 +1481,8 @@ function sameEncryptedPayload(left, right) {
     String(left.iv || "") === String(right.iv || "") &&
     String(left.salt || "") === String(right.salt || "") &&
     Number(left.n || 0) === Number(right.n || 0) &&
+    String(left.senderDeviceId || "") === String(right.senderDeviceId || "") &&
+    String(left.signature || "") === String(right.signature || "") &&
     String(left.ciphertext || "") === String(right.ciphertext || "")
   );
 }
@@ -1538,6 +1556,9 @@ function normalizeMessage(message, fallbackRoomId) {
           iv: String(message.encrypted.iv || ""),
           salt: String(message.encrypted.salt || ""),
           n: Number(message.encrypted.n) || 0,
+          senderDeviceId: String(message.encrypted.senderDeviceId || ""),
+          senderSigningKey: message.encrypted.senderSigningKey || null,
+          signature: String(message.encrypted.signature || ""),
           ciphertext: String(message.encrypted.ciphertext || ""),
         }
       : null;
@@ -1765,6 +1786,9 @@ export function useMessenger() {
     rooms: persisted.rooms,
     roomKeysByRoom: persisted.roomKeysByRoom,
     roomRatchetsByRoom: (persisted as any).roomRatchetsByRoom || {},
+    deviceId: (persisted as any).deviceId || "",
+    deviceSigningPublicKey: (persisted as any).deviceSigningPublicKey || null,
+    deviceSigningPrivateKey: (persisted as any).deviceSigningPrivateKey || null,
 
     joinedRooms: persisted.joinedRooms,
     pendingJoinRooms: [],
@@ -3035,6 +3059,21 @@ export function useMessenger() {
     }
   }
 
+  async function ensureDeviceSigner() {
+    if (!state.deviceId) state.deviceId = generateDeviceId();
+    if (!state.deviceSigningPublicKey || !state.deviceSigningPrivateKey) {
+      const keys = await generateDeviceSigningKeyPair();
+      state.deviceSigningPublicKey = keys.publicKey;
+      state.deviceSigningPrivateKey = keys.privateKey;
+    }
+    persist();
+    return {
+      deviceId: state.deviceId,
+      publicKey: state.deviceSigningPublicKey,
+      privateKey: state.deviceSigningPrivateKey,
+    };
+  }
+
   async function buildEncryptedOutgoingMessage(roomId, payload) {
     const id = sanitizeRoomId(roomId);
     const roomKey = roomKeyFor(id);
@@ -3044,7 +3083,7 @@ export function useMessenger() {
       );
     }
     const nextCounter = Math.max(0, Math.floor(Number(state.roomRatchetsByRoom[id]) || 0)) + 1;
-    const encrypted = await encryptRoomPayload(roomKey, id, payload, nextCounter);
+    const encrypted = await encryptRoomPayload(roomKey, id, payload, nextCounter, await ensureDeviceSigner());
     state.roomRatchetsByRoom[id] = nextCounter;
     persist();
     return encrypted;

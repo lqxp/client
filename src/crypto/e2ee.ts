@@ -4,6 +4,7 @@ const IV_BYTES = 12;
 const MESSAGE_SALT_BYTES = 32;
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
+const DEVICE_ID_BYTES = 16;
 
 export const E2EE_ENVELOPE_VERSION = 2;
 export const E2EE_ALGORITHM = "QXDR-A256GCM-HKDFSHA256";
@@ -59,6 +60,59 @@ export function decodeBase64Url(value: string) {
 
 export function cryptoAvailable() {
   return Boolean(globalThis.crypto?.subtle && globalThis.crypto?.getRandomValues);
+}
+
+export function generateDeviceId() {
+  if (!cryptoAvailable()) throw new Error("Web Crypto is unavailable.");
+  const bytes = new Uint8Array(DEVICE_ID_BYTES);
+  globalThis.crypto.getRandomValues(bytes);
+  return bytesToHex(bytes);
+}
+
+export async function generateDeviceSigningKeyPair() {
+  if (!cryptoAvailable()) throw new Error("Web Crypto is unavailable.");
+  const keyPair = await globalThis.crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign", "verify"]
+  );
+  const publicKey = await globalThis.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+  const privateKey = await globalThis.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+  return { publicKey, privateKey };
+}
+
+async function importDevicePrivateKey(privateKey: JsonWebKey) {
+  return globalThis.crypto.subtle.importKey(
+    "jwk",
+    privateKey,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"]
+  );
+}
+
+async function importDevicePublicKey(publicKey: JsonWebKey) {
+  return globalThis.crypto.subtle.importKey(
+    "jwk",
+    publicKey,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"]
+  );
+}
+
+function signingPayload(envelope: any) {
+  return TEXT_ENCODER.encode(JSON.stringify({
+    v: envelope.v,
+    alg: envelope.alg,
+    roomId: envelope.roomId,
+    n: envelope.n,
+    salt: envelope.salt,
+    iv: envelope.iv,
+    ciphertext: envelope.ciphertext,
+    senderDeviceId: envelope.senderDeviceId,
+    senderSigningKey: envelope.senderSigningKey
+  }));
 }
 
 export function normalizeRoomKey(rawValue: string) {
@@ -133,44 +187,73 @@ export function isEncryptedEnvelope(value: any) {
     && typeof value.salt === "string"
     && Number.isSafeInteger(Number(value.n))
     && typeof value.ciphertext === "string"
+    && typeof value.senderDeviceId === "string"
+    && value.senderSigningKey
+    && typeof value.signature === "string"
   );
 }
 
-export async function encryptRoomPayload(roomKey: string, roomId: string, payload: unknown, counter = Date.now()) {
+export async function encryptRoomPayload(
+  roomKey: string,
+  roomId: string,
+  payload: unknown,
+  counter: number,
+  signer: { deviceId: string; publicKey: JsonWebKey; privateKey: JsonWebKey }
+) {
   const normalizedRoomId = String(roomId || "");
-  const n = Number.isSafeInteger(counter) && counter > 0 ? counter : Date.now();
+  if (!Number.isSafeInteger(counter) || counter <= 0) throw new Error("Invalid message counter.");
+  if (!signer?.deviceId || !signer.publicKey || !signer.privateKey) throw new Error("Missing device signing key.");
+  const n = counter;
   const salt = new Uint8Array(MESSAGE_SALT_BYTES);
   const iv = new Uint8Array(IV_BYTES);
   globalThis.crypto.getRandomValues(salt);
   globalThis.crypto.getRandomValues(iv);
   const key = await deriveMessageKey(roomKey, normalizedRoomId, salt, n);
   const plaintext = TEXT_ENCODER.encode(JSON.stringify(payload));
-  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}`);
+  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}:${signer.deviceId}`);
   const ciphertext = await globalThis.crypto.subtle.encrypt(
     { name: "AES-GCM", iv: strictBuffer(iv), additionalData: strictBuffer(aad) },
     key,
     strictBuffer(plaintext)
   );
-  return {
+  const envelope: any = {
     v: E2EE_ENVELOPE_VERSION,
     alg: E2EE_ALGORITHM,
     n,
     salt: encodeBase64Url(salt),
     iv: encodeBase64Url(iv),
     ciphertext: encodeBase64Url(new Uint8Array(ciphertext)),
-    roomId: normalizedRoomId
+    roomId: normalizedRoomId,
+    senderDeviceId: signer.deviceId,
+    senderSigningKey: signer.publicKey
   };
+  const privateKey = await importDevicePrivateKey(signer.privateKey);
+  const signature = await globalThis.crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    privateKey,
+    strictBuffer(signingPayload(envelope))
+  );
+  envelope.signature = encodeBase64Url(new Uint8Array(signature));
+  return envelope;
 }
 
 export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: any) {
   if (!isEncryptedEnvelope(envelope)) throw new Error("Invalid encrypted payload.");
+  const publicKey = await importDevicePublicKey(envelope.senderSigningKey);
+  const validSignature = await globalThis.crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    publicKey,
+    strictBuffer(decodeBase64Url(envelope.signature)),
+    strictBuffer(signingPayload(envelope))
+  );
+  if (!validSignature) throw new Error("Invalid encrypted payload signature.");
   const normalizedRoomId = String(roomId || "");
   const n = Number(envelope.n);
   const salt = decodeBase64Url(envelope.salt);
   const iv = decodeBase64Url(envelope.iv);
   const ciphertext = decodeBase64Url(envelope.ciphertext);
   const key = await deriveMessageKey(roomKey, normalizedRoomId, salt, n);
-  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}`);
+  const aad = TEXT_ENCODER.encode(`${normalizedRoomId}:${n}:${encodeBase64Url(salt)}:${envelope.senderDeviceId}`);
   const plaintext = await globalThis.crypto.subtle.decrypt(
     { name: "AES-GCM", iv: strictBuffer(iv), additionalData: strictBuffer(aad) },
     key,
