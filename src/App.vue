@@ -7,5 +7,9 @@ provide("i18n", i18n);
 </script>
 
 <template>
-  <router-view />
+  <div class="app-shell">
+    <main class="app-shell__content">
+      <router-view />
+    </main>
+  </div>
 </template>

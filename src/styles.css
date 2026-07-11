@@ -267,6 +267,20 @@ body {
   min-width: 320px;
 }
 
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.app-shell__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 button {
   font: inherit;
   color: inherit;

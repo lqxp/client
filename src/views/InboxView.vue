@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
@@ -16,6 +17,8 @@ const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock"] as const;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const appWindow = isTauri ? getCurrentWindow() : null;
 
 type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 
@@ -24,6 +27,7 @@ const settingsInitialSection = ref("profile");
 const titlebarTrayOpen = ref(false);
 const titlebarTrayRef = ref<HTMLElement | null>(null);
 const titlebarTrayItems = ref<TitlebarAction[]>([]);
+const isWindowMaximized = ref(false);
 
 const isLocked = computed(() => messenger.state.clientLockLocked);
 const needsOnboarding = computed(
@@ -168,6 +172,30 @@ function toggleTitlebarTray() {
   titlebarTrayOpen.value = !titlebarTrayOpen.value;
 }
 
+async function syncWindowMaximizedState() {
+  if (!appWindow) return;
+  isWindowMaximized.value = await appWindow.isMaximized();
+}
+
+async function minimizeNativeWindow() {
+  await appWindow?.minimize();
+}
+
+async function toggleNativeMaximize(event?: MouseEvent) {
+  if (!appWindow || (event?.target as HTMLElement | null)?.closest("button")) return;
+  await appWindow.toggleMaximize();
+  await syncWindowMaximizedState();
+}
+
+async function closeNativeWindow() {
+  await appWindow?.close();
+}
+
+async function startNativeDrag(event: PointerEvent) {
+  if (!appWindow || event.button !== 0 || event.detail > 1 || (event.target as HTMLElement | null)?.closest("button")) return;
+  await appWindow.startDragging();
+}
+
 function syncAppearanceWatchers() {
   if (adaptiveThemeTimer) {
     clearInterval(adaptiveThemeTimer);
@@ -197,6 +225,7 @@ watch(
 
 onMounted(() => {
   titlebarTrayItems.value = loadTitlebarTrayItems();
+  void syncWindowMaximizedState();
   if (messenger.state.authToken) messenger.refreshSession();
   document.addEventListener("pointerdown", onDocumentPointerDown);
   document.addEventListener("keydown", onDocumentKeydown);
@@ -243,7 +272,7 @@ async function lockClientNow() {
   <OnboardingScreen v-else-if="needsOnboarding" :messenger="messenger" />
 
   <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen }">
-    <header class="desktop-titlebar" aria-label="Desktop title bar">
+    <header class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
         <span
@@ -338,6 +367,34 @@ async function lockClientNow() {
             </template>
           </div>
         </div>
+
+        <div v-if="isTauri" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+          <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M2 8.5h8" />
+            </svg>
+          </button>
+          <button
+            class="desktop-titlebar__window-button"
+            type="button"
+            :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
+            @click="toggleNativeMaximize()"
+          >
+            <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M4.5 2.5h5v5" />
+              <path d="M2.5 4.5h5v5h-5z" />
+            </svg>
+            <svg v-else viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M3 3h6v6H3z" />
+            </svg>
+          </button>
+          <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <path d="m3 3 6 6" />
+              <path d="m9 3-6 6" />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -408,7 +465,7 @@ async function lockClientNow() {
     border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, black 6%);
     backdrop-filter: blur(16px) saturate(1.08);
-    -webkit-app-region: drag;
+    user-select: none;
   }
 
   .desktop-titlebar__spacer {
@@ -462,8 +519,9 @@ async function lockClientNow() {
     position: relative;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 4px;
-    -webkit-app-region: no-drag;
+    margin-left: auto;
   }
 
   .desktop-titlebar__actions .icon-btn {
@@ -489,6 +547,43 @@ async function lockClientNow() {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+  }
+
+  .desktop-titlebar__window-controls {
+    height: 30px;
+    display: flex;
+    align-items: stretch;
+    margin: 0 -8px 0 4px;
+  }
+
+  .desktop-titlebar__window-button {
+    width: 42px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    color: color-mix(in srgb, var(--text) 78%, transparent);
+    border-radius: 0;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .desktop-titlebar__window-button:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  .desktop-titlebar__window-button--close:hover {
+    background: var(--red);
+    color: #fff;
+  }
+
+  .desktop-titlebar__window-button svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .desktop-titlebar__tray {
