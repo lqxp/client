@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import ProfileCard from "@/components/ProfileCard.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -11,6 +12,7 @@ const props = defineProps({
 const now = ref(Date.now());
 const focusedTileId = ref("");
 const fullscreenTileId = ref("");
+const selectedProfile = ref("");
 const isMobile = ref(false);
 const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
 let tickId = null;
@@ -228,6 +230,15 @@ function clearFocusedTile() {
   fullscreenTileId.value = "";
 }
 
+function openProfile(username) {
+  selectedProfile.value = String(username || "").trim();
+  closeMemberMenu();
+}
+
+function closeProfile() {
+  selectedProfile.value = "";
+}
+
 function toggleTileFullscreen(tile) {
   if (!tile?.video) return;
   fullscreenTileId.value = fullscreenTileId.value === tile.id ? "" : tile.id;
@@ -326,7 +337,10 @@ function closeMemberMenu() {
 }
 
 function handleWindowKeydown(event) {
-  if (event.key === "Escape") closeMemberMenu();
+  if (event.key === "Escape") {
+    closeMemberMenu();
+    closeProfile();
+  }
 }
 
 function setMemberVolume(username, value) {
@@ -408,7 +422,13 @@ function toggleLocalMute(username) {
           'is-fullscreen': fullscreenTileId === tile.id,
           'is-local-muted': isLocallyMuted(tile.username)
         }"
+        role="button"
+        tabindex="0"
+        :aria-label="t('members.openProfile', { username: tile.username })"
+        @click="openProfile(tile.username)"
         @contextmenu="openMemberMenu($event, tile.username)"
+        @keydown.enter.prevent="openProfile(tile.username)"
+        @keydown.space.prevent="openProfile(tile.username)"
       >
         <div v-if="tile.video" class="calltile__video">
           <video
@@ -435,13 +455,16 @@ function toggleLocalMute(username) {
           </span>
         </div>
         <div v-if="tile.video" class="calltile__tools">
-          <button type="button" :title="t('call.zoom')" :aria-label="t('call.zoom')" @click="setFocusedTile(tile)">
+          <button type="button" :title="t('members.viewProfile')" :aria-label="t('members.openProfile', { username: tile.username })" @click.stop="openProfile(tile.username)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          </button>
+          <button type="button" :title="t('call.zoom')" :aria-label="t('call.zoom')" @click.stop="setFocusedTile(tile)">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6M8 11h6"/></svg>
           </button>
-          <button type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click="toggleTileFullscreen(tile)">
+          <button type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click.stop="toggleTileFullscreen(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           </button>
-          <button v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click="openTileWindow(tile)">
+          <button v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click.stop="openTileWindow(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
           </button>
         </div>
@@ -472,6 +495,9 @@ function toggleLocalMute(username) {
             <span class="callpanel__context-user">{{ memberMenu.username }}</span>
             <span class="callpanel__context-status">{{ isLocallyMuted(memberMenu.username) ? t('call.localMute') : t('members.online') }}</span>
           </div>
+          <button type="button" class="callpanel__context-action" @click="openProfile(memberMenu.username)">
+            <span>{{ t('members.viewProfile') }}</span>
+          </button>
           <button type="button" class="callpanel__context-action" @click="toggleLocalMute(memberMenu.username)">
             <span>{{ isLocallyMuted(memberMenu.username) ? t('call.unmuteLocal') : t('call.localMute') }}</span>
             <span class="callpanel__context-hint">{{ isLocallyMuted(memberMenu.username) ? '100%' : '0%' }}</span>
@@ -493,6 +519,15 @@ function toggleLocalMute(username) {
           </label>
         </div>
       </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <ProfileCard
+        v-if="selectedProfile"
+        :messenger="messenger"
+        :username="selectedProfile"
+        @close="closeProfile"
+      />
     </Teleport>
 
     <div v-if="focusedTile" class="callpanel__focus" :class="{ 'is-fullscreen': fullscreenTileId === focusedTile.id }">
