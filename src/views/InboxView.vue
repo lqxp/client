@@ -279,7 +279,7 @@ async function lockClientNow() {
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
         <span
-          v-if="desktopConversationSelected"
+          v-if="desktopConversationSelected && !messenger.state.settingsOpen"
           class="avatar avatar--sm desktop-titlebar__room-icon"
           :class="desktopRoomIconIsImage ? 'desktop-titlebar__room-icon--image' : `avatar--${desktopAccent}`"
         >
