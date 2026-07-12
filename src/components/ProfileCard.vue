@@ -62,9 +62,10 @@ onBeforeUnmount(() => {
 
 function showBadgeLabel(badge: string) {
   if (!isMobileProfile.value) return;
+  const toastBadge = String(badge || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
   props.messenger.showToast?.(badgeLabel(badge), {
-    badge,
-    badgeAvatarSrc: badge === "system" ? props.messenger.profileImageSrc(profile.value.avatar, "avatar") : ""
+    badge: toastBadge,
+    badgeAvatarSrc: toastBadge === "system" ? props.messenger.profileImageSrc(profile.value.avatar, "avatar") : ""
   });
 }
 

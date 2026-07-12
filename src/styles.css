@@ -742,9 +742,19 @@ textarea {
   text-align: left;
 }
 
+.toast__badge-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.toast__badge-icon .badge-icon,
 .toast--badge .badge-icon {
   width: 24px;
   height: 24px;
+  display: block;
   flex: 0 0 auto;
 }
 

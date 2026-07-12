@@ -437,7 +437,9 @@ async function lockClientNow() {
 
     <Transition name="toast">
       <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge }" role="status" aria-live="polite">
-        <BadgeIcon v-if="messenger.state.toastBadge" :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
+        <span v-if="messenger.state.toastBadge" class="toast__badge-icon">
+          <BadgeIcon :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
+        </span>
         <span>{{ messenger.state.toastMessage }}</span>
       </div>
     </Transition>
