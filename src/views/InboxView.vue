@@ -509,6 +509,7 @@ async function lockClientNow() {
 
   .desktop-titlebar {
     position: relative;
+    z-index: 10;
     grid-column: 1 / -1;
     grid-row: 1;
     width: 100%;
@@ -520,6 +521,20 @@ async function lockClientNow() {
     background: color-mix(in srgb, var(--surface) 94%, black 6%);
     backdrop-filter: blur(16px) saturate(1.08);
     user-select: none;
+  }
+
+  .app.app--lock-titlebar .desktop-titlebar {
+    border-bottom-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
+    background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
+  }
+
+  .app.app--lock-titlebar .desktop-titlebar__window-button {
+    color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
+  }
+
+  .app.app--lock-titlebar .desktop-titlebar__window-button:hover {
+    background: var(--lock-titlebar-hover);
+    color: var(--lock-titlebar-text);
   }
 
   .desktop-titlebar__spacer {

@@ -89,6 +89,11 @@
   --context-menu-item-hover-bg: color-mix(in srgb, var(--accent) 78%, transparent);
   --context-menu-item-hover-color: #fff;
   --context-menu-danger-bg: rgba(255, 107, 112, 0.14);
+
+  --lock-titlebar-surface: #2c2c2e;
+  --lock-titlebar-line: rgba(255, 255, 255, 0.04);
+  --lock-titlebar-text: #f4f4f5;
+  --lock-titlebar-hover: #343438;
 }
 
 .context-menu-base {
@@ -205,6 +210,20 @@
   --call-context-muted-2: rgba(70, 84, 102, 0.62);
   --call-context-label: rgba(35, 46, 59, 0.82);
   --call-context-divider: rgba(12, 22, 34, 0.08);
+}
+
+:root[data-lock-theme="light"] {
+  --lock-titlebar-surface: #ffffff;
+  --lock-titlebar-line: rgba(12, 22, 34, 0.08);
+  --lock-titlebar-text: #1f2a36;
+  --lock-titlebar-hover: #eef2f8;
+}
+
+:root[data-lock-theme="dark"] {
+  --lock-titlebar-surface: #2c2c2e;
+  --lock-titlebar-line: rgba(255, 255, 255, 0.04);
+  --lock-titlebar-text: #f4f4f5;
+  --lock-titlebar-hover: #343438;
 }
 
 :root[data-accent="blue"] {
@@ -4397,6 +4416,9 @@ textarea {
 }
 
 .lock-screen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: var(--app-viewport-height);
   display: grid;
   place-items: center;
@@ -4417,8 +4439,9 @@ textarea {
 
 .lock-screen::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(24px) saturate(1.12);
