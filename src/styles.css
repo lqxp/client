@@ -3920,6 +3920,9 @@ textarea {
 .settings__side {
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
   padding: 22px 20px;
   background: var(--surface);
   border-right: 1px solid var(--line-strong);
@@ -3990,6 +3993,29 @@ textarea {
   flex-direction: column;
   gap: 5px;
   margin-top: 26px;
+}
+
+.settings__disconnect {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.settings__disconnect-btn {
+  width: 100%;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 10px;
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  font-weight: 700;
+}
+
+.settings__disconnect-btn:hover {
+  background: color-mix(in srgb, var(--red) 18%, transparent);
 }
 
 .settings__nav-item {
@@ -4789,7 +4815,9 @@ textarea {
   }
 
   .settings__side {
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
     background: var(--bg);
     border-right: 0;
@@ -4867,11 +4895,23 @@ textarea {
   .settings__nav {
     display: flex;
     flex-direction: column;
+    flex: none;
     gap: 0;
     margin-top: 0;
     overflow: hidden;
     border-radius: 20px;
     background: var(--surface);
+  }
+
+  .settings__disconnect {
+    flex: none;
+    margin-top: 16px;
+    padding-top: 0;
+  }
+
+  .settings__disconnect-btn {
+    min-height: 54px;
+    border-radius: 16px;
   }
 
   .settings__nav-item {
@@ -4913,8 +4953,11 @@ textarea {
   .settings__main {
     display: none;
     min-height: 0;
+    max-height: var(--app-viewport-height);
     padding: 0 16px calc(40px + env(safe-area-inset-bottom));
+    overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: contain;
     background: var(--bg);
   }
 
