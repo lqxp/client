@@ -10,7 +10,6 @@ const props = defineProps({
 });
 
 const now = ref(Date.now());
-const focusedTileId = ref("");
 const fullscreenTileId = ref("");
 const selectedProfile = ref("");
 const isMobile = ref(false);
@@ -169,8 +168,6 @@ function mediaOf(username) {
   return props.messenger.state.remoteCallMediaByUser[username] || {};
 }
 
-const focusedTile = computed(() => callTiles.value.find((tile) => tile.id === focusedTileId.value));
-
 function tileLabel(tile) {
   if (tile.kind === "screen") return t("call.screen");
   if (tile.kind === "camera") return t("call.camera");
@@ -214,22 +211,6 @@ function bindRemoteVideo(el, username, trackIndex = 0) {
   if (existingTrack?.id !== track.id) el.srcObject = new MediaStream([track]);
 }
 
-function bindFocusedVideo(el) {
-  if (!el || !focusedTile.value) return;
-  const stream = videoStreamForTile(focusedTile.value);
-  if (el.srcObject !== stream) el.srcObject = stream;
-}
-
-function setFocusedTile(tile) {
-  if (!tile?.video) return;
-  focusedTileId.value = focusedTileId.value === tile.id ? "" : tile.id;
-}
-
-function clearFocusedTile() {
-  focusedTileId.value = "";
-  fullscreenTileId.value = "";
-}
-
 function openProfile(username) {
   selectedProfile.value = String(username || "").trim();
   closeMemberMenu();
@@ -242,7 +223,6 @@ function closeProfile() {
 function toggleTileFullscreen(tile) {
   if (!tile?.video) return;
   fullscreenTileId.value = fullscreenTileId.value === tile.id ? "" : tile.id;
-  if (fullscreenTileId.value) focusedTileId.value = tile.id;
 }
 
 function openTileWindow(tile) {
@@ -418,7 +398,6 @@ function toggleLocalMute(username) {
           'is-muted': tile.self && messenger.state.callMuted,
           'has-video': tile.video,
           'is-screen': tile.kind === 'screen',
-          'is-focused': focusedTileId === tile.id,
           'is-fullscreen': fullscreenTileId === tile.id,
           'is-local-muted': isLocallyMuted(tile.username)
         }"
@@ -457,9 +436,6 @@ function toggleLocalMute(username) {
         <div v-if="tile.video" class="calltile__tools">
           <button type="button" :title="t('members.viewProfile')" :aria-label="t('members.openProfile', { username: tile.username })" @click.stop="openProfile(tile.username)">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-          </button>
-          <button type="button" :title="t('call.zoom')" :aria-label="t('call.zoom')" @click.stop="setFocusedTile(tile)">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6M8 11h6"/></svg>
           </button>
           <button type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click.stop="toggleTileFullscreen(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
@@ -530,11 +506,6 @@ function toggleLocalMute(username) {
       />
     </Teleport>
 
-    <div v-if="focusedTile" class="callpanel__focus" :class="{ 'is-fullscreen': fullscreenTileId === focusedTile.id }">
-      <button class="callpanel__focus-close" type="button" :aria-label="t('call.closeView')" @click="clearFocusedTile">×</button>
-      <video :ref="bindFocusedVideo" autoplay playsinline :muted="focusedTile.self"></video>
-      <div class="callpanel__focus-label">{{ focusedTile.username }} · {{ tileLabel(focusedTile) }}</div>
-    </div>
   </section>
 
   <div
