@@ -12,6 +12,7 @@ import CallPanel from "@/components/CallPanel.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
 import OnboardingScreen from "@/components/OnboardingScreen.vue";
 import LockScreen from "@/components/LockScreen.vue";
+import BadgeIcon from "@/components/BadgeIcon.vue";
 
 const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
