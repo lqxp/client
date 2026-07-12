@@ -388,7 +388,10 @@
             "pardon": "Pardon",
             "banned": "banned",
             "disabled": "disabled",
-            "roomsNote": "Room previews expose metadata only, never message content."
+            "badges": "Badges",
+            "badgesPlaceholder": "early, admin, custom",
+            "saveBadges": "Save badges",
+            "roomsNote": "Room previews only expose metadata, never message contents."
         },
         "backups": {
             "title": "Backups",

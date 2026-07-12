@@ -410,6 +410,9 @@
             "pardon": "Разбанить",
             "banned": "забанен",
             "disabled": "отключён",
+            "badges": "Бейджи",
+            "badgesPlaceholder": "early, admin, custom",
+            "saveBadges": "Сохранить бейджи",
             "roomsNote": "Превью комнат показывают только метаданные, но никогда не содержимое сообщений."
         },
         "backups": {

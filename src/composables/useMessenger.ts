@@ -2918,6 +2918,26 @@ export function useMessenger() {
     }
   }
 
+  async function setAdminUserBadges(userId, badges) {
+    if (!state.admin) return false;
+    try {
+      const normalizedBadges = normalizeUserBadges(badges);
+      await apiRequest(
+        `/api/admin/users/${encodeURIComponent(userId)}/badges`,
+        {
+          method: "POST",
+          body: JSON.stringify({ badges: normalizedBadges }),
+        },
+      );
+      await loadAdminOverview();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Badge update failed.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
   function profileFor(username) {
     const key = sanitizeUsername(username);
     if (!key) return normalizeProfile(null);
@@ -6435,6 +6455,7 @@ export function useMessenger() {
     setAdminFeature,
     setAdminUserDisabled,
     setAdminUserBanned,
+    setAdminUserBadges,
     refreshAudioDevices,
     unlockAudioDevices,
     startMicTest,

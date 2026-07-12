@@ -384,6 +384,10 @@
             "ban": "Banear",
             "pardon": "Perdonar",
             "banned": "baneado",
+            "disabled": "desactivado",
+            "badges": "Insignias",
+            "badgesPlaceholder": "early, admin, custom",
+            "saveBadges": "Guardar insignias",
             "roomsNote": "Las vistas previas de salas solo exponen metadatos, nunca el contenido de los mensajes."
         },
         "backups": {

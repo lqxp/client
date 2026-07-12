@@ -22,6 +22,7 @@ const cameraPreviewRef = ref<HTMLVideoElement | null>(null);
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
+const adminBadgeDrafts = ref<Record<string, string>>({});
 const isMobileSettings = ref(false);
 const lockPin = ref("");
 const lockPinConfirm = ref("");
@@ -114,6 +115,44 @@ const filteredSections = computed(() => {
   return sections.value.filter((section) => section.label.toLowerCase().includes(query));
 });
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
+
+function adminBadgesFor(user: any): string[] {
+  return Array.isArray(user?.badges) ? user.badges.map((badge) => String(badge || "").trim()).filter(Boolean) : [];
+}
+
+function adminBadgeDraftFor(user: any): string {
+  const key = String(user?.id || "");
+  if (!key) return "";
+  if (!(key in adminBadgeDrafts.value)) {
+    adminBadgeDrafts.value[key] = adminBadgesFor(user).join(", ");
+  }
+  return adminBadgeDrafts.value[key];
+}
+
+function setAdminBadgeDraft(user: any, value: string) {
+  const key = String(user?.id || "");
+  if (!key) return;
+  adminBadgeDrafts.value[key] = value;
+}
+
+function parseBadgeDraft(value: string) {
+  return [...new Set(String(value || "")
+    .split(/[\s,]+/)
+    .map((badge) => badge.trim().toLowerCase())
+    .filter(Boolean))];
+}
+
+function adminBadgesChanged(user: any) {
+  return parseBadgeDraft(adminBadgeDraftFor(user)).join(",") !== adminBadgesFor(user).join(",");
+}
+
+async function saveAdminBadges(user: any) {
+  const userId = String(user?.id || "");
+  if (!userId || !adminBadgesChanged(user)) return;
+  const badges = parseBadgeDraft(adminBadgeDraftFor(user));
+  const saved = await props.messenger.setAdminUserBadges?.(userId, badges);
+  if (saved) adminBadgeDrafts.value[userId] = badges.join(", ");
+}
 
 watch(isOpen, async (v) => {
   if (v) {
@@ -1221,26 +1260,46 @@ onBeforeUnmount(() => {
         <div class="settings-group" v-if="messenger.state.adminOverview?.users?.length">
           <h4>Users</h4>
           <div class="admin-list">
-            <div v-for="user in messenger.state.adminOverview.users" :key="user.id" class="admin-row">
-              <div>
+            <div v-for="user in messenger.state.adminOverview.users" :key="user.id" class="admin-row admin-row--user">
+              <div class="admin-row__identity">
                 <strong>{{ user.username }}</strong>
                 <small>
                   {{ user.id }}
                   <template v-if="user.admin"> · admin</template>
                   <template v-if="user.banned"> · {{ t('settings.admin.banned') }}</template>
-                  <template v-else-if="user.disabled"> · disabled</template>
+                  <template v-else-if="user.disabled"> · {{ t('settings.admin.disabled') }}</template>
                   <template v-else> · {{ messenger.presenceStatusLabel(user.status) }}</template>
                 </small>
+                <div v-if="adminBadgesFor(user).length" class="admin-badges">
+                  <span v-for="badge in adminBadgesFor(user)" :key="`${user.id}-${badge}`">{{ badge }}</span>
+                </div>
               </div>
-              <div class="settings-actions settings-actions--wrap">
-                <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.disabled }"
-                  @click="messenger.setAdminUserDisabled(user.id, !user.disabled)">
-                  {{ user.disabled ? t('settings.admin.enable') : t('settings.admin.disable') }}
-                </button>
-                <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.banned }"
-                  @click="messenger.setAdminUserBanned(user.id, !user.banned)">
-                  {{ user.banned ? t('settings.admin.pardon') : t('settings.admin.ban') }}
-                </button>
+              <div class="admin-row__controls">
+                <label class="admin-badge-editor">
+                  <span>{{ t('settings.admin.badges') }}</span>
+                  <input
+                    class="settings-input"
+                    type="text"
+                    :value="adminBadgeDraftFor(user)"
+                    :placeholder="t('settings.admin.badgesPlaceholder')"
+                    @input="setAdminBadgeDraft(user, targetValue($event))"
+                    @keydown.enter.prevent="saveAdminBadges(user)"
+                  />
+                </label>
+                <div class="settings-actions settings-actions--wrap">
+                  <button type="button" class="btn settings-btn" :disabled="!adminBadgesChanged(user)"
+                    @click="saveAdminBadges(user)">
+                    {{ t('settings.admin.saveBadges') }}
+                  </button>
+                  <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.disabled }"
+                    @click="messenger.setAdminUserDisabled(user.id, !user.disabled)">
+                    {{ user.disabled ? t('settings.admin.enable') : t('settings.admin.disable') }}
+                  </button>
+                  <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.banned }"
+                    @click="messenger.setAdminUserBanned(user.id, !user.banned)">
+                    {{ user.banned ? t('settings.admin.pardon') : t('settings.admin.ban') }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

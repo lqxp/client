@@ -388,6 +388,9 @@
             "pardon": "Gracier",
             "banned": "banni",
             "disabled": "désactivé",
+            "badges": "Badges",
+            "badgesPlaceholder": "early, admin, custom",
+            "saveBadges": "Sauver badges",
             "roomsNote": "Les aperçus de salon n’exposent que des métadonnées, jamais le contenu des messages."
         },
         "backups": {

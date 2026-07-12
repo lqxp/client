@@ -1588,8 +1588,22 @@ textarea {
   height: 24px;
 }
 
+.profile-card__badge-custom {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #fff 45%));
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
 .profile-card__badge > svg,
-.profile-card__badge > img {
+.profile-card__badge > img,
+.profile-card__badge > .profile-card__badge-custom {
   position: relative;
   z-index: 22;
   transition: transform 140ms ease;
@@ -1636,8 +1650,10 @@ textarea {
 
 .profile-card__badge:hover > svg,
 .profile-card__badge:hover > img,
+.profile-card__badge:hover > .profile-card__badge-custom,
 .profile-card__badge:focus-visible > svg,
-.profile-card__badge:focus-visible > img {
+.profile-card__badge:focus-visible > img,
+.profile-card__badge:focus-visible > .profile-card__badge-custom {
   transform: translateY(var(--badge-tooltip-icon-y)) scale(var(--badge-tooltip-icon-scale));
 }
 
@@ -4704,6 +4720,48 @@ textarea {
 
 .admin-row>div {
   min-width: 0;
+}
+
+.admin-row--user {
+  align-items: flex-start;
+}
+
+.admin-row__identity {
+  flex: 1;
+}
+
+.admin-row__controls {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 10px;
+}
+
+.admin-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.admin-badges span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-badge-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-badge-editor > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .admin-row strong,
