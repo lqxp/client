@@ -482,13 +482,13 @@ function platformLabel(platform) {
 function platformIcon(platform) {
   switch (sanitizePlatform(platform)) {
     case "android":
-      return "A";
+      return "Android";
     case "ios":
       return "iOS";
     case "mobile":
-      return "M";
+      return "Mobile";
     case "desktop":
-      return "PC";
+      return "Desktop";
     default:
       return "Web";
   }
