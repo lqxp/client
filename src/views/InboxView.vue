@@ -528,6 +528,10 @@ async function lockClientNow() {
     background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
   }
 
+  .app.app--lock-titlebar .desktop-titlebar__window-controls {
+    border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
+  }
+
   .app.app--lock-titlebar .desktop-titlebar__window-button {
     color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
   }
@@ -622,7 +626,9 @@ async function lockClientNow() {
     height: 30px;
     display: flex;
     align-items: stretch;
-    margin: 0 -8px 0 4px;
+    margin: 0 -8px 0 8px;
+    padding-left: 8px;
+    border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   }
 
   .desktop-titlebar__window-button {
