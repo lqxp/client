@@ -23,6 +23,8 @@ const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
 const adminBadgeDrafts = ref<Record<string, string>>({});
+const adminBadgeMenus = ref<Record<string, boolean>>({});
+const adminCustomBadgeDrafts = ref<Record<string, string>>({});
 const isMobileSettings = ref(false);
 const lockPin = ref("");
 const lockPinConfirm = ref("");
@@ -116,42 +118,101 @@ const filteredSections = computed(() => {
 });
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
 
+const systemBadgeIds = new Set(["staff", "early", "system"]);
+const suggestedAdminBadges = [
+  { id: "vip", label: "VIP" },
+  { id: "mod", label: "Mod" },
+  { id: "contributor", label: "Contributor" },
+  { id: "artist", label: "Artist" },
+  { id: "bug_hunter", label: "Bug Hunter" }
+];
+
 function adminBadgesFor(user: any): string[] {
   return Array.isArray(user?.badges) ? user.badges.map((badge) => String(badge || "").trim()).filter(Boolean) : [];
 }
 
-function adminBadgeDraftFor(user: any): string {
-  const key = String(user?.id || "");
-  if (!key) return "";
-  if (!(key in adminBadgeDrafts.value)) {
-    adminBadgeDrafts.value[key] = adminBadgesFor(user).join(", ");
-  }
-  return adminBadgeDrafts.value[key];
+function customAdminBadgesFor(user: any): string[] {
+  return adminBadgesFor(user).filter((badge) => !systemBadgeIds.has(badge));
 }
 
-function setAdminBadgeDraft(user: any, value: string) {
+function adminBadgeDraftFor(user: any): string[] {
+  const key = String(user?.id || "");
+  if (!key) return [];
+  if (!(key in adminBadgeDrafts.value)) {
+    adminBadgeDrafts.value[key] = customAdminBadgesFor(user).join(",");
+  }
+  return parseBadgeDraft(adminBadgeDrafts.value[key]);
+}
+
+function setAdminBadgeDraft(user: any, badges: string[]) {
   const key = String(user?.id || "");
   if (!key) return;
-  adminBadgeDrafts.value[key] = value;
+  adminBadgeDrafts.value[key] = parseBadgeDraft(badges.join(",")).join(",");
 }
 
 function parseBadgeDraft(value: string) {
   return [...new Set(String(value || "")
     .split(/[\s,]+/)
-    .map((badge) => badge.trim().toLowerCase())
+    .map((badge) => badge.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""))
     .filter(Boolean))];
 }
 
+function adminBadgeSelected(user: any, badge: string) {
+  return adminBadgeDraftFor(user).includes(badge);
+}
+
+function toggleAdminBadge(user: any, badge: string) {
+  const current = new Set(adminBadgeDraftFor(user));
+  if (current.has(badge)) current.delete(badge);
+  else current.add(badge);
+  setAdminBadgeDraft(user, [...current]);
+}
+
+function customBadgeDraftFor(user: any) {
+  return adminCustomBadgeDrafts.value[String(user?.id || "")] || "";
+}
+
+function setCustomBadgeDraft(user: any, value: string) {
+  const key = String(user?.id || "");
+  if (!key) return;
+  adminCustomBadgeDrafts.value[key] = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+}
+
+function addCustomAdminBadge(user: any) {
+  const key = String(user?.id || "");
+  const badge = customBadgeDraftFor(user).trim();
+  if (!key || !badge) return;
+  setAdminBadgeDraft(user, [...adminBadgeDraftFor(user), badge]);
+  adminCustomBadgeDrafts.value[key] = "";
+}
+
+function removeAdminBadge(user: any, badge: string) {
+  setAdminBadgeDraft(user, adminBadgeDraftFor(user).filter((item) => item !== badge));
+}
+
+function adminBadgeMenuOpen(user: any) {
+  return Boolean(adminBadgeMenus.value[String(user?.id || "")]);
+}
+
+function toggleAdminBadgeMenu(user: any) {
+  const key = String(user?.id || "");
+  if (!key) return;
+  adminBadgeMenus.value[key] = !adminBadgeMenus.value[key];
+}
+
 function adminBadgesChanged(user: any) {
-  return parseBadgeDraft(adminBadgeDraftFor(user)).join(",") !== adminBadgesFor(user).join(",");
+  return adminBadgeDraftFor(user).join(",") !== customAdminBadgesFor(user).join(",");
 }
 
 async function saveAdminBadges(user: any) {
   const userId = String(user?.id || "");
   if (!userId || !adminBadgesChanged(user)) return;
-  const badges = parseBadgeDraft(adminBadgeDraftFor(user));
+  const badges = adminBadgeDraftFor(user);
   const saved = await props.messenger.setAdminUserBadges?.(userId, badges);
-  if (saved) adminBadgeDrafts.value[userId] = badges.join(", ");
+  if (saved) {
+    adminBadgeDrafts.value[userId] = badges.join(",");
+    adminBadgeMenus.value[userId] = false;
+  }
 }
 
 watch(isOpen, async (v) => {
@@ -1275,17 +1336,74 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <div class="admin-row__controls">
-                <label class="admin-badge-editor">
+                <div class="admin-badge-editor">
                   <span>{{ t('settings.admin.badges') }}</span>
-                  <input
-                    class="settings-input"
-                    type="text"
-                    :value="adminBadgeDraftFor(user)"
-                    :placeholder="t('settings.admin.badgesPlaceholder')"
-                    @input="setAdminBadgeDraft(user, targetValue($event))"
-                    @keydown.enter.prevent="saveAdminBadges(user)"
-                  />
-                </label>
+                  <button type="button" class="admin-badge-menu-button" @click="toggleAdminBadgeMenu(user)">
+                    <span v-if="adminBadgeDraftFor(user).length" class="admin-badge-selection">
+                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-draft-${badge}`">{{ badge }}</span>
+                    </span>
+                    <span v-else class="admin-badge-placeholder">{{ t('settings.admin.badgesPlaceholder') }}</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  <div v-if="adminBadgeMenuOpen(user)" class="admin-badge-menu">
+                    <button
+                      v-for="badge in suggestedAdminBadges"
+                      :key="`${user.id}-option-${badge.id}`"
+                      type="button"
+                      class="admin-badge-option"
+                      :class="{ 'is-selected': adminBadgeSelected(user, badge.id) }"
+                      @click="toggleAdminBadge(user, badge.id)"
+                    >
+                      <svg v-if="badge.id === 'bug_hunter'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m16.5822 2.63812s7.6721 5.23623 4.7567 12.58868c-2.9154 7.3525-8.7142 5.313-6.5469 3.1648 2.1674-2.1482-2.5573-3.6059-5.58143-6.3935l7.36523-9.35998" fill="#3ba55c" />
+                        <path d="m16.1155 9.83717c-1.6175 2.05873-3.9 3.08803-5.6646 2.71723l-6.15684 7.8447c-.10362.1324-.23231.243-.37871.3256-.1464.0825-.30764.1354-.47451.1556-.16686.0202-.33606.0073-.49793-.038-.16187-.0452-.31322-.122-.44541-.2258-.13374-.1032-.2457-.2319-.32942-.3786s-.13754-.3086-.15834-.4762c-.02081-.1677-.00819-.3378.03712-.5005s.12242-.3149.22687-.4476l6.12492-7.832c-.81197-1.62394-.36443-4.11099 1.27869-6.18886 2.03946-2.58295 5.11476-3.54836 6.89856-2.15459 1.7837 1.39377 1.5664 4.61607-.4604 7.19902z" fill="#b4e1cd" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'mod'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m17.2719 3h-9.54383c-.14912 1.9386-1.78947 3.42982-3.72807 3.42982v.89474c0 4.39914 2.08772 8.50004 5.74123 11.40794l2.75877 2.1622 2.7588-2.1622c3.6535-2.8334 5.7412-7.0088 5.7412-11.40794v-.89474c-1.9386 0-3.5044-1.49122-3.7281-3.42982zm-6.4868 12.8991c-2.23685-1.7895-3.57896-4.3245-3.57896-7.08331v-.52193c1.19298 0 2.23684-.89474 2.3114-2.08772h2.98246v11.10966z" fill="#FC964B" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'vip'" class="admin-badge-option__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V10.4H4V6Z" fill="#E4D9EA" />
+                        <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18V13.6H4V18Z" fill="#0E60EF" />
+                        <path d="M4 10.4H20V13.6H4V10.4Z" fill="#F0B14B" />
+                        <path d="M15.7333 12C15.7333 14.0619 14.0619 15.7333 12 15.7333C9.93813 15.7333 8.26666 14.0619 8.26666 12C8.26666 9.93813 9.93813 8.26666 12 8.26666C14.0619 8.26666 15.7333 9.93813 15.7333 12Z" fill="#0F182D" />
+                        <path d="M13.6 12C13.6 12.8837 12.8837 13.6 12 13.6C11.1164 13.6 10.4 12.8837 10.4 12C10.4 11.1164 11.1164 10.4 12 10.4C12.8837 10.4 13.6 11.1164 13.6 12Z" fill="#E4D9EA" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'contributor'" class="admin-badge-option__icon" viewBox="0 0 120 120" aria-hidden="true">
+                        <path fill="#fed56b" d="M 58.5,-0.5 C 59.1667,-0.5 59.8333,-0.5 60.5,-0.5C 79.8333,19.5 99.5,39.1667 119.5,58.5C 119.5,59.5 119.5,60.5 119.5,61.5C 99.2172,80.1154 79.5505,99.4487 60.5,119.5C 59.8333,119.5 59.1667,119.5 58.5,119.5C 39.1667,99.5 19.5,79.8333 -0.5,60.5C -0.5,59.8333 -0.5,59.1667 -0.5,58.5C 19.5,39.1667 39.1667,19.5 58.5,-0.5 Z M 26.5,46.5 C 26.8966,45.475 27.5632,45.3083 28.5,46C 36.8333,51.5 45.1667,57 53.5,62.5C 55.5,65.8333 57.5,69.1667 59.5,72.5C 61.9442,69.1229 64.2775,65.6229 66.5,62C 74.9149,56.3754 83.4149,50.8754 92,45.5C 88.8483,52.8106 85.3483,60.1439 81.5,67.5C 81.7093,68.086 82.0426,68.586 82.5,69C 85.0968,69.281 87.4301,69.4477 89.5,69.5C 80.307,76.5265 70.9737,83.3599 61.5,90C 60.5,90.6667 59.5,90.6667 58.5,90C 49.1667,83.3333 39.8333,76.6667 30.5,70C 33.4512,69.904 36.1178,69.0707 38.5,67.5C 34.7258,60.2745 30.7258,53.2745 26.5,46.5 Z" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'artist'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <g fill="#fbb848">
+                          <path d="m21.5912 6.84349-7.8694 5.16551c-.1351.088-.2444.2103-.317.3543l-1.1997 2.4056c-.0174.0399-.0461.0739-.0825.0977-.0364.0239-.079.0366-.1226.0366s-.0862-.0127-.1226-.0366c-.0364-.0238-.0651-.0578-.0825-.0977l-1.1997-2.4056c-.0726-.144-.1819-.2663-.317-.3543l-7.86944-5.16551c-.03957-.04698-.09618-.07632-.15738-.08157-.0612-.00524-.12198.01404-.16896.0536-.04698.03957-.07633.09618-.08157.15738-.00525.0612.01403.12198.0536.16896l3.28825 6.39624c.01598.0335.02385.0703.02297.1074s-.01049.0734-.02804.1061c-.01756.0327-.04257.0608-.07301.082-.03043.0212-.06544.035-.10219.0402h-1.97668c-.04881-.0005-.0965.0146-.13617.043-.03967.0285-.06926.0688-.08449.1152s-.0153.0964-.00022.1428c.01509.0464.04455.0869.08413.1154l8.8142 6.3155c.0403.0275.088.0422.1368.0422s.0965-.0147.1368-.0422l8.8142-6.3155c.0396-.0285.069-.069.0841-.1154s.015-.0964-.0002-.1428-.0448-.0867-.0845-.1152c-.0396-.0284-.0873-.0435-.1362-.043h-1.9766c-.0389-.0015-.0769-.0126-.1105-.0323-.0335-.0197-.0617-.0474-.082-.0806s-.0321-.071-.0343-.1098c-.0022-.0389.0052-.0777.0216-.113l3.3132-6.39624c.0395-.04698.0588-.10776.0536-.16896-.0053-.0612-.0346-.11781-.0816-.15738-.047-.03956-.1078-.05884-.169-.0536-.0612.00525-.1178.03459-.1574.08157z" />
+                          <path d="m12.1741 2.10696.8081 1.64723c.0143.02721.0346.05084.0594.06913.0247.01829.0533.03078.0835.03654l1.8213.26107c.0356.00524.0691.02036.0966.04366s.0479.05383.0589.08814.0122.07102.0034.10595c-.0089.03494-.0273.06671-.0532.0917l-1.3178 1.28049c-.0213.02203-.0373.04854-.047.07758s-.0127.05988-.009.09025l.3108 1.80885c.0069.03487.0036.07096-.0094.10404-.013.03307-.0351.06174-.0639.08264-.0287.0209-.0628.03315-.0983.03532-.0354.00217-.0708-.00584-.1019-.02309l-1.6285-.85159c-.0265-.01527-.0565-.02331-.0871-.02331-.0305 0-.0605.00804-.087.02331l-1.6286.85159c-.031.01725-.0664.02526-.1019.02309-.0354-.00217-.0695-.01442-.0983-.03532-.0287-.0209-.0509-.04957-.0639-.08264-.0129-.03308-.0162-.06917-.0094-.10404l.3108-1.80885c.0038-.03037.0008-.06121-.0089-.09025s-.0258-.05555-.047-.07758l-1.31781-1.28049c-.02595-.02499-.04438-.05676-.05318-.0917-.00881-.03493-.00764-.07164.00336-.10595s.03141-.06484.05889-.08814c.02749-.0233.06095-.03842.0966-.04366l1.82124-.25485c.0303-.00576.0588-.01825.0836-.03654.0247-.01829.045-.04192.0594-.06913l.8081-1.64723c.015-.03321.0392-.06147.0696-.08149.0305-.02003.066-.03101.1025-.03166.0364-.00065.0723.00905.1035.02798.0311.01893.0563.0463.0725.07895z" />
+                        </g>
+                      </svg>
+                      <span>{{ badge.label }}</span>
+                      <small>{{ badge.id }}</small>
+                    </button>
+                    <div v-if="adminBadgeDraftFor(user).length" class="admin-badge-current">
+                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-remove-${badge}`">
+                        {{ badge }}
+                        <button type="button" @click="removeAdminBadge(user, badge)">×</button>
+                      </span>
+                    </div>
+                    <div class="admin-badge-custom">
+                      <input
+                        class="settings-input"
+                        type="text"
+                        :value="customBadgeDraftFor(user)"
+                        maxlength="32"
+                        placeholder="custom_badge"
+                        @input="setCustomBadgeDraft(user, targetValue($event))"
+                        @keydown.enter.prevent="addCustomAdminBadge(user)"
+                      />
+                      <button type="button" class="btn settings-btn" :disabled="!customBadgeDraftFor(user)" @click="addCustomAdminBadge(user)">
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div class="settings-actions settings-actions--wrap">
                   <button type="button" class="btn settings-btn" :disabled="!adminBadgesChanged(user)"
                     @click="saveAdminBadges(user)">
