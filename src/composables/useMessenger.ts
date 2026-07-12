@@ -1811,6 +1811,8 @@ export function useMessenger() {
     composing: false,
     composeInput: "",
     toastMessage: "",
+    toastBadge: "",
+    toastBadgeAvatarSrc: "",
 
     settingsOpen: false,
     replyingTo: null,
@@ -4221,11 +4223,17 @@ export function useMessenger() {
     if (!/^[0-9a-f]{96}$/i.test(compactToken)) selectConversation(id);
   }
 
-  function showToast(message) {
+  function showToast(message, options: { badge?: string; badgeAvatarSrc?: string } = {}) {
     state.toastMessage = message;
+    state.toastBadge = String(options?.badge || "");
+    state.toastBadgeAvatarSrc = String(options?.badgeAvatarSrc || "");
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
-      if (state.toastMessage === message) state.toastMessage = "";
+      if (state.toastMessage === message) {
+        state.toastMessage = "";
+        state.toastBadge = "";
+        state.toastBadgeAvatarSrc = "";
+      }
       toastTimer = null;
     }, 2400);
   }

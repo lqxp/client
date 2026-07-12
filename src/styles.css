@@ -718,7 +718,7 @@ textarea {
   position: fixed;
   top: 18px;
   left: 50%;
-  z-index: 60;
+  z-index: 180;
   transform: translateX(-50%);
   max-width: min(420px, calc(100vw - 32px));
   padding: 10px 16px;
@@ -732,6 +732,31 @@ textarea {
   text-align: center;
   pointer-events: none;
   backdrop-filter: blur(14px);
+}
+
+.toast--badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 10px;
+  text-align: left;
+}
+
+.toast--badge .badge-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.badge-icon--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .toast-enter-active,
@@ -1667,6 +1692,22 @@ textarea {
 .profile-card__badge:focus-visible::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 820px) {
+  .profile-card__badge::before,
+  .profile-card__badge::after {
+    display: none;
+  }
+
+  .profile-card__badge:hover > svg,
+  .profile-card__badge:hover > img,
+  .profile-card__badge:hover > .profile-card__badge-custom,
+  .profile-card__badge:focus-visible > svg,
+  .profile-card__badge:focus-visible > img,
+  .profile-card__badge:focus-visible > .profile-card__badge-custom {
+    transform: none;
+  }
 }
 
 .profile-card__identity strong {

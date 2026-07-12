@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -42,6 +42,31 @@ const mutualRoomOptions = computed(() =>
   }))
 );
 const selectedMutualRoom = ref("");
+const isMobileProfile = ref(false);
+let mobileMedia: MediaQueryList | null = null;
+
+function updateMobileProfile() {
+  isMobileProfile.value = typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches;
+}
+
+onMounted(() => {
+  updateMobileProfile();
+  if (typeof window === "undefined" || !window.matchMedia) return;
+  mobileMedia = window.matchMedia("(max-width: 820px)");
+  mobileMedia.addEventListener?.("change", updateMobileProfile);
+});
+
+onBeforeUnmount(() => {
+  mobileMedia?.removeEventListener?.("change", updateMobileProfile);
+});
+
+function showBadgeLabel(badge: string) {
+  if (!isMobileProfile.value) return;
+  props.messenger.showToast?.(badgeLabel(badge), {
+    badge,
+    badgeAvatarSrc: badge === "system" ? props.messenger.profileImageSrc(profile.value.avatar, "avatar") : ""
+  });
+}
 
 function openSelectedMutualRoom() {
   const roomId = String(selectedMutualRoom.value || "").trim();
@@ -104,7 +129,7 @@ function initialsFor(name: string) {
           <div class="profile-card__name-row">
             <strong>{{ displayName }}</strong>
             <div v-if="badges.length" class="profile-card__badges">
-              <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`" :data-title="badgeLabel(badge)" :aria-label="badgeLabel(badge)" tabindex="0">
+              <span v-for="badge in badges" :key="badge" class="profile-card__badge" :class="`profile-card__badge--${badge}`" :data-title="isMobileProfile ? '' : badgeLabel(badge)" :aria-label="badgeLabel(badge)" tabindex="0" @click.stop="showBadgeLabel(badge)" @keydown.enter.prevent="showBadgeLabel(badge)" @keydown.space.prevent="showBadgeLabel(badge)">
                 <img v-if="badge === 'system'" class="profile-card__badge-icon" :src="messenger.profileImageSrc(profile.avatar, 'avatar')" alt="" aria-hidden="true" />
                 <svg v-else-if="badge === 'admin' || badge === 'staff'" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <g fill="#5865f2">

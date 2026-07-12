@@ -436,8 +436,9 @@ async function lockClientNow() {
     <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" />
 
     <Transition name="toast">
-      <div v-if="messenger.state.toastMessage" class="toast" role="status" aria-live="polite">
-        {{ messenger.state.toastMessage }}
+      <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge }" role="status" aria-live="polite">
+        <BadgeIcon v-if="messenger.state.toastBadge" :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
+        <span>{{ messenger.state.toastMessage }}</span>
       </div>
     </Transition>
 
