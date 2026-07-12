@@ -5767,6 +5767,9 @@ export function useMessenger() {
           applyRoomSnapshot(d, d?.gameId);
         }
         break;
+      case 34:
+        applyBadgeUpdate(d);
+        break;
       case 13:
         break;
       case 87:
@@ -5841,6 +5844,15 @@ export function useMessenger() {
       const key = sanitizeUsername(player?.user || player?.username || player?.name);
       if (key && Array.isArray(player?.badges)) state.badgesByUser[key] = normalizeUserBadges(player.badges);
     }
+  }
+
+  function applyBadgeUpdate(d) {
+    const key = sanitizeUsername(d?.user || d?.username);
+    if (key && Array.isArray(d?.badges)) {
+      state.badgesByUser[key] = normalizeUserBadges(d.badges);
+    }
+    applyPlayerBadges(d?.players);
+    persist();
   }
 
   function applyPlatformsMap(platformsMap) {
