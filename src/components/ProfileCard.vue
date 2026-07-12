@@ -190,11 +190,11 @@ function initialsFor(name: string) {
             }"></span>
             {{ statusLabel }}<template v-if="profile.pronouns"> · {{ profile.pronouns }}</template><template
               v-if="isSelf"> · {{ t('members.you') }}</template>
+            <span v-if="platforms.length" class="profile-card__platforms" :aria-label="t('profile.clientPlatforms')">
+              <span v-for="platform in platforms" :key="platform" class="platforms__badge"
+                :title="messenger.platformLabel(platform)">{{ messenger.platformIcon(platform) }}</span>
+            </span>
           </small>
-          <div v-if="platforms.length" class="profile-card__platforms" :aria-label="t('profile.clientPlatforms')">
-            <span v-for="platform in platforms" :key="platform" class="platforms__badge"
-              :title="messenger.platformLabel(platform)">{{ messenger.platformIcon(platform) }}</span>
-          </div>
         </div>
         <div class="profile-card__section">
           <h4>{{ t('profile.about') }}</h4>

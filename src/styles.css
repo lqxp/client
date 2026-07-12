@@ -1450,7 +1450,8 @@ textarea {
 }
 
 .profile-card__platforms {
-  margin-top: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .profile-card__platforms .platforms__badge {
