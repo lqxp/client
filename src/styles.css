@@ -284,6 +284,18 @@ body {
   letter-spacing: -0.003em;
   overflow: hidden;
   min-width: 320px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+.bubble__text,
+.markdown,
+.codeblock pre,
+.text-viewer__code {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-shell {

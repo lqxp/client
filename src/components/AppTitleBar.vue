@@ -28,8 +28,12 @@ async function closeWindow() {
   await appWindow?.close();
 }
 
+function isTitleBarInteractiveTarget(target: EventTarget | null) {
+  return Boolean((target as HTMLElement | null)?.closest("button"));
+}
+
 function handleTitleBarDoubleClick(event: MouseEvent) {
-  if ((event.target as HTMLElement | null)?.closest("button")) return;
+  if (isTitleBarInteractiveTarget(event.target)) return;
   void toggleMaximizeWindow();
 }
 
@@ -97,6 +101,13 @@ onMounted(() => {
   background: color-mix(in srgb, var(--surface) 92%, #000 8%);
   border-bottom: 1px solid var(--line);
   color: var(--text);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-titlebar,
+.app-titlebar * {
   user-select: none;
   -webkit-user-select: none;
 }
@@ -108,6 +119,7 @@ onMounted(() => {
   align-items: center;
   gap: 9px;
   padding: 0 12px;
+  pointer-events: none;
 }
 
 .app-titlebar__mark {
