@@ -305,7 +305,39 @@ async function lockClientNow() {
     </header>
     <LockScreen :messenger="messenger" />
   </div>
-  <OnboardingScreen v-else-if="needsOnboarding" :messenger="messenger" />
+  <div v-else-if="needsOnboarding" class="app app--onboarding-titlebar" :class="{ 'is-tauri': isTauri }">
+    <header v-if="isTauri" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+      <div class="desktop-titlebar__spacer"></div>
+      <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M2 8.5h8" />
+          </svg>
+        </button>
+        <button
+          class="desktop-titlebar__window-button"
+          type="button"
+          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
+          @click="toggleNativeMaximize()"
+        >
+          <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M4.5 2.5h5v5" />
+            <path d="M2.5 4.5h5v5h-5z" />
+          </svg>
+          <svg v-else viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3 3h6v6H3z" />
+          </svg>
+        </button>
+        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="m3 3 6 6" />
+            <path d="m9 3-6 6" />
+          </svg>
+        </button>
+      </div>
+    </header>
+    <OnboardingScreen :messenger="messenger" />
+  </div>
 
   <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen }">
     <header class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
@@ -486,22 +518,26 @@ async function lockClientNow() {
     align-content: stretch;
   }
 
-  .app.app--lock-titlebar {
+  .app.app--lock-titlebar,
+  .app.app--onboarding-titlebar.is-tauri {
     display: grid;
     min-height: 100dvh;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .app.app--lock-titlebar.is-tauri {
+  .app.app--lock-titlebar.is-tauri,
+  .app.app--onboarding-titlebar.is-tauri {
     grid-template-rows: 30px minmax(0, 1fr);
   }
 
-  .app.app--lock-titlebar > .lock-screen {
+  .app.app--lock-titlebar > .lock-screen,
+  .app.app--onboarding-titlebar.is-tauri > .onboarding {
     grid-row: 1;
   }
 
-  .app.app--lock-titlebar.is-tauri > .lock-screen {
+  .app.app--lock-titlebar.is-tauri > .lock-screen,
+  .app.app--onboarding-titlebar.is-tauri > .onboarding {
     grid-row: 2;
   }
 
@@ -527,20 +563,24 @@ async function lockClientNow() {
     user-select: none;
   }
 
-  .app.app--lock-titlebar .desktop-titlebar {
+  .app.app--lock-titlebar .desktop-titlebar,
+  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
     border-bottom-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
     background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-controls {
+  .app.app--lock-titlebar .desktop-titlebar__window-controls,
+  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
     border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-button {
+  .app.app--lock-titlebar .desktop-titlebar__window-button,
+  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
     color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-button:hover {
+  .app.app--lock-titlebar .desktop-titlebar__window-button:hover,
+  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button:hover {
     background: var(--lock-titlebar-hover);
     color: var(--lock-titlebar-text);
   }
