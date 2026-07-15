@@ -388,6 +388,9 @@
             "badges": "Insignias",
             "badgesPlaceholder": "early, admin, custom",
             "saveBadges": "Guardar insignias",
+            "searchUsers": "Buscar por username",
+            "searchUsersNote": "Escribe un username para mostrar los detalles de un usuario.",
+            "noUsersFound": "No se encontraron usuarios.",
             "roomsNote": "Las vistas previas de salas solo exponen metadatos, nunca el contenido de los mensajes."
         },
         "backups": {

@@ -413,6 +413,9 @@
             "badges": "Бейджи",
             "badgesPlaceholder": "early, admin, custom",
             "saveBadges": "Сохранить бейджи",
+            "searchUsers": "Поиск по username",
+            "searchUsersNote": "Введите username, чтобы показать данные пользователя.",
+            "noUsersFound": "Пользователи не найдены.",
             "roomsNote": "Превью комнат показывают только метаданные, но никогда не содержимое сообщений."
         },
         "backups": {

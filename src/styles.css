@@ -4753,6 +4753,10 @@ textarea {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.44);
 }
 
+.admin-user-search {
+  margin-bottom: 8px;
+}
+
 .admin-list {
   display: grid;
   gap: 8px;

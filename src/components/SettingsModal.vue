@@ -22,6 +22,7 @@ const cameraPreviewRef = ref<HTMLVideoElement | null>(null);
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
+const adminUserSearch = ref("");
 const adminBadgeDrafts = ref<Record<string, string>>({});
 const adminBadgeMenus = ref<Record<string, boolean>>({});
 const adminCustomBadgeDrafts = ref<Record<string, string>>({});
@@ -117,6 +118,12 @@ const filteredSections = computed(() => {
   return sections.value.filter((section) => section.label.toLowerCase().includes(query));
 });
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
+const adminUsers = computed(() => props.messenger.state.adminOverview?.users || []);
+const filteredAdminUsers = computed(() => {
+  const query = adminUserSearch.value.trim().toLowerCase();
+  if (!query) return [];
+  return adminUsers.value.filter((user: any) => String(user?.username || "").toLowerCase().includes(query));
+});
 
 const systemBadgeIds = new Set(["staff", "early", "system"]);
 const suggestedAdminBadges = [
@@ -219,6 +226,7 @@ watch(isOpen, async (v) => {
   if (v) {
     mobileSectionOpen.value = false;
     settingsSearch.value = "";
+    adminUserSearch.value = "";
     draftName.value = props.messenger.state.username || "";
     draftDescription.value = props.messenger.state.profile?.description || "";
     draftPronouns.value = props.messenger.state.profile?.pronouns || "";
@@ -1319,9 +1327,19 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="settings-group" v-if="messenger.state.adminOverview?.users?.length">
-          <h4>Users</h4>
-          <div class="admin-list">
-            <div v-for="user in messenger.state.adminOverview.users" :key="user.id" class="admin-row admin-row--user">
+          <h4>{{ t('settings.admin.users') }}</h4>
+          <input
+            v-model="adminUserSearch"
+            class="settings-input admin-user-search"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            :placeholder="t('settings.admin.searchUsers')"
+          />
+          <p v-if="!adminUserSearch.trim()" class="settings-note">{{ t('settings.admin.searchUsersNote') }}</p>
+          <p v-else-if="!filteredAdminUsers.length" class="settings-note">{{ t('settings.admin.noUsersFound') }}</p>
+          <div v-if="filteredAdminUsers.length" class="admin-list">
+            <div v-for="user in filteredAdminUsers" :key="user.id" class="admin-row admin-row--user">
               <div class="admin-row__identity">
                 <strong>{{ user.username }}</strong>
                 <small>

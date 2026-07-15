@@ -391,6 +391,9 @@
             "badges": "Badges",
             "badgesPlaceholder": "early, admin, custom",
             "saveBadges": "Save badges",
+            "searchUsers": "Search by username",
+            "searchUsersNote": "Enter a username to display a user's details.",
+            "noUsersFound": "No users found.",
             "roomsNote": "Room previews only expose metadata, never message contents."
         },
         "backups": {
