@@ -88,7 +88,6 @@ const PROFILE_IMAGE_MIME_TYPES = new Set([
 ]);
 const PRESENCE_STATUSES = ["online", "invisible", "dnd"];
 const THEME_MODES = ["dark", "light", "adaptive", "system"];
-const DUPLICATE_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const E2EE_MESSAGE_PLACEHOLDER = "Encrypted message";
 const LINK_PREVIEW_URL_RE = /https?:\/\/[^\s<>"'`\\]+/i;
@@ -1460,54 +1459,6 @@ function latestVisibleRoomMessage(messages) {
     if (messages[i] && !messages[i].deleted) return messages[i];
   }
   return null;
-}
-
-function sameAttachmentPayload(left, right) {
-  if (!left && !right) return true;
-  if (!left || !right) return false;
-  return (
-    String(left.filename || "") === String(right.filename || "") &&
-    String(left.mimeType || "") === String(right.mimeType || "") &&
-    Number(left.size) === Number(right.size)
-  );
-}
-
-function sameEncryptedPayload(left, right) {
-  if (!left && !right) return true;
-  if (!left || !right) return false;
-  return (
-    Number(left.v) === Number(right.v) &&
-    String(left.alg || "") === String(right.alg || "") &&
-    String(left.iv || "") === String(right.iv || "") &&
-    String(left.salt || "") === String(right.salt || "") &&
-    Number(left.n || 0) === Number(right.n || 0) &&
-    String(left.senderDeviceId || "") === String(right.senderDeviceId || "") &&
-    String(left.signature || "") === String(right.signature || "") &&
-    String(left.ciphertext || "") === String(right.ciphertext || "")
-  );
-}
-
-function isDuplicateRecentMessage(messages, candidate) {
-  const oldestAllowed =
-    Number(candidate?.timestamp || Date.now()) - DUPLICATE_MESSAGE_WINDOW_MS;
-  for (let i = (messages?.length || 0) - 1; i >= 0; i -= 1) {
-    const message = messages[i];
-    if (!message || message.deleted) continue;
-    if (Number(message.timestamp || 0) < oldestAllowed) break;
-    if (String(message.username || "") !== String(candidate.username || ""))
-      continue;
-    if (String(message.text || "") !== String(candidate.text || "")) continue;
-    if (
-      String(message.replyToMessageId || "") !==
-      String(candidate.replyToMessageId || "")
-    )
-      continue;
-    if (!sameEncryptedPayload(message.encrypted, candidate.encrypted)) continue;
-    if (!sameAttachmentPayload(message.attachment, candidate.attachment))
-      continue;
-    return true;
-  }
-  return false;
 }
 
 const _emojiSegmenter =
@@ -5508,56 +5459,6 @@ export function useMessenger() {
     const arr = state.messagesByRoom[id];
     const index = arr.findIndex((m) => m.messageId === normalized.messageId);
     if (index === -1) {
-      const duplicateIndex = arr.findIndex((message) => {
-        if (!message || message.deleted) return false;
-        if (
-          String(message.username || "") !== String(normalized.username || "")
-        )
-          return false;
-        if (String(message.text || "") !== String(normalized.text || ""))
-          return false;
-        if (
-          String(message.replyToMessageId || "") !==
-          String(normalized.replyToMessageId || "")
-        )
-          return false;
-        const sameEncrypted = sameEncryptedPayload(
-          message.encrypted,
-          normalized.encrypted,
-        );
-        const sameAttachment = sameAttachmentPayload(
-          message.attachment,
-          normalized.attachment,
-        );
-        if (!sameEncrypted && !sameAttachment) return false;
-        return (
-          Math.abs(
-            Number(message.timestamp || 0) - Number(normalized.timestamp || 0),
-          ) <= DUPLICATE_MESSAGE_WINDOW_MS
-        );
-      });
-      if (duplicateIndex !== -1) {
-        const existing = arr[duplicateIndex];
-        const existingAttachment = existing?.attachment || null;
-        const normalizedAttachment = normalized?.attachment || null;
-        arr[duplicateIndex] = {
-          ...normalized,
-          attachment:
-            normalizedAttachment || existingAttachment
-              ? {
-                  ...(existingAttachment || {}),
-                  ...(normalizedAttachment || {}),
-                  url:
-                    normalizedAttachment?.url || existingAttachment?.url || "",
-                  dataB64:
-                    normalizedAttachment?.dataB64 ||
-                    existingAttachment?.dataB64 ||
-                    "",
-                }
-              : null,
-        };
-        return false;
-      }
       arr.push(normalized);
       if (arr.length > MAX_HISTORY_PER_ROOM)
         arr.splice(0, arr.length - MAX_HISTORY_PER_ROOM);
