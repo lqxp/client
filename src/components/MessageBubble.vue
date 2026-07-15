@@ -549,6 +549,33 @@ onBeforeUnmount(() => {
 
     <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }"
       @contextmenu.prevent.stop="onMessageContextMenu">
+      <button v-if="message.replyToMessageId && isDiscordStyle" type="button" class="reply-ref"
+        :class="{ 'is-missing': !repliedMessage }" @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu">
+        <span class="reply-ref__hook" aria-hidden="true"></span>
+        <span v-if="replyAvatarSrc" class="reply-ref__avatar reply-ref__avatar--image">
+          <img :src="replyAvatarSrc" :alt="`${replyLabel} avatar`" />
+        </span>
+        <span v-else class="reply-ref__avatar" :class="`avatar--${replyAvatarAccent}`">
+          {{ replyAvatarInitials }}
+        </span>
+        <span class="reply-ref__username">{{ replyLabel }}</span>
+        <span v-if="replyHasVisual" class="reply-ref__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+            <circle cx="12" cy="13" r="3.5" />
+          </svg>
+        </span>
+        <span class="reply-ref__text" v-html="renderDiscordEmoji(replyText)"></span>
+        <span v-if="replyEdited" class="reply-ref__edited">(edited)</span>
+      </button>
+
+      <button v-else-if="message.replyToMessageId" type="button" class="reply-card" @click="onReplyClick"
+        @contextmenu.prevent.stop="onMessageContextMenu">
+        <span class="reply-card__author">{{ replyLabel }}</span>
+        <span class="reply-card__text" v-html="renderDiscordEmoji(replyText)"></span>
+      </button>
+
       <div v-if="showAuthor" class="jumbo__author">
         {{ message.username }}
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
