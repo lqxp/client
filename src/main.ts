@@ -16,7 +16,8 @@ function syncViewportHeight() {
 
 function syncPlatformChromeOffset() {
   const isAndroid = /Android/i.test(navigator.userAgent);
-  document.documentElement.classList.toggle("is-android-runtime", isAndroid);
+  const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
+  document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
 }
 
 syncViewportHeight();
