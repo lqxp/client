@@ -339,7 +339,7 @@ async function lockClientNow() {
     <OnboardingScreen :messenger="messenger" />
   </div>
 
-  <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen }">
+  <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': isTauri }">
     <header class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
@@ -510,6 +510,345 @@ async function lockClientNow() {
 <style scoped>
 .desktop-titlebar {
   display: none;
+}
+
+.app.app--desktop-titlebar.is-tauri,
+.app.app--lock-titlebar.is-tauri,
+.app.app--onboarding-titlebar.is-tauri {
+  grid-template-rows: 30px minmax(0, 1fr);
+  align-content: stretch;
+}
+
+.app.app--lock-titlebar,
+.app.app--onboarding-titlebar.is-tauri {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: 1fr;
+}
+
+.app.app--lock-titlebar:not(.is-tauri),
+.app.app--onboarding-titlebar:not(.is-tauri) {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app.app--desktop-titlebar.is-tauri > .side,
+.app.app--desktop-titlebar.is-tauri > .thread,
+.app.app--desktop-titlebar.is-tauri > .no-thread,
+.app.app--lock-titlebar.is-tauri > .lock-screen,
+.app.app--onboarding-titlebar.is-tauri > .onboarding {
+  grid-row: 2;
+}
+
+.app.app--lock-titlebar:not(.is-tauri) > .lock-screen,
+.app.app--onboarding-titlebar:not(.is-tauri) > .onboarding {
+  grid-row: 1;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
+  position: relative;
+  z-index: 10;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, black 6%);
+  backdrop-filter: blur(16px) saturate(1.08);
+  user-select: none;
+}
+
+.app.app--lock-titlebar.is-tauri .desktop-titlebar,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
+  border-bottom-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
+  background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
+}
+
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-controls,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
+  border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
+}
+
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
+  color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
+}
+
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button:hover,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button:hover {
+  background: var(--lock-titlebar-hover);
+  color: var(--lock-titlebar-text);
+}
+
+.app.app--desktop-titlebar.is-tauri :deep(.thread__main) {
+  min-width: 0;
+}
+
+.app.app--desktop-titlebar.is-tauri :deep(.thread__main > .thread-header) {
+  display: none;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__spacer,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__spacer,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__spacer {
+  flex: 1;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: min(520px, calc(100% - 160px));
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon {
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  flex: none;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon--image {
+  background: transparent;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__title {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn {
+  width: 24px;
+  height: 24px;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__action-wrap {
+  position: relative;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__streamer.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-controls,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-controls,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
+  height: 30px;
+  display: flex;
+  align-items: stretch;
+  margin: 0 -8px 0 8px;
+  padding-left: 8px;
+  border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
+  width: 42px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  border-radius: 0;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button--close:hover,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button--close:hover,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button--close:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button svg,
+.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button svg,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray {
+  position: relative;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-toggle {
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
+  transform: translateY(1px) scale(0.96);
+  background: var(--surface-2);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 94%, black 6%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-menu::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 11px;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-hint {
+  position: relative;
+  z-index: 1;
+  max-width: 220px;
+  padding: 8px 10px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-empty {
+  position: relative;
+  z-index: 1;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item:hover,
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move:hover {
+  background: var(--surface-2);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move:hover {
+  color: var(--text);
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item svg circle {
+  fill: none;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 @media (min-width: 901px) {
