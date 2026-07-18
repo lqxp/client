@@ -274,7 +274,7 @@ async function lockClientNow() {
 </script>
 
 <template>
-  <div v-if="isLocked" class="app" :class="{ 'app--desktop-titlebar app--lock-titlebar is-tauri': showDesktopTitlebar }">
+  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar is-tauri': showDesktopTitlebar }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
@@ -307,7 +307,7 @@ async function lockClientNow() {
     </header>
     <LockScreen :messenger="messenger" />
   </div>
-  <div v-else-if="needsOnboarding" class="app" :class="{ 'app--onboarding-titlebar is-tauri': showDesktopTitlebar }">
+  <div v-else-if="needsOnboarding" class="app app--auth" :class="{ 'app--onboarding-titlebar is-tauri': showDesktopTitlebar }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
