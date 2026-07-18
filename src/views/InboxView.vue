@@ -521,11 +521,12 @@ async function lockClientNow() {
   align-content: stretch;
 }
 
+.app.app--auth,
 .app.app--lock-titlebar,
 .app.app--onboarding-titlebar.is-tauri {
   display: grid;
   min-height: 100dvh;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .app.app--lock-titlebar:not(.is-tauri),
@@ -541,9 +542,17 @@ async function lockClientNow() {
   grid-row: 2;
 }
 
+.app.app--auth > .lock-screen,
+.app.app--auth > .onboarding,
 .app.app--lock-titlebar:not(.is-tauri) > .lock-screen,
 .app.app--onboarding-titlebar:not(.is-tauri) > .onboarding {
+  grid-column: 1 / -1;
   grid-row: 1;
+}
+
+.app.app--auth.is-tauri > .lock-screen,
+.app.app--auth.is-tauri > .onboarding {
+  grid-row: 2;
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar,

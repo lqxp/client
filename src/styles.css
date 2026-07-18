@@ -714,6 +714,10 @@ textarea {
   background: var(--bg);
 }
 
+.app.app--auth {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .toast {
   position: fixed;
   top: 18px;
