@@ -2893,6 +2893,19 @@ textarea {
   scrollbar-width: thin;
 }
 
+.composer__input--streamer-blur textarea {
+  contain: paint;
+  filter: blur(8px);
+  opacity: 0.72;
+  transform: translateZ(0);
+  transition: filter 120ms ease, opacity 120ms ease;
+}
+
+.composer__input--streamer-blur:focus-within textarea {
+  filter: none;
+  opacity: 1;
+}
+
 .composer__input input::placeholder,
 .composer__input textarea::placeholder {
   color: var(--muted);

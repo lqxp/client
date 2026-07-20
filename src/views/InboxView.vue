@@ -20,8 +20,10 @@ const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock"] as const;
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
-const showDesktopTitlebar = isTauri && !isAndroidRuntime;
-const appWindow = showDesktopTitlebar ? getCurrentWindow() : null;
+const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
+const showNativeTitlebar = isTauri && !isAndroidRuntime;
+const showDesktopTitlebar = showNativeTitlebar || isWebDesktopRuntime;
+const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 
 type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 
@@ -274,10 +276,10 @@ async function lockClientNow() {
 </script>
 
 <template>
-  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar is-tauri': showDesktopTitlebar }">
+  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar': showDesktopTitlebar, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+      <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="M2 8.5h8" />
@@ -310,7 +312,7 @@ async function lockClientNow() {
   <div v-else-if="needsOnboarding" class="app app--auth" :class="{ 'app--onboarding-titlebar is-tauri': showDesktopTitlebar }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+      <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="M2 8.5h8" />
@@ -341,7 +343,7 @@ async function lockClientNow() {
     <OnboardingScreen :messenger="messenger" />
   </div>
 
-  <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showDesktopTitlebar }">
+  <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
@@ -438,7 +440,7 @@ async function lockClientNow() {
           </div>
         </div>
 
-        <div v-if="showDesktopTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+        <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
           <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
             <svg viewBox="0 0 12 12" aria-hidden="true">
               <path d="M2 8.5h8" />
@@ -515,8 +517,11 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri,
+.app.app--desktop-titlebar.is-web-titlebar,
 .app.app--lock-titlebar.is-tauri,
-.app.app--onboarding-titlebar.is-tauri {
+.app.app--lock-titlebar.is-web-titlebar,
+.app.app--onboarding-titlebar.is-tauri,
+.app.app--onboarding-titlebar.is-web-titlebar {
   grid-template-rows: 30px minmax(0, 1fr);
   align-content: stretch;
 }
@@ -556,8 +561,11 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar,
 .app.app--lock-titlebar.is-tauri .desktop-titlebar,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
+.app.app--lock-titlebar.is-web-titlebar .desktop-titlebar,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
+.app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
   z-index: 10;
   grid-column: 1 / -1;

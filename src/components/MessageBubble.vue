@@ -1074,7 +1074,13 @@ onBeforeUnmount(() => {
   background-color: rgba(88, 101, 242, 0.16);
 }
 
-.msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-image, .audio-player, .video-player, .att-file-meta, .embed__media, .embed__body, .reactions, .jumbo__glyph) {
+.msg.is-streamer-blur {
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 88px;
+}
+
+.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
   filter: blur(8px);
   opacity: 0.72;
   transition: filter 120ms ease, opacity 120ms ease;
@@ -1082,25 +1088,26 @@ onBeforeUnmount(() => {
 
 .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):hover,
 .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):focus-within,
-.msg.is-streamer-blur .msg__avatar:hover img,
-.msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar img, .reply-ref__username, .reply-ref__text),
+.msg.is-streamer-blur .msg__avatar:hover,
+.msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar, .reply-ref__username, .reply-ref__text),
 .msg.is-streamer-blur .reply-card:hover :is(.reply-card__author, .reply-card__text),
 .msg.is-streamer-blur .att-file:hover .att-file-meta {
   filter: none;
   opacity: 1;
 }
 
-.msg.is-streamer-blur :is(.att-image-link, .att-image, .audio-player, .video-player, .embed__media) {
-  filter: blur(30px);
+.msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
+  filter: blur(24px);
   opacity: 0.72;
 }
 
-.msg.is-streamer-blur :is(.msg__avatar img, .reply-ref__avatar img) {
-  filter: blur(28px);
+.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) {
+  filter: blur(22px);
 }
 
-.msg.is-streamer-blur .att-image-link {
+.msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
   overflow: hidden;
+  transform: translateZ(0);
 }
 
 :global(:root[data-message-style="discord"] .msg__avatar) {

@@ -595,7 +595,7 @@ onBeforeUnmount(() => {
         </svg>
       </button>
 
-      <label class="composer__input">
+      <label class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }">
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
           :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false" @input="onInput"
           @click="onComposerClick" @keyup="onComposerKeyup" @keydown="onComposerKeydown"></textarea>
