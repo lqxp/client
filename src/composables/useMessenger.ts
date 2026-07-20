@@ -1454,9 +1454,15 @@ function messagePreviewLabel(message) {
   return String(message.text || "").trim();
 }
 
-function latestVisibleRoomMessage(messages) {
+function isTransientPresenceSystemMessage(message) {
+  return Boolean(message?.system) && String(message?.systemKind || "") === "presence";
+}
+
+function latestSidebarRoomMessage(messages) {
   for (let i = (messages?.length || 0) - 1; i >= 0; i -= 1) {
-    if (messages[i] && !messages[i].deleted) return messages[i];
+    const message = messages?.[i];
+    if (!message || message.deleted || isTransientPresenceSystemMessage(message)) continue;
+    return message;
   }
   return null;
 }
@@ -1542,6 +1548,7 @@ function normalizeMessage(message, fallbackRoomId) {
   return {
     messageId: message.messageId,
     roomId: message.roomId || fallbackRoomId || "",
+    clientNonce: String(message.clientNonce || ""),
     user: message.system ? SYSTEM_USERNAME : (message.user || message.username || "Unknown"),
     username: message.system ? SYSTEM_USERNAME : (message.username || extractUsername(message.user)),
     text: voiceDuration ? "Voice message" : rawText,
@@ -1929,7 +1936,7 @@ export function useMessenger() {
     return state.rooms
       .slice()
       .map((r) => {
-        const latest = latestVisibleRoomMessage(
+        const latest = latestSidebarRoomMessage(
           state.messagesByRoom[r.roomId] || [],
         );
         const preview = messagePreviewLabel(latest) || r.lastPreview || "";
@@ -3840,10 +3847,11 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
 
-    const latest = latestVisibleRoomMessage(state.messagesByRoom[id] || []);
-    const preview = messagePreviewLabel(latest || message);
-    const sender = latest?.username || message?.username || "";
-    const ts = Number(latest?.timestamp || message?.timestamp || 0);
+    const latest = latestSidebarRoomMessage(state.messagesByRoom[id] || []);
+    const sidebarMessage = latest || (isTransientPresenceSystemMessage(message) ? null : message);
+    const preview = messagePreviewLabel(sidebarMessage);
+    const sender = sidebarMessage?.username || "";
+    const ts = Number(sidebarMessage?.timestamp || 0);
 
     const existing = state.rooms.find((r) => r.roomId === id);
     if (existing) {
@@ -4385,6 +4393,7 @@ export function useMessenger() {
     }
 
     try {
+      const clientNonce = crypto.randomUUID();
       const shouldArchive =
         state.autoArchiveUploads &&
         !String(caption || "").startsWith("[voice:") &&
@@ -4401,6 +4410,7 @@ export function useMessenger() {
       const previewUrl = URL.createObjectURL(uploadFile);
       const dataB64 = await blobToBase64(uploadFile);
       const encrypted = await buildEncryptedOutgoingMessage(roomId, {
+        clientNonce,
         text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
         attachment: {
           filename: String(uploadFile.name || "file").slice(0, 128),
@@ -4414,6 +4424,7 @@ export function useMessenger() {
         {
           messageId: crypto.randomUUID(),
           roomId,
+          clientNonce,
           user: state.username || "You",
           username: state.username || "You",
           text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
@@ -5469,6 +5480,30 @@ export function useMessenger() {
     }
   }
 
+  function replaceOptimisticMessageByClientNonce(roomId, normalized) {
+    const id = sanitizeRoomId(roomId);
+    const clientNonce = String(normalized?.clientNonce || "").trim();
+    if (!id || !clientNonce) return false;
+    const arr = state.messagesByRoom[id];
+    if (!Array.isArray(arr)) return false;
+    const index = arr.findIndex(
+      (message) =>
+        String(message?.clientNonce || "").trim() === clientNonce &&
+        String(message?.messageId || "") !== String(normalized?.messageId || ""),
+    );
+    if (index === -1) return false;
+    const previousAttachmentUrl = String(arr[index]?.attachment?.url || "");
+    if (previousAttachmentUrl.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(previousAttachmentUrl);
+      } catch {
+        /* ignore blob URL cleanup failures */
+      }
+    }
+    arr[index] = normalized;
+    return true;
+  }
+
   async function upsertMessage(message) {
     const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
     const normalized = await hydrateIncomingMessage(message, roomId);
@@ -5479,7 +5514,9 @@ export function useMessenger() {
         "i",
       ).test(String(normalized.text || ""));
     }
-    const added = pushMessageToRoom(roomId, normalized);
+    const replacedOptimistic = isOwnMessage(normalized) &&
+      replaceOptimisticMessageByClientNonce(roomId, normalized);
+    const added = replacedOptimistic ? false : pushMessageToRoom(roomId, normalized);
     touchRoom(roomId, normalized);
 
     const mine = isOwnMessage(normalized);
@@ -5997,7 +6034,7 @@ export function useMessenger() {
     );
     const room = state.rooms.find((entry) => entry.roomId === id);
     if (room) {
-      const latest = latestVisibleRoomMessage(state.messagesByRoom[id] || []);
+      const latest = latestSidebarRoomMessage(state.messagesByRoom[id] || []);
       room.lastPreview = messagePreviewLabel(latest) || "";
       room.lastSender = latest?.username || "";
       room.lastTimestamp = Number(latest?.timestamp || 0);
