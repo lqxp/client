@@ -612,44 +612,59 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__spacer,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__spacer,
 .app.app--lock-titlebar.is-tauri .desktop-titlebar__spacer,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__spacer {
+.app.app--lock-titlebar.is-web-titlebar .desktop-titlebar__spacer,
+.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__spacer,
+.app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar__spacer {
   flex: 1;
+  min-width: 0;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room {
   position: absolute;
   left: 50%;
   top: 50%;
   max-width: min(520px, calc(100% - 160px));
   min-width: 0;
+  max-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  overflow: hidden;
   transform: translate(-50%, -50%);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room-icon {
   width: 20px;
   height: 20px;
+  max-width: 20px;
+  max-height: 20px;
   overflow: hidden;
-  flex: none;
+  flex: 0 0 20px;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon--image {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon--image,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room-icon--image {
   background: transparent;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon img {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__room-icon img,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room-icon img {
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   border-radius: 50%;
   object-fit: cover;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__title {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__title,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__title {
   min-width: 0;
   font-size: 12px;
   line-height: 1;
@@ -660,33 +675,45 @@ async function lockClientNow() {
   text-overflow: ellipsis;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__actions {
   position: relative;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 4px;
   margin-left: auto;
+  flex: none;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__actions .icon-btn {
   width: 24px;
   height: 24px;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn svg {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn svg,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__actions .icon-btn svg {
   width: 16px;
   height: 16px;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__action-wrap {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__action-wrap,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__action-wrap {
   position: relative;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__streamer.is-active {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__streamer.is-active,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__streamer.is-active {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+@media (max-width: 1120px) {
+  .app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room {
+    display: none;
+  }
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-controls,
@@ -955,10 +982,12 @@ async function lockClientNow() {
     top: 50%;
     max-width: min(520px, calc(100% - 160px));
     min-width: 0;
+    max-height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
+    overflow: hidden;
     transform: translate(-50%, -50%);
   }
 
