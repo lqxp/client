@@ -3967,7 +3967,7 @@ textarea {
 /* Settings */
 .settings {
   position: fixed;
-  inset: 30px 0 0;
+  inset: 0;
   z-index: 45;
   display: grid;
   grid-template-columns: 330px 1fr;
@@ -3977,6 +3977,10 @@ textarea {
   background: var(--bg);
   color: var(--text);
   animation: modal-fade 120ms ease-out;
+}
+
+.app.is-tauri .settings {
+  inset-block-start: 30px;
 }
 
 @keyframes modal-fade {
