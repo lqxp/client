@@ -3015,6 +3015,7 @@ export function useMessenger() {
         {
           ...message,
           text: String(decrypted?.text || ""),
+          clientNonce: String(decrypted?.clientNonce || message.clientNonce || ""),
           replyToMessageId: String(decrypted?.replyToMessageId || message.replyToMessageId || ""),
           attachment:
             decrypted?.attachment && typeof decrypted.attachment === "object"
