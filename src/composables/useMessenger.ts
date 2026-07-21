@@ -1558,6 +1558,7 @@ function normalizeMessage(message, fallbackRoomId) {
     text: voiceDuration ? "Voice message" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
+    profile: normalizeProfile(message.profile),
     system: Boolean(message.system),
     systemKind: String(message.systemKind || ""),
     deleted: Boolean(message.deleted),
