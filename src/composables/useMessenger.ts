@@ -2887,6 +2887,21 @@ export function useMessenger() {
     }
   }
 
+  async function deleteAdminUser(userId) {
+    if (!state.admin) return false;
+    try {
+      await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/delete`, {
+        method: "POST",
+      });
+      await loadAdminOverview();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "User delete failed.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
   async function setAdminUserBadges(userId, badges) {
     if (!state.admin) return false;
     try {
@@ -6432,6 +6447,7 @@ export function useMessenger() {
     setAdminFeature,
     setAdminUserDisabled,
     setAdminUserBanned,
+    deleteAdminUser,
     setAdminUserBadges,
     refreshAudioDevices,
     unlockAudioDevices,

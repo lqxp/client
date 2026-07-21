@@ -413,6 +413,8 @@
             "badges": "Бейджи",
             "badgesPlaceholder": "early, admin, custom",
             "saveBadges": "Сохранить бейджи",
+            "delete": "Удалить",
+            "deleteConfirm": "Навсегда удалить аккаунт {username} из базы данных и сети?",
             "searchUsers": "Поиск по username",
             "searchUsersNote": "Введите username, чтобы показать данные пользователя.",
             "noUsersFound": "Пользователи не найдены.",

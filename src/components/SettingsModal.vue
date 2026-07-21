@@ -223,6 +223,14 @@ async function saveAdminBadges(user: any) {
   }
 }
 
+async function deleteAdminUser(user: any) {
+  const userId = String(user?.id || "");
+  const username = String(user?.username || userId);
+  if (!userId || userId === String(props.messenger.state.userId || "")) return;
+  if (!confirm(t('settings.admin.deleteConfirm', { username }))) return;
+  await props.messenger.deleteAdminUser?.(userId);
+}
+
 watch(isOpen, async (v) => {
   if (v) {
     mobileSectionOpen.value = false;
@@ -1495,6 +1503,10 @@ onBeforeUnmount(() => {
                   <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.banned }"
                     @click="messenger.setAdminUserBanned(user.id, !user.banned)">
                     {{ user.banned ? t('settings.admin.pardon') : t('settings.admin.ban') }}
+                  </button>
+                  <button type="button" class="btn settings-btn settings-btn--danger"
+                    :disabled="user.id === messenger.state.userId" @click="deleteAdminUser(user)">
+                    {{ t('settings.admin.delete') }}
                   </button>
                 </div>
               </div>

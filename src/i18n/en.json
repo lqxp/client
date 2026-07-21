@@ -391,6 +391,8 @@
             "badges": "Badges",
             "badgesPlaceholder": "early, admin, custom",
             "saveBadges": "Save badges",
+            "delete": "Delete",
+            "deleteConfirm": "Permanently delete account {username} from the database and network?",
             "searchUsers": "Search by username",
             "searchUsersNote": "Enter a username to display a user's details.",
             "noUsersFound": "No users found.",
