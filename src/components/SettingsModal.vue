@@ -131,7 +131,8 @@ const suggestedAdminBadges = [
   { id: "mod", label: "Mod" },
   { id: "contributor", label: "Contributor" },
   { id: "artist", label: "Artist" },
-  { id: "bug_hunter", label: "Bug Hunter" }
+  { id: "bug_hunter", label: "Bug Hunter" },
+  { id: "bug_hunter_lvl_2", label: "Golden Bug Hunter" }
 ];
 
 function adminBadgesFor(user: any): string[] {
@@ -429,7 +430,7 @@ async function startCameraPreview() {
     await props.messenger.refreshAudioDevices();
     if (cameraPreviewRef.value) {
       cameraPreviewRef.value.srcObject = stream;
-      await cameraPreviewRef.value.play().catch(() => {});
+      await cameraPreviewRef.value.play().catch(() => { });
     }
   } catch (error) {
     cameraPreviewError.value = error instanceof Error ? error.message : t('settings.calls.cameraPreviewError');
@@ -623,12 +624,8 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="settings__disconnect">
-        <button
-          v-if="messenger.state.authToken"
-          type="button"
-          class="settings__disconnect-btn"
-          @click="messenger.logoutAccount(); close()"
-        >
+        <button v-if="messenger.state.authToken" type="button" class="settings__disconnect-btn"
+          @click="messenger.logoutAccount(); close()">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path d="M9 12h12" />
             <path d="m17 8 4 4-4 4" />
@@ -641,7 +638,8 @@ onBeforeUnmount(() => {
 
     <main class="settings__main">
       <header class="settings__main-head">
-        <button class="icon-btn settings__back" type="button" :aria-label="t('settings.back')" @click="backToSettingsList">
+        <button class="icon-btn settings__back" type="button" :aria-label="t('settings.back')"
+          @click="backToSettingsList">
           <svg viewBox="0 0 24 24">
             <path d="m15 18-6-6 6-6" />
           </svg>
@@ -659,17 +657,21 @@ onBeforeUnmount(() => {
           </span>
           <span v-else class="avatar settings-profile__avatar" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
           <div class="settings-profile__actions">
-            <button type="button" class="btn settings-profile__photo"             @click="avatarInputRef?.click()">{{ t('settings.profile.profileImage') }}</button>
-            <button type="button" class="btn settings-profile__photo"             @click="bannerInputRef?.click()">{{ t('settings.profile.banner') }}</button>
+            <button type="button" class="btn settings-profile__photo" @click="avatarInputRef?.click()">{{
+              t('settings.profile.profileImage') }}</button>
+            <button type="button" class="btn settings-profile__photo" @click="bannerInputRef?.click()">{{
+              t('settings.profile.banner') }}</button>
             <button v-if="profile.avatar" type="button" class="btn settings-profile__photo"
               @click="messenger.clearProfileImage('avatar')">{{ t('settings.profile.clearImage') }}</button>
             <button v-if="profile.banner" type="button" class="btn settings-profile__photo"
               @click="messenger.clearProfileImage('banner')">{{ t('settings.profile.clearBanner') }}</button>
           </div>
-          <input ref="avatarInputRef" type="file" accept="image/png,image/apng,image/gif,image/jpeg,image/webp,.apng,.webp"
-            style="display: none" @change="onAvatarPicked" />
-          <input ref="bannerInputRef" type="file" accept="image/png,image/apng,image/gif,image/jpeg,image/webp,.apng,.webp"
-            style="display: none" @change="onBannerPicked" />
+          <input ref="avatarInputRef" type="file"
+            accept="image/png,image/apng,image/gif,image/jpeg,image/webp,.apng,.webp" style="display: none"
+            @change="onAvatarPicked" />
+          <input ref="bannerInputRef" type="file"
+            accept="image/png,image/apng,image/gif,image/jpeg,image/webp,.apng,.webp" style="display: none"
+            @change="onBannerPicked" />
         </div>
 
         <div class="settings-group">
@@ -689,7 +691,7 @@ onBeforeUnmount(() => {
             <input ref="firstInputRef" v-model="draftName" type="text" maxlength="32" autocomplete="off"
               spellcheck="false" placeholder="@echo" class="settings-input" @keydown.enter.prevent="saveName" />
             <button type="button" class="btn btn--primary settings-btn" :disabled="!nameValid || !nameChanged"
-                @click="saveName">{{ t('settings.profile.save') }}</button>
+              @click="saveName">{{ t('settings.profile.save') }}</button>
           </div>
         </div>
 
@@ -734,7 +736,8 @@ onBeforeUnmount(() => {
             </span>
             <span class="settings-field__body">
               <span class="settings-field__label">{{ t('settings.profile.description') }}</span>
-              <span class="settings-field__hint">{{ draftDescription.length }}/{{ messenger.MAX_PROFILE_DESCRIPTION_LENGTH }}</span>
+              <span class="settings-field__hint">{{ draftDescription.length }}/{{
+                messenger.MAX_PROFILE_DESCRIPTION_LENGTH }}</span>
             </span>
           </label>
           <textarea v-model="draftDescription" class="settings-input settings-textarea"
@@ -755,14 +758,14 @@ onBeforeUnmount(() => {
             <span class="settings-field__body">
               <span class="settings-field__label">{{ t('settings.profile.pronouns') }}</span>
               <span class="settings-field__hint">{{ draftPronouns.length }}/{{ messenger.MAX_PROFILE_PRONOUNS_LENGTH
-                }}</span>
+              }}</span>
             </span>
           </label>
           <div class="settings-inline">
             <input v-model="draftPronouns" type="text" :maxlength="messenger.MAX_PROFILE_PRONOUNS_LENGTH"
-              autocomplete="off" spellcheck="false" :placeholder="t('settings.profile.pronounsPlaceholder')" class="settings-input"
-              @keydown.enter.prevent="saveProfileText" />
-            <button type="button" class="btn btn--primary settings-btn"             :disabled="!profileTextChanged"
+              autocomplete="off" spellcheck="false" :placeholder="t('settings.profile.pronounsPlaceholder')"
+              class="settings-input" @keydown.enter.prevent="saveProfileText" />
+            <button type="button" class="btn btn--primary settings-btn" :disabled="!profileTextChanged"
               @click="saveProfileText">{{ t('settings.profile.save') }}</button>
           </div>
         </div>
@@ -775,11 +778,7 @@ onBeforeUnmount(() => {
           <h4>{{ t('settings.profile.dangerZone') }}</h4>
           <p class="settings-note">{{ t('settings.profile.deleteAccountNote') }}</p>
           <div class="settings-actions">
-            <button
-              type="button"
-              class="btn settings-btn settings-btn--danger"
-              @click="onDeleteAccount"
-            >
+            <button type="button" class="btn settings-btn settings-btn--danger" @click="onDeleteAccount">
               {{ t('settings.profile.deleteAccount') }}
             </button>
           </div>
@@ -893,15 +892,17 @@ onBeforeUnmount(() => {
               <input v-model="lockPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
                 autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
                 :placeholder="lockPinPlaceholder" />
-              <input v-model="lockPinConfirm" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
-                autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
+              <input v-model="lockPinConfirm" class="settings-input settings-input--pin" inputmode="numeric"
+                pattern="[0-9]*" autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
                 :placeholder="lockPinPlaceholder" />
               <button type="button" class="btn btn--primary settings-btn" :disabled="messenger.state.clientLockLoading"
                 @click="onEnableClientLock">
-                {{ messenger.state.clientLockLoading ? t('settings.security.encrypting') : t('settings.security.enableLock') }}
+                {{ messenger.state.clientLockLoading ? t('settings.security.encrypting') :
+                  t('settings.security.enableLock') }}
               </button>
             </div>
-            <div v-if="messenger.state.clientLockLoading" class="settings-progress" role="progressbar" :aria-valuenow="messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
+            <div v-if="messenger.state.clientLockLoading" class="settings-progress" role="progressbar"
+              :aria-valuenow="messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
               <span :style="{ width: `${messenger.state.clientLockProgress || 8}%` }"></span>
             </div>
             <p v-if="messenger.state.clientLockLoading" class="settings-note">
@@ -958,17 +959,22 @@ onBeforeUnmount(() => {
           <h4>{{ t('settings.opsec.duressTitle') }}</h4>
           <label class="settings-select">
             <span>{{ t('settings.opsec.duressAction') }}</span>
-            <select :value="messenger.state.opsecDuressAction" @change="messenger.setOpsecDuressAction(targetValue($event))">
+            <select :value="messenger.state.opsecDuressAction"
+              @change="messenger.setOpsecDuressAction(targetValue($event))">
               <option value="wipe">{{ t('settings.opsec.actionWipe') }}</option>
               <option value="decoy">{{ t('settings.opsec.actionDecoy') }}</option>
             </select>
           </label>
           <div class="settings-inline settings-inline--lock">
-            <input v-model="duressPin" class="settings-input settings-input--pin settings-input--duress" inputmode="numeric" pattern="[0-9]*"
-              autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
-            <input v-model="duressPinConfirm" class="settings-input settings-input--pin settings-input--duress" inputmode="numeric" pattern="[0-9]*"
-              autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
-            <button type="button" class="btn btn--primary settings-btn" :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked" @click="onSaveDuressPin">
+            <input v-model="duressPin" class="settings-input settings-input--pin settings-input--duress"
+              inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+              :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
+            <input v-model="duressPinConfirm" class="settings-input settings-input--pin settings-input--duress"
+              inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+              :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
+            <button type="button" class="btn btn--primary settings-btn"
+              :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked"
+              @click="onSaveDuressPin">
               {{ t('settings.opsec.saveDuressPin') }}
             </button>
           </div>
@@ -984,11 +990,14 @@ onBeforeUnmount(() => {
         <div class="settings-group">
           <h4>{{ t('settings.opsec.decoyTitle') }}</h4>
           <div class="settings-actions">
-            <button type="button" class="btn settings-btn" :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked" @click="onStartDecoySetup">
+            <button type="button" class="btn settings-btn"
+              :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked"
+              @click="onStartDecoySetup">
               {{ t('settings.opsec.configureDecoy') }}
             </button>
           </div>
-          <p class="settings-note" v-if="messenger.state.opsecDecoyConfigured">{{ t('settings.opsec.decoyConfigured') }}</p>
+          <p class="settings-note" v-if="messenger.state.opsecDecoyConfigured">{{ t('settings.opsec.decoyConfigured') }}
+          </p>
           <p class="settings-note">{{ t('settings.opsec.decoyNote') }}</p>
         </div>
 
@@ -1019,7 +1028,10 @@ onBeforeUnmount(() => {
               @change="messenger.setAndroidNotificationsEnabled(targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
-          <p class="settings-note">{{ t('settings.notifications.permission', { status: messenger.notificationPermission() }) }}</p>
+          <p class="settings-note">{{ t('settings.notifications.permission', {
+            status:
+              messenger.notificationPermission()
+          }) }}</p>
         </div>
 
         <div class="settings-group">
@@ -1028,90 +1040,108 @@ onBeforeUnmount(() => {
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundMessage') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('message')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('message')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.message }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.message" @change="messenger.setSoundEnabled('message', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.message"
+                  @change="messenger.setSoundEnabled('message', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundJoin') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('join')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('join')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.join }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.join" @change="messenger.setSoundEnabled('join', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.join"
+                  @change="messenger.setSoundEnabled('join', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundLeave') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('leave')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('leave')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.leave }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.leave" @change="messenger.setSoundEnabled('leave', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.leave"
+                  @change="messenger.setSoundEnabled('leave', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundMute') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('mute')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('mute')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.mute }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.mute" @change="messenger.setSoundEnabled('mute', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.mute"
+                  @change="messenger.setSoundEnabled('mute', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundUnmute') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('unmute')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('unmute')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.unmute }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.unmute" @change="messenger.setSoundEnabled('unmute', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.unmute"
+                  @change="messenger.setSoundEnabled('unmute', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundCameraOn') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOn')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOn')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.cameraOn }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOn" @change="messenger.setSoundEnabled('cameraOn', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOn"
+                  @change="messenger.setSoundEnabled('cameraOn', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundCameraOff') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOff')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOff')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.cameraOff }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOff" @change="messenger.setSoundEnabled('cameraOff', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOff"
+                  @change="messenger.setSoundEnabled('cameraOff', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundScreenOn') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOn')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOn')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.screenOn }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.screenOn" @change="messenger.setSoundEnabled('screenOn', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.screenOn"
+                  @change="messenger.setSoundEnabled('screenOn', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundScreenOff') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOff')">{{ t('settings.notifications.previewSound') }}</button>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOff')">{{
+                  t('settings.notifications.previewSound') }}</button>
               </div>
               <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.screenOff }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.screenOff" @change="messenger.setSoundEnabled('screenOff', targetChecked($event))" />
+                <input type="checkbox" :checked="messenger.state.soundFlags.screenOff"
+                  @change="messenger.setSoundEnabled('screenOff', targetChecked($event))" />
                 <span class="toggle__track"><span class="toggle__thumb"></span></span>
               </label>
             </div>
@@ -1162,8 +1192,7 @@ onBeforeUnmount(() => {
 
           <label class="settings-select">
             <span>{{ t('settings.calls.camera') }}</span>
-            <select :value="messenger.state.selectedVideoInputId"
-              @change="onVideoInputChanged(targetValue($event))">
+            <select :value="messenger.state.selectedVideoInputId" @change="onVideoInputChanged(targetValue($event))">
               <option value="">{{ t('settings.calls.systemDefault') }}</option>
               <option v-for="(device, index) in cameras" :key="device.deviceId || `camera-${index}`"
                 :value="device.deviceId">
@@ -1180,9 +1209,9 @@ onBeforeUnmount(() => {
             <div v-if="cameraPreviewError" class="settings-camera-preview__error">{{ cameraPreviewError }}</div>
           </div>
           <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': cameraPreviewActive }"
-            :disabled="cameraPreviewLoading"
-            @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
-            {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ? t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
+            :disabled="cameraPreviewLoading" @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
+            {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ?
+              t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
           </button>
 
           <p class="settings-note" v-if="messenger.state.audioDevicesPermission !== 'granted'">
@@ -1190,7 +1219,8 @@ onBeforeUnmount(() => {
           </p>
           <button type="button" class="btn settings-btn" :disabled="messenger.state.audioDevicesLoading"
             @click="messenger.unlockAudioDevices">
-            {{ messenger.state.audioDevicesLoading ? t('settings.calls.checkingDevices') : t('settings.calls.allowDevices') }}
+            {{ messenger.state.audioDevicesLoading ? t('settings.calls.checkingDevices') :
+              t('settings.calls.allowDevices') }}
           </button>
         </div>
 
@@ -1210,7 +1240,8 @@ onBeforeUnmount(() => {
           </label>
           <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': messenger.state.micTestActive }"
             :disabled="messenger.state.micTestLoading" @click="messenger.startMicTest">
-            {{ messenger.state.micTestLoading ? t('settings.calls.startingMic') : messenger.state.micTestActive ? t('settings.calls.stopListening') : t('settings.calls.testMic') }}
+            {{ messenger.state.micTestLoading ? t('settings.calls.startingMic') : messenger.state.micTestActive ?
+              t('settings.calls.stopListening') : t('settings.calls.testMic') }}
           </button>
         </div>
 
@@ -1328,14 +1359,8 @@ onBeforeUnmount(() => {
 
         <div class="settings-group" v-if="messenger.state.adminOverview?.users?.length">
           <h4>{{ t('settings.admin.users') }}</h4>
-          <input
-            v-model="adminUserSearch"
-            class="settings-input admin-user-search"
-            type="search"
-            autocomplete="off"
-            spellcheck="false"
-            :placeholder="t('settings.admin.searchUsers')"
-          />
+          <input v-model="adminUserSearch" class="settings-input admin-user-search" type="search" autocomplete="off"
+            spellcheck="false" :placeholder="t('settings.admin.searchUsers')" />
           <p v-if="!adminUserSearch.trim()" class="settings-note">{{ t('settings.admin.searchUsersNote') }}</p>
           <p v-else-if="!filteredAdminUsers.length" class="settings-note">{{ t('settings.admin.noUsersFound') }}</p>
           <div v-if="filteredAdminUsers.length" class="admin-list">
@@ -1358,7 +1383,8 @@ onBeforeUnmount(() => {
                   <span>{{ t('settings.admin.badges') }}</span>
                   <button type="button" class="admin-badge-menu-button" @click="toggleAdminBadgeMenu(user)">
                     <span v-if="adminBadgeDraftFor(user).length" class="admin-badge-selection">
-                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-draft-${badge}`">{{ badge }}</span>
+                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-draft-${badge}`">{{ badge
+                        }}</span>
                     </span>
                     <span v-else class="admin-badge-placeholder">{{ t('settings.admin.badgesPlaceholder') }}</span>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1366,38 +1392,75 @@ onBeforeUnmount(() => {
                     </svg>
                   </button>
                   <div v-if="adminBadgeMenuOpen(user)" class="admin-badge-menu">
-                    <button
-                      v-for="badge in suggestedAdminBadges"
-                      :key="`${user.id}-option-${badge.id}`"
-                      type="button"
-                      class="admin-badge-option"
-                      :class="{ 'is-selected': adminBadgeSelected(user, badge.id) }"
-                      @click="toggleAdminBadge(user, badge.id)"
-                    >
-                      <svg v-if="badge.id === 'bug_hunter'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m16.5822 2.63812s7.6721 5.23623 4.7567 12.58868c-2.9154 7.3525-8.7142 5.313-6.5469 3.1648 2.1674-2.1482-2.5573-3.6059-5.58143-6.3935l7.36523-9.35998" fill="#3ba55c" />
-                        <path d="m16.1155 9.83717c-1.6175 2.05873-3.9 3.08803-5.6646 2.71723l-6.15684 7.8447c-.10362.1324-.23231.243-.37871.3256-.1464.0825-.30764.1354-.47451.1556-.16686.0202-.33606.0073-.49793-.038-.16187-.0452-.31322-.122-.44541-.2258-.13374-.1032-.2457-.2319-.32942-.3786s-.13754-.3086-.15834-.4762c-.02081-.1677-.00819-.3378.03712-.5005s.12242-.3149.22687-.4476l6.12492-7.832c-.81197-1.62394-.36443-4.11099 1.27869-6.18886 2.03946-2.58295 5.11476-3.54836 6.89856-2.15459 1.7837 1.39377 1.5664 4.61607-.4604 7.19902z" fill="#b4e1cd" />
+                    <button v-for="badge in suggestedAdminBadges" :key="`${user.id}-option-${badge.id}`" type="button"
+                      class="admin-badge-option" :class="{ 'is-selected': adminBadgeSelected(user, badge.id) }"
+                      @click="toggleAdminBadge(user, badge.id)">
+
+
+                      <svg v-if="badge.id === 'bug_hunter'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path
+                          d="m16.5822 2.63812s7.6721 5.23623 4.7567 12.58868c-2.9154 7.3525-8.7142 5.313-6.5469 3.1648 2.1674-2.1482-2.5573-3.6059-5.58143-6.3935l7.36523-9.35998"
+                          fill="#3ba55c" />
+                        <path
+                          d="m16.1155 9.83717c-1.6175 2.05873-3.9 3.08803-5.6646 2.71723l-6.15684 7.8447c-.10362.1324-.23231.243-.37871.3256-.1464.0825-.30764.1354-.47451.1556-.16686.0202-.33606.0073-.49793-.038-.16187-.0452-.31322-.122-.44541-.2258-.13374-.1032-.2457-.2319-.32942-.3786s-.13754-.3086-.15834-.4762c-.02081-.1677-.00819-.3378.03712-.5005s.12242-.3149.22687-.4476l6.12492-7.832c-.81197-1.62394-.36443-4.11099 1.27869-6.18886 2.03946-2.58295 5.11476-3.54836 6.89856-2.15459 1.7837 1.39377 1.5664 4.61607-.4604 7.19902z"
+                          fill="#b4e1cd" />
                       </svg>
-                      <svg v-else-if="badge.id === 'mod'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m17.2719 3h-9.54383c-.14912 1.9386-1.78947 3.42982-3.72807 3.42982v.89474c0 4.39914 2.08772 8.50004 5.74123 11.40794l2.75877 2.1622 2.7588-2.1622c3.6535-2.8334 5.7412-7.0088 5.7412-11.40794v-.89474c-1.9386 0-3.5044-1.49122-3.7281-3.42982zm-6.4868 12.8991c-2.23685-1.7895-3.57896-4.3245-3.57896-7.08331v-.52193c1.19298 0 2.23684-.89474 2.3114-2.08772h2.98246v11.10966z" fill="#FC964B" />
-                      </svg>
-                      <svg v-else-if="badge.id === 'vip'" class="admin-badge-option__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V10.4H4V6Z" fill="#E4D9EA" />
-                        <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18V13.6H4V18Z" fill="#0E60EF" />
-                        <path d="M4 10.4H20V13.6H4V10.4Z" fill="#F0B14B" />
-                        <path d="M15.7333 12C15.7333 14.0619 14.0619 15.7333 12 15.7333C9.93813 15.7333 8.26666 14.0619 8.26666 12C8.26666 9.93813 9.93813 8.26666 12 8.26666C14.0619 8.26666 15.7333 9.93813 15.7333 12Z" fill="#0F182D" />
-                        <path d="M13.6 12C13.6 12.8837 12.8837 13.6 12 13.6C11.1164 13.6 10.4 12.8837 10.4 12C10.4 11.1164 11.1164 10.4 12 10.4C12.8837 10.4 13.6 11.1164 13.6 12Z" fill="#E4D9EA" />
-                      </svg>
-                      <svg v-else-if="badge.id === 'contributor'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <g fill="#5865f2">
-                          <path d="m16.6033 9.15179-2.4908 1.66051c-.249.2491-.6642.1661-.7472 0-.2491-.2491-.6642-.4151-.9133-.4982-.6642-.166-1.2454 0-1.7435.2491l-.83027.5812-4.64945 2.9889c-.99631.6642-2.2417.4152-2.9059-.6642-.66421-1.0793-.24908-2.2417.74723-2.8228l5.31365-3.65318c1.49447-.83026 3.23804-1.24539 4.89854-.83026 1.4114.24907 2.6568.99631 3.4871 2.15867.249.16605.249.66421-.1661.83026z" />
-                          <path d="m22 11.6425c0 .7473-.4152 1.4115-.9963 1.7436l-5.4797 3.5701c-.9964.6642-2.2417.9963-3.4041.9963-.4982 0-.9963 0-1.4114-.166-1.41148-.2491-2.49081-1.1624-3.48712-2.1587-.16606-.1661-.16606-.6642.16605-.7473l2.49077-1.6605c.2491-.249.6642-.166.7472 0 .2491.2491.4982.4152.9133.4982.6642.166 1.2454 0 1.7436-.2491l1.2453-.7472 3.7362-2.4908.4982-.41513c.9963-.6642 2.2417-.41512 2.9059.66423.166.4151.3321.7472.3321 1.1623z" />
+
+
+                      <svg v-if="badge.id === 'bug_hunter_lvl_2'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <mask id="bug-hunter-lvl2-mask" height="19" maskUnits="userSpaceOnUse" width="16" x="2" y="2">
+                          <path
+                            d="m16.1438 9.84735c-1.6048 2.04975-3.9088 3.08265-5.7044 2.70125l-6.14926 7.8813c-.44491.572-1.22351.6356-1.79554.1907-.57203-.445-.63558-1.2235-.25423-1.7956l6.1493-7.8177c-.82626-1.60486-.38135-4.09954 1.28707-6.21286 2.04976-2.57413 5.11646-3.52751 6.91196-2.19278 1.7956 1.33473 1.5413 4.6239-.4449 7.24569z"
+                            fill="#ffd56c" />
+                        </mask>
+                        <path
+                          d="m16.5888 2.60168s7.6906 5.25949 4.7351 12.63232c-2.9555 7.3728-8.7235 5.323-6.5307 3.1461s-2.5582-3.591-5.57726-6.4194z"
+                          fill="#ffeac0" />
+                        <path
+                          d="m16.1438 9.84735c-1.6048 2.04975-3.9088 3.08265-5.7044 2.70125l-6.14926 7.8813c-.44491.572-1.22351.6356-1.79554.1907-.57203-.445-.63558-1.2235-.25423-1.7956l6.1493-7.8177c-.82626-1.60486-.38135-4.09954 1.28707-6.21286 2.04976-2.57413 5.11646-3.52751 6.91196-2.19278 1.7956 1.33473 1.5413 4.6239-.4449 7.24569z"
+                          fill="#ffd56c" />
+                        <g fill="#fff" mask="url(#bug-hunter-lvl2-mask)">
+                          <path d="m13.0389-1.26782.7405.09754-3.1567 23.96118-.74043-.0976z" />
+                          <path d="m14.2822-1.51801 1.6226.21377-3.1566 23.96114-1.6226-.2137z" />
                         </g>
                       </svg>
-                      <svg v-else-if="badge.id === 'artist'" class="admin-badge-option__icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <svg v-else-if="badge.id === 'mod'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path
+                          d="m17.2719 3h-9.54383c-.14912 1.9386-1.78947 3.42982-3.72807 3.42982v.89474c0 4.39914 2.08772 8.50004 5.74123 11.40794l2.75877 2.1622 2.7588-2.1622c3.6535-2.8334 5.7412-7.0088 5.7412-11.40794v-.89474c-1.9386 0-3.5044-1.49122-3.7281-3.42982zm-6.4868 12.8991c-2.23685-1.7895-3.57896-4.3245-3.57896-7.08331v-.52193c1.19298 0 2.23684-.89474 2.3114-2.08772h2.98246v11.10966z"
+                          fill="#FC964B" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'vip'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        fill="none" aria-hidden="true">
+                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V10.4H4V6Z" fill="#E4D9EA" />
+                        <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18V13.6H4V18Z"
+                          fill="#0E60EF" />
+                        <path d="M4 10.4H20V13.6H4V10.4Z" fill="#F0B14B" />
+                        <path
+                          d="M15.7333 12C15.7333 14.0619 14.0619 15.7333 12 15.7333C9.93813 15.7333 8.26666 14.0619 8.26666 12C8.26666 9.93813 9.93813 8.26666 12 8.26666C14.0619 8.26666 15.7333 9.93813 15.7333 12Z"
+                          fill="#0F182D" />
+                        <path
+                          d="M13.6 12C13.6 12.8837 12.8837 13.6 12 13.6C11.1164 13.6 10.4 12.8837 10.4 12C10.4 11.1164 11.1164 10.4 12 10.4C12.8837 10.4 13.6 11.1164 13.6 12Z"
+                          fill="#E4D9EA" />
+                      </svg>
+                      <svg v-else-if="badge.id === 'contributor'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <g fill="#5865f2">
+                          <path
+                            d="m16.6033 9.15179-2.4908 1.66051c-.249.2491-.6642.1661-.7472 0-.2491-.2491-.6642-.4151-.9133-.4982-.6642-.166-1.2454 0-1.7435.2491l-.83027.5812-4.64945 2.9889c-.99631.6642-2.2417.4152-2.9059-.6642-.66421-1.0793-.24908-2.2417.74723-2.8228l5.31365-3.65318c1.49447-.83026 3.23804-1.24539 4.89854-.83026 1.4114.24907 2.6568.99631 3.4871 2.15867.249.16605.249.66421-.1661.83026z" />
+                          <path
+                            d="m22 11.6425c0 .7473-.4152 1.4115-.9963 1.7436l-5.4797 3.5701c-.9964.6642-2.2417.9963-3.4041.9963-.4982 0-.9963 0-1.4114-.166-1.41148-.2491-2.49081-1.1624-3.48712-2.1587-.16606-.1661-.16606-.6642.16605-.7473l2.49077-1.6605c.2491-.249.6642-.166.7472 0 .2491.2491.4982.4152.9133.4982.6642.166 1.2454 0 1.7436-.2491l1.2453-.7472 3.7362-2.4908.4982-.41513c.9963-.6642 2.2417-.41512 2.9059.66423.166.4151.3321.7472.3321 1.1623z" />
+                        </g>
+                      </svg>
+                      <svg v-else-if="badge.id === 'artist'" class="admin-badge-option__icon" viewBox="0 0 24 24"
+                        aria-hidden="true">
                         <g fill="#fbb848">
-                          <path d="m21.5912 6.84349-7.8694 5.16551c-.1351.088-.2444.2103-.317.3543l-1.1997 2.4056c-.0174.0399-.0461.0739-.0825.0977-.0364.0239-.079.0366-.1226.0366s-.0862-.0127-.1226-.0366c-.0364-.0238-.0651-.0578-.0825-.0977l-1.1997-2.4056c-.0726-.144-.1819-.2663-.317-.3543l-7.86944-5.16551c-.03957-.04698-.09618-.07632-.15738-.08157-.0612-.00524-.12198.01404-.16896.0536-.04698.03957-.07633.09618-.08157.15738-.00525.0612.01403.12198.0536.16896l3.28825 6.39624c.01598.0335.02385.0703.02297.1074s-.01049.0734-.02804.1061c-.01756.0327-.04257.0608-.07301.082-.03043.0212-.06544.035-.10219.0402h-1.97668c-.04881-.0005-.0965.0146-.13617.043-.03967.0285-.06926.0688-.08449.1152s-.0153.0964-.00022.1428c.01509.0464.04455.0869.08413.1154l8.8142 6.3155c.0403.0275.088.0422.1368.0422s.0965-.0147.1368-.0422l8.8142-6.3155c.0396-.0285.069-.069.0841-.1154s.015-.0964-.0002-.1428-.0448-.0867-.0845-.1152c-.0396-.0284-.0873-.0435-.1362-.043h-1.9766c-.0389-.0015-.0769-.0126-.1105-.0323-.0335-.0197-.0617-.0474-.082-.0806s-.0321-.071-.0343-.1098c-.0022-.0389.0052-.0777.0216-.113l3.3132-6.39624c.0395-.04698.0588-.10776.0536-.16896-.0053-.0612-.0346-.11781-.0816-.15738-.047-.03956-.1078-.05884-.169-.0536-.0612.00525-.1178.03459-.1574.08157z" />
-                          <path d="m12.1741 2.10696.8081 1.64723c.0143.02721.0346.05084.0594.06913.0247.01829.0533.03078.0835.03654l1.8213.26107c.0356.00524.0691.02036.0966.04366s.0479.05383.0589.08814.0122.07102.0034.10595c-.0089.03494-.0273.06671-.0532.0917l-1.3178 1.28049c-.0213.02203-.0373.04854-.047.07758s-.0127.05988-.009.09025l.3108 1.80885c.0069.03487.0036.07096-.0094.10404-.013.03307-.0351.06174-.0639.08264-.0287.0209-.0628.03315-.0983.03532-.0354.00217-.0708-.00584-.1019-.02309l-1.6285-.85159c-.0265-.01527-.0565-.02331-.0871-.02331-.0305 0-.0605.00804-.087.02331l-1.6286.85159c-.031.01725-.0664.02526-.1019.02309-.0354-.00217-.0695-.01442-.0983-.03532-.0287-.0209-.0509-.04957-.0639-.08264-.0129-.03308-.0162-.06917-.0094-.10404l.3108-1.80885c.0038-.03037.0008-.06121-.0089-.09025s-.0258-.05555-.047-.07758l-1.31781-1.28049c-.02595-.02499-.04438-.05676-.05318-.0917-.00881-.03493-.00764-.07164.00336-.10595s.03141-.06484.05889-.08814c.02749-.0233.06095-.03842.0966-.04366l1.82124-.25485c.0303-.00576.0588-.01825.0836-.03654.0247-.01829.045-.04192.0594-.06913l.8081-1.64723c.015-.03321.0392-.06147.0696-.08149.0305-.02003.066-.03101.1025-.03166.0364-.00065.0723.00905.1035.02798.0311.01893.0563.0463.0725.07895z" />
+                          <path
+                            d="m21.5912 6.84349-7.8694 5.16551c-.1351.088-.2444.2103-.317.3543l-1.1997 2.4056c-.0174.0399-.0461.0739-.0825.0977-.0364.0239-.079.0366-.1226.0366s-.0862-.0127-.1226-.0366c-.0364-.0238-.0651-.0578-.0825-.0977l-1.1997-2.4056c-.0726-.144-.1819-.2663-.317-.3543l-7.86944-5.16551c-.03957-.04698-.09618-.07632-.15738-.08157-.0612-.00524-.12198.01404-.16896.0536-.04698.03957-.07633.09618-.08157.15738-.00525.0612.01403.12198.0536.16896l3.28825 6.39624c.01598.0335.02385.0703.02297.1074s-.01049.0734-.02804.1061c-.01756.0327-.04257.0608-.07301.082-.03043.0212-.06544.035-.10219.0402h-1.97668c-.04881-.0005-.0965.0146-.13617.043-.03967.0285-.06926.0688-.08449.1152s-.0153.0964-.00022.1428c.01509.0464.04455.0869.08413.1154l8.8142 6.3155c.0403.0275.088.0422.1368.0422s.0965-.0147.1368-.0422l8.8142-6.3155c.0396-.0285.069-.069.0841-.1154s.015-.0964-.0002-.1428-.0448-.0867-.0845-.1152c-.0396-.0284-.0873-.0435-.1362-.043h-1.9766c-.0389-.0015-.0769-.0126-.1105-.0323-.0335-.0197-.0617-.0474-.082-.0806s-.0321-.071-.0343-.1098c-.0022-.0389.0052-.0777.0216-.113l3.3132-6.39624c.0395-.04698.0588-.10776.0536-.16896-.0053-.0612-.0346-.11781-.0816-.15738-.047-.03956-.1078-.05884-.169-.0536-.0612.00525-.1178.03459-.1574.08157z" />
+                          <path
+                            d="m12.1741 2.10696.8081 1.64723c.0143.02721.0346.05084.0594.06913.0247.01829.0533.03078.0835.03654l1.8213.26107c.0356.00524.0691.02036.0966.04366s.0479.05383.0589.08814.0122.07102.0034.10595c-.0089.03494-.0273.06671-.0532.0917l-1.3178 1.28049c-.0213.02203-.0373.04854-.047.07758s-.0127.05988-.009.09025l.3108 1.80885c.0069.03487.0036.07096-.0094.10404-.013.03307-.0351.06174-.0639.08264-.0287.0209-.0628.03315-.0983.03532-.0354.00217-.0708-.00584-.1019-.02309l-1.6285-.85159c-.0265-.01527-.0565-.02331-.0871-.02331-.0305 0-.0605.00804-.087.02331l-1.6286.85159c-.031.01725-.0664.02526-.1019.02309-.0354-.00217-.0695-.01442-.0983-.03532-.0287-.0209-.0509-.04957-.0639-.08264-.0129-.03308-.0162-.06917-.0094-.10404l.3108-1.80885c.0038-.03037.0008-.06121-.0089-.09025s-.0258-.05555-.047-.07758l-1.31781-1.28049c-.02595-.02499-.04438-.05676-.05318-.0917-.00881-.03493-.00764-.07164.00336-.10595s.03141-.06484.05889-.08814c.02749-.0233.06095-.03842.0966-.04366l1.82124-.25485c.0303-.00576.0588-.01825.0836-.03654.0247-.01829.045-.04192.0594-.06913l.8081-1.64723c.015-.03321.0392-.06147.0696-.08149.0305-.02003.066-.03101.1025-.03166.0364-.00065.0723.00905.1035.02798.0311.01893.0563.0463.0725.07895z" />
                         </g>
                       </svg>
                       <span>{{ badge.label }}</span>
@@ -1410,16 +1473,11 @@ onBeforeUnmount(() => {
                       </span>
                     </div>
                     <div class="admin-badge-custom">
-                      <input
-                        class="settings-input"
-                        type="text"
-                        :value="customBadgeDraftFor(user)"
-                        maxlength="32"
-                        placeholder="custom_badge"
-                        @input="setCustomBadgeDraft(user, targetValue($event))"
-                        @keydown.enter.prevent="addCustomAdminBadge(user)"
-                      />
-                      <button type="button" class="btn settings-btn" :disabled="!customBadgeDraftFor(user)" @click="addCustomAdminBadge(user)">
+                      <input class="settings-input" type="text" :value="customBadgeDraftFor(user)" maxlength="32"
+                        placeholder="custom_badge" @input="setCustomBadgeDraft(user, targetValue($event))"
+                        @keydown.enter.prevent="addCustomAdminBadge(user)" />
+                      <button type="button" class="btn settings-btn" :disabled="!customBadgeDraftFor(user)"
+                        @click="addCustomAdminBadge(user)">
                         Add
                       </button>
                     </div>
