@@ -4421,6 +4421,12 @@ export function useMessenger() {
       state.lastError = "Not joined to this room yet.";
       return;
     }
+    const type = String(file.type || "").toLowerCase();
+    if (!["image/png", "image/gif", "image/jpeg"].includes(type)) {
+      state.lastError = "Only PNG, GIF, and JPEG images are allowed.";
+      showToast(state.lastError);
+      return;
+    }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       state.lastError = `File too large: ${file.name} (${formatSize(file.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
       return;
@@ -4428,19 +4434,7 @@ export function useMessenger() {
 
     try {
       const clientNonce = crypto.randomUUID();
-      const shouldArchive =
-        state.autoArchiveUploads &&
-        !String(caption || "").startsWith("[voice:") &&
-        !String(file.type || "").startsWith("image/") &&
-        !String(file.type || "").startsWith("video/") &&
-        !String(file.type || "").startsWith("audio/") &&
-        !isTextAttachmentFile(file);
-      const uploadFile = shouldArchive ? await archiveFileAsZip(file) : file;
-      if (uploadFile.size > MAX_ATTACHMENT_BYTES) {
-        state.lastError = `File too large after zip archive: ${uploadFile.name} (${formatSize(uploadFile.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
-        return;
-      }
-
+      const uploadFile = file;
       const previewUrl = URL.createObjectURL(uploadFile);
       const dataB64 = await blobToBase64(uploadFile);
       const encrypted = await buildEncryptedOutgoingMessage(roomId, {
