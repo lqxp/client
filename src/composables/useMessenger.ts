@@ -19,6 +19,7 @@ import {
 } from "@/calls/WebRtcCallManager";
 import { apiUrl, appRuntimeConfig } from "@/config/runtime";
 import {
+  canonicalDeviceSigningKey,
   cryptoAvailable,
   decryptRoomPayload,
   encryptRoomPayload,
@@ -692,6 +693,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     deviceId: "",
     deviceSigningPublicKey: null,
     deviceSigningPrivateKey: null,
+    trustedSenderKeysByRoom: {},
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
     selectedVideoInputId: "",
@@ -958,6 +960,7 @@ function loadPersisted() {
       deviceId: String(raw.deviceId || ""),
       deviceSigningPublicKey: raw.deviceSigningPublicKey || null,
       deviceSigningPrivateKey: raw.deviceSigningPrivateKey || null,
+      trustedSenderKeysByRoom: raw.trustedSenderKeysByRoom && typeof raw.trustedSenderKeysByRoom === "object" ? raw.trustedSenderKeysByRoom : {},
       selectedAudioInputId: String(raw.selectedAudioInputId || ""),
       selectedAudioOutputId: String(raw.selectedAudioOutputId || ""),
       selectedVideoInputId: String(raw.selectedVideoInputId || ""),
@@ -1244,9 +1247,10 @@ function buildPersistedPayload(state) {
     unreadByRoom: state.unreadByRoom,
     roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
     roomRatchetsByRoom: sanitizeRoomRatchets(state.roomRatchetsByRoom),
-    deviceId: String(state.deviceId || ""),
+    deviceId: state.deviceId,
     deviceSigningPublicKey: state.deviceSigningPublicKey || null,
     deviceSigningPrivateKey: state.deviceSigningPrivateKey || null,
+    trustedSenderKeysByRoom: state.trustedSenderKeysByRoom,
     selectedAudioInputId: state.selectedAudioInputId,
     selectedAudioOutputId: state.selectedAudioOutputId,
     selectedVideoInputId: state.selectedVideoInputId,
@@ -1747,6 +1751,7 @@ export function useMessenger() {
     deviceId: (persisted as any).deviceId || "",
     deviceSigningPublicKey: (persisted as any).deviceSigningPublicKey || null,
     deviceSigningPrivateKey: (persisted as any).deviceSigningPrivateKey || null,
+    trustedSenderKeysByRoom: (persisted as any).trustedSenderKeysByRoom || {},
 
     joinedRooms: persisted.joinedRooms,
     pendingJoinRooms: [],
@@ -2270,6 +2275,7 @@ export function useMessenger() {
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
     state.roomRatchetsByRoom = {};
+    state.trustedSenderKeysByRoom = {};
     state.activeRoom = "";
     writeDecoyPersistedPayload(decoyPersistedPayload(buildPersistedPayload(state)));
     localStorage.removeItem(PROFILE_STORAGE_KEY);
@@ -2343,6 +2349,7 @@ export function useMessenger() {
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
     state.roomRatchetsByRoom = {};
+    state.trustedSenderKeysByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.badgesByUser = {};
@@ -2453,6 +2460,8 @@ export function useMessenger() {
     state.messagesByRoom = {};
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
+    state.roomRatchetsByRoom = {};
+    state.trustedSenderKeysByRoom = {};
     state.clientLockSalt = String(lockedPayload.salt || state.clientLockSalt || "");
     state.clientLockIv = String(storedLockedPayload.iv || "");
     state.clientLockCiphertext = String(storedLockedPayload.ciphertext || "");
@@ -3005,12 +3014,20 @@ export function useMessenger() {
         "room token required",
       );
     }
+    const username = sanitizeUsername(message.username || extractUsername(message.user));
+    const roomTrust = state.trustedSenderKeysByRoom[roomId] || {};
+    const trustedKey = roomTrust[username] || null;
     try {
       const decrypted = await decryptRoomPayload(
         roomKey,
         roomId,
         message.encrypted,
+        trustedKey,
       );
+      if (username && !trustedKey && canonicalDeviceSigningKey(message.encrypted.senderSigningKey)) {
+        state.trustedSenderKeysByRoom[roomId] = { ...roomTrust, [username]: message.encrypted.senderSigningKey };
+        persist();
+      }
       return normalizeMessage(
         {
           ...message,
@@ -3036,7 +3053,7 @@ export function useMessenger() {
         roomId,
       );
     } catch {
-      return encryptedPlaceholderMessage(message, roomId, "wrong room key");
+      return encryptedPlaceholderMessage(message, roomId, trustedKey ? "sender key mismatch" : "wrong room key");
     }
   }
 
@@ -4363,7 +4380,7 @@ export function useMessenger() {
         replyToMessageId: state.replyingTo?.messageId || "",
       })
         .then((encrypted) => {
-          send({ op: 7, d: { encrypted } });
+          send({ op: 7, d: { gameId: roomId, encrypted } });
           state.messageInput = "";
           state.replyingTo = null;
           setTyping(false);
@@ -4446,7 +4463,7 @@ export function useMessenger() {
       touchRoom(roomId, optimisticMessage);
       if (roomId === state.activeRoom) scrollToBottom();
 
-      send({ op: 7, d: { encrypted } });
+      send({ op: 7, d: { gameId: roomId, encrypted } });
       state.replyingTo = null;
       persist();
     } catch (err) {
@@ -5191,6 +5208,7 @@ export function useMessenger() {
     state.unreadByRoom = {};
     state.roomKeysByRoom = {};
     state.roomRatchetsByRoom = {};
+    state.trustedSenderKeysByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.badgesByUser = {};

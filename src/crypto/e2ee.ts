@@ -115,6 +115,18 @@ function signingPayload(envelope: any) {
   }));
 }
 
+export function canonicalDeviceSigningKey(value: any) {
+  if (!value || typeof value !== "object") return "";
+  return JSON.stringify({
+    crv: String(value.crv || ""),
+    ext: value.ext === true,
+    key_ops: Array.isArray(value.key_ops) ? value.key_ops.map(String).sort() : [],
+    kty: String(value.kty || ""),
+    x: String(value.x || ""),
+    y: String(value.y || ""),
+  });
+}
+
 export function normalizeRoomKey(rawValue: string) {
   const bytes = hexToBytes(String(rawValue || "").trim());
   if (bytes.length !== ROOM_KEY_BYTES) {
@@ -237,8 +249,11 @@ export async function encryptRoomPayload(
   return envelope;
 }
 
-export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: any) {
+export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: any, trustedSigningKey?: JsonWebKey | null) {
   if (!isEncryptedEnvelope(envelope)) throw new Error("Invalid encrypted payload.");
+  if (trustedSigningKey && canonicalDeviceSigningKey(envelope.senderSigningKey) !== canonicalDeviceSigningKey(trustedSigningKey)) {
+    throw new Error("Encrypted payload sender key mismatch.");
+  }
   const publicKey = await importDevicePublicKey(envelope.senderSigningKey);
   const validSignature = await globalThis.crypto.subtle.verify(
     { name: "ECDSA", hash: "SHA-256" },
