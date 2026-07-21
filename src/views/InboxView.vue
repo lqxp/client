@@ -22,6 +22,7 @@ const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in windo
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
 const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
+const showAuthTitlebar = showNativeTitlebar;
 const showDesktopTitlebar = showNativeTitlebar || isWebDesktopRuntime;
 const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 
@@ -276,8 +277,8 @@ async function lockClientNow() {
 </script>
 
 <template>
-  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar': showDesktopTitlebar, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
-    <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar }">
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
@@ -309,8 +310,8 @@ async function lockClientNow() {
     </header>
     <LockScreen :messenger="messenger" />
   </div>
-  <div v-else-if="needsOnboarding" class="app app--auth" :class="{ 'app--onboarding-titlebar is-tauri': showDesktopTitlebar }">
-    <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+  <div v-else-if="needsOnboarding" class="app app--auth" :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar }">
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
