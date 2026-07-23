@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import BadgeIcon from "@/components/BadgeIcon.vue";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { appRuntimeConfig, rtcRuntimeConfig } from "@/config/runtime";
 
@@ -125,8 +126,9 @@ const filteredAdminUsers = computed(() => {
   return adminUsers.value.filter((user: any) => String(user?.username || "").toLowerCase().includes(query));
 });
 
-const systemBadgeIds = new Set(["staff", "early", "system"]);
+const systemBadgeIds = new Set(["staff", "system"]);
 const suggestedAdminBadges = [
+  { id: "early", label: "Early QxChat User" },
   { id: "vip", label: "VIP" },
   { id: "mod", label: "Mod" },
   { id: "contributor", label: "Contributor" },
@@ -1405,6 +1407,7 @@ onBeforeUnmount(() => {
                       @click="toggleAdminBadge(user, badge.id)">
 
 
+                      <BadgeIcon v-if="badge.id === 'early'" badge="early" class="admin-badge-option__icon" />
                       <svg v-if="badge.id === 'bug_hunter'" class="admin-badge-option__icon" viewBox="0 0 24 24"
                         aria-hidden="true">
                         <path
