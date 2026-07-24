@@ -115,6 +115,8 @@
         "leaveRoomConfirm": "¿Salir de \"{room}\"?{suffix}",
         "roomJoined": "{user} se unió a la sala",
         "roomLeft": "{user} salió de la sala",
+        "today": "Hoy",
+        "yesterday": "Ayer",
         "typingOne": "{user} está escribiendo…",
         "typingMany": "{count} personas están escribiendo…"
     },

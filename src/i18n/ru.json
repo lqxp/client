@@ -138,6 +138,8 @@
         "leaveRoomConfirm": "Покинуть \"{room}\"?{suffix}",
         "roomJoined": "{user} вошёл в комнату",
         "roomLeft": "{user} покинул комнату",
+        "today": "Сегодня",
+        "yesterday": "Вчера",
         "typingOne": "{user} печатает…",
         "typingMany": "Печатают {count} человек…"
     },
