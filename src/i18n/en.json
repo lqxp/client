@@ -410,7 +410,7 @@
         },
         "about": {
             "title": "About",
-            "session": "Session",
+            "userId": "User ID",
             "status": "Status",
             "joinedRooms": "Joined rooms",
             "savedRooms": "Saved rooms",

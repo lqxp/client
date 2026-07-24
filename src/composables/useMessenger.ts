@@ -5597,8 +5597,8 @@ export function useMessenger() {
           if (String(d.error) === "Invalid account session") disconnect();
           break;
         }
-        state.uuid = d.uuid;
-        if (d?.id || d?.userId) state.userId = String(d.id || d.userId || state.userId || "");
+        state.uuid = d.uuid || null;
+        state.userId = String(d?.userId || d?.id || state.userId || "");
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
         if (state.username) state.badgesByUser[state.username] = normalizeUserBadges(d?.badges);

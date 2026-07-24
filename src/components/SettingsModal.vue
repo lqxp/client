@@ -1578,8 +1578,8 @@ onBeforeUnmount(() => {
           <h4>{{ t('settings.about.title') }}</h4>
           <dl class="settings-kv">
             <div>
-              <dt>{{ t('settings.about.session') }}</dt>
-              <dd>{{ messenger.state.uuid || "—" }}</dd>
+              <dt>{{ t('settings.about.userId') }}</dt>
+              <dd>{{ messenger.state.userId || "—" }}</dd>
             </div>
             <div>
               <dt>{{ t('settings.about.status') }}</dt>
