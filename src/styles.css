@@ -4059,7 +4059,6 @@ textarea {
 
 .settings__back,
 .settings__search,
-.settings__mobile-label,
 .settings__chevron {
   display: none;
 }
@@ -5156,14 +5155,6 @@ textarea {
 
   .settings__search input::placeholder {
     color: var(--dim);
-  }
-
-  .settings__mobile-label {
-    display: block;
-    margin: 0 2px 12px;
-    color: var(--text);
-    font-size: 17px;
-    font-weight: 800;
   }
 
   .settings__nav {

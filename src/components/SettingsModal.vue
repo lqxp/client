@@ -552,8 +552,6 @@ onBeforeUnmount(() => {
         </span>
       </button>
 
-      <div class="settings__mobile-label">{{ t('settings.title') }}</div>
-
       <nav class="settings__nav" aria-label="Settings sections">
         <button v-for="section in filteredSections" :key="section.id" type="button" class="settings__nav-item"
           :class="{ 'is-active': activeSection === section.id }" @click="selectSection(section.id)">
