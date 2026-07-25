@@ -3030,9 +3030,9 @@ export function useMessenger() {
         "room token required",
       );
     }
-    const username = sanitizeUsername(message.username || extractUsername(message.user));
     const roomTrust = state.trustedSenderKeysByRoom[roomId] || {};
-    const trustedKey = roomTrust[username] || null;
+    const senderDeviceId = String(message.encrypted.senderDeviceId || "").trim();
+    const trustedKey = senderDeviceId ? roomTrust[senderDeviceId] || null : null;
     try {
       const decrypted = await decryptRoomPayload(
         roomKey,
@@ -3040,8 +3040,8 @@ export function useMessenger() {
         message.encrypted,
         trustedKey,
       );
-      if (username && !trustedKey && canonicalDeviceSigningKey(message.encrypted.senderSigningKey)) {
-        state.trustedSenderKeysByRoom[roomId] = { ...roomTrust, [username]: message.encrypted.senderSigningKey };
+      if (senderDeviceId && !trustedKey && canonicalDeviceSigningKey(message.encrypted.senderSigningKey)) {
+        state.trustedSenderKeysByRoom[roomId] = { ...roomTrust, [senderDeviceId]: message.encrypted.senderSigningKey };
         persist();
       }
       return normalizeMessage(
@@ -4422,11 +4422,11 @@ export function useMessenger() {
       return;
     }
     const type = String(file.type || "").toLowerCase();
-    if (!["image/png", "image/gif", "image/jpeg"].includes(type)) {
-      state.lastError = "Only PNG, GIF, and JPEG images are allowed.";
-      showToast(state.lastError);
-      return;
-    }
+    // if (!["image/png", "image/gif", "image/jpeg"].includes(type)) {
+    //   state.lastError = "Only PNG, GIF, and JPEG images are allowed.";
+    //   showToast(state.lastError);
+    //   return;
+    // }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       state.lastError = `File too large: ${file.name} (${formatSize(file.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
       return;
