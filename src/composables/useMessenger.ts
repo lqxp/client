@@ -109,6 +109,8 @@ const pendingLinkPreviewRequests = new Set<string>();
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
+const PUBLIC_PROFILE_LOOKUP_TTL_MS = 5 * 60 * 1000;
+const PUBLIC_PROFILE_LOOKUP_MAX_USERS = 32;
 export const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
   "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
@@ -698,6 +700,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     joinedRooms: [],
     usersByRoom: {},
     profilesByUser: {},
+    publicProfileFetchedAtByUser: {},
     badgesByUser: {},
     messagesByRoom: {},
     unreadByRoom: {},
@@ -924,6 +927,16 @@ function loadPersisted() {
       }
     }
 
+    const publicProfileFetchedAtByUser = {};
+    if (raw.publicProfileFetchedAtByUser && typeof raw.publicProfileFetchedAtByUser === "object") {
+      const now = Date.now();
+      for (const [username, timestamp] of Object.entries(raw.publicProfileFetchedAtByUser)) {
+        const key = sanitizeUsername(username);
+        const value = Number(timestamp) || 0;
+        if (key && value && now - value <= PUBLIC_PROFILE_LOOKUP_TTL_MS) publicProfileFetchedAtByUser[key] = value;
+      }
+    }
+
     const badgesByUser = {};
     if (raw.badgesByUser && typeof raw.badgesByUser === "object") {
       for (const [username, badges] of Object.entries(raw.badgesByUser)) {
@@ -965,6 +978,7 @@ function loadPersisted() {
       joinedRooms,
       usersByRoom,
       profilesByUser,
+      publicProfileFetchedAtByUser,
       badgesByUser,
       messagesByRoom,
       unreadByRoom,
@@ -1255,6 +1269,11 @@ function buildPersistedPayload(state) {
           normalizeProfile(profile),
         ])
         .filter(([username]) => Boolean(username)),
+    ),
+    publicProfileFetchedAtByUser: Object.fromEntries(
+      Object.entries(state.publicProfileFetchedAtByUser || {})
+        .map(([username, timestamp]) => [sanitizeUsername(username), Number(timestamp) || 0])
+        .filter(([username, timestamp]) => Boolean(username) && Boolean(timestamp)),
     ),
     messagesByRoom,
     unreadByRoom: state.unreadByRoom,
@@ -1772,6 +1791,7 @@ export function useMessenger() {
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
+    publicProfileFetchedAtByUser: { ...(persisted as any).publicProfileFetchedAtByUser },
     badgesByUser: { ...persisted.badgesByUser },
     statusesByUser: {},
     userIdsByUsername: {},
@@ -2034,6 +2054,7 @@ export function useMessenger() {
       joinedRooms: Array.isArray(payload?.joinedRooms) ? payload.joinedRooms : [],
       usersByRoom: payload?.usersByRoom && typeof payload.usersByRoom === "object" ? payload.usersByRoom : {},
       profilesByUser: payload?.profilesByUser && typeof payload.profilesByUser === "object" ? payload.profilesByUser : {},
+      publicProfileFetchedAtByUser: payload?.publicProfileFetchedAtByUser && typeof payload.publicProfileFetchedAtByUser === "object" ? payload.publicProfileFetchedAtByUser : {},
       badgesByUser: payload?.badgesByUser && typeof payload.badgesByUser === "object" ? payload.badgesByUser : {},
       messagesByRoom: payload?.messagesByRoom && typeof payload.messagesByRoom === "object" ? payload.messagesByRoom : {},
       unreadByRoom: payload?.unreadByRoom && typeof payload.unreadByRoom === "object" ? payload.unreadByRoom : {},
@@ -2062,6 +2083,7 @@ export function useMessenger() {
     state.joinedRooms = normalized.joinedRooms;
     state.usersByRoom = normalized.usersByRoom;
     state.profilesByUser = { ...normalized.profilesByUser };
+    state.publicProfileFetchedAtByUser = { ...(normalized as any).publicProfileFetchedAtByUser };
     state.messagesByRoom = normalized.messagesByRoom;
     state.unreadByRoom = normalized.unreadByRoom;
     state.roomKeysByRoom = normalized.roomKeysByRoom;
@@ -4063,6 +4085,7 @@ export function useMessenger() {
     state.pendingJoinRooms = [];
     state.usersByRoom = {};
     state.profilesByUser = {};
+    state.publicProfileFetchedAtByUser = {};
     state.badgesByUser = {};
     state.statusesByUser = {};
     state.userIdsByUsername = {};
@@ -5758,6 +5781,9 @@ export function useMessenger() {
       case 34:
         applyBadgeUpdate(d);
         break;
+      case 35:
+        applyPublicProfileLookup(d);
+        break;
       case 13:
         break;
       case 87:
@@ -5818,6 +5844,45 @@ export function useMessenger() {
       const key = sanitizeUsername(username);
       if (key) state.profilesByUser[key] = normalizeProfile(profile);
     }
+  }
+
+  function applyPublicProfileLookup(d) {
+    if (d?.error) {
+      state.lastError = d.error;
+      return;
+    }
+    const now = Date.now();
+    applyProfiles(d?.profiles);
+    for (const [username, badges] of Object.entries(d?.badges || {})) {
+      const key = sanitizeUsername(username);
+      if (key) state.badgesByUser[key] = normalizeUserBadges(badges);
+    }
+    for (const user of Array.isArray(d?.users) ? d.users : []) {
+      const key = sanitizeUsername(user?.username || user?.user);
+      if (!key) continue;
+      rememberUserId(key, user?.userId || user?.id || user?.uuid);
+      if (user?.profile) state.profilesByUser[key] = normalizeProfile(user.profile);
+      if (Array.isArray(user?.badges)) state.badgesByUser[key] = normalizeUserBadges(user.badges);
+      state.publicProfileFetchedAtByUser[key] = now;
+    }
+    persist();
+  }
+
+  function requestPublicProfilesForUsers(users) {
+    if (!state.connected || !state.identified) return;
+    const now = Date.now();
+    const payloadUsers = [];
+    for (const raw of Array.isArray(users) ? users : []) {
+      const username = sanitizeUsername(typeof raw === "string" ? raw : raw?.username || raw?.user);
+      const userId = String(typeof raw === "object" ? raw?.userId || raw?.id || raw?.uuid || "" : "").trim();
+      if (isSystemUsername(username)) continue;
+      if (!username && !userId) continue;
+      if (username && state.profilesByUser[username]?.avatar) continue;
+      if (username && now - Number(state.publicProfileFetchedAtByUser[username] || 0) < PUBLIC_PROFILE_LOOKUP_TTL_MS) continue;
+      payloadUsers.push({ username, userId });
+      if (payloadUsers.length >= PUBLIC_PROFILE_LOOKUP_MAX_USERS) break;
+    }
+    if (payloadUsers.length) send({ op: 35, d: { users: payloadUsers } });
   }
 
   function applyStatuses(statuses) {
@@ -5937,6 +6002,7 @@ export function useMessenger() {
     }
     applyPlayerBadges(d?.players);
     applyPlatformsMap(d?.platforms);
+    requestPublicProfilesForUsers([...(Array.isArray(d?.players) ? d.players : []), ...nextMembers]);
     if (Array.isArray(d?.voicePlayers)) {
       state.voiceMembersByRoom[roomId] = normalizeRoomUsers(d.voicePlayers);
     }

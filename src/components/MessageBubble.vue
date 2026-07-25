@@ -68,7 +68,9 @@ const runClass = computed(() => {
 const avatarInitials = computed(() => initialsFor(props.message.username));
 const avatarAccent = computed(() => props.messenger.accentFor(props.message.username || ""));
 const avatarSrc = computed(() => {
-  const profile = props.message.profile || props.messenger.profileFor?.(props.message.username || "");
+  const messageAvatar = props.messenger.profileImageSrc?.(props.message.profile?.avatar, "avatar") || "";
+  if (messageAvatar) return messageAvatar;
+  const profile = props.messenger.profileFor?.(props.message.username || "");
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 });
 
@@ -128,7 +130,9 @@ const replyLabel = computed(() => repliedMessage.value?.username || (props.messa
 const replyText = computed(() => previewTextFor(repliedMessage.value, props.message.replyToMessageId));
 const replyEdited = computed(() => Number(repliedMessage.value?.editedAt || 0) > 0 && !repliedMessage.value?.deleted);
 const replyAvatarSrc = computed(() => {
-  const profile = repliedMessage.value?.profile || props.messenger.profileFor?.(repliedMessage.value?.username || "");
+  const messageAvatar = props.messenger.profileImageSrc?.(repliedMessage.value?.profile?.avatar, "avatar") || "";
+  if (messageAvatar) return messageAvatar;
+  const profile = props.messenger.profileFor?.(repliedMessage.value?.username || "");
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 });
 const replyAvatarAccent = computed(() => props.messenger.accentFor(repliedMessage.value?.username || replyLabel.value || ""));
