@@ -5877,7 +5877,9 @@ export function useMessenger() {
       const userId = String(typeof raw === "object" ? raw?.userId || raw?.id || raw?.uuid || "" : "").trim();
       if (isSystemUsername(username)) continue;
       if (!username && !userId) continue;
-      if (username && state.profilesByUser[username]?.avatar) continue;
+      const hasAvatar = Boolean(username && state.profilesByUser[username]?.avatar);
+      const hasBadges = Boolean(username && state.badgesByUser[username]);
+      if (hasAvatar && hasBadges) continue;
       if (username && now - Number(state.publicProfileFetchedAtByUser[username] || 0) < PUBLIC_PROFILE_LOOKUP_TTL_MS) continue;
       payloadUsers.push({ username, userId });
       if (payloadUsers.length >= PUBLIC_PROFILE_LOOKUP_MAX_USERS) break;
