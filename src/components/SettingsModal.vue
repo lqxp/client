@@ -541,14 +541,6 @@ onBeforeUnmount(() => {
         </button>
       </header>
 
-      <label class="settings__search">
-        <svg viewBox="0 0 24 24">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-        <input v-model="settingsSearch" type="search" :placeholder="t('settings.search')" autocomplete="off" />
-      </label>
-
       <button class="settings__card" type="button" @click="activeSection = 'profile'">
         <span v-if="avatarSrc" class="side-user__avatar">
           <img :src="avatarSrc" alt="" />
