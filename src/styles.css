@@ -127,8 +127,8 @@
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.context-menu-base button > span,
-.context-menu-base .context-menu-item > span {
+.context-menu-base button>span,
+.context-menu-base .context-menu-item>span {
   display: block;
   max-width: calc(var(--context-menu-max-width) - 24px);
   white-space: normal;
@@ -741,7 +741,8 @@ textarea {
   position: fixed;
   top: 18px;
   left: 50%;
-  z-index: 180;
+  z-index: 9999;
+  isolation: isolate;
   transform: translateX(-50%);
   max-width: min(420px, calc(100vw - 32px));
   padding: 10px 16px;
@@ -1660,9 +1661,9 @@ textarea {
   letter-spacing: -0.04em;
 }
 
-.profile-card__badge > svg,
-.profile-card__badge > img,
-.profile-card__badge > .profile-card__badge-custom {
+.profile-card__badge>svg,
+.profile-card__badge>img,
+.profile-card__badge>.profile-card__badge-custom {
   position: relative;
   z-index: 22;
   transition: transform 140ms ease;
@@ -1685,7 +1686,7 @@ textarea {
   height: var(--badge-tooltip-height);
   border-radius: 20px;
   background:
-    radial-gradient(circle at 50% var(--badge-tooltip-glow-y), rgba(255,255,255,.1), transparent 38px),
+    radial-gradient(circle at 50% var(--badge-tooltip-glow-y), rgba(255, 255, 255, .1), transparent 38px),
     linear-gradient(180deg, #121212 0%, #050505 100%);
   border: 1px solid rgba(255, 255, 255, .1);
   box-shadow: 0 18px 45px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
@@ -1707,12 +1708,12 @@ textarea {
   transform: translateX(-50%) translateY(6px);
 }
 
-.profile-card__badge:hover > svg,
-.profile-card__badge:hover > img,
-.profile-card__badge:hover > .profile-card__badge-custom,
-.profile-card__badge:focus-visible > svg,
-.profile-card__badge:focus-visible > img,
-.profile-card__badge:focus-visible > .profile-card__badge-custom {
+.profile-card__badge:hover>svg,
+.profile-card__badge:hover>img,
+.profile-card__badge:hover>.profile-card__badge-custom,
+.profile-card__badge:focus-visible>svg,
+.profile-card__badge:focus-visible>img,
+.profile-card__badge:focus-visible>.profile-card__badge-custom {
   transform: translateY(var(--badge-tooltip-icon-y)) scale(var(--badge-tooltip-icon-scale));
 }
 
@@ -1729,17 +1730,18 @@ textarea {
 }
 
 @media (max-width: 820px) {
+
   .profile-card__badge::before,
   .profile-card__badge::after {
     display: none;
   }
 
-  .profile-card__badge:hover > svg,
-  .profile-card__badge:hover > img,
-  .profile-card__badge:hover > .profile-card__badge-custom,
-  .profile-card__badge:focus-visible > svg,
-  .profile-card__badge:focus-visible > img,
-  .profile-card__badge:focus-visible > .profile-card__badge-custom {
+  .profile-card__badge:hover>svg,
+  .profile-card__badge:hover>img,
+  .profile-card__badge:hover>.profile-card__badge-custom,
+  .profile-card__badge:focus-visible>svg,
+  .profile-card__badge:focus-visible>img,
+  .profile-card__badge:focus-visible>.profile-card__badge-custom {
     transform: none;
   }
 }
@@ -2153,10 +2155,10 @@ textarea {
 }
 
 .msg.is-system .msg__spacer,
-.msg.is-system .msg__main > .bubble > .bubble__author,
-.msg.is-system .msg__main > .bubble > .bubble__body,
-.msg.is-system .msg__main > .bubble > .bubble__more,
-.msg.is-system .msg__main > .bubble > .bubble__time {
+.msg.is-system .msg__main>.bubble>.bubble__author,
+.msg.is-system .msg__main>.bubble>.bubble__body,
+.msg.is-system .msg__main>.bubble>.bubble__more,
+.msg.is-system .msg__main>.bubble>.bubble__time {
   display: none;
 }
 
@@ -4855,7 +4857,7 @@ textarea {
   gap: 6px;
 }
 
-.admin-badge-editor > span {
+.admin-badge-editor>span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -4893,7 +4895,7 @@ textarea {
 }
 
 .admin-badge-selection span,
-.admin-badge-current > span {
+.admin-badge-current>span {
   display: inline-flex;
   align-items: center;
   gap: 5px;

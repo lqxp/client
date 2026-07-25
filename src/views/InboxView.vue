@@ -277,21 +277,20 @@ async function lockClientNow() {
 </script>
 
 <template>
-  <div v-if="isLocked" class="app app--auth" :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar }">
-    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+  <div v-if="isLocked" class="app app--auth"
+    :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar }">
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+      @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
+          @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="M2 8.5h8" />
           </svg>
         </button>
-        <button
-          class="desktop-titlebar__window-button"
-          type="button"
-          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
-          @click="toggleNativeMaximize()"
-        >
+        <button class="desktop-titlebar__window-button" type="button"
+          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
           <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
             <path d="M4.5 2.5h5v5" />
             <path d="M2.5 4.5h5v5h-5z" />
@@ -300,7 +299,8 @@ async function lockClientNow() {
             <path d="M3 3h6v6H3z" />
           </svg>
         </button>
-        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
+          aria-label="Fermer" @click="closeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="m3 3 6 6" />
             <path d="m9 3-6 6" />
@@ -310,21 +310,20 @@ async function lockClientNow() {
     </header>
     <LockScreen :messenger="messenger" />
   </div>
-  <div v-else-if="needsOnboarding" class="app app--auth" :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar }">
-    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+  <div v-else-if="needsOnboarding" class="app app--auth"
+    :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar }">
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+      @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
+          @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="M2 8.5h8" />
           </svg>
         </button>
-        <button
-          class="desktop-titlebar__window-button"
-          type="button"
-          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
-          @click="toggleNativeMaximize()"
-        >
+        <button class="desktop-titlebar__window-button" type="button"
+          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
           <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
             <path d="M4.5 2.5h5v5" />
             <path d="M2.5 4.5h5v5h-5z" />
@@ -333,7 +332,8 @@ async function lockClientNow() {
             <path d="M3 3h6v6H3z" />
           </svg>
         </button>
-        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
+          aria-label="Fermer" @click="closeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
             <path d="m3 3 6 6" />
             <path d="m9 3-6 6" />
@@ -344,31 +344,28 @@ async function lockClientNow() {
     <OnboardingScreen :messenger="messenger" />
   </div>
 
-  <div v-else class="app app--desktop-titlebar" :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
-    <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar" @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
+  <div v-else class="app app--desktop-titlebar"
+    :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
+    <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+      @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
-        <span
-          v-if="desktopConversationSelected && !messenger.state.settingsOpen"
+        <span v-if="desktopConversationSelected && !messenger.state.settingsOpen"
           class="avatar avatar--sm desktop-titlebar__room-icon"
-          :class="desktopRoomIconIsImage ? 'desktop-titlebar__room-icon--image' : `avatar--${desktopAccent}`"
-        >
+          :class="desktopRoomIconIsImage ? 'desktop-titlebar__room-icon--image' : `avatar--${desktopAccent}`">
           <img v-if="desktopRoomIconIsImage" :src="desktopRoomIcon" alt="" />
           <template v-else>{{ desktopInitials }}</template>
         </span>
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
       <div ref="titlebarTrayRef" class="desktop-titlebar__actions">
-        <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap" @contextmenu.prevent="moveTitlebarActionToTray(action)">
-          <button
-            class="icon-btn"
+        <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap"
+          @contextmenu.prevent="moveTitlebarActionToTray(action)">
+          <button class="icon-btn"
             :class="{ 'desktop-titlebar__streamer': action === 'streamer', 'is-active': action === 'streamer' && messenger.state.streamerMode }"
-            type="button"
-            :aria-pressed="action === 'streamer' ? messenger.state.streamerMode : undefined"
-            :aria-label="titlebarActionLabel(action)"
-            :title="titlebarActionLabel(action)"
-            @click="runTitlebarAction(action)"
-          >
+            type="button" :aria-pressed="action === 'streamer' ? messenger.state.streamerMode : undefined"
+            :aria-label="titlebarActionLabel(action)" :title="titlebarActionLabel(action)"
+            @click="runTitlebarAction(action)">
             <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 3l18 18" />
               <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
@@ -381,7 +378,8 @@ async function lockClientNow() {
             </svg>
             <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
+              <path
+                d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
             </svg>
             <svg v-else viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 10V8a5 5 0 0 1 10 0v2" />
@@ -392,67 +390,67 @@ async function lockClientNow() {
         </div>
 
         <div class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
-          <button
-            class="icon-btn desktop-titlebar__tray-toggle"
-            type="button"
-            :aria-expanded="titlebarTrayOpen"
-            :aria-label="t('titlebar.openTray')"
-            :title="t('titlebar.tray')"
-            @click="toggleTitlebarTray"
-          >
+          <button class="icon-btn desktop-titlebar__tray-toggle" type="button" :aria-expanded="titlebarTrayOpen"
+            :aria-label="t('titlebar.openTray')" :title="t('titlebar.tray')" @click="toggleTitlebarTray">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 15 12 9l6 6" />
             </svg>
           </button>
-          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu" :aria-label="t('titlebar.quickActions')">
+          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu"
+            :aria-label="t('titlebar.quickActions')">
             <template v-if="titlebarTrayEmpty">
               <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
               <div class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
             </template>
             <template v-else>
-            <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
-              <button class="desktop-titlebar__tray-item" type="button" role="menuitem" @click="runTitlebarAction(action)">
-                <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M3 3l18 18" />
-                  <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
-                  <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
-                  <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
-                </svg>
-                <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
-                  <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
-                </svg>
-                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 10V8a5 5 0 0 1 10 0v2" />
-                  <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
-                  <path d="M12 14v2" />
-                </svg>
-                <span>{{ titlebarActionLabel(action) }}</span>
-              </button>
-              <button class="desktop-titlebar__tray-move" type="button" :aria-label="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })" :title="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })" @click="toggleTitlebarActionLocation(action)">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg>
-              </button>
-            </div>
+              <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
+                <button class="desktop-titlebar__tray-item" type="button" role="menuitem"
+                  @click="runTitlebarAction(action)">
+                  <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
+                    <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
+                    <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
+                  </svg>
+                  <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
+                    <path
+                      d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+                    <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
+                    <path d="M12 14v2" />
+                  </svg>
+                  <span>{{ titlebarActionLabel(action) }}</span>
+                </button>
+                <button class="desktop-titlebar__tray-move" type="button"
+                  :aria-label="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
+                  :title="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
+                  @click="toggleTitlebarActionLocation(action)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 18 9 12l6-6" />
+                  </svg>
+                </button>
+              </div>
             </template>
           </div>
         </div>
 
         <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-          <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser" @click="minimizeNativeWindow">
+          <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
+            @click="minimizeNativeWindow">
             <svg viewBox="0 0 12 12" aria-hidden="true">
               <path d="M2 8.5h8" />
             </svg>
           </button>
-          <button
-            class="desktop-titlebar__window-button"
-            type="button"
-            :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'"
-            @click="toggleNativeMaximize()"
-          >
+          <button class="desktop-titlebar__window-button" type="button"
+            :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
             <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
               <path d="M4.5 2.5h5v5" />
               <path d="M2.5 4.5h5v5h-5z" />
@@ -461,7 +459,8 @@ async function lockClientNow() {
               <path d="M3 3h6v6H3z" />
             </svg>
           </button>
-          <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button" aria-label="Fermer" @click="closeNativeWindow">
+          <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
+            aria-label="Fermer" @click="closeNativeWindow">
             <svg viewBox="0 0 12 12" aria-hidden="true">
               <path d="m3 3 6 6" />
               <path d="m9 3-6 6" />
@@ -473,14 +472,17 @@ async function lockClientNow() {
 
     <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" />
 
-    <Transition name="toast">
-      <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge }" role="status" aria-live="polite">
-        <span v-if="messenger.state.toastBadge" class="toast__badge-icon">
-          <BadgeIcon :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
-        </span>
-        <span>{{ messenger.state.toastMessage }}</span>
-      </div>
-    </Transition>
+    <Teleport to="body">
+      <Transition name="toast">
+        <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge }"
+          role="status" aria-live="polite">
+          <span v-if="messenger.state.toastBadge" class="toast__badge-icon">
+            <BadgeIcon :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
+          </span>
+          <span>{{ messenger.state.toastMessage }}</span>
+        </div>
+      </Transition>
+    </Teleport>
 
     <main v-if="hasActive" class="thread">
       <div class="thread__shell">
@@ -540,24 +542,24 @@ async function lockClientNow() {
   grid-template-rows: minmax(0, 1fr);
 }
 
-.app.app--desktop-titlebar.is-tauri > .side,
-.app.app--desktop-titlebar.is-tauri > .thread,
-.app.app--desktop-titlebar.is-tauri > .no-thread,
-.app.app--lock-titlebar.is-tauri > .lock-screen,
-.app.app--onboarding-titlebar.is-tauri > .onboarding {
+.app.app--desktop-titlebar.is-tauri>.side,
+.app.app--desktop-titlebar.is-tauri>.thread,
+.app.app--desktop-titlebar.is-tauri>.no-thread,
+.app.app--lock-titlebar.is-tauri>.lock-screen,
+.app.app--onboarding-titlebar.is-tauri>.onboarding {
   grid-row: 2;
 }
 
-.app.app--auth > .lock-screen,
-.app.app--auth > .onboarding,
-.app.app--lock-titlebar:not(.is-tauri) > .lock-screen,
-.app.app--onboarding-titlebar:not(.is-tauri) > .onboarding {
+.app.app--auth>.lock-screen,
+.app.app--auth>.onboarding,
+.app.app--lock-titlebar:not(.is-tauri)>.lock-screen,
+.app.app--onboarding-titlebar:not(.is-tauri)>.onboarding {
   grid-column: 1 / -1;
   grid-row: 1;
 }
 
-.app.app--auth.is-tauri > .lock-screen,
-.app.app--auth.is-tauri > .onboarding {
+.app.app--auth.is-tauri>.lock-screen,
+.app.app--auth.is-tauri>.onboarding {
   grid-row: 2;
 }
 
@@ -917,19 +919,19 @@ async function lockClientNow() {
     grid-template-rows: 30px minmax(0, 1fr);
   }
 
-  .app.app--lock-titlebar > .lock-screen,
-  .app.app--onboarding-titlebar.is-tauri > .onboarding {
+  .app.app--lock-titlebar>.lock-screen,
+  .app.app--onboarding-titlebar.is-tauri>.onboarding {
     grid-row: 1;
   }
 
-  .app.app--lock-titlebar.is-tauri > .lock-screen,
-  .app.app--onboarding-titlebar.is-tauri > .onboarding {
+  .app.app--lock-titlebar.is-tauri>.lock-screen,
+  .app.app--onboarding-titlebar.is-tauri>.onboarding {
     grid-row: 2;
   }
 
-  .app.app--desktop-titlebar.is-tauri > .side,
-  .app.app--desktop-titlebar.is-tauri > .thread,
-  .app.app--desktop-titlebar.is-tauri > .no-thread {
+  .app.app--desktop-titlebar.is-tauri>.side,
+  .app.app--desktop-titlebar.is-tauri>.thread,
+  .app.app--desktop-titlebar.is-tauri>.no-thread {
     grid-row: 2;
   }
 
