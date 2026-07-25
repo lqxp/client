@@ -5877,7 +5877,9 @@ export function useMessenger() {
       const userId = String(typeof raw === "object" ? raw?.userId || raw?.id || raw?.uuid || "" : "").trim();
       if (isSystemUsername(username)) continue;
       if (!username && !userId) continue;
-      if (username && state.profilesByUser[username]?.avatar) continue;
+      const hasAvatar = Boolean(username && state.profilesByUser[username]?.avatar);
+      const hasBadges = Boolean(username && state.badgesByUser[username]);
+      if (hasAvatar && hasBadges) continue;
       if (username && now - Number(state.publicProfileFetchedAtByUser[username] || 0) < PUBLIC_PROFILE_LOOKUP_TTL_MS) continue;
       payloadUsers.push({ username, userId });
       if (payloadUsers.length >= PUBLIC_PROFILE_LOOKUP_MAX_USERS) break;
@@ -6193,6 +6195,7 @@ export function useMessenger() {
       roomId,
     );
     state.messagesByRoom[roomId] = messages;
+    requestPublicProfilesForUsers(messages);
     const last = messages[messages.length - 1];
     touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
     for (const message of serverMessages) requestEncryptedLinkPreview(message);
