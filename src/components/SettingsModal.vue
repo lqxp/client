@@ -1374,9 +1374,6 @@ onBeforeUnmount(() => {
                   <template v-else-if="user.disabled"> · {{ t('settings.admin.disabled') }}</template>
                   <template v-else> · {{ messenger.presenceStatusLabel(user.status) }}</template>
                 </small>
-                <div v-if="adminBadgesFor(user).length" class="admin-badges">
-                  <span v-for="badge in adminBadgesFor(user)" :key="`${user.id}-${badge}`">{{ badge }}</span>
-                </div>
               </div>
               <div class="admin-row__controls">
                 <div class="admin-badge-editor">
