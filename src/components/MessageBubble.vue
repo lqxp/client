@@ -511,6 +511,12 @@ function onStartReply() {
   closeContextMenu();
 }
 
+function onStartEdit() {
+  if (!canEdit.value) return;
+  props.messenger.startEditMessage(props.message);
+  closeContextMenu();
+}
+
 function onToggleReaction(emoji: string) {
   props.messenger.toggleReaction(props.message, emoji);
   closeContextMenu();
@@ -841,8 +847,16 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
       <div ref="contextMenuRef" class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
+        <div v-if="!deleted" class="msg__context-reactions" role="group" aria-label="React">
+          <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-reaction-${emoji}`" type="button"
+            class="msg__context-reaction" @click="onToggleReaction(emoji)" v-html="renderDiscordEmoji(emoji)"></button>
+        </div>
+        <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
           <span>{{ t('message.reply') }}</span>
+        </button>
+        <button v-if="canEdit" type="button" class="msg__context-item" role="menuitem" @click="onStartEdit">
+          <span>{{ t('message.edit') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
           <span>{{ t('message.viewProfile') }}</span>
@@ -919,6 +933,110 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-start;
   cursor: pointer;
+}
+
+.msg__context-reactions,
+.msg__context-separator {
+  display: none;
+}
+
+.msg__context-reaction {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .bubble-actions {
+    display: none;
+  }
+
+  .msg__context {
+    display: flex;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(8px);
+    animation: msg-context-backdrop-in 140ms ease-out;
+  }
+
+  .msg__context-menu {
+    left: 0 !important;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(72vh, 520px);
+    overflow: auto;
+    transform: none;
+    padding: 10px 10px max(14px, env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.46), 0 -1px 0 var(--line-strong);
+    animation: msg-context-sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .msg__context-menu::before {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 5px;
+    margin: 2px auto 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 54%, transparent);
+  }
+
+  .msg__context-reactions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 4px 2px 8px;
+  }
+
+  .msg__context-reaction {
+    width: 40px !important;
+    height: 40px;
+    min-width: 40px;
+    padding: 0 !important;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .msg__context-reaction:hover,
+  .msg__context-reaction:focus-visible {
+    transform: translateY(-1px) scale(1.08);
+  }
+
+  .msg__context-separator {
+    display: block;
+    height: 1px;
+    margin: 2px 0 6px;
+    background: var(--line);
+  }
+
+  .msg__context-item {
+    min-height: 46px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 650;
+  }
+}
+
+@keyframes msg-context-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes msg-context-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .msg__avatar--image,
