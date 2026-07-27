@@ -3077,7 +3077,7 @@ textarea {
 @media (max-width: 640px) {
   .camera-modal {
     align-items: end;
-    padding: 0;
+    padding: var(--app-safe-top) 0 0;
   }
 
   .camera-modal__panel {
@@ -3216,7 +3216,7 @@ textarea {
   z-index: 100;
   display: grid;
   place-items: center;
-  padding: 76px 28px 32px;
+  padding: calc(76px + var(--app-safe-top)) 28px 32px;
   isolation: isolate;
 }
 
@@ -3232,7 +3232,7 @@ textarea {
 
 .text-viewer__toolbar {
   position: absolute;
-  top: 18px;
+  top: calc(18px + var(--app-safe-top));
   right: 20px;
   z-index: 1;
   display: flex;
@@ -3402,7 +3402,7 @@ textarea {
 
 .image-viewer__toolbar {
   position: absolute;
-  top: 18px;
+  top: calc(18px + var(--app-safe-top));
   right: 20px;
   z-index: 1;
   display: flex;
@@ -6233,11 +6233,11 @@ textarea {
   }
 
   .text-viewer {
-    padding: 82px 14px 24px;
+    padding: calc(82px + var(--app-safe-top)) 14px 24px;
   }
 
   .text-viewer__toolbar {
-    top: 12px;
+    top: calc(12px + var(--app-safe-top));
     right: 12px;
     left: 12px;
     justify-content: flex-end;
@@ -6246,15 +6246,15 @@ textarea {
 
   .text-viewer__stage {
     width: calc(100vw - 28px);
-    height: calc(100vh - 150px);
+    height: calc(100vh - 150px - var(--app-safe-top));
   }
 
   .image-viewer {
-    padding: 82px 14px 24px;
+    padding: calc(82px + var(--app-safe-top)) 14px 24px;
   }
 
   .image-viewer__toolbar {
-    top: 12px;
+    top: calc(12px + var(--app-safe-top));
     right: 12px;
     left: 12px;
     justify-content: flex-end;
@@ -6262,7 +6262,7 @@ textarea {
   }
 
   .image-viewer__image {
-    max-height: calc(100vh - 170px);
+    max-height: calc(100vh - 170px - var(--app-safe-top));
   }
 
   .image-viewer__caption {

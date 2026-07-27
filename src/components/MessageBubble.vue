@@ -163,15 +163,19 @@ function showReactionTooltip(event: MouseEvent, reaction) {
   }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const width = 220;
+  const height = 220;
   const padding = 8;
+  const styles = getComputedStyle(document.documentElement);
+  const mobileStatusOffset = Number.parseFloat(styles.getPropertyValue("--mobile-status-offset")) || 0;
+  const topPadding = mobileStatusOffset + padding;
   const left = Math.min(Math.max(rect.left, padding), window.innerWidth - width - padding);
-  const placement: "top" | "bottom" = rect.top < 150 ? "bottom" : "top";
+  const placement: "top" | "bottom" = rect.top - height - 10 < topPadding ? "bottom" : "top";
   reactionTooltip.value = {
     emoji: reaction.emoji,
     count: reaction.count,
     users,
     left,
-    top: placement === "top" ? rect.top - 10 : rect.bottom + 10,
+    top: placement === "top" ? rect.top - 10 : Math.max(rect.bottom + 10, topPadding),
     placement
   };
 }
