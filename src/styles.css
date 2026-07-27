@@ -5104,7 +5104,7 @@ textarea {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    padding: calc(16px + var(--app-safe-top)) 16px calc(28px + env(safe-area-inset-bottom));
     background: var(--bg);
     border-right: 0;
     border-bottom: 0;
@@ -5112,14 +5112,14 @@ textarea {
 
   .settings__side-head {
     position: sticky;
-    top: calc(-16px - env(safe-area-inset-top));
+    top: calc(-16px - var(--app-safe-top));
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 58px;
-    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
+    min-height: calc(58px + var(--app-safe-top));
+    margin: calc(-16px - var(--app-safe-top)) -16px 18px;
+    padding: calc(16px + var(--app-safe-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -5253,9 +5253,9 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: calc(62px + env(safe-area-inset-top));
+    min-height: calc(62px + var(--app-safe-top));
     margin: 0 -16px 18px;
-    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+    padding: calc(8px + var(--app-safe-top)) 16px 8px;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
