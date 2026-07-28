@@ -41,7 +41,6 @@
   --header-h: 64px;
   --app-viewport-height: 100dvh;
   --mobile-status-offset: 0px;
-  --app-safe-top: max(env(safe-area-inset-top), var(--mobile-status-offset));
 
   --discord-text: #dcddde;
   --discord-text-strong: #ffffff;
@@ -3217,7 +3216,7 @@ textarea {
   z-index: 100;
   display: grid;
   place-items: center;
-  padding: 76px 28px 32px;
+  padding: calc(76px + var(--app-safe-top)) 28px 32px;
   isolation: isolate;
 }
 
@@ -5101,16 +5100,11 @@ textarea {
     background: var(--bg);
   }
 
-  :root.is-android-runtime .settings {
-    top: var(--mobile-status-offset);
-    height: calc(var(--app-viewport-height) - var(--mobile-status-offset));
-  }
-
   .settings__side {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    padding: calc(16px + var(--app-safe-top)) 16px calc(28px + env(safe-area-inset-bottom));
     background: var(--bg);
     border-right: 0;
     border-bottom: 0;
@@ -5118,14 +5112,14 @@ textarea {
 
   .settings__side-head {
     position: sticky;
-    top: calc(-16px - env(safe-area-inset-top));
+    top: calc(-16px - var(--app-safe-top));
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 58px;
-    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
+    min-height: calc(58px + var(--app-safe-top));
+    margin: calc(-16px - var(--app-safe-top)) -16px 18px;
+    padding: calc(16px + var(--app-safe-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -5259,9 +5253,9 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: calc(62px + env(safe-area-inset-top));
+    min-height: calc(62px + var(--app-safe-top));
     margin: 0 -16px 18px;
-    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+    padding: calc(8px + var(--app-safe-top)) 16px 8px;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -6239,7 +6233,7 @@ textarea {
   }
 
   .text-viewer {
-    padding: 82px 14px 24px;
+    padding: calc(82px + var(--app-safe-top)) 14px 24px;
   }
 
   .text-viewer__toolbar {
@@ -6252,11 +6246,11 @@ textarea {
 
   .text-viewer__stage {
     width: calc(100vw - 28px);
-    height: calc(100vh - 150px);
+    height: calc(100vh - 150px - var(--app-safe-top));
   }
 
   .image-viewer {
-    padding: 82px 14px 24px;
+    padding: calc(82px + var(--app-safe-top)) 14px 24px;
   }
 
   .image-viewer__toolbar {
@@ -6268,7 +6262,7 @@ textarea {
   }
 
   .image-viewer__image {
-    max-height: calc(100vh - 170px);
+    max-height: calc(100vh - 170px - var(--app-safe-top));
   }
 
   .image-viewer__caption {
