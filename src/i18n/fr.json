@@ -440,5 +440,9 @@
         "title": "Prendre une photo",
         "capture": "Capturer",
         "cancel": "Annuler"
+    },
+    "ban": {
+        "title": "Compte banni",
+        "message": "Hop hop hop! Ton compte a été banni."
     }
 }
