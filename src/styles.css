@@ -559,12 +559,6 @@ textarea {
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5);
 }
 
-.onboarding__hero {
-  padding: 26px 24px 20px;
-  background: linear-gradient(180deg, #2b2d31, #26282c 70%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 .onboarding__body {
   padding: 20px 24px 24px;
 }
@@ -6173,7 +6167,6 @@ textarea {
     border-radius: 18px;
   }
 
-  .onboarding__hero,
   .onboarding__body {
     padding-left: 20px;
     padding-right: 20px;

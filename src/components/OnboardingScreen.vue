@@ -104,16 +104,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </div>
         </div>
 
-        <div class="onboarding__hero">
-          <div class="onboarding__hero-avatar">
-            <span class="avatar avatar--lg" :class="`avatar--${previewAccent}`">{{ initialsOf(cleanUsername || "You") }}</span>
-          </div>
-          <div class="onboarding__hero-copy">
-            <strong>{{ cleanUsername || "your.username" }}</strong>
-            <span>{{ modeLabel }}</span>
-          </div>
-        </div>
-
         <div class="onboarding__tabs" role="tablist" aria-label="Authentication mode">
           <button type="button" :class="{ 'is-active': mode === 'login' }" @click="setMode('login')">{{ t('onboarding.login') }}</button>
           <button type="button" :class="{ 'is-active': mode === 'register' }" @click="setMode('register')">{{ t('onboarding.register') }}</button>
@@ -275,37 +265,6 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   font-size: 0.96rem;
   line-height: 1.4;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.34);
-}
-
-.onboarding__hero {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(18px) saturate(1.15);
-}
-
-.onboarding__hero-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.onboarding__hero-copy strong {
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 650;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-}
-
-.onboarding__hero-copy span {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .onboarding__tabs {
