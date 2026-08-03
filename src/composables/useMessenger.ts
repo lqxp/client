@@ -1894,7 +1894,6 @@ export function useMessenger() {
   let callOutboundStream: MediaStream | null = null;
   let callGateTimer: ReturnType<typeof setInterval> | null = null;
   let callGateOpenUntil = 0;
-  let invitePreviewSocket: WebSocket | null = null;
   const localClientId = getPersistentClientId();
   const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let typingIdleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2254,16 +2253,17 @@ export function useMessenger() {
   }
 
   async function wipeBrowserPersistence() {
+    const random = crypto.getRandomValues(new Uint8Array(4096));
+    const noise = bytesToBase64(random);
     try {
-      [STORAGE_KEY, PROFILE_STORAGE_KEY, OPSEC_DECOY_STORAGE_KEY, CLIENT_ID_STORAGE_KEY, "lqxp:titlebar-tray-items"]
-        .forEach((key) => localStorage.removeItem(key));
+      for (const key of Object.keys(localStorage)) localStorage.setItem(key, noise);
+      localStorage.clear();
     } catch {
       /* ignore */
     }
     try {
-      Object.keys(sessionStorage)
-        .filter((key) => key.startsWith("qxprotocol-") || key.startsWith("lqxp:"))
-        .forEach((key) => sessionStorage.removeItem(key));
+      for (const key of Object.keys(sessionStorage)) sessionStorage.setItem(key, noise);
+      sessionStorage.clear();
     } catch {
       /* ignore */
     }
@@ -2273,7 +2273,7 @@ export function useMessenger() {
         await Promise.all(
           databases
             .map((db) => db.name)
-              .filter((name): name is string => Boolean(name) && name!.startsWith("qxprotocol-"))
+            .filter(Boolean)
             .map((name) => new Promise((resolve) => {
               const request = indexedDB.deleteDatabase(name as string);
               request.onsuccess = request.onerror = request.onblocked = () => resolve(undefined);
