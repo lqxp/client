@@ -1177,9 +1177,6 @@ textarea {
   transition: background 120ms ease;
 }
 
-.side-user:hover {
-  background: rgba(79, 84, 92, 0.4);
-}
 
 .side-user__avatar {
   flex: none;
@@ -5068,12 +5065,6 @@ textarea {
 
 :root[data-theme="light"] .side__list .conv.is-active {
   background: #a8a8a899;
-}
-
-:root[data-theme="light"] .side-user:hover,
-:root[data-theme="light"] .side-status__menu button:hover,
-:root[data-theme="light"] .side-status__menu button.is-active {
-  background: var(--surface-hover);
 }
 
 :root[data-theme="light"] .mention-picker__item:hover,
