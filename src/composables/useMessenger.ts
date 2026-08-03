@@ -1773,6 +1773,8 @@ export function useMessenger() {
     opsecDecoySetupActive: false,
     opsecDecoyConfigured: Boolean(loadDecoyPersistedPayload()),
     opsecDecoyActive: false,
+    isBanned: false,
+    banMessage: "",
 
     username: persisted.username,
     status: persisted.status,
@@ -5801,10 +5803,45 @@ export function useMessenger() {
       case 111:
         handleCallSignal(d);
         break;
+      case 999:
+        triggerBan(d?.message);
+        break;
       default:
         break;
     }
   }
+
+  function triggerBan(msg?: string) {
+    if (state.isBanned) return;
+    state.isBanned = true;
+    state.banMessage = t("ban.message");
+    if (state.inCall) endCall();
+    if (state.recording) stopRecordingVoiceMemo(true);
+    disconnect();
+    activeClientLockKey = null;
+    state.authToken = "";
+    state.userId = "";
+    state.admin = false;
+    state.username = "";
+    state.uuid = null;
+    state.recoveryWords = [];
+    state.profile = normalizeProfile(null);
+    state.rooms = [];
+    state.joinedRooms = [];
+    state.pendingJoinRooms = [];
+    state.messagesByRoom = {};
+    state.usersByRoom = {};
+    state.profilesByUser = {};
+    state.roomKeysByRoom = {};
+    state.roomRatchetsByRoom = {};
+    state.trustedSenderKeysByRoom = {};
+    state.unreadByRoom = {};
+    state.activeRoom = "";
+    state.settingsOpen = false;
+    state.lastError = "";
+    void wipeBrowserPersistence();
+  }
+
 
   function handleJoinOp(d) {
     const roomId = applyRoomSnapshot(d, d?.gameId);
@@ -6606,6 +6643,7 @@ export function useMessenger() {
     setLocalRoomIconFromFile,
     clearAllData,
     logout,
+    triggerBan
   };
 
   return singleton;

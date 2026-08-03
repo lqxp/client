@@ -450,32 +450,11 @@
         "cancel": "Cancelar",
         "close": "Cerrar cámara"
     },
-    "members": {
-        "title": "Miembros",
-        "online": "En línea",
-        "presence": "Presencia",
-        "you": "tú",
-        "openProfile": "Abrir perfil: {username}",
-        "seeAvatar": "Ver avatar",
-        "seeBanner": "Ver banner",
-        "viewProfile": "Ver perfil",
-        "copyUserId": "Copiar ID de usuario"
-    },
-    "profile": {
-        "close": "Cerrar perfil",
-        "about": "Acerca de",
-        "clientPlatforms": "Plataformas del cliente",
-        "mutualRooms": "Salas en común",
-        "noMutualRooms": "No hay salas en común visibles.",
-        "noDescription": "Sin descripción de perfil.",
-        "inVoiceChat": "En chat de voz"
-    },
     "audio": {
         "download": "Descargar audio"
     },
-    "camera": {
-        "title": "Tomar foto",
-        "capture": "Capturar",
-        "cancel": "Cancelar"
+    "ban": {
+        "title": "Cuenta expulsada",
+        "message": "Uy… tu cuenta acaba de ser expulsada."
     }
 }

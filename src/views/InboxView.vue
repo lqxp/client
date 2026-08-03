@@ -13,6 +13,7 @@ import SettingsModal from "@/components/SettingsModal.vue";
 import OnboardingScreen from "@/components/OnboardingScreen.vue";
 import LockScreen from "@/components/LockScreen.vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
+import BanOverlay from "@/components/BanOverlay.vue";
 
 const messenger = useMessenger();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -277,6 +278,11 @@ async function lockClientNow() {
 </script>
 
 <template>
+  <BanOverlay
+    v-if="messenger.state.isBanned"
+    :message="messenger.state.banMessage"
+  />
+
   <div v-if="isLocked" class="app app--auth"
     :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar }">
     <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
