@@ -504,6 +504,18 @@ async function onCopyUserId() {
   closeContextMenu();
 }
 
+async function onCopyMessageText() {
+  const text = String(props.message.text || "").trim();
+  if (!text) {
+    props.messenger.showToast?.(t("message.nothingToCopy"));
+    closeContextMenu();
+    return;
+  }
+  const copied = await copyText(text);
+  if (copied) props.messenger.state.toastMessage = t("message.copied");
+  closeContextMenu();
+}
+
 function onOpenProfile() {
   selectedProfile.value = String(props.message.username || "").trim().toLowerCase();
   closeContextMenu();
@@ -864,6 +876,9 @@ onBeforeUnmount(() => {
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
           <span>{{ t('message.viewProfile') }}</span>
+        </button>
+        <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onCopyMessageText">
+          <span>{{ t('message.copyMessage') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
           <span>{{ t('message.copyUserId') }}</span>
