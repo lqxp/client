@@ -123,6 +123,7 @@ const reactionTooltip = ref<{
   placement: "top" | "bottom";
 } | null>(null);
 let reactionTooltipHideTimer: number | null = null;
+let reactionTooltipFallbackTimer: number | null = null;
 const repliedMessage = computed(() =>
   props.messenger.findMessageById(props.message.roomId, props.message.replyToMessageId)
 );
@@ -178,9 +179,17 @@ function showReactionTooltip(event: MouseEvent, reaction) {
     top: placement === "top" ? rect.top - 10 : Math.max(rect.bottom + 10, topPadding),
     placement
   };
+  if (reactionTooltipFallbackTimer) window.clearTimeout(reactionTooltipFallbackTimer);
+  reactionTooltipFallbackTimer = window.setTimeout(() => {
+    reactionTooltip.value = null;
+  }, 3000);
 }
 
 function scheduleHideReactionTooltip() {
+  if (reactionTooltipFallbackTimer) {
+    window.clearTimeout(reactionTooltipFallbackTimer);
+    reactionTooltipFallbackTimer = null;
+  }
   reactionTooltipHideTimer = window.setTimeout(() => {
     reactionTooltip.value = null;
   }, 100);
@@ -191,6 +200,13 @@ function keepReactionTooltip() {
     window.clearTimeout(reactionTooltipHideTimer);
     reactionTooltipHideTimer = null;
   }
+  if (reactionTooltipFallbackTimer) {
+    window.clearTimeout(reactionTooltipFallbackTimer);
+    reactionTooltipFallbackTimer = null;
+  }
+  reactionTooltipFallbackTimer = window.setTimeout(() => {
+    reactionTooltip.value = null;
+  }, 3000);
 }
 
 function onReactionClick(reaction) {
@@ -500,7 +516,7 @@ async function onCopyUserId() {
     return;
   }
   const copied = await copyText(userId);
-  if (copied) props.messenger.state.toastMessage = "User ID copied.";
+  if (copied) props.messenger.showToast?.("User ID copied.");
   closeContextMenu();
 }
 
@@ -512,7 +528,7 @@ async function onCopyMessageText() {
     return;
   }
   const copied = await copyText(text);
-  if (copied) props.messenger.state.toastMessage = t("message.copied");
+  if (copied) props.messenger.showToast?.(t("message.copied"));
   closeContextMenu();
 }
 
@@ -554,6 +570,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointerdown", onGlobalPointerDown);
   window.removeEventListener("keydown", onGlobalKeydown);
   if (reactionTooltipHideTimer) window.clearTimeout(reactionTooltipHideTimer);
+  if (reactionTooltipFallbackTimer) window.clearTimeout(reactionTooltipFallbackTimer);
 });
 </script>
 
