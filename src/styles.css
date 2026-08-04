@@ -41,6 +41,7 @@
   --header-h: 64px;
   --app-viewport-height: 100dvh;
   --mobile-status-offset: 0px;
+  --app-safe-top: 0px;
 
   --discord-text: #dcddde;
   --discord-text-strong: #ffffff;
@@ -3395,7 +3396,8 @@ textarea {
   position: absolute;
   top: calc(18px + var(--app-safe-top));
   right: 20px;
-  z-index: 1;
+  left: auto;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -6240,8 +6242,6 @@ textarea {
   .image-viewer__toolbar {
     top: calc(12px + var(--app-safe-top));
     right: 12px;
-    left: 12px;
-    justify-content: flex-end;
     overflow-x: auto;
   }
 
