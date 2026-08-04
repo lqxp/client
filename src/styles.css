@@ -255,6 +255,20 @@
 :root.is-android-runtime *::before,
 :root.is-android-runtime *::after {
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:root.is-android-runtime input,
+:root.is-android-runtime textarea,
+:root.is-android-runtime .bubble__text,
+:root.is-android-runtime .markdown,
+:root.is-android-runtime .codeblock pre,
+:root.is-android-runtime .text-viewer__code {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 :root.is-android-runtime button,
