@@ -5194,12 +5194,17 @@ textarea {
     z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 12px;
     min-height: 58px;
     margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
     padding: calc(16px + env(safe-area-inset-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
+  }
+
+  .settings__close {
+    order: -1;
   }
 
   .settings__side-head h2 {
