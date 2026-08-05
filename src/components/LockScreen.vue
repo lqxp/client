@@ -71,9 +71,9 @@ function onPinKeydown(event: KeyboardEvent) {
       </div>
 
       <form class="lock-form" :aria-label="t('lock.subtitle')" @submit.prevent="unlock">
-        <input :value="''" class="lock-form__input" type="text" inputmode="numeric" pattern="[0-9]*"
-          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :aria-label="t('lock.pinPlaceholder')" autofocus
-          @keydown="onPinKeydown" @paste.prevent />
+        <input :value="''" class="lock-form__input" type="text" inputmode="none" readonly
+          autocomplete="off" autocapitalize="off" spellcheck="false" :maxlength="pinLength" :aria-label="t('lock.pinPlaceholder')"
+          @keydown="onPinKeydown" @paste.prevent @focus="$event.target.blur()" />
         <div class="lock-form__mask" aria-hidden="true">
           <span v-for="index in pinLength" :key="index" :class="{ 'is-filled': pin.length >= index }"></span>
         </div>
