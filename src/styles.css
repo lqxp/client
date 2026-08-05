@@ -1889,9 +1889,15 @@ textarea {
   }
 
   .profile-card__handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
     display: flex;
     justify-content: center;
     padding: 12px 0 2px;
+    pointer-events: none;
   }
 
   .profile-card__handle::after {
