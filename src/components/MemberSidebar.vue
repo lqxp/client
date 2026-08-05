@@ -7,8 +7,11 @@ import ProfileCard from "@/components/ProfileCard.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object, required: true },
+  showMobile: { type: Boolean, default: false }
 });
+
+const emit = defineEmits(["close-mobile"]);
 
 function initialsFor(name: string) {
   const clean = String(name || "?").trim();
@@ -188,6 +191,10 @@ onBeforeUnmount(() => {
         <div class="members__eyebrow">{{ t('members.presence') }}</div>
         <div class="members__title">{{ members.length }} {{ t('members.online') }}</div>
       </div>
+      <button v-if="showMobile" class="icon-btn members__close-mobile" type="button"
+        :aria-label="t('profile.close')" @click="emit('close-mobile')">
+        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
     </div>
 
     <div v-if="sections.length" class="members__sections">
@@ -293,5 +300,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .members__context-menu {
   z-index: 140;
+}
+
+.members__close-mobile {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .members__close-mobile {
+    display: inline-grid;
+    width: 32px;
+    height: 32px;
+  }
 }
 </style>

@@ -34,6 +34,7 @@ const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 
 const mobileThreadOpen = ref(false);
+const showMobileMembers = ref(false);
 const settingsInitialSection = ref("profile");
 const titlebarTrayOpen = ref(false);
 const titlebarTrayRef = ref<HTMLElement | null>(null);
@@ -69,6 +70,36 @@ const desktopRoomIconIsImage = computed(() => {
   const icon = String(desktopRoomIcon.value || "").trim();
   return !!icon && !icon.startsWith("data:");
 });
+
+const isMobile = computed(() =>
+  typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches
+);
+
+// Swipe-to-members on mobile
+let touchStartX = 0;
+let touchStartY = 0;
+
+function onThreadTouchStart(event: TouchEvent) {
+  if (!isMobile.value) return;
+  touchStartX = event.touches[0].clientX;
+  touchStartY = event.touches[0].clientY;
+}
+
+function onThreadTouchEnd(event: TouchEvent) {
+  if (!isMobile.value) return;
+  const dx = (event.changedTouches[0]?.clientX || 0) - touchStartX;
+  const dy = (event.changedTouches[0]?.clientY || 0) - touchStartY;
+  // Only trigger on horizontal swipe (left), threshold 60px, not too vertical
+  if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    showMobileMembers.value = true;
+  } else if (dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && showMobileMembers.value) {
+    showMobileMembers.value = false;
+  }
+}
+
+function closeMobileMembers() {
+  showMobileMembers.value = false;
+}
 
 const titlebarMainItems = computed(() => TITLEBAR_ACTIONS.filter((action) => !titlebarTrayItems.value.includes(action)));
 const titlebarTrayActionItems = computed(() => TITLEBAR_ACTIONS.filter((action) => titlebarTrayItems.value.includes(action)));
@@ -496,7 +527,8 @@ async function lockClientNow() {
 
     <DialogModal />
 
-    <main v-if="hasActive" class="thread">
+    <main v-if="hasActive" class="thread" :class="{ 'thread--members-open': showMobileMembers }"
+      @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd">
       <div class="thread__shell">
         <section class="thread__main">
           <ThreadHeader :messenger="messenger" @back="showConversationList" />
@@ -505,7 +537,7 @@ async function lockClientNow() {
           <ComposerBar :messenger="messenger" />
         </section>
 
-        <MemberSidebar :messenger="messenger" />
+        <MemberSidebar :messenger="messenger" v-if="!isMobile" />
       </div>
     </main>
 
@@ -515,6 +547,12 @@ async function lockClientNow() {
         <p>{{ t('app.noConversationHint') }}</p>
       </div>
     </div>
+
+    <!-- Mobile: members overlay sliding from right -->
+    <Teleport to="body">
+      <div v-if="showMobileMembers" class="members-mobile-backdrop" @click="closeMobileMembers" aria-hidden="true"></div>
+      <MemberSidebar v-if="showMobileMembers" :messenger="messenger" :show-mobile="true" class="members-mobile" :class="{ 'members-mobile--open': showMobileMembers }" @close-mobile="closeMobileMembers" />
+    </Teleport>
 
     <div v-if="callRoomDifferent" class="call-pip" @click="goToCallRoom">
       <span class="call-dot"></span>
