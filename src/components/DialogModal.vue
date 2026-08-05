@@ -94,7 +94,7 @@ function onKeydown(event: KeyboardEvent) {
               autofocus
               @click="onSubmit"
             >
-              OK
+              {{ t("message.ok") }}
             </button>
           </div>
         </div>

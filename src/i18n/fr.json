@@ -163,6 +163,7 @@
         "originalNotLoaded": "Le message original n’est pas chargé.",
         "messageDeleted": "Message supprimé",
         "cancel": "Annuler",
+        "ok": "OK",
         "replyTo": "Répondre à {user}",
         "editMessage": "Modifier le message",
         "messageOptions": "Options du message"

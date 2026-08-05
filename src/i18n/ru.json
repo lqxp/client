@@ -186,6 +186,7 @@
         "originalNotLoaded": "Исходное сообщение ещё не загружено.",
         "messageDeleted": "Сообщение удалено",
         "cancel": "Отмена",
+        "ok": "OK",
         "replyTo": "Ответить {user}",
         "editMessage": "Редактировать",
         "messageOptions": "Действия с сообщением"
