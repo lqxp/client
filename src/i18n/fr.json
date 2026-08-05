@@ -74,7 +74,9 @@
         "contextRenameRoom": "Renommer le salon",
         "promptRoomName": "Nom du salon",
         "streamerPreviewHidden": "Message masqué",
-        "anonymous": "anonyme"
+        "anonymous": "anonyme",
+        "roomOptions": "Options du salon",
+        "statusOptions": "Statut"
     },
     "members": {
         "presence": "Présence",

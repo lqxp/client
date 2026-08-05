@@ -74,7 +74,9 @@
         "contextRenameRoom": "Rename room",
         "promptRoomName": "Room name",
         "streamerPreviewHidden": "Message hidden",
-        "anonymous": "anonymous"
+        "anonymous": "anonymous",
+        "roomOptions": "Room options",
+        "statusOptions": "Status"
     },
     "members": {
         "presence": "Presence",

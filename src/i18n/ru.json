@@ -97,7 +97,9 @@
         "contextRenameRoom": "Переименовать комнату",
         "promptRoomName": "Имя комнаты",
         "streamerPreviewHidden": "Сообщение скрыто",
-        "anonymous": "аноним"
+        "anonymous": "аноним",
+        "roomOptions": "Настройки комнаты",
+        "statusOptions": "Статус"
     },
     "members": {
         "presence": "Присутствие",

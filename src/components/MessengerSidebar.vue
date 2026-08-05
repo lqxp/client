@@ -37,6 +37,15 @@ const statusOptions = computed(() => [
   { value: "dnd", label: t('sidebar.dnd') }
 ]);
 
+const desktopRoomContextStyle = computed(() => ({
+  left: `${roomContextPos.value.x}px`,
+  top: `${roomContextPos.value.y}px`
+}));
+
+const roomContextRoomName = computed(() =>
+  roomContextRoomId.value ? props.messenger.displayRoomName(roomContextRoomId.value) : ""
+);
+
 function initialsOf(name) {
   const trimmed = String(name || "?").trim();
   if (!trimmed) return "?";
@@ -266,25 +275,43 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="roomContextOpen" ref="roomContextMenuRef" class="room-context context-menu-base" role="menu"
-      :style="{ left: `${roomContextPos.x}px`, top: `${roomContextPos.y}px` }" @click.stop>
-      <button type="button" role="menuitem" @click="pickRoomImageFromContext">
-        <span>{{ t('sidebar.contextChangeImage') }}</span>
-      </button>
-      <button type="button" role="menuitem" @click="renameRoomFromContext">
-        <span>{{ t('sidebar.contextRenameRoom') }}</span>
-      </button>
-      <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
-        <span>{{ t('thread.clearLocalMessages') }}</span>
-      </button>
-      <button type="button" role="menuitem" @click="shareRoomTokenFromContext">
-        <span>{{ t('thread.shareToken') }}</span>
-      </button>
-      <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
-        @click="leaveRoomFromContext">
-        <span>{{ t('thread.leaveRoom') }}</span>
-      </button>
-    </div>
+    <Teleport to="body">
+      <div v-if="roomContextOpen" class="room-context-backdrop" @click="closeRoomContext">
+        <div ref="roomContextMenuRef" class="room-context context-menu-base" role="menu"
+          :style="desktopRoomContextStyle" @click.stop>
+          <!-- Header (mobile only) -->
+          <div class="room-context__header">
+            <strong class="room-context__header-name">{{ roomContextRoomName || roomContextRoomId }}</strong>
+          </div>
+          <button type="button" role="menuitem" @click="pickRoomImageFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>{{ t('sidebar.contextChangeImage') }}</span>
+          </button>
+          <button type="button" role="menuitem" @click="renameRoomFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <span>{{ t('sidebar.contextRenameRoom') }}</span>
+          </button>
+          <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>{{ t('thread.clearLocalMessages') }}</span>
+          </button>
+          <button type="button" role="menuitem" @click="shareRoomTokenFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>{{ t('thread.shareToken') }}</span>
+          </button>
+          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+            @click="leaveRoomFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>{{ t('thread.leaveRoom') }}</span>
+          </button>
+          <!-- Cancel (mobile only) -->
+          <div class="room-context__separator" aria-hidden="true"></div>
+          <button type="button" class="room-context__cancel" role="menuitem" @click="closeRoomContext">
+            <span>{{ t('message.cancel') }}</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
 
     <input ref="roomIconInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
       class="sr-only" @change="onRoomIconFileChange" />
@@ -318,17 +345,28 @@ onBeforeUnmount(() => {
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
-        <div v-if="statusMenuOpen" class="side-status__menu" role="menu">
-          <button v-for="option in statusOptions" :key="option.value" type="button" role="menuitemradio"
-            :aria-checked="messenger.state.status === option.value"
-            :class="{ 'is-active': messenger.state.status === option.value }" @click="setStatus(option.value)">
-            <span class="dot" :class="{
-              'is-online': option.value === 'online',
-              'is-dnd': option.value === 'dnd',
-              'is-invisible': option.value === 'invisible'
-            }"></span>
-            {{ option.label }}
-          </button>
+        <div v-if="statusMenuOpen" class="status-menu-backdrop" @click="statusMenuOpen = false">
+          <div class="side-status__menu" role="menu" @click.stop>
+            <!-- Header (mobile only) -->
+            <div class="status-menu__header">
+              <strong>{{ t('sidebar.statusOptions') }}</strong>
+            </div>
+            <button v-for="option in statusOptions" :key="option.value" type="button" role="menuitemradio"
+              :aria-checked="messenger.state.status === option.value"
+              :class="{ 'is-active': messenger.state.status === option.value }" @click="setStatus(option.value)">
+              <span class="dot" :class="{
+                'is-online': option.value === 'online',
+                'is-dnd': option.value === 'dnd',
+                'is-invisible': option.value === 'invisible'
+              }"></span>
+              {{ option.label }}
+            </button>
+            <!-- Cancel (mobile only) -->
+            <div class="status-menu__separator" aria-hidden="true"></div>
+            <button type="button" class="status-menu__cancel" role="menuitem" @click="statusMenuOpen = false">
+              <span>{{ t('message.cancel') }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -380,7 +418,265 @@ onBeforeUnmount(() => {
   font-style: italic;
 }
 
+/* ===== Room context menu ===== */
 .room-context {
   z-index: 120;
+}
+
+.room-context__header,
+.room-context__item-icon,
+.room-context__separator,
+.room-context__cancel {
+  display: none;
+}
+
+.room-context-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 115;
+}
+
+/* ===== Status menu ===== */
+.status-menu__header,
+.status-menu__separator,
+.status-menu__cancel {
+  display: none;
+}
+
+/* ===== Mobile bottom sheets ===== */
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  /* ---- Room context ---- */
+  .room-context-backdrop {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: room-context-backdrop-in 160ms ease-out;
+  }
+
+  .room-context {
+    left: 0 !important;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .room-context::before {
+    content: "";
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .room-context__header {
+    display: flex;
+    align-items: center;
+    padding: 8px 18px 14px;
+    flex: none;
+  }
+
+  .room-context__header-name {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .room-context button {
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 18px;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    transition: background 120ms ease;
+  }
+
+  .room-context button:hover,
+  .room-context button:focus-visible {
+    background: var(--surface-hover);
+  }
+
+  .room-context button:active {
+    background: var(--surface-active);
+  }
+
+  .room-context__item-icon {
+    display: block;
+    flex: none;
+    color: var(--muted);
+    transition: color 120ms ease;
+  }
+
+  .room-context button:hover .room-context__item-icon,
+  .room-context button:focus-visible .room-context__item-icon {
+    color: var(--text);
+  }
+
+  .room-context__danger .room-context__item-icon {
+    color: var(--red);
+  }
+
+  .room-context__separator {
+    display: block;
+    height: 1px;
+    margin: 4px 18px;
+    background: var(--line);
+    flex: none;
+  }
+
+  .room-context__cancel {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted) !important;
+    margin-top: 2px;
+  }
+
+  .room-context__cancel:hover,
+  .room-context__cancel:focus-visible {
+    color: var(--text) !important;
+    background: var(--surface-hover) !important;
+  }
+
+  /* ---- Status menu ---- */
+  .status-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: room-context-backdrop-in 160ms ease-out;
+  }
+
+  .side-status__menu {
+    position: relative !important;
+    left: 0 !important;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .side-status__menu::before {
+    content: "";
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .status-menu__header {
+    display: flex;
+    align-items: center;
+    padding: 8px 18px 14px;
+    flex: none;
+  }
+
+  .status-menu__header strong {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--text);
+  }
+
+  .side-status__menu button {
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 18px;
+    gap: 14px;
+  }
+
+  .side-status__menu button:hover,
+  .side-status__menu button:focus-visible {
+    background: var(--surface-hover);
+  }
+
+  .side-status__menu button:active {
+    background: var(--surface-active);
+  }
+
+  .status-menu__separator {
+    display: block;
+    height: 1px;
+    margin: 4px 18px;
+    background: var(--line);
+    flex: none;
+  }
+
+  .status-menu__cancel {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted) !important;
+    margin-top: 2px;
+  }
+
+  .status-menu__cancel:hover,
+  .status-menu__cancel:focus-visible {
+    color: var(--text) !important;
+    background: var(--surface-hover) !important;
+  }
+}
+
+@keyframes room-context-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes room-context-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 </style>

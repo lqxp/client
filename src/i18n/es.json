@@ -74,7 +74,9 @@
         "contextRenameRoom": "Renombrar la sala",
         "promptRoomName": "Nombre de la sala",
         "streamerPreviewHidden": "Mensaje oculto",
-        "anonymous": "anónimo"
+        "anonymous": "anónimo",
+        "roomOptions": "Opciones de la sala",
+        "statusOptions": "Estado"
     },
     "members": {
         "presence": "Presencia",
