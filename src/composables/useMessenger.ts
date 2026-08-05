@@ -5284,12 +5284,18 @@ export function useMessenger() {
   }
 
   function deleteMessage(message) {
-    if (!state.connected || !state.identified || !message?.messageId) return;
-    const gameId = message.roomId || state.activeRoom;
+    if (!message?.messageId) return;
+    const gameId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!gameId) return;
     if (state.editingMessage?.messageId === message.messageId)
       cancelEditMessage();
-    send({ op: 21, d: { messageId: message.messageId, gameId } });
+    // Optimistic local delete first, so messages forgotten by the server
+    // (no longer in server history) are still removed from the UI immediately.
+    applyDeletedMessageIds(gameId, [message.messageId]);
+    persist();
+    if (state.connected && state.identified) {
+      send({ op: 21, d: { messageId: message.messageId, gameId } });
+    }
   }
 
   function canEditMessage(message) {
