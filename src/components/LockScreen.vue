@@ -84,12 +84,12 @@ function onPinKeydown(event: KeyboardEvent) {
       </div>
 
       <div class="lock-pad" :aria-label="t('lock.pinPlaceholder')">
-        <button v-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit" type="button" @click="appendDigit(digit)">
+        <button v-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit" type="button" @pointerdown.prevent="appendDigit(digit)">
           {{ digit }}
         </button>
         <span></span>
-        <button type="button" @click="appendDigit('0')">0</button>
-        <button type="button" :aria-label="t('lock.backspace')" @click="backspace">⌫</button>
+        <button type="button" @pointerdown.prevent="appendDigit('0')">0</button>
+        <button type="button" :aria-label="t('lock.backspace')" @pointerdown.prevent="backspace">⌫</button>
       </div>
 
       <p v-if="failedAttempts > 0" class="lock-card__attempts">

@@ -114,6 +114,7 @@ function initialsFor(name: string) {
   <div class="profile-card" role="dialog" aria-modal="true" :aria-label="t('members.openProfile', { username })"
     @click="emit('close')">
     <section class="profile-card__panel" @click.stop>
+      <div class="profile-card__handle" aria-hidden="true"></div>
       <div class="profile-card__banner" :class="{ 'has-image': bannerSrc }">
         <img v-if="bannerSrc" :src="bannerSrc" alt="" />
       </div>

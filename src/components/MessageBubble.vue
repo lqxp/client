@@ -880,29 +880,54 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
       <div ref="contextMenuRef" class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
+        <!-- Header: user info + message preview (mobile only) -->
+        <div class="msg__context-header">
+          <span v-if="avatarSrc" class="msg__context-header-avatar msg__context-header-avatar--image">
+            <img :src="avatarSrc" :alt="message.username" />
+          </span>
+          <span v-else class="msg__context-header-avatar" :class="`avatar--${avatarAccent}`">{{ avatarInitials }}</span>
+          <div class="msg__context-header-text">
+            <strong class="msg__context-header-name">@{{ message.username }}</strong>
+            <span v-if="!deleted" class="msg__context-header-preview">{{ previewTextFor(message, message.messageId) }}</span>
+            <span v-else class="msg__context-header-preview msg__context-header-preview--deleted">{{ t('message.messageDeleted') }}</span>
+          </div>
+        </div>
+        <!-- Quick reactions row -->
         <div v-if="!deleted" class="msg__context-reactions" role="group" aria-label="React">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-reaction-${emoji}`" type="button"
             class="msg__context-reaction" @click="onToggleReaction(emoji)" v-html="renderDiscordEmoji(emoji)"></button>
         </div>
         <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
+        <!-- Actions -->
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 4 12l5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
           <span>{{ t('message.reply') }}</span>
         </button>
         <button v-if="canEdit" type="button" class="msg__context-item" role="menuitem" @click="onStartEdit">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           <span>{{ t('message.edit') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>{{ t('message.viewProfile') }}</span>
         </button>
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onCopyMessageText">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           <span>{{ t('message.copyMessage') }}</span>
         </button>
         <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 6V4"/></svg>
           <span>{{ t('message.copyUserId') }}</span>
         </button>
         <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem"
           @click="onDelete">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span>{{ t('message.deleteMessage') }}</span>
+        </button>
+        <!-- Cancel button (mobile only) -->
+        <div class="msg__context-separator" aria-hidden="true"></div>
+        <button type="button" class="msg__context-item msg__context-cancel" role="menuitem" @click="closeContextMenu">
+          <span>{{ t('message.cancel') }}</span>
         </button>
       </div>
     </div>
@@ -982,6 +1007,18 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.msg__context-header {
+  display: none;
+}
+
+.msg__context-item-icon {
+  display: none;
+}
+
+.msg__context-cancel {
+  display: none;
+}
+
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {
   .bubble-actions {
     display: none;
@@ -990,9 +1027,10 @@ onBeforeUnmount(() => {
   .msg__context {
     display: flex;
     align-items: flex-end;
+    justify-content: center;
     background: rgba(0, 0, 0, 0.52);
-    backdrop-filter: blur(8px);
-    animation: msg-context-backdrop-in 140ms ease-out;
+    backdrop-filter: blur(12px);
+    animation: msg-context-backdrop-in 160ms ease-out;
   }
 
   .msg__context-menu {
@@ -1002,66 +1040,202 @@ onBeforeUnmount(() => {
     top: auto !important;
     width: 100%;
     max-width: 100%;
-    max-height: min(72vh, 520px);
-    overflow: auto;
+    max-height: min(80vh, 640px);
+    overflow-y: auto;
+    overflow-x: hidden;
     transform: none;
-    padding: 10px 10px max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 max(18px, env(safe-area-inset-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: 22px 22px 0 0;
-    box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.46), 0 -1px 0 var(--line-strong);
-    animation: msg-context-sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    background: var(--surface);
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    animation: msg-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .msg__context-menu::before {
     content: "";
     display: block;
-    width: 44px;
+    flex: none;
+    width: 40px;
     height: 5px;
-    margin: 2px auto 10px;
+    margin: 12px auto 8px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--muted) 54%, transparent);
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
   }
 
+  /* ---- Header ---- */
+  .msg__context-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 18px 14px;
+    flex: none;
+  }
+
+  .msg__context-header-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    flex: none;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: #fff;
+  }
+
+  .msg__context-header-avatar--image {
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+
+  .msg__context-header-avatar--image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .msg__context-header-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+  }
+
+  .msg__context-header-name {
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .msg__context-header-preview {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .msg__context-header-preview--deleted {
+    font-style: italic;
+  }
+
+  /* ---- Reactions row ---- */
   .msg__context-reactions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-    padding: 4px 2px 8px;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 18px 8px;
+    flex: none;
   }
 
   .msg__context-reaction {
-    width: 40px !important;
-    height: 40px;
-    min-width: 40px;
+    width: 44px !important;
+    height: 44px;
+    min-width: 44px;
     padding: 0 !important;
-    border-radius: 14px;
+    border-radius: 16px;
     display: grid;
     place-items: center;
     color: var(--text);
-    font-size: 22px;
+    font-size: 24px;
     line-height: 1;
+    background: var(--surface-2);
+    transition: transform 120ms ease, background 120ms ease;
   }
 
   .msg__context-reaction:hover,
   .msg__context-reaction:focus-visible {
-    transform: translateY(-1px) scale(1.08);
+    transform: translateY(-2px) scale(1.08);
+    background: var(--surface-hover);
   }
 
+  .msg__context-reaction:active {
+    transform: scale(0.94);
+  }
+
+  /* ---- Separator ---- */
   .msg__context-separator {
     display: block;
     height: 1px;
-    margin: 2px 0 6px;
+    margin: 4px 18px;
     background: var(--line);
+    flex: none;
   }
 
+  /* ---- Action items ---- */
   .msg__context-item {
-    min-height: 46px;
+    min-height: 50px;
     border-radius: 14px;
-    font-size: 15px;
-    font-weight: 650;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 18px;
+    gap: 14px;
+    width: 100%;
+    transition: background 120ms ease;
+  }
+
+  .msg__context-item:hover,
+  .msg__context-item:focus-visible {
+    background: var(--surface-hover);
+  }
+
+  .msg__context-item:active {
+    background: var(--surface-active);
+  }
+
+  .msg__context-item.is-danger {
+    color: var(--red);
+  }
+
+  .msg__context-item.is-danger:hover,
+  .msg__context-item.is-danger:focus-visible {
+    background: rgba(255, 107, 112, 0.12);
+  }
+
+  /* ---- Icons ---- */
+  .msg__context-item-icon {
+    display: block;
+    flex: none;
+    color: var(--muted);
+    transition: color 120ms ease;
+  }
+
+  .msg__context-item:hover .msg__context-item-icon,
+  .msg__context-item:focus-visible .msg__context-item-icon {
+    color: var(--text);
+  }
+
+  .msg__context-item.is-danger .msg__context-item-icon {
+    color: var(--red);
+  }
+
+  /* ---- Cancel button ---- */
+  .msg__context-cancel {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .msg__context-cancel:hover,
+  .msg__context-cancel:focus-visible {
+    color: var(--text);
+    background: var(--surface-hover);
   }
 }
 

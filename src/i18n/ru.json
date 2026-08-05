@@ -182,7 +182,11 @@
         "fileAttachment": "Вложение",
         "attachmentExpired": "Вложение истекло",
         "originalNotLoaded": "Исходное сообщение ещё не загружено.",
-        "messageDeleted": "Сообщение удалено"
+        "messageDeleted": "Сообщение удалено",
+        "cancel": "Отмена",
+        "replyTo": "Ответить {user}",
+        "editMessage": "Редактировать",
+        "messageOptions": "Действия с сообщением"
     },
     "call": {
         "live": "В эфире",

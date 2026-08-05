@@ -159,7 +159,11 @@
         "fileAttachment": "Archivo adjunto",
         "attachmentExpired": "Adjunto caducado",
         "originalNotLoaded": "El mensaje original no está cargado.",
-        "messageDeleted": "Mensaje eliminado"
+        "messageDeleted": "Mensaje eliminado",
+        "cancel": "Cancelar",
+        "replyTo": "Responder a {user}",
+        "editMessage": "Editar mensaje",
+        "messageOptions": "Opciones del mensaje"
     },
     "call": {
         "live": "En vivo",
