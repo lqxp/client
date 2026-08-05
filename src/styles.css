@@ -5215,7 +5215,8 @@ textarea {
   .settings__disconnect {
     flex: none;
     margin-top: 16px;
-    padding-top: 0;
+    padding: 12px 0 0;
+    border-top: none;
   }
 
   .settings__disconnect-btn {
@@ -6648,7 +6649,6 @@ textarea {
 .settings__disconnect {
   margin-top: auto;
   padding: 14px 4px 0;
-  border-top: 1px solid var(--line-strong);
 }
 
 .settings__disconnect-btn {
