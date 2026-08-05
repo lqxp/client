@@ -4962,6 +4962,10 @@ textarea {
   color: white;
   font-size: 23px;
   font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(14px);
   -touch-action: manipulation;
