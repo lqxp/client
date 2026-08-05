@@ -89,11 +89,18 @@ function onThreadTouchEnd(event: TouchEvent) {
   if (!isMobile.value) return;
   const dx = (event.changedTouches[0]?.clientX || 0) - touchStartX;
   const dy = (event.changedTouches[0]?.clientY || 0) - touchStartY;
-  // Only trigger on horizontal swipe (left), threshold 60px, not too vertical
-  if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+  if (Math.abs(dx) <= Math.abs(dy) * 1.5) return; // not horizontal enough
+  // Swipe left → open members panel
+  if (dx < -60) {
     showMobileMembers.value = true;
-  } else if (dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && showMobileMembers.value) {
+  }
+  // Swipe right while members open → close members
+  else if (dx > 60 && showMobileMembers.value) {
     showMobileMembers.value = false;
+  }
+  // Swipe right from thread → back to conversation list
+  else if (dx > 60) {
+    showConversationList();
   }
 }
 
