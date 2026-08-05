@@ -250,27 +250,47 @@ onBeforeUnmount(() => {
 
     <div v-else class="members__empty">{{ t('members.online') }}</div>
 
-    <div
-      v-if="memberContextOpen"
-      ref="memberContextMenuRef"
-      class="members__context-menu context-menu-base"
-      role="menu"
-      :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
-      @click.stop
-    >
-      <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">
-        <span>{{ t('members.seeAvatar') }}</span>
-      </button>
-      <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">
-        <span>{{ t('members.seeBanner') }}</span>
-      </button>
-      <button type="button" role="menuitem" @click="openProfileFromContext">
-        <span>{{ t('members.viewProfile') }}</span>
-      </button>
-      <button type="button" role="menuitem" @click="copyUserIdFromContext">
-        <span>{{ t('members.copyUserId') }}</span>
-      </button>
-    </div>
+    <Teleport to="body">
+      <div v-if="memberContextOpen" class="members__context-backdrop" @click="closeMemberContext" @contextmenu.prevent>
+        <div
+          ref="memberContextMenuRef"
+          class="members__context-menu context-menu-base"
+          role="menu"
+          :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
+          @click.stop
+        >
+          <!-- Header (mobile only) -->
+          <div class="members__context-header">
+            <span v-if="avatarFor(memberContextUser)" class="members__context-header-avatar">
+              <img :src="avatarFor(memberContextUser)" alt="" />
+            </span>
+            <span v-else class="members__context-header-avatar" :class="`avatar--${accentFor(memberContextUser)}`">{{ initialsFor(memberContextUser) }}</span>
+            <strong class="members__context-header-name">@{{ memberContextUser }}</strong>
+          </div>
+          <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">
+            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>{{ t('members.seeAvatar') }}</span>
+          </button>
+          <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">
+            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01"/></svg>
+            <span>{{ t('members.seeBanner') }}</span>
+          </button>
+          <button type="button" role="menuitem" @click="openProfileFromContext">
+            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>{{ t('members.viewProfile') }}</span>
+          </button>
+          <button type="button" role="menuitem" @click="copyUserIdFromContext">
+            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>{{ t('members.copyUserId') }}</span>
+          </button>
+          <!-- Cancel (mobile only) -->
+          <div class="members__context-separator" aria-hidden="true"></div>
+          <button type="button" class="members__context-cancel" role="menuitem" @click="closeMemberContext">
+            <span>{{ t('message.cancel') }}</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <ImageViewer
@@ -306,11 +326,167 @@ onBeforeUnmount(() => {
   display: none;
 }
 
+/* Hidden on desktop, shown on mobile */
+.members__context-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 135;
+}
+
+.members__context-header,
+.members__context-item-icon,
+.members__context-separator,
+.members__context-cancel {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .members__close-mobile {
     display: inline-grid;
     width: 32px;
     height: 32px;
   }
+
+  /* ---- Member context bottom sheet ---- */
+  .members__context-backdrop {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: members-context-backdrop-in 160ms ease-out;
+  }
+
+  .members__context-menu {
+    left: 0 !important;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    animation: members-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .members__context-menu::before {
+    content: "";
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .members__context-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 18px 14px;
+    flex: none;
+  }
+
+  .members__context-header-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    flex: none;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: #fff;
+    background: var(--surface-2);
+  }
+
+  .members__context-header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .members__context-header-name {
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .members__context-menu button {
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 18px;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    transition: background 120ms ease;
+    display: flex;
+    align-items: center;
+  }
+
+  .members__context-menu button:hover,
+  .members__context-menu button:focus-visible {
+    background: var(--surface-hover);
+  }
+
+  .members__context-item-icon {
+    display: block;
+    flex: none;
+    color: var(--muted);
+    transition: color 120ms ease;
+  }
+
+  .members__context-menu button:hover .members__context-item-icon {
+    color: var(--text);
+  }
+
+  .members__context-separator {
+    display: block;
+    height: 1px;
+    margin: 4px 18px;
+    background: var(--line);
+    flex: none;
+  }
+
+  .members__context-cancel {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted) !important;
+    margin-top: 2px;
+  }
+
+  .members__context-cancel:hover {
+    color: var(--text) !important;
+    background: var(--surface-hover) !important;
+  }
+}
+
+@keyframes members-context-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes members-context-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 </style>
