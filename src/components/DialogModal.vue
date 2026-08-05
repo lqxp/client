@@ -246,31 +246,17 @@ function onKeydown(event: KeyboardEvent) {
 
 @media (max-width: 640px) {
   .dialog-backdrop {
-    align-items: end;
-    padding: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(10px);
+    padding: 20px;
   }
 
   .dialog-card {
     width: 100%;
-    max-height: min(60vh, 420px);
-    border-radius: 22px 22px 0 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-right: 0;
-    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+    max-height: calc(100vh - 40px);
+    border-radius: 20px;
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px var(--line-strong);
+    padding: 24px 20px 20px;
     gap: 12px;
-  }
-
-  .dialog-enter-from .dialog-card {
-    transform: translateY(100%);
-    opacity: 1;
-  }
-  .dialog-leave-to .dialog-card {
-    transform: translateY(100%);
-    opacity: 1;
   }
 
   .dialog-card__title {
