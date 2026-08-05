@@ -115,6 +115,7 @@ const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
 const contextMenuRef = ref<HTMLElement | null>(null);
+const showReactionsSubmenu = ref(false);
 const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
 const reactionTooltip = ref<{
   emoji: string;
@@ -473,6 +474,7 @@ function openImageViewer() {
 
 function closeContextMenu() {
   contextMenuOpen.value = false;
+  showReactionsSubmenu.value = false;
 }
 
 async function positionContextMenu(clientX: number, clientY: number) {
@@ -901,6 +903,12 @@ onBeforeUnmount(() => {
             class="msg__context-reaction" @click="onToggleReaction(emoji)" v-html="renderDiscordEmoji(emoji)"></button>
         </div>
         <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
+        <!-- Reactions submenu entry -->
+        <button v-if="message.reactions.length" type="button" class="msg__context-item" role="menuitem" @click="showReactionsSubmenu = true">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
+          <span>Reactions</span>
+          <svg class="msg__context-item-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
         <!-- Actions -->
         <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
           <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 4 12l5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
@@ -943,6 +951,23 @@ onBeforeUnmount(() => {
       </div>
       <div class="reaction-tooltip__list">
         <span v-for="user in reactionTooltip.users" :key="user" class="reaction-tooltip__user">{{ user }}</span>
+      </div>
+    </div>
+    <!-- Reactions submenu -->
+    <div v-if="showReactionsSubmenu" class="msg__context" @click="showReactionsSubmenu = false" @contextmenu.prevent>
+      <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="'Reactions'" @click.stop>
+        <div class="msg__context-submenu-head">
+          <button type="button" class="msg__context-back" @click="showReactionsSubmenu = false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <strong>Reactions</strong>
+        </div>
+        <div class="msg__context-reactions-detail">
+          <div v-for="reaction in message.reactions" :key="`sub-${reaction.emoji}`" class="msg__context-reaction-detail">
+            <span class="msg__context-reaction-detail-emoji" v-html="renderDiscordEmoji(reaction.emoji)"></span>
+            <span class="msg__context-reaction-detail-users">{{ reactionUsers(reaction).join(', ') }}</span>
+          </div>
+        </div>
       </div>
     </div>
     <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
@@ -1019,6 +1044,26 @@ onBeforeUnmount(() => {
 }
 
 .msg__context-cancel {
+  display: none;
+}
+
+.msg__context-reactions-detail {
+  display: none;
+}
+
+.msg__context-item-chevron {
+  display: none;
+}
+
+.msg__context-submenu {
+  display: none;
+}
+
+.msg__context-submenu-head {
+  display: none;
+}
+
+.msg__context-back {
   display: none;
 }
 
@@ -1239,6 +1284,83 @@ onBeforeUnmount(() => {
   .msg__context-cancel:focus-visible {
     color: var(--text);
     background: var(--surface-hover);
+  }
+
+  /* ---- Chevron for submenu items ---- */
+  .msg__context-item-chevron {
+    display: block;
+    flex: none;
+    margin-left: auto;
+    color: var(--dim);
+  }
+
+  /* ---- Submenu ---- */
+  .msg__context-submenu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .msg__context-submenu-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px 14px;
+    flex: none;
+  }
+
+  .msg__context-submenu-head strong {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--text);
+  }
+
+  .msg__context-back {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    flex: none;
+  }
+
+  .msg__context-back:hover {
+    background: var(--surface-hover);
+  }
+
+  /* ---- Reactions detail (inside submenu) ---- */
+  .msg__context-reactions-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 6px 18px 12px;
+  }
+
+  .msg__context-reaction-detail {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .msg__context-reaction-detail-emoji {
+    font-size: 20px;
+    flex: none;
+    margin-top: 1px;
+  }
+
+  .msg__context-reaction-detail-users {
+    color: var(--muted);
+    word-break: break-word;
+  }
+
+  /* ---- Hide hover tooltip on mobile ---- */
+  .reaction-tooltip {
+    display: none !important;
   }
 }
 
