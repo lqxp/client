@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
@@ -9,6 +10,7 @@ import VideoPlayer from "@/components/VideoPlayer.vue";
 import { TEXT_ATTACHMENT_EXTENSIONS } from "@/composables/useMessenger";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 
 const props = defineProps({
   message: { type: Object, required: true },
@@ -554,9 +556,10 @@ function onToggleReaction(emoji: string) {
   closeContextMenu();
 }
 
-function onDelete() {
+async function onDelete() {
   if (!isOwn.value || deleted.value) return;
-  if (!confirm(t("message.deleteConfirm"))) return;
+  const confirmed = await dialog.showConfirm(t("message.deleteConfirm"));
+  if (!confirmed) return;
   props.messenger.deleteMessage(props.message);
   closeContextMenu();
 }

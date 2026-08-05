@@ -2,10 +2,12 @@
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 import { appRuntimeConfig, rtcRuntimeConfig } from "@/config/runtime";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
+const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 
 const props = defineProps({
   messenger: { type: Object, required: true },
@@ -229,7 +231,7 @@ async function deleteAdminUser(user: any) {
   const userId = String(user?.id || "");
   const username = String(user?.username || userId);
   if (!userId || userId === String(props.messenger.state.userId || "")) return;
-  if (!confirm(t('settings.admin.deleteConfirm', { username }))) return;
+  if (!await dialog.showConfirm(t('settings.admin.deleteConfirm', { username }))) return;
   await props.messenger.deleteAdminUser?.(userId);
 }
 
@@ -318,8 +320,8 @@ function onFilePicked(event) {
   if (file) props.messenger.importData(file);
   event.target.value = "";
 }
-function onClear() {
-  if (!confirm("Clear all local data? This removes every conversation, message, and reaction from this browser. The remote server is not touched.")) return;
+async function onClear() {
+  if (!await dialog.showConfirm("Clear all local data? This removes every conversation, message, and reaction from this browser. The remote server is not touched.")) return;
   props.messenger.clearAllData();
   close();
 }
@@ -331,7 +333,7 @@ function onLogout() {
 
 async function onSaveDuressPin() {
   if (duressPin.value !== duressPinConfirm.value) {
-    alert(t('settings.security.pinMismatch'));
+    await dialog.showAlert(t('settings.security.pinMismatch'));
     return;
   }
   const ok = await props.messenger.setOpsecDuressPin(duressPin.value);
@@ -342,13 +344,13 @@ async function onSaveDuressPin() {
 }
 
 async function onStartDecoySetup() {
-  if (!confirm(t('settings.opsec.decoySetupConfirm'))) return;
+  if (!await dialog.showConfirm(t('settings.opsec.decoySetupConfirm'))) return;
   await props.messenger.startOpsecDecoySetup();
 }
 
 async function onEnableClientLock() {
   if (lockPin.value !== lockPinConfirm.value) {
-    alert(t('settings.security.pinMismatch'));
+    await dialog.showAlert(t('settings.security.pinMismatch'));
     return;
   }
   const ok = await props.messenger.enableClientLock(lockPin.value);
@@ -359,28 +361,28 @@ async function onEnableClientLock() {
 }
 
 async function onDisableClientLock() {
-  const pin = prompt(t('settings.security.disableLockPrompt'));
+  const pin = await dialog.showPrompt(t('settings.security.disableLockPrompt'));
   if (!pin) return;
   const unlocked = await props.messenger.verifyClientLockPin(pin);
   if (!unlocked) return;
-  if (!confirm(t('settings.security.disableLockConfirm'))) return;
+  if (!await dialog.showConfirm(t('settings.security.disableLockConfirm'))) return;
   const disabled = await props.messenger.disableClientLock();
-  if (disabled) alert(t('settings.security.disableLockSuccess'));
+  if (disabled) await dialog.showAlert(t('settings.security.disableLockSuccess'));
   lockPin.value = "";
   lockPinConfirm.value = "";
 }
 
-function onDeleteAccount() {
-  const confirmed = confirm(t('settings.profile.deleteAccountConfirm'));
+async function onDeleteAccount() {
+  const confirmed = await dialog.showConfirm(t('settings.profile.deleteAccountConfirm'));
   if (!confirmed) return;
-  const password = prompt(t('settings.profile.deleteAccountPrompt'));
+  const password = await dialog.showPrompt(t('settings.profile.deleteAccountPrompt'));
   if (!password) return;
   props.messenger.deleteAccount(password)
     .then(() => {
       close();
     })
-    .catch((err: any) => {
-      alert(err?.message || t('settings.profile.deleteAccountError'));
+    .catch(async (err: any) => {
+      await dialog.showAlert(err?.message || t('settings.profile.deleteAccountError'));
     });
 }
 

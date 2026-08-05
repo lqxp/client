@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 
 const props = defineProps({
   messenger: { type: Object, required: true }
@@ -50,12 +52,13 @@ function copyInvite() {
     });
 }
 
-function removeHere() {
+async function removeHere() {
   const id = props.messenger.state.activeRoom;
   if (!id) return;
   const label = props.messenger.displayRoomName(id);
   const suffix = props.messenger.state.deleteMessagesOnLeave ? ` ${t("thread.leaveRoomDeletesLocal")}` : "";
-  if (!confirm(t("thread.leaveRoomConfirm", { room: label, suffix }))) return;
+  const confirmed = await dialog.showConfirm(t("thread.leaveRoomConfirm", { room: label, suffix }));
+  if (!confirmed) return;
   props.messenger.leaveRoom(id);
 }
 </script>

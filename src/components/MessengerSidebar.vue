@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 
 const props = defineProps({
   messenger: { type: Object, required: true }
@@ -66,20 +68,22 @@ function onComposeKey(event) {
   if (event.key.length === 1 && !/[a-z0-9]/i.test(event.key)) event.preventDefault();
 }
 
-function leaveRoomFromContext() {
+async function leaveRoomFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
   const label = props.messenger.displayRoomName(roomId);
   const suffix = props.messenger.state.deleteMessagesOnLeave ? ` ${t("thread.leaveRoomDeletesLocal")}` : "";
-  if (!confirm(t("thread.leaveRoomConfirm", { room: label, suffix }))) return;
+  const confirmed = await dialog.showConfirm(t("thread.leaveRoomConfirm", { room: label, suffix }));
+  if (!confirmed) return;
   props.messenger.leaveRoom(roomId);
   closeRoomContext();
 }
 
-function clearLocalMessagesFromContext() {
+async function clearLocalMessagesFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
-  if (!confirm(t("thread.clearLocalMessagesConfirm", { room: props.messenger.displayRoomName(roomId) }))) return;
+  const confirmed = await dialog.showConfirm(t("thread.clearLocalMessagesConfirm", { room: props.messenger.displayRoomName(roomId) }));
+  if (!confirmed) return;
   props.messenger.clearLocalRoomMessages?.(roomId);
   props.messenger.showToast?.(t("thread.clearLocalMessagesSuccess"));
   closeRoomContext();
@@ -133,11 +137,11 @@ function closeRoomContext() {
   roomContextRoomId.value = "";
 }
 
-function renameRoomFromContext() {
+async function renameRoomFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
   const current = props.messenger.displayRoomName(roomId);
-  const next = window.prompt(t("sidebar.promptRoomName"), current || roomId);
+  const next = await dialog.showPrompt(t("sidebar.promptRoomName"), current || roomId);
   if (next === null) return;
   props.messenger.setLocalRoomName(roomId, next);
   closeRoomContext();

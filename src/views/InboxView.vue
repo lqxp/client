@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
+import { useDialog } from "@/composables/useDialog";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -14,8 +15,11 @@ import OnboardingScreen from "@/components/OnboardingScreen.vue";
 import LockScreen from "@/components/LockScreen.vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
+import DialogModal from "@/components/DialogModal.vue";
 
 const messenger = useMessenger();
+const dialog = useDialog();
+provide("dialog", dialog);
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock"] as const;
@@ -489,6 +493,8 @@ async function lockClientNow() {
         </div>
       </Transition>
     </Teleport>
+
+    <DialogModal />
 
     <main v-if="hasActive" class="thread">
       <div class="thread__shell">
