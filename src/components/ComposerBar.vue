@@ -553,31 +553,41 @@ onBeforeUnmount(() => {
           </svg>
         </button>
 
-        <div v-if="mobileActionsOpen" class="composer__actions-pop" role="menu">
-          <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickFile">
-            <svg viewBox="0 0 24 24">
-              <path
-                d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
-            </svg>
-            <span>{{ t('composer.attachFile') }}</span>
-          </button>
-          <button type="button" role="menuitem" :disabled="mediaDisabled" @click="startMobileRecording">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-              <path d="M19 10a7 7 0 0 1-14 0" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-            <span>{{ t('composer.holdToRecord') }}</span>
-          </button>
-          <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickCamera">
-            <svg viewBox="0 0 24 24">
-              <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-              <circle cx="12" cy="13" r="3.5" />
-            </svg>
-            <span>{{ t('camera.title') }}</span>
-          </button>
-        </div>
+        <Teleport to="body">
+          <div v-if="mobileActionsOpen" class="composer__actions-backdrop" @click="mobileActionsOpen = false">
+            <div class="composer__actions-pop" role="menu" @click.stop>
+              <div class="composer__actions-header">
+                <strong>{{ t('composer.attachFile') }}</strong>
+              </div>
+              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickFile">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
+                </svg>
+                <span>{{ t('composer.attachFile') }}</span>
+              </button>
+              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="startMobileRecording">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10a7 7 0 0 1-14 0" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                <span>{{ t('composer.holdToRecord') }}</span>
+              </button>
+              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickCamera">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+                  <circle cx="12" cy="13" r="3.5" />
+                </svg>
+                <span>{{ t('camera.title') }}</span>
+              </button>
+              <div class="composer__actions-separator" aria-hidden="true"></div>
+              <button type="button" class="composer__actions-cancel" role="menuitem" @click="mobileActionsOpen = false">
+                <span>{{ t('message.cancel') }}</span>
+              </button>
+            </div>
+          </div>
+        </Teleport>
       </div>
 
       <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.attachFile')"
