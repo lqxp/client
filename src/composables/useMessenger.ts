@@ -2132,9 +2132,40 @@ export function useMessenger() {
     await yieldToBrowser();
   }
 
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let persistPending = false;
+
   function persist() {
     if (state.clientLockLocked) return Promise.resolve();
+    if (state.clientLockEnabled && activeClientLockKey) {
+      // Debounce: batch rapid persist calls when client lock is enabled
+      // to avoid re-encrypting the entire payload on every tiny state change.
+      persistPending = true;
+      if (persistTimer) return Promise.resolve();
+      return new Promise((resolve) => {
+        persistTimer = setTimeout(async () => {
+          persistTimer = null;
+          persistPending = false;
+          try {
+            await savePersisted(state);
+          } catch { /* ignore */ }
+          resolve(undefined);
+        }, 800);
+      });
+    }
     return savePersisted(state);
+  }
+
+  function flushPersist() {
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
+    if (persistPending) {
+      persistPending = false;
+      return savePersisted(state);
+    }
+    return Promise.resolve();
   }
 
   function clearClientLockAutolockTimer() {
@@ -2475,6 +2506,7 @@ export function useMessenger() {
   async function lockClient() {
     if (!state.clientLockEnabled || state.clientLockLocked || !activeClientLockKey) return false;
     clearClientLockAutolockTimer();
+    await flushPersist();
     const lockedPayload = await encryptClientLockPayload(
       buildPersistedPayload(state),
       activeClientLockKey,
