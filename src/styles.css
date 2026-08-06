@@ -1132,6 +1132,13 @@ textarea {
   color: var(--muted);
   padding: 0 20px;
   line-height: 1.55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.conv--empty p {
+  margin: 0;
 }
 
 /* Sidebar footer */

@@ -49,20 +49,14 @@ const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
 const OPSEC_DECOY_STORAGE_KEY = "qxprotocol-opsec-decoy-v1";
 const CLIENT_ID_STORAGE_KEY = "qxprotocol-client-id-v1";
 const SYSTEM_USERNAME = "system";
-const SYSTEM_PROFILE_AVATAR_B64 = btoa(`
-<svg width="180px" height="180px" viewBox="-3.68 -3.68 23.36 23.36" version="1.1"
-    xmlns="http://www.w3.org/2000/svg">
-    <rect x="-3.68" y="-3.68" width="23.36" height="23.36" rx="11.68" fill="#1c71d8" />
-    <g transform="translate(16 0) scale(-1 1)">
-        <g transform="translate(0 1)" fill="#ffffff">
-            <path
-                d="M5.939 0C2.666 0 0.009 1.987 0.009 4.438c0 2.236 2.215 4.082 5.092 4.387L3.88 11.26l4.249-2.7C10.318 7.906 12 6.309 12 4.438 12 1.988 9.213 0 5.939 0Z" />
-            <path
-                d="M15.947 8.89c0-1.124-1.062-2.288-2.289-2.868-.344 1.95-1.924 3.745-4.417 4.447l-1.187.642c.454.34 1.01.611 1.634.788l3.638 1.971-1.303-1.776c2.217-.225 3.924-1.571 3.924-3.204Z" />
-        </g>
-    </g>
-</svg>`
-);
+const SYSTEM_AVATAR_SVG_DARK = `<svg width="180px" height="180px" viewBox="-3.68 -3.68 23.36 23.36" xmlns="http://www.w3.org/2000/svg"><g transform="translate(16 0) scale(-1 1)"><g transform="translate(0 1)" fill="rgb(243,245,248)"><path d="M5.939 0C2.666 0 0.009 1.987 0.009 4.438c0 2.236 2.215 4.082 5.092 4.387L3.88 11.26l4.249-2.7C10.318 7.906 12 6.309 12 4.438 12 1.988 9.213 0 5.939 0Z"/><path d="M15.947 8.89c0-1.124-1.062-2.288-2.289-2.868-.344 1.95-1.924 3.745-4.417 4.447l-1.187.642c.454.34 1.01.611 1.634.788l3.638 1.971-1.303-1.776c2.217-.225 3.924-1.571 3.924-3.204Z"/></g></g></svg>`;
+
+const SYSTEM_AVATAR_SVG_LIGHT = `<svg width="180px" height="180px" viewBox="-3.68 -3.68 23.36 23.36" xmlns="http://www.w3.org/2000/svg"><g transform="translate(16 0) scale(-1 1)"><g transform="translate(0 1)" fill="#1b1b1d"><path d="M5.939 0C2.666 0 0.009 1.987 0.009 4.438c0 2.236 2.215 4.082 5.092 4.387L3.88 11.26l4.249-2.7C10.318 7.906 12 6.309 12 4.438 12 1.988 9.213 0 5.939 0Z"/><path d="M15.947 8.89c0-1.124-1.062-2.288-2.289-2.868-.344 1.95-1.924 3.745-4.417 4.447l-1.187.642c.454.34 1.01.611 1.634.788l3.638 1.971-1.303-1.776c2.217-.225 3.924-1.571 3.924-3.204Z"/></g></g></svg>`;
+
+function systemAvatarB64() {
+  const isLight = typeof document !== "undefined" && document.documentElement.dataset.theme === "light";
+  return btoa(isLight ? SYSTEM_AVATAR_SVG_LIGHT : SYSTEM_AVATAR_SVG_DARK);
+}
 const CLIENT_LOCK_PBKDF2_ITERATIONS = 250000;
 const CLIENT_LOCK_PIN_LENGTHS = [4, 6, 8];
 const CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS = [60_000, 600_000, 1_800_000, 3_600_000, 7_200_000, 18_000_000];
@@ -135,7 +129,7 @@ function isSystemUsername(value) {
 
 function systemProfile() {
   return normalizeProfile({
-    avatar: { dataB64: SYSTEM_PROFILE_AVATAR_B64, mimeType: "image/svg+xml", size: 651, width: 180, height: 180 },
+    avatar: { dataB64: systemAvatarB64(), mimeType: "image/svg+xml", size: 651, width: 180, height: 180 },
     description: "Official QxChat system account.",
   });
 }

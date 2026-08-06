@@ -398,6 +398,14 @@ async function lockClientNow() {
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
+        <svg v-if="!desktopConversationSelected && !messenger.state.settingsOpen" class="desktop-titlebar__logo" width="22" height="22" viewBox="-3.68 -3.68 23.36 23.36" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(16 0) scale(-1 1)">
+            <g transform="translate(0 1)">
+              <path d="M5.939 0C2.666 0 0.009 1.987 0.009 4.438c0 2.236 2.215 4.082 5.092 4.387L3.88 11.26l4.249-2.7C10.318 7.906 12 6.309 12 4.438 12 1.988 9.213 0 5.939 0Z" />
+              <path d="M15.947 8.89c0-1.124-1.062-2.288-2.289-2.868-.344 1.95-1.924 3.745-4.417 4.447l-1.187.642c.454.34 1.01.611 1.634.788l3.638 1.971-1.303-1.776c2.217-.225 3.924-1.571 3.924-3.204Z" />
+            </g>
+          </g>
+        </svg>
         <span v-if="desktopConversationSelected && !messenger.state.settingsOpen"
           class="avatar avatar--sm desktop-titlebar__room-icon"
           :class="desktopRoomIconIsImage ? 'desktop-titlebar__room-icon--image' : `avatar--${desktopAccent}`">
@@ -575,6 +583,20 @@ async function lockClientNow() {
 .desktop-titlebar {
   display: none;
 }
+
+.desktop-titlebar__logo {
+  fill: rgb(243, 245, 248);
+  flex: none;
+}
+</style>
+
+<style>
+:root[data-theme="light"] .desktop-titlebar__logo {
+  fill: #1b1b1d;
+}
+</style>
+
+<style scoped>
 
 .app.app--desktop-titlebar.is-tauri,
 .app.app--desktop-titlebar.is-web-titlebar,
