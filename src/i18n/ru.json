@@ -79,6 +79,9 @@
     "sidebar": {
         "searchPlaceholder": "Поиск",
         "noResults": "Нет результатов",
+        "conversation": "Беседа",
+        "message": "Сообщение",
+        "person": "Человек",
         "newConversation": "Новый разговор",
         "generateToken": "Создать токен комнаты",
         "pasteRoomToken": "Вставить токен комнаты",

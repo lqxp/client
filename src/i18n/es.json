@@ -56,6 +56,9 @@
     "sidebar": {
         "searchPlaceholder": "Buscar",
         "noResults": "Sin resultados",
+        "conversation": "Conversación",
+        "message": "Mensaje",
+        "person": "Persona",
         "newConversation": "Nueva conversación",
         "generateToken": "Generar token de sala",
         "pasteRoomToken": "Pegar token de sala",
