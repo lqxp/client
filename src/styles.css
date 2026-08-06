@@ -4519,8 +4519,9 @@ textarea {
 
 .settings-textarea {
   min-height: 116px;
-  margin-top: 12px;
+  margin: 12px 0 0 44px;
   padding: 12px 14px;
+  width: calc(100% - 44px);
   resize: vertical;
   line-height: 1.45;
 }
@@ -5483,8 +5484,10 @@ textarea {
     flex-direction: column;
   }
 
-  .settings-select--offset {
+.settings-select--offset,
+  .settings-textarea {
     margin-left: 0;
+    width: 100%;
   }
 
   .settings-kv {
