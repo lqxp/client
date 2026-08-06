@@ -9,7 +9,7 @@ const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 const props = defineProps({
   messenger: { type: Object, required: true }
 });
-const emit = defineEmits(["conversation-selected"]);
+const emit = defineEmits(["conversation-selected", "open-spotlight"]);
 
 const composeRef = ref(null);
 const statusMenuOpen = ref(false);
@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
           <path d="m20 20-3.5-3.5" />
         </svg>
         <input v-model="messenger.state.searchTerm" type="search" :placeholder="t('sidebar.searchPlaceholder')"
-          :aria-label="t('sidebar.searchPlaceholder')" />
+          :aria-label="t('sidebar.searchPlaceholder')" @focus="emit('open-spotlight')" />
       </label>
       <button class="icon-btn side__shuffle" type="button" :aria-label="t('sidebar.generateToken')" @click="createRoom">
         <svg viewBox="0 0 24 24">

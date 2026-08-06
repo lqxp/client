@@ -273,7 +273,10 @@
             "messages": "Сообщения",
             "messageShape": "Стиль сообщений",
             "bubbles": "Пузыри",
-            "discord": "Стиль Discord (левая линия)"
+            "discord": "Стиль Discord (левая линия)",
+            "search": "Поиск",
+            "spotlightSearch": "Spotlight поиск (ПК)",
+            "spotlightSearchNote": "Ctrl+K для поиска комнат, сообщений и людей."
         },
         "language": {
             "title": "Язык",

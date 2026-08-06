@@ -826,6 +826,19 @@ onBeforeUnmount(() => {
             </select>
           </label>
         </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.ui.search') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.ui.spotlightSearch') }}</span>
+            <span class="toggle" :class="{ 'is-on': messenger.state.spotlightSearchEnabled }">
+              <input type="checkbox" :checked="messenger.state.spotlightSearchEnabled"
+                @change="messenger.setSpotlightSearchEnabled(($event.target as HTMLInputElement).checked)" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </span>
+          </label>
+          <p class="settings-note">{{ t('settings.ui.spotlightSearchNote') }}</p>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'language'" class="settings-page">

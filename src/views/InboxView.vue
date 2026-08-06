@@ -16,6 +16,7 @@ import LockScreen from "@/components/LockScreen.vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
+import SpotlightSearch from "@/components/SpotlightSearch.vue";
 
 const messenger = useMessenger();
 const dialog = useDialog();
@@ -35,6 +36,7 @@ type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 
 const mobileThreadOpen = ref(false);
 const showMobileMembers = ref(false);
+const spotlightOpen = ref(false);
 const settingsInitialSection = ref("profile");
 const titlebarTrayOpen = ref(false);
 const titlebarTrayRef = ref<HTMLElement | null>(null);
@@ -164,6 +166,12 @@ function onDocumentPointerDown(event: PointerEvent) {
 
 function onDocumentKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") titlebarTrayOpen.value = false;
+  if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+    event.preventDefault();
+    if (messenger.state.spotlightSearchEnabled) {
+      spotlightOpen.value = !spotlightOpen.value;
+    }
+  }
 }
 
 function toggleStreamerMode() {
@@ -526,7 +534,7 @@ async function lockClientNow() {
       </div>
     </header>
 
-    <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" />
+    <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" @open-spotlight="spotlightOpen = messenger.state.spotlightSearchEnabled" />
 
     <Teleport to="body">
       <Transition name="toast">
@@ -541,6 +549,8 @@ async function lockClientNow() {
     </Teleport>
 
     <DialogModal />
+
+    <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" />
 
     <main v-if="hasActive" class="thread" :class="{ 'thread--members-open': showMobileMembers }"
       @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd">

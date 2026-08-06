@@ -729,6 +729,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     themeMode: "system",
     appAccent: "blue",
     messageStyle: "bubble",
+    spotlightSearchEnabled: true,
     androidNotificationsEnabled: true,
     serverClearsLocalMessages: false,
     autoReconnectEnabled: RECONNECT_DEFAULTS.enabled,
@@ -1025,6 +1026,7 @@ function loadPersisted() {
       )
         ? String(raw.messageStyle).toLowerCase()
         : "bubble",
+      spotlightSearchEnabled: raw.spotlightSearchEnabled !== false,
       androidNotificationsEnabled: raw.androidNotificationsEnabled !== false,
       serverClearsLocalMessages:
         typeof raw.serverClearsLocalMessages === "boolean"
@@ -1292,6 +1294,7 @@ function buildPersistedPayload(state) {
     themeMode: state.themeMode,
     appAccent: state.appAccent,
     messageStyle: state.messageStyle,
+    spotlightSearchEnabled: state.spotlightSearchEnabled,
     androidNotificationsEnabled: state.androidNotificationsEnabled,
     serverClearsLocalMessages: state.serverClearsLocalMessages,
     autoReconnectEnabled: state.autoReconnectEnabled,
@@ -1827,6 +1830,7 @@ export function useMessenger() {
     themeMode: persisted.themeMode,
     appAccent: persisted.appAccent,
     messageStyle: persisted.messageStyle,
+    spotlightSearchEnabled: persisted.spotlightSearchEnabled,
     androidNotificationsEnabled: persisted.androidNotificationsEnabled,
     serverClearsLocalMessages: persisted.serverClearsLocalMessages,
     autoReconnectEnabled: persisted.autoReconnectEnabled,
@@ -3364,6 +3368,11 @@ export function useMessenger() {
       ? String(value).toLowerCase()
       : "bubble";
     state.messageStyle = next;
+    persist();
+  }
+
+  function setSpotlightSearchEnabled(value) {
+    state.spotlightSearchEnabled = Boolean(value);
     persist();
   }
 
@@ -6615,6 +6624,7 @@ export function useMessenger() {
     setThemeMode,
     setAppAccent,
     setMessageStyle,
+    setSpotlightSearchEnabled,
     setAutoReconnectEnabled,
     setServerClearsLocalMessages,
     setAutoArchiveUploads,

@@ -250,7 +250,10 @@
             "messages": "Messages",
             "messageShape": "Message shape",
             "bubbles": "Bubbles",
-            "discord": "Discord-style (left line)"
+            "discord": "Discord-style (left line)",
+            "search": "Search",
+            "spotlightSearch": "Spotlight search (desktop)",
+            "spotlightSearchNote": "Press Ctrl+K to search rooms, messages and people from anywhere."
         },
         "language": {
             "title": "Language",

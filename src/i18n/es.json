@@ -247,7 +247,10 @@
             "messages": "Mensajes",
             "messageShape": "Estilo de mensajes",
             "bubbles": "Burbujas",
-            "discord": "Estilo Discord (línea izquierda)"
+            "discord": "Estilo Discord (línea izquierda)",
+            "search": "Búsqueda",
+            "spotlightSearch": "Búsqueda Spotlight (escritorio)",
+            "spotlightSearchNote": "Ctrl+K para buscar salas, mensajes y personas."
         },
         "language": {
             "title": "Idioma",
