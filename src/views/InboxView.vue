@@ -168,7 +168,7 @@ function onDocumentKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") titlebarTrayOpen.value = false;
   if ((event.ctrlKey || event.metaKey) && event.key === "k") {
     event.preventDefault();
-    if (messenger.state.spotlightSearchEnabled) {
+    if (messenger.state.spotlightSearchEnabled && !isMobile.value) {
       spotlightOpen.value = !spotlightOpen.value;
     }
   }
@@ -534,7 +534,7 @@ async function lockClientNow() {
       </div>
     </header>
 
-    <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" @open-spotlight="spotlightOpen = messenger.state.spotlightSearchEnabled" />
+    <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" @open-spotlight="spotlightOpen = !isMobile && messenger.state.spotlightSearchEnabled" />
 
     <Teleport to="body">
       <Transition name="toast">
