@@ -1321,15 +1321,15 @@ onBeforeUnmount(() => {
               @change="messenger.setStreamerMode(targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
+          <p class="settings-note">
+            {{ t('settings.privacy.streamerNote') }}
+          </p>
           <label class="settings-check">
             <span>{{ t('settings.advanced.disableTypingSend') }}</span>
             <input type="checkbox" :checked="!messenger.state.typingIndicatorsEnabled"
               @change="messenger.setTypingIndicatorsEnabled(!targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
-          <p class="settings-note">
-            {{ t('settings.privacy.streamerNote') }}
-          </p>
         </div>
       </section>
 

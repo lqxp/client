@@ -4466,6 +4466,10 @@ textarea {
   line-height: 1.55;
 }
 
+.settings-check + .settings-note {
+  margin-top: 4px;
+}
+
 .settings-profile + .settings-note {
   margin: 14px 0 32px;
   text-align: center;
