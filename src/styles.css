@@ -4402,7 +4402,7 @@ textarea {
   display: grid;
   justify-items: center;
   gap: 16px;
-  margin: 18px 0 46px;
+  margin: 18px 0 20px;
 }
 
 .settings-profile__banner {
@@ -4464,6 +4464,11 @@ textarea {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.55;
+}
+
+.settings-profile + .settings-note {
+  margin: 14px 0 32px;
+  text-align: center;
 }
 
 .settings-field,

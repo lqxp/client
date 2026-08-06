@@ -251,7 +251,7 @@
             "clearImage": "Удалить фото",
             "clearBanner": "Удалить баннер",
             "save": "Сохранить",
-            "noteImages": "Фото профиля макс. 2 МБ. Баннер макс. 5 МБ, PNG/APNG/GIF/JPEG/WEBP.",
+            "noteImages": "Фото профиля макс. 10 МБ. Баннер макс. 15 МБ, PNG/APNG/GIF/JPEG/WEBP."
             "dangerZone": "Опасная зона",
             "deleteAccount": "Удалить аккаунт",
             "deleteAccountNote": "Это действие необратимо. Все ваши данные будут удалены навсегда.",
