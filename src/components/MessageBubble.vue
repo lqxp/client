@@ -1984,4 +1984,13 @@ onBeforeUnmount(() => {
   width: 1.05em;
   height: 1.05em;
 }
+
+.msg.is-jump-highlight {
+  animation: msg-jump-highlight 2s ease-out;
+}
+
+@keyframes msg-jump-highlight {
+  0% { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  100% { background: transparent; }
+}
 </style>

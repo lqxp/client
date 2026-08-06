@@ -17,6 +17,7 @@ import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
+import ProfileCard from "@/components/ProfileCard.vue";
 
 const messenger = useMessenger();
 const dialog = useDialog();
@@ -37,6 +38,7 @@ type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 const mobileThreadOpen = ref(false);
 const showMobileMembers = ref(false);
 const spotlightOpen = ref(false);
+const spotlightProfile = ref("");
 const settingsInitialSection = ref("profile");
 const titlebarTrayOpen = ref(false);
 const titlebarTrayRef = ref<HTMLElement | null>(null);
@@ -550,7 +552,12 @@ async function lockClientNow() {
 
     <DialogModal />
 
-    <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" />
+    <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" @open-profile="(username) => { spotlightProfile = username }" />
+
+    <!-- Profile card from spotlight -->
+    <Teleport to="body">
+      <ProfileCard v-if="spotlightProfile" :messenger="messenger" :username="spotlightProfile" @close="spotlightProfile = ''" />
+    </Teleport>
 
     <main v-if="hasActive" class="thread" :class="{ 'thread--members-open': showMobileMembers }"
       @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd">

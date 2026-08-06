@@ -9,7 +9,7 @@ const props = defineProps({
   open: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "open-profile"]);
 
 const query = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -106,19 +106,26 @@ watch(query, () => {
 function select(item: SearchResult) {
   if (item.kind === "room" && item.roomId) {
     props.messenger.selectConversation(item.roomId);
+    close();
   } else if (item.kind === "message" && item.roomId && item.messageId) {
     props.messenger.selectConversation(item.roomId);
+    close();
     setTimeout(() => {
-      props.messenger.scrollToMessage?.(item.roomId, item.messageId);
-    }, 300);
+      jumpToMessage(item.roomId!, item.messageId!);
+    }, 350);
   } else if (item.kind === "user" && item.username) {
-    // Open DM or profile
-    const roomId = props.messenger.findDMByUsername?.(item.username);
-    if (roomId) {
-      props.messenger.selectConversation(roomId);
-    }
+    emit("open-profile", item.username);
+    close();
   }
-  close();
+}
+
+function jumpToMessage(roomId: string, messageId: string) {
+  const element = document.getElementById(`msg-${messageId}`);
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.classList.add("is-jump-highlight");
+    setTimeout(() => element.classList.remove("is-jump-highlight"), 2000);
+  }
 }
 
 function close() {
@@ -141,14 +148,6 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-function kindIcon(kind: string) {
-  switch (kind) {
-    case "room": return "#";
-    case "message": return "💬";
-    case "user": return "@";
-    default: return "";
-  }
-}
 </script>
 
 <template>
@@ -185,7 +184,11 @@ function kindIcon(kind: string) {
               @click="select(item)"
               @mouseenter="selectedIndex = index"
             >
-              <span class="spotlight-item-icon">{{ kindIcon(item.kind) }}</span>
+              <span class="spotlight-item-icon">
+                <svg v-if="item.kind === 'room'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg v-else-if="item.kind === 'message'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <svg v-else-if="item.kind === 'user'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
               <div class="spotlight-item-text">
                 <span class="spotlight-item-label">{{ item.label }}</span>
                 <span class="spotlight-item-sub">{{ item.sub }}</span>
@@ -299,8 +302,6 @@ function kindIcon(kind: string) {
   border-radius: 8px;
   display: grid;
   place-items: center;
-  font-size: 16px;
-  font-weight: 700;
   background: var(--surface-2);
   color: var(--muted);
   flex: none;
