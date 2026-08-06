@@ -194,7 +194,7 @@ function kindIcon(kind: string) {
           </div>
 
           <div v-else-if="query.length >= 2" class="spotlight-empty">
-            {{ t('sidebar.noResults') || 'No results' }}
+            {{ t('sidebar.noResults') }}
           </div>
         </div>
       </div>
@@ -216,7 +216,6 @@ function kindIcon(kind: string) {
 
 .spotlight-panel {
   width: min(600px, calc(100vw - 40px));
-  max-height: min(480px, 60vh);
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -224,6 +223,13 @@ function kindIcon(kind: string) {
   border: 1px solid var(--line-strong);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  align-self: start;
+}
+
+.spotlight-results {
+  overflow-y: auto;
+  padding: 6px;
+  max-height: min(360px, 45vh);
 }
 
 .spotlight-search {

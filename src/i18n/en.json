@@ -55,6 +55,7 @@
     },
     "sidebar": {
         "searchPlaceholder": "Search",
+        "noResults": "No results",
         "newConversation": "New conversation",
         "generateToken": "Generate room token",
         "pasteRoomToken": "Paste room token",

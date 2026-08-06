@@ -55,6 +55,7 @@
     },
     "sidebar": {
         "searchPlaceholder": "Rechercher",
+        "noResults": "Aucun résultat",
         "newConversation": "Nouvelle conversation",
         "generateToken": "Générer un token de salon",
         "pasteRoomToken": "Coller le token du salon",

@@ -55,6 +55,7 @@
     },
     "sidebar": {
         "searchPlaceholder": "Buscar",
+        "noResults": "Sin resultados",
         "newConversation": "Nueva conversación",
         "generateToken": "Generar token de sala",
         "pasteRoomToken": "Pegar token de sala",
