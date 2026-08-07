@@ -1,6 +1,6 @@
 /**
- * callSounds — sons UI pour les actions d'appel, générés via Web Audio API.
- * Aucun fichier audio externe requis.
+ * callSounds.ts for Sonic Branding for QxChat
+ * Generated via Web Audio API. No external files required.
  */
 
 let ctx: AudioContext | null = null;
@@ -42,102 +42,114 @@ function resume(ac: AudioContext): Promise<void> {
   return ac.state === "suspended" ? ac.resume() : Promise.resolve();
 }
 
-/** Joue une séquence de bips définie par des notes { freq, duration, gap } */
-function playTones(notes: { freq: number; dur: number; gap?: number }[], volume = 0.18, flag?: string): void {
+interface SynthNote {
+  f: number;             // Frequency Hz
+  fEnd?: number;         // End frequency Hz for pitch bends
+  d: number;             // Total note duration
+  t: number;             // Delay before playing the note
+  type?: OscillatorType; // Waveform: 'sine', 'triangle', 'square', 'sawtooth'
+  v?: number;            // Volume multiplier (0 to 1)
+}
+
+function playSynth(notes: SynthNote[], globalVolume = 0.15, flag?: string): void {
   if (flag && !_flags[flag]) return;
   try {
     const ac = getCtx();
     resume(ac).then(() => {
-      let t = ac.currentTime + 0.01;
-      for (const note of notes) {
+      const now = ac.currentTime;
+
+      notes.forEach(note => {
+        const t = now + note.t;
         const osc = ac.createOscillator();
         const gain = ac.createGain();
+
         osc.connect(gain);
         gain.connect(ac.destination);
 
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(note.freq, t);
+        osc.type = note.type || "sine";
 
+        osc.frequency.setValueAtTime(note.f, t);
+        if (note.fEnd) {
+          osc.frequency.exponentialRampToValueAtTime(note.fEnd, t + note.d);
+        }
+
+        const noteVol = (note.v || 1) * globalVolume;
+
+        const attack = 0.015;
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(volume, t + 0.01);
-        gain.gain.setValueAtTime(volume, t + note.dur - 0.02);
-        gain.gain.linearRampToValueAtTime(0, t + note.dur);
+        gain.gain.linearRampToValueAtTime(noteVol, t + attack);
+        gain.gain.exponentialRampToValueAtTime(0.00001, t + note.d);
 
         osc.start(t);
-        osc.stop(t + note.dur);
-
-        t += note.dur + (note.gap ?? 0.04);
-      }
+        osc.stop(t + note.d);
+      });
     }).catch(() => {});
-  } catch {
-    // AudioContext non disponible (SSR, test, etc.)
-  }
+  } catch { }
 }
 
-/** Mute — bip sourd court */
 export function playMuteSound(preview = false): void {
-  playTones([{ freq: 300, dur: 0.1 }], 0.12, preview ? undefined : "mute");
+  playSynth([
+    { f: 440.00, d: 0.15, t: 0.00, type: "sine", v: 0.4 }, // A4
+    { f: 329.63, d: 0.20, t: 0.03, type: "sine", v: 0.5 }  // E4
+  ], 0.14, preview ? undefined : "mute");
 }
 
-/** Unmute — bip clair court */
 export function playUnmuteSound(preview = false): void {
-  playTones([{ freq: 600, dur: 0.1 }], 0.12, preview ? undefined : "unmute");
+  playSynth([
+    { f: 329.63, d: 0.15, t: 0.00, type: "sine", v: 0.4 }, // E4
+    { f: 440.00, d: 0.25, t: 0.04, type: "sine", v: 0.5 }  // A4
+  ], 0.14, preview ? undefined : "unmute");
 }
 
-/** Join vocal — deux bips montants doux */
 export function playJoinSound(preview = false): void {
-  playTones([
-    { freq: 440, dur: 0.08, gap: 0.03 },
-    { freq: 660, dur: 0.12 }
-  ], 0.16, preview ? undefined : "join");
+  playSynth([
+    { f: 523.25,  d: 0.60, t: 0.00, type: "sine", v: 0.4 }, // C5
+    { f: 783.99,  d: 0.65, t: 0.03, type: "sine", v: 0.5 }, // G5
+    { f: 1174.66, d: 0.70, t: 0.06, type: "sine", v: 0.6 }  // D6
+  ], 0.15, preview ? undefined : "join");
 }
 
-/** Leave vocal — deux bips descendants */
 export function playLeaveSound(preview = false): void {
-  playTones([
-    { freq: 520, dur: 0.08, gap: 0.03 },
-    { freq: 340, dur: 0.14 }
-  ], 0.16, preview ? undefined : "leave");
+  playSynth([
+    { f: 1174.66, d: 0.30, t: 0.00, type: "sine", v: 0.4 }, // D6
+    { f: 783.99,  d: 0.40, t: 0.03, type: "sine", v: 0.4 }, // G5
+    { f: 523.25,  d: 0.50, t: 0.06, type: "sine", v: 0.5 }  // C5
+  ], 0.15, preview ? undefined : "leave");
 }
 
-/** Camera enabled — short rising beep */
-export function playCameraOnSound(preview = false): void {
-  playTones([
-    { freq: 880, dur: 0.06, gap: 0.02 },
-    { freq: 1100, dur: 0.08 }
-  ], 0.13, preview ? undefined : "cameraOn");
-}
-
-/** Camera disabled — short falling beep */
-export function playCameraOffSound(preview = false): void {
-  playTones([
-    { freq: 660, dur: 0.08, gap: 0.02 },
-    { freq: 440, dur: 0.1 }
-  ], 0.13, preview ? undefined : "cameraOff");
-}
-
-/** Screen share enabled — triple rising beep */
-export function playScreenOnSound(preview = false): void {
-  playTones([
-    { freq: 520, dur: 0.06, gap: 0.02 },
-    { freq: 660, dur: 0.06, gap: 0.02 },
-    { freq: 880, dur: 0.1 }
-  ], 0.13, preview ? undefined : "screenOn");
-}
-
-/** Screen share disabled — triple falling beep */
-export function playScreenOffSound(preview = false): void {
-  playTones([
-    { freq: 880, dur: 0.06, gap: 0.02 },
-    { freq: 660, dur: 0.06, gap: 0.02 },
-    { freq: 440, dur: 0.1 }
-  ], 0.13, preview ? undefined : "screenOff");
-}
-
-/** Message — bip notification */
 export function playMessageSound(preview = false): void {
-  playTones([
-    { freq: 880, dur: 0.06, gap: 0.02 },
-    { freq: 1100, dur: 0.1 }
-  ], 0.14, preview ? undefined : "message");
+  playSynth([
+    { f: 1046.50, d: 0.45, t: 0.00, type: "sine", v: 0.8 }, // C6
+    { f: 1567.98, d: 0.50, t: 0.02, type: "sine", v: 0.3 }  // G6
+  ], 0.15, preview ? undefined : "message");
+}
+
+export function playCameraOnSound(preview = false): void {
+  playSynth([
+    { f: 523.25,  d: 0.10, t: 0.00, type: "sine", v: 0.6 },
+    { f: 1046.50, d: 0.20, t: 0.07, type: "sine", v: 0.9 }
+  ], 0.12, preview ? undefined : "cameraOn");
+}
+
+export function playCameraOffSound(preview = false): void {
+  playSynth([
+    { f: 783.99, d: 0.10, t: 0.00, type: "sine", v: 0.7 },
+    { f: 392.00, d: 0.15, t: 0.07, type: "sine", v: 0.5 }
+  ], 0.12, preview ? undefined : "cameraOff");
+}
+
+export function playScreenOnSound(preview = false): void {
+  playSynth([
+    { f: 261.63, d: 0.8, t: 0.00, type: "sine", v: 0.6 },
+    { f: 329.63, d: 0.8, t: 0.03, type: "sine", v: 0.5 },
+    { f: 392.00, d: 0.8, t: 0.06, type: "sine", v: 0.4 }
+  ], 0.16, preview ? undefined : "screenOn");
+}
+
+export function playScreenOffSound(preview = false): void {
+  playSynth([
+    { f: 392.00, d: 0.4, t: 0.00, type: "sine", v: 0.4 },
+    { f: 329.63, d: 0.4, t: 0.02, type: "sine", v: 0.5 },
+    { f: 261.63, d: 0.4, t: 0.04, type: "sine", v: 0.6 }
+  ], 0.16, preview ? undefined : "screenOff");
 }
