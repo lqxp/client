@@ -676,6 +676,10 @@ onBeforeUnmount(() => {
             @change="onBannerPicked" />
         </div>
 
+        <p class="settings-note">
+          {{ t('settings.profile.noteImages') }}
+        </p>
+
         <div class="settings-group">
           <label class="settings-field">
             <span class="settings-field__icon">
@@ -771,10 +775,6 @@ onBeforeUnmount(() => {
               @click="saveProfileText">{{ t('settings.profile.save') }}</button>
           </div>
         </div>
-
-        <p class="settings-note">
-          {{ t('settings.profile.noteImages') }}
-        </p>
 
         <div class="settings-group settings-group--danger">
           <h4>{{ t('settings.profile.dangerZone') }}</h4>
@@ -1321,15 +1321,15 @@ onBeforeUnmount(() => {
               @change="messenger.setStreamerMode(targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
+          <p class="settings-note">
+            {{ t('settings.privacy.streamerNote') }}
+          </p>
           <label class="settings-check">
             <span>{{ t('settings.advanced.disableTypingSend') }}</span>
             <input type="checkbox" :checked="!messenger.state.typingIndicatorsEnabled"
               @change="messenger.setTypingIndicatorsEnabled(!targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
-          <p class="settings-note">
-            {{ t('settings.privacy.streamerNote') }}
-          </p>
         </div>
       </section>
 

@@ -228,7 +228,7 @@
             "clearImage": "Clear image",
             "clearBanner": "Clear banner",
             "save": "Save",
-            "noteImages": "Profile image max 2 MB. Banner max 5 MB, PNG/APNG/GIF/JPEG/WEBP.",
+            "noteImages": "Profile image max 10 MB. Banner max 15 MB, PNG/APNG/GIF/JPEG/WEBP.",
             "dangerZone": "Danger zone",
             "deleteAccount": "Delete account",
             "deleteAccountNote": "This action is irreversible. All your data will be permanently deleted.",
