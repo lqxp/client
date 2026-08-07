@@ -26,7 +26,6 @@ export function getSoundFlag(key: string): boolean {
   return _flags[key] ?? true;
 }
 
-/** @deprecated use setSoundFlag per-sound */
 export function setCallSoundsActive(value: boolean): void {
   for (const key of Object.keys(_flags)) _flags[key] = value;
 }
@@ -89,8 +88,8 @@ function playSynth(notes: SynthNote[], globalVolume = 0.15, flag?: string): void
 
 export function playMuteSound(preview = false): void {
   playSynth([
-    { f: 440.00, d: 0.15, t: 0.00, type: "sine", v: 0.4 }, // A4
-    { f: 329.63, d: 0.20, t: 0.03, type: "sine", v: 0.5 }  // E4
+    { f: 440.00, d: 0.15, t: 0.00, type: "sine", v: 0.6 }, // A4
+    { f: 329.63, d: 0.20, t: 0.03, type: "sine", v: 0.7 }  // E4
   ], 0.14, preview ? undefined : "mute");
 }
 
