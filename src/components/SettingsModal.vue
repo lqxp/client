@@ -3,7 +3,7 @@ import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } fr
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
-import { appRuntimeConfig, rtcRuntimeConfig } from "@/config/runtime";
+import { appRuntimeConfig, rtcRuntimeConfig, turnServerList } from "@/config/runtime";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -80,6 +80,40 @@ const nameValid = computed(() => !props.messenger.validateUsername(draftName.val
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const profile = computed(() => props.messenger.myProfile.value);
+const turnServers = computed(() => turnServerList());
+const selectedTurnInfo = computed(() => {
+  const id = props.messenger.state.selectedTurnServerId;
+  if (!id) return null;
+  const srv = turnServers.value.find((s: any) => s.id === id);
+  if (!srv) return null;
+  // Try i18n key first, fall back to server config hint
+  const hintKey = `settings.calls.turnHints.${id}`;
+  const i18nHint = t(hintKey);
+  const hint = i18nHint !== hintKey ? i18nHint : (srv.hint || "");
+  return {
+    urls: formatServerUrls(srv),
+    hint
+  };
+});
+
+function formatTurnUrl(url: string) {
+  try {
+    // turn:host:port?transport=udp  /  turns:host:port?transport=tcp  /  stun:host:port
+    const m = url.match(/^(turn|turns|stun):([^:?]+)(?::(\d+))?(?:\?transport=(\w+))?$/);
+    if (!m) return url;
+    const [, proto, host, port, transport] = m;
+    const protoLabel = proto === "turns" ? "TLS" : proto.toUpperCase();
+    const addr = port ? `${host}:${port}` : host;
+    const transportLabel = transport ? ` (${transport})` : "";
+    return `${protoLabel} ${addr}${transportLabel}`;
+  } catch {
+    return url;
+  }
+}
+
+function formatServerUrls(server: any) {
+  return (server.urls || []).map((u: string) => formatTurnUrl(u)).join(" · ");
+}
 const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar, "avatar"));
 const bannerSrc = computed(() => props.messenger.profileImageSrc(profile.value.banner, "banner"));
 const profileTextChanged = computed(() =>
@@ -1179,6 +1213,25 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
+        <div v-if="turnServers.length >= 1" class="settings-group">
+          <h4>{{ t('settings.calls.turnServer') }}</h4>
+          <label class="settings-select">
+            <span>{{ t('settings.calls.relayServer') }}</span>
+            <select
+              :value="messenger.state.selectedTurnServerId"
+              @change="messenger.setSelectedTurnServer(targetValue($event))"
+            >
+              <option v-for="srv in turnServers" :key="srv.id" :value="srv.id">
+                {{ srv.label }}
+              </option>
+            </select>
+          </label>
+          <div v-if="selectedTurnInfo" class="turn-server-detail">
+            <span class="turn-server-detail__urls">{{ selectedTurnInfo.urls }}</span>
+            <small v-if="selectedTurnInfo.hint" class="turn-server-detail__hint">{{ selectedTurnInfo.hint }}</small>
+          </div>
+        </div>
+
         <div class="settings-group">
           <h4>{{ t('settings.calls.devices') }}</h4>
           <label class="settings-select">
@@ -1675,3 +1728,28 @@ onBeforeUnmount(() => {
     </main>
   </div>
 </template>
+
+<style scoped>
+.turn-server-detail {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-input, rgba(255,255,255,0.04));
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.turn-server-detail__urls {
+  font-size: 12px;
+  color: var(--color-text-dim, #888);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.turn-server-detail__hint {
+  font-size: 11px;
+  color: var(--color-text-dim, #999);
+  line-height: 1.4;
+}
+</style>

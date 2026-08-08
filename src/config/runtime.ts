@@ -4,11 +4,22 @@ function normalizedStringArray(value: unknown) {
     : [];
 }
 
+interface TurnServerConfig {
+  id: string;
+  label: string;
+  hint?: string;
+  urls: string[];
+  username: string;
+  credential: string;
+}
+
 interface RuntimeRtcConfig {
   relayOnly?: boolean;
   turnUrls?: string[];
   turnUsername?: string;
   turnCredential?: string;
+  turnServers?: TurnServerConfig[];
+  defaultTurnServer?: string;
   callsEnabled?: boolean;
   callsUnavailableReason?: string;
 }
@@ -121,6 +132,21 @@ function runtimeServerOrigin(runtime: RuntimeConfigPayload) {
     : runtimeOrigin || envServerOrigin || normalizeHttpUrl(window.location.origin);
 }
 
+function normalizeTurnServers(raw: unknown): TurnServerConfig[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+    .map((s) => ({
+      id: String(s.id || "").trim(),
+      label: String(s.label || s.id || "").trim(),
+      hint: String(s.hint || "").trim(),
+      urls: normalizedStringArray(s.urls || s.turnUrls),
+      username: String(s.username || s.turnUsername || "").trim(),
+      credential: String(s.credential || s.turnCredential || "").trim()
+    }))
+    .filter((s) => s.urls.length > 0);
+}
+
 function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
   const rawRtc = runtime.rtc || {};
   const serverOrigin = runtimeServerOrigin(runtime);
@@ -133,6 +159,8 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
     || normalizeWebSocketUrl(runtime.api?.wsUrl)
     || webSocketUrlFromHttpBase(apiBaseUrl);
 
+  const servers = normalizeTurnServers((rawRtc as any).servers);
+
   return {
     app: {
       serverOrigin,
@@ -144,6 +172,8 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
       turnUrls: envTurnUrls.length ? envTurnUrls : normalizedStringArray(rawRtc.turnUrls),
       turnUsername: envTurnUsername || String(rawRtc.turnUsername || "").trim(),
       turnCredential: envTurnCredential || String(rawRtc.turnCredential || "").trim(),
+      turnServers: servers.length ? servers : undefined,
+      defaultTurnServer: String((rawRtc as any).defaultTurnServer || "").trim() || (servers[0]?.id || ""),
       callsEnabled: envCallsEnabled ?? Boolean(rawRtc.callsEnabled),
       callsUnavailableReason: envCallsUnavailableReason || String(rawRtc.callsUnavailableReason || "").trim()
     }
@@ -221,4 +251,37 @@ export async function initializeRuntimeConfig() {
 
 export function apiUrl(path: string) {
   return joinBasePath(appRuntimeConfig.apiBaseUrl, path);
+}
+
+export function turnServerList(): TurnServerConfig[] {
+  const explicit = rtcRuntimeConfig.turnServers;
+  if (explicit && explicit.length) return explicit;
+
+  // Legacy flat config — promote into a single-entry list so the UI
+  // selector still appears even with the old config format.
+  if (
+    Array.isArray(rtcRuntimeConfig.turnUrls)
+    && rtcRuntimeConfig.turnUrls.length > 0
+    && rtcRuntimeConfig.turnUsername
+  ) {
+    return [{
+      id: "legacy",
+      label: "Serveur TURN",
+      hint: "",
+      urls: rtcRuntimeConfig.turnUrls,
+      username: rtcRuntimeConfig.turnUsername,
+      credential: rtcRuntimeConfig.turnCredential || ""
+    }];
+  }
+
+  return [];
+}
+
+export function turnServerById(id: string): TurnServerConfig | undefined {
+  if (!id) return undefined;
+  return turnServerList().find((s) => s.id === id);
+}
+
+export function selectedTurnServerId(): string {
+  return rtcRuntimeConfig.defaultTurnServer || turnServerList()[0]?.id || "";
 }

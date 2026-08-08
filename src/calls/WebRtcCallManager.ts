@@ -1,6 +1,6 @@
 import { callPeerClientId, callPeerId, callPeerUsername } from "./callTypes";
 import type { CallMediaState, CallSignalPayload, RemoteCallMedia } from "./callTypes";
-import { rtcRuntimeConfig } from "@/config/runtime";
+import { rtcRuntimeConfig, turnServerById, turnServerList } from "@/config/runtime";
 
 interface PeerState {
   pc: RTCPeerConnection;
@@ -26,6 +26,7 @@ interface WebRtcCallManagerOptions {
   clientId?: string;
   platform?: string;
   localStream: MediaStream;
+  turnServerId?: string;
   sendSignal: (payload: CallSignalPayload) => void;
   onRemoteMedia: (username: string, media: RemoteCallMedia) => void;
   onRemoteLeft: (username: string) => void;
@@ -41,13 +42,40 @@ export function webRtcSupported() {
   return typeof rtcPeerConnectionConstructor() !== "undefined";
 }
 
-export function relayCallsConfigured() {
+function resolveTurnServer(turnServerId?: string) {
+  const id = turnServerId?.trim();
+  if (id) {
+    const found = turnServerById(id);
+    if (found) return found;
+  }
+  // Fall back to the legacy flat config so existing deployments keep working.
+  if (
+    Array.isArray(rtcRuntimeConfig.turnUrls)
+    && rtcRuntimeConfig.turnUrls.length > 0
+    && rtcRuntimeConfig.turnUsername
+  ) {
+    return {
+      id: "legacy",
+      label: "Serveur TURN",
+      hint: "",
+      urls: rtcRuntimeConfig.turnUrls,
+      username: rtcRuntimeConfig.turnUsername,
+      credential: rtcRuntimeConfig.turnCredential || ""
+    };
+  }
+  // Last resort: first server in the list.
+  return turnServerList()[0];
+}
+
+export function relayCallsConfigured(turnServerId?: string) {
+  const server = resolveTurnServer(turnServerId);
   return webRtcSupported()
     && rtcRuntimeConfig.callsEnabled !== false
-    && Array.isArray(rtcRuntimeConfig.turnUrls)
-    && rtcRuntimeConfig.turnUrls.length > 0
-    && !!rtcRuntimeConfig.turnUsername
-    && !!rtcRuntimeConfig.turnCredential;
+    && !!server
+    && Array.isArray(server.urls)
+    && server.urls.length > 0
+    && !!server.username
+    && !!server.credential;
 }
 
 export function relayCallsRequirementMessage() {
@@ -59,31 +87,40 @@ export function relayCallsRequirementMessage() {
     return rtcRuntimeConfig.callsUnavailableReason || "Calls are disabled by runtime configuration.";
   }
 
-  if (!Array.isArray(rtcRuntimeConfig.turnUrls) || rtcRuntimeConfig.turnUrls.length === 0) {
+  if (turnServerList().length === 0 && (!Array.isArray(rtcRuntimeConfig.turnUrls) || rtcRuntimeConfig.turnUrls.length === 0)) {
     return "Calls are disabled until TURN URLs are configured.";
   }
 
-  if (!rtcRuntimeConfig.turnUsername || !rtcRuntimeConfig.turnCredential) {
+  if (!rtcRuntimeConfig.turnUsername && turnServerList().every(s => !s.username)) {
     return "Calls are disabled until TURN credentials are configured.";
   }
 
   return "Calls are available.";
 }
 
-function rtcConfig(): RTCConfiguration {
-  return relayCallsConfigured()
-    ? {
-        iceTransportPolicy: "relay",
-        iceServers: [{
-          urls: rtcRuntimeConfig.turnUrls,
-          username: rtcRuntimeConfig.turnUsername,
-          credential: rtcRuntimeConfig.turnCredential
-        }]
-      }
-    : {
-        iceTransportPolicy: "relay",
-        iceServers: []
-      };
+function rtcConfig(turnServerId?: string): RTCConfiguration {
+  const server = resolveTurnServer(turnServerId);
+  if (server && server.urls.length > 0) {
+    const iceServers: RTCIceServer[] = [{
+      urls: server.urls,
+      username: server.username || undefined,
+      credential: server.credential || undefined
+    }];
+
+    // Check if there are actual TURN URLs (not just STUN).
+    const hasTurn = server.urls.some(u => u.startsWith("turn:") || u.startsWith("turns:"));
+
+    return {
+      iceTransportPolicy: hasTurn ? "relay" : "all",
+      iceCandidatePoolSize: 1,
+      iceServers
+    };
+  }
+  // No server configured — fall back to host / srflx candidates.
+  return {
+    iceTransportPolicy: "all",
+    iceServers: []
+  };
 }
 
 export class WebRtcCallManager {
@@ -92,6 +129,7 @@ export class WebRtcCallManager {
   private readonly username: string;
   private readonly clientId: string;
   private readonly platform: string;
+  private readonly turnServerId: string;
   private readonly selfPeerId: string;
   private readonly sendSignal: WebRtcCallManagerOptions["sendSignal"];
   private readonly onRemoteMedia: WebRtcCallManagerOptions["onRemoteMedia"];
@@ -105,6 +143,7 @@ export class WebRtcCallManager {
     this.username = options.username;
     this.clientId = String(options.clientId || "");
     this.platform = String(options.platform || "");
+    this.turnServerId = String(options.turnServerId || "");
     this.selfPeerId = callPeerId(this.username, this.clientId);
     this.localStream = options.localStream;
     this.sendSignal = options.sendSignal;
@@ -258,7 +297,7 @@ export class WebRtcCallManager {
       throw new Error(relayCallsRequirementMessage());
     }
 
-    const pc = new RtcPeerConnection(rtcConfig());
+    const pc = new RtcPeerConnection(rtcConfig(this.turnServerId));
     const stream = new MediaStream();
     const peer: PeerState = {
       pc,
@@ -273,7 +312,11 @@ export class WebRtcCallManager {
     this.peers.set(peerName, peer);
 
     pc.onicecandidate = ({ candidate }) => {
-      if (!candidate) return;
+      if (!candidate) {
+        console.debug(`[WebRTC] ICE gathering complete for ${callPeerUsername(peerName)}`);
+        return;
+      }
+      console.debug(`[WebRTC] ICE candidate for ${callPeerUsername(peerName)}: type=${candidate.type} address=${candidate.address}:${candidate.port} proto=${candidate.protocol}`);
       this.sendSignal({
         gameId: this.roomId,
         to: callPeerUsername(peerName),
@@ -308,9 +351,18 @@ export class WebRtcCallManager {
     };
 
     pc.onconnectionstatechange = () => {
+      console.debug(`[WebRTC] connection state for ${callPeerUsername(peerName)}: ${pc.connectionState}`);
       if (["closed", "failed"].includes(pc.connectionState)) {
         this.removePeer(peerName);
       }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.debug(`[WebRTC] ICE connection state for ${callPeerUsername(peerName)}: ${pc.iceConnectionState}`);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.debug(`[WebRTC] ICE gathering state for ${callPeerUsername(peerName)}: ${pc.iceGatheringState}`);
     };
 
     pc.onnegotiationneeded = async () => {

@@ -17,7 +17,7 @@ import {
   relayCallsRequirementMessage,
   webRtcSupported,
 } from "@/calls/WebRtcCallManager";
-import { apiUrl, appRuntimeConfig } from "@/config/runtime";
+import { apiUrl, appRuntimeConfig, turnServerList, selectedTurnServerId as runtimeDefaultTurnServerId } from "@/config/runtime";
 import {
   canonicalDeviceSigningKey,
   cryptoAvailable,
@@ -1865,6 +1865,7 @@ export function useMessenger() {
     localCallMedia: { ...EMPTY_CALL_MEDIA },
     remoteCallMediaByUser: {},
     remoteCallStreamsByUser: {},
+    selectedTurnServerId: runtimeDefaultTurnServerId(),
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
     speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
@@ -4118,6 +4119,34 @@ export function useMessenger() {
 
   function teardownConnection(message) {
     clearHeartbeat();
+    // WebSocket dropped — clean up any live call state so we can
+    // rebuild peer connections from scratch on reconnect.
+    if (state.inCall) {
+      callManager?.close();
+      callManager = null;
+      state.remoteCallStreamsByUser = {};
+      state.remoteCallMediaByUser = {};
+      state.inCall = false;
+      state.voiceEnabled = false;
+      state.callRoom = "";
+      state.callElapsed = 0;
+      state.localCallMedia = { audio: false, camera: false, screen: false };
+      if (state.cameraStream) {
+        for (const t of state.cameraStream.getTracks()) t.stop();
+        state.cameraStream = null;
+      }
+      if (state.screenStream) {
+        for (const t of state.screenStream.getTracks()) t.stop();
+        state.screenStream = null;
+      }
+      const rawCallStream = state.callStream;
+      const outboundStream = callOutboundStream;
+      if (outboundStream && outboundStream !== rawCallStream) stopStreamTracks(outboundStream);
+      callOutboundStream = null;
+      if (rawCallStream) stopStreamTracks(rawCallStream);
+      state.callStream = null;
+      closeCallAnalyser();
+    }
     state.connected = false;
     state.identified = false;
     state.uuid = null;
@@ -4875,17 +4904,18 @@ export function useMessenger() {
       state.callScreenEnabled = false;
       state.localCallMedia = currentCallMedia();
       const platform = currentLocalPlatform();
-      callManager = new WebRtcCallManager({
-        roomId,
-        username: sanitizeUsername(state.username),
-        clientId: localClientId,
-        platform,
-        localStream: outboundStream,
-        sendSignal: (payload: CallSignalPayload) =>
-          send({ op: 111, d: payload }),
-        onRemoteMedia: storeRemoteCallMedia,
-        onRemoteLeft: removeRemoteCallMedia,
-      });
+	      callManager = new WebRtcCallManager({
+	        roomId,
+	        username: sanitizeUsername(state.username),
+	        clientId: localClientId,
+	        platform,
+	        localStream: outboundStream,
+	        turnServerId: state.selectedTurnServerId,
+	        sendSignal: (payload: CallSignalPayload) =>
+	          send({ op: 111, d: payload }),
+	        onRemoteMedia: storeRemoteCallMedia,
+	        onRemoteLeft: removeRemoteCallMedia,
+	      });
       // Register self as voice member locally so our tile shows up immediately.
       const me = sanitizeUsername(state.username);
       if (me) {
@@ -4916,6 +4946,11 @@ export function useMessenger() {
     publishCallState(true);
     if (state.callMuted) playMuteSound();
     else playUnmuteSound();
+  }
+
+  function setSelectedTurnServer(serverId: string) {
+    state.selectedTurnServerId = String(serverId || "").trim();
+    persist();
   }
 
   async function toggleCamera() {
@@ -5177,8 +5212,17 @@ export function useMessenger() {
       return;
     }
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
-    if (d.isVoiceChat === true) members.add(user);
-    else members.delete(user);
+    if (d.isVoiceChat === true) {
+      members.add(user);
+    } else {
+      members.delete(user);
+      // Clean up WebRTC peer on disconnect (server broadcasts op 98 w/o media on leave).
+      if (state.inCall && state.callRoom === roomId) {
+        callManager?.removePeer(user, sanitizeClientId(d?.clientId));
+        removeRemoteCallMedia(user);
+        delete state.callClientsByRoom[roomId]?.[user];
+      }
+    }
     state.voiceMembersByRoom[roomId] = [...members];
   }
 
@@ -6174,6 +6218,10 @@ export function useMessenger() {
     }
     if (removeCalls) {
       delete state.callClientsByRoom[id]?.[user];
+      if (state.inCall && state.callRoom === id) {
+        callManager?.removePeer(user, "");
+        removeRemoteCallMedia(user);
+      }
     }
     if (removeMedia) {
       removeRemoteCallMedia(user);
@@ -6575,6 +6623,7 @@ export function useMessenger() {
     connectionLabel,
     callsAvailable,
     callsUnavailableReason,
+    turnServers: computed(() => turnServerList()),
     screenShareAvailable,
     screenShareUnavailableReason,
     onlineCount,
@@ -6688,6 +6737,7 @@ export function useMessenger() {
     startCall,
     endCall,
     toggleMute,
+    setSelectedTurnServer,
     toggleCamera,
     toggleScreenShare,
     toggleVoice,

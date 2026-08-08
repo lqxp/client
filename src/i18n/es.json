@@ -383,7 +383,13 @@
             "startingMic": "Iniciando...",
             "screenShare": "Compartir pantalla",
             "shareScreenAudio": "Compartir el audio del sistema con la pantalla/ventana",
-            "shareScreenAudioNote": "Cuando está activado, al compartir pantalla también se solicita el audio del sistema/de la ventana si el navegador y el sistema operativo lo permiten."
+            "shareScreenAudioNote": "Cuando está activado, al compartir pantalla también se solicita el audio del sistema/de la ventana si el navegador y el sistema operativo lo permiten.",
+            "turnServer": "Servidor TURN / relay",
+            "relayServer": "Servidor relay",
+            "turnHints": {
+                "qxp-turn": "Relay propio en nuestra infraestructura — puede ser inestable según la carga. Sin IP expuesta, todo pasa por nuestro relay.",
+                "google-stun": "STUN público de Google — muy estable y rápido, pero ⚠️ tus IPs quedan expuestas (sin relay anónimo). Solo útil en red local o para pruebas."
+            }
         },
         "advanced": {
             "connection": "Conexión",
