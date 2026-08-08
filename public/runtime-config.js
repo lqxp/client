@@ -12,7 +12,7 @@ window.__QXP_RUNTIME__ = {
       "turns:relay-01.qxch.at:5349?transport=tcp"
     ],
     turnUsername: window.__QXP_RUNTIME__?.rtc?.turnUsername || "qxp-turn",
-    turnCredential: window.__QXP_RUNTIME__?.rtc?.turnCredential || "df64240e730e15fdfb75d6cff95367b95ed341bd98517544",
+    turnCredential: window.__QXP_RUNTIME__?.rtc?.turnCredential || "ee74bf0f9bf21e74d98f2d85176c9b5cb85ffde977ec80e8",
     callsEnabled: window.__QXP_RUNTIME__?.rtc?.callsEnabled ?? true,
     callsUnavailableReason: window.__QXP_RUNTIME__?.rtc?.callsUnavailableReason || ""
   }
