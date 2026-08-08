@@ -283,5 +283,5 @@ export function turnServerById(id: string): TurnServerConfig | undefined {
 }
 
 export function selectedTurnServerId(): string {
-  return rtcRuntimeConfig.defaultTurnServer || turnServerList()[0]?.id || "";
+  return rtcRuntimeConfig.defaultTurnServer || turnServerList()[0]?.id || "google-stun";
 }
