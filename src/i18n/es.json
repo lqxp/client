@@ -38,6 +38,14 @@
         "passwordPlaceholder": "Contraseña",
         "recoveryPlaceholder": "Palabras de recuperación"
     },
+    "sessionExpired": {
+        "title": "Sesión expirada",
+        "subtitle": "Tu sesión ha expirado. Introduce tu contraseña para renovarla.",
+        "password": "Contraseña",
+        "renew": "Renovar sesión",
+        "renewing": "Renovando...",
+        "logoutInstead": "Cerrar sesión"
+    },
     "lock": {
         "title": "QxChat está bloqueado",
         "subtitle": "Introduce tu PIN para descifrar los datos locales y reanudar la sesión.",

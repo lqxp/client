@@ -684,6 +684,7 @@ function clearInviteLinkFromUrl() {
 function defaultPersisted(overrides: Record<string, unknown> = {}) {
   return {
     authToken: "",
+    sessionExpired: false,
     userId: "",
     admin: false,
     recoveryWords: [],
@@ -1234,6 +1235,7 @@ function buildPersistedPayload(state) {
   const payload = {
     version: 4,
     authToken: String(state.authToken || ""),
+    sessionExpired: Boolean(state.sessionExpired),
     userId: String(state.userId || ""),
     admin: Boolean(state.admin),
     recoveryWords: Array.isArray(state.recoveryWords)
@@ -1742,6 +1744,7 @@ export function useMessenger() {
     authToken: persisted.authToken,
     userId: persisted.userId,
     admin: persisted.admin,
+    sessionExpired: Boolean((persisted as any).sessionExpired),
     authLoading: false,
     authMode: "login",
     recoveryWords: persisted.recoveryWords,
@@ -5423,6 +5426,7 @@ export function useMessenger() {
     state.uuid = null;
     state.recoveryWords = [];
     state.profile = normalizeProfile(null);
+    state.sessionExpired = false;
     state.status = "online";
     persist();
   }
@@ -5445,6 +5449,35 @@ export function useMessenger() {
       body: JSON.stringify({ password }),
     });
     logoutLocal();
+  }
+
+  async function renewSession(password: string) {
+    const username = sanitizeUsername(state.username);
+    if (!username) {
+      state.lastError = "Missing username.";
+      return false;
+    }
+    state.authLoading = true;
+    try {
+      const data = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      applyAuthenticatedPayload(data);
+      state.sessionExpired = false;
+      connect();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Session renewal failed.";
+      return false;
+    } finally {
+      state.authLoading = false;
+    }
+  }
+
+  function dismissSessionExpired() {
+    logoutLocal();
+    state.sessionExpired = false;
   }
 
   function findMessageById(roomId, messageId) {
@@ -5673,7 +5706,10 @@ export function useMessenger() {
       case 2:
         if (d?.error) {
           state.lastError = d.error;
-          if (String(d.error) === "Invalid account session") disconnect();
+          if (String(d.error) === "Invalid account session") {
+            state.sessionExpired = true;
+            disconnect();
+          }
           break;
         }
         state.uuid = d.uuid || null;
@@ -6581,6 +6617,8 @@ export function useMessenger() {
     loginAccount,
     recoverAccount,
     refreshSession,
+    renewSession,
+    dismissSessionExpired,
     logoutAccount,
     deleteAccount,
     downloadRecoveryWords,

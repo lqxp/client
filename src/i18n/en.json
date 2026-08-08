@@ -38,6 +38,14 @@
         "passwordPlaceholder": "Password",
         "recoveryPlaceholder": "Recovery words"
     },
+    "sessionExpired": {
+        "title": "Session expired",
+        "subtitle": "Your login session has expired. Enter your password to renew it.",
+        "password": "Password",
+        "renew": "Renew session",
+        "renewing": "Renewing...",
+        "logoutInstead": "Logout instead"
+    },
     "lock": {
         "title": "QxChat is locked",
         "subtitle": "Enter your PIN to decrypt local data and resume your session.",
