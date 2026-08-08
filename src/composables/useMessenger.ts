@@ -738,6 +738,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
     callUserVolumes: {},
     roomNotes: {},
+    selectedTurnServerId: runtimeDefaultTurnServerId(),
     profile: loadPersistedProfile(),
     clientLockEnabled: false,
     clientLockSalt: "",
@@ -1050,6 +1051,7 @@ function loadPersisted() {
       ),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
+      selectedTurnServerId: String(raw.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
       profile,
       clientLockEnabled: false,
       clientLockSalt: "",
@@ -1304,6 +1306,7 @@ function buildPersistedPayload(state) {
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
+    selectedTurnServerId: state.selectedTurnServerId,
     profile: normalizeProfile(state.profile),
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(state.clientLockPinLength)) ? Number(state.clientLockPinLength) : 6,
     clientLockAutolockEnabled: state.clientLockAutolockEnabled === true,
@@ -1865,7 +1868,7 @@ export function useMessenger() {
     localCallMedia: { ...EMPTY_CALL_MEDIA },
     remoteCallMediaByUser: {},
     remoteCallStreamsByUser: {},
-    selectedTurnServerId: runtimeDefaultTurnServerId(),
+    selectedTurnServerId: persisted.selectedTurnServerId,
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
     speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
@@ -2066,6 +2069,7 @@ export function useMessenger() {
       profile: normalizeProfile(payload?.profile),
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
+      selectedTurnServerId: String(payload?.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(payload?.clientLockPinLength)) ? Number(payload.clientLockPinLength) : 6,
       clientLockAutolockEnabled: payload?.clientLockAutolockEnabled === true,
       clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
@@ -2113,6 +2117,7 @@ export function useMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
+    state.selectedTurnServerId = normalized.selectedTurnServerId;
     state.clientLockPinLength = normalized.clientLockPinLength;
     state.clientLockAutolockEnabled = normalized.clientLockAutolockEnabled;
     state.clientLockAutolockTimeoutMs = normalized.clientLockAutolockTimeoutMs;
@@ -4873,7 +4878,7 @@ export function useMessenger() {
       showToast(state.lastError);
       return;
     }
-    if (!relayCallsConfigured()) {
+    if (!relayCallsConfigured(state.selectedTurnServerId)) {
       const message = relayCallsRequirementMessage();
       state.lastError = message;
       showToast(message);

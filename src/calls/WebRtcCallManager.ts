@@ -69,13 +69,12 @@ function resolveTurnServer(turnServerId?: string) {
 
 export function relayCallsConfigured(turnServerId?: string) {
   const server = resolveTurnServer(turnServerId);
+  if (!server || !Array.isArray(server.urls) || server.urls.length === 0) return false;
+  // STUN-only servers don't need credentials.
+  const isStunOnly = server.urls.every(u => u.startsWith("stun:"));
   return webRtcSupported()
     && rtcRuntimeConfig.callsEnabled !== false
-    && !!server
-    && Array.isArray(server.urls)
-    && server.urls.length > 0
-    && !!server.username
-    && !!server.credential;
+    && (isStunOnly || (!!server.username && !!server.credential));
 }
 
 export function relayCallsRequirementMessage() {
@@ -91,7 +90,7 @@ export function relayCallsRequirementMessage() {
     return "Calls are disabled until TURN URLs are configured.";
   }
 
-  if (!rtcRuntimeConfig.turnUsername && turnServerList().every(s => !s.username)) {
+  if (!rtcRuntimeConfig.turnUsername && turnServerList().every(s => !s.username) && turnServerList().every(s => s.urls.some(u => !u.startsWith("stun:")))) {
     return "Calls are disabled until TURN credentials are configured.";
   }
 
