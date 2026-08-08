@@ -100,26 +100,18 @@ export function relayCallsRequirementMessage() {
 function rtcConfig(turnServerId?: string): RTCConfiguration {
   const server = resolveTurnServer(turnServerId);
   if (server && server.urls.length > 0) {
-    const iceServers: RTCIceServer[] = [{
-      urls: server.urls,
-      username: server.username || undefined,
-      credential: server.credential || undefined
-    }];
-
-    // Check if there are actual TURN URLs (not just STUN).
     const hasTurn = server.urls.some(u => u.startsWith("turn:") || u.startsWith("turns:"));
-
     return {
       iceTransportPolicy: hasTurn ? "relay" : "all",
       iceCandidatePoolSize: 1,
-      iceServers
+      iceServers: [{
+        urls: server.urls,
+        username: server.username || undefined,
+        credential: server.credential || undefined
+      }]
     };
   }
-  // No server configured — fall back to host / srflx candidates.
-  return {
-    iceTransportPolicy: "all",
-    iceServers: []
-  };
+  return { iceTransportPolicy: "all", iceServers: [] };
 }
 
 export class WebRtcCallManager {
