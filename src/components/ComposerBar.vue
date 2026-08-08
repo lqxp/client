@@ -374,9 +374,6 @@ function onDocPointerDown(event: PointerEvent) {
     mentionIndex.value = 0;
     mentionSuppressedStart.value = mentionSearch.value?.start ?? -1;
   }
-  if (mobileActionsOpen.value && composerRef.value && !composerRef.value.contains(event.target)) {
-    mobileActionsOpen.value = false;
-  }
 }
 
 function onDocKey(event: KeyboardEvent) {
@@ -453,7 +450,6 @@ watch(() => props.messenger.state.activeRoom, () => {
   mentionSuppressedStart.value = -1;
   nextTick(() => {
     syncComposerHeight();
-    focusInput();
   });
 });
 
@@ -489,7 +485,6 @@ onMounted(() => {
   document.addEventListener("paste", onPaste);
   nextTick(() => {
     syncComposerHeight();
-    focusInput();
   });
 });
 
@@ -554,7 +549,7 @@ onBeforeUnmount(() => {
         </button>
 
         <Teleport to="body">
-          <div v-if="mobileActionsOpen" class="composer__actions-backdrop" @click="mobileActionsOpen = false">
+          <div v-if="mobileActionsOpen" class="composer__actions-backdrop" @click.self="mobileActionsOpen = false">
             <div class="composer__actions-pop" role="menu" @click.stop>
               <div class="composer__actions-header">
                 <strong>{{ t('composer.attachFile') }}</strong>
