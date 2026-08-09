@@ -5489,9 +5489,9 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: calc(70px + env(safe-area-inset-top));
+    min-height: 58px;
     margin: 0 -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 8px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -5546,7 +5546,8 @@ textarea {
 }
 :root.is-android-runtime .settings__main-head {
   padding-top: 16px;
-  min-height: 70px;
+  padding-bottom: 0;
+  min-height: 58px;
 }
 
 @media (max-width: 640px) {
