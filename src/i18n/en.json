@@ -469,7 +469,8 @@
     "camera": {
         "title": "Take photo",
         "capture": "Capture",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "switch": "Switch camera"
     },
     "ban": {
         "title": "Account Banned",

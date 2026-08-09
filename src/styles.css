@@ -3224,18 +3224,29 @@ textarea {
   font-weight: 600;
 }
 
+.camera-modal__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .camera-modal__preview {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 4 / 3;
+  max-height: 70vh;
+  max-height: 70dvh;
   background: #050506;
+  overflow: hidden;
 }
 
 .camera-modal__preview video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  max-height: 70dvh;
+  object-fit: contain;
+  display: block;
 }
 
 .camera-modal__error {
@@ -4395,6 +4406,7 @@ textarea {
 :root.is-android-runtime .settings__main-head {
   top: 0;
   padding-top: 8px;
+  min-height: 56px;
 }
 
 .settings__main-head h3 {

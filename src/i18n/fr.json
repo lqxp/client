@@ -469,7 +469,8 @@
     "camera": {
         "title": "Prendre une photo",
         "capture": "Capturer",
-        "cancel": "Annuler"
+        "cancel": "Annuler",
+        "switch": "Changer de caméra"
     },
     "ban": {
         "title": "Compte banni",

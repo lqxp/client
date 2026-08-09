@@ -22,6 +22,9 @@ const mobileActionsOpen = ref(false);
 const cursorPosition = ref(0);
 const mentionIndex = ref(0);
 const mentionSuppressedStart = ref(-1);
+const cameraFacing = ref<"user" | "environment">(
+  (typeof localStorage !== "undefined" && (localStorage.getItem("lqxp_camera_facing") as "user" | "environment" | null)) || "environment"
+);
 let cameraStream: MediaStream | null = null;
 
 const canSend = computed(() => props.messenger.state.messageInput.trim().length > 0 && !!props.messenger.state.activeRoom);
@@ -283,18 +286,23 @@ async function pickCamera() {
   cameraBusy.value = false;
   cameraOpen.value = true;
   await nextTick();
+  await startCameraStream();
+}
 
+async function startCameraStream() {
   if (!navigator.mediaDevices?.getUserMedia) {
     cameraError.value = "Camera is not available in this browser.";
     return;
   }
+
+  stopCameraStream();
 
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        facingMode: "environment"
+        facingMode: cameraFacing.value
       },
       audio: false
     });
@@ -306,6 +314,12 @@ async function pickCamera() {
     cameraError.value = error instanceof Error ? error.message : "Could not open camera.";
     stopCameraStream();
   }
+}
+
+function switchCamera() {
+  cameraFacing.value = cameraFacing.value === "environment" ? "user" : "environment";
+  try { localStorage.setItem("lqxp_camera_facing", cameraFacing.value); } catch { }
+  startCameraStream();
 }
 
 function startHold() {
@@ -658,11 +672,21 @@ onBeforeUnmount(() => {
       <div class="camera-modal__panel">
         <header class="camera-modal__head">
           <span>{{ t('camera.title') }}</span>
-          <button type="button" class="icon-btn" :aria-label="t('camera.close')" @click="closeCamera">
-            <svg viewBox="0 0 24 24">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+          <div class="camera-modal__head-actions">
+            <button type="button" class="icon-btn" :aria-label="t('camera.switch')" @click="switchCamera">
+              <svg viewBox="0 0 24 24">
+                <path d="M20 7h-5l-1.5-2h-3L9 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+                <path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                <path d="m7 3 2 2" />
+                <path d="m17 3-2 2" />
+              </svg>
+            </button>
+            <button type="button" class="icon-btn" :aria-label="t('camera.close')" @click="closeCamera">
+              <svg viewBox="0 0 24 24">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <div class="camera-modal__preview">
