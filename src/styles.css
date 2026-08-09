@@ -4218,10 +4218,7 @@ textarea {
   inset-block-start: 30px;
 }
 
-:root.is-android-runtime .settings {
-  inset-block-start: var(--mobile-status-offset);
-  height: calc(var(--app-viewport-height) - var(--mobile-status-offset));
-}
+
 
 @keyframes modal-fade {
   from {
@@ -6548,14 +6545,12 @@ textarea {
 
   .app {
     width: 100%;
-    height: calc(var(--app-viewport-height) - var(--mobile-status-offset));
+    height: var(--app-viewport-height);
     grid-template-columns: minmax(0, 1fr);
-    margin-top: var(--mobile-status-offset);
   }
 
   .app.app--auth {
     height: var(--app-viewport-height);
-    margin-top: 0;
   }
 
   .side,
