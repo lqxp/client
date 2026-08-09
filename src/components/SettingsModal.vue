@@ -91,7 +91,7 @@ const selectedTurnInfo = computed(() => {
   const i18nHint = t(hintKey);
   const hint = i18nHint !== hintKey ? i18nHint : (srv.hint || "");
   return {
-    urls: formatServerUrls(srv),
+    urls: (srv.urls || []).map((u: string) => formatTurnUrl(u)).join(" · "),
     hint
   };
 });

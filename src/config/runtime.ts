@@ -159,7 +159,12 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
     || normalizeWebSocketUrl(runtime.api?.wsUrl)
     || webSocketUrlFromHttpBase(apiBaseUrl);
 
-  const servers = normalizeTurnServers((rawRtc as any).servers);
+  // Accept both TOML-style `servers` and camelCase `turnServers` from the server.
+  const rawServers = (rawRtc as any).servers || (rawRtc as any).turnServers;
+  const servers = normalizeTurnServers(rawServers);
+
+  const defaultTurnServerId = String((rawRtc as any).defaultTurnServer || (rawRtc as any).defaultTurnServerId || "").trim()
+    || (servers[0]?.id || "");
 
   return {
     app: {
@@ -173,7 +178,7 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
       turnUsername: envTurnUsername || String(rawRtc.turnUsername || "").trim(),
       turnCredential: envTurnCredential || String(rawRtc.turnCredential || "").trim(),
       turnServers: servers.length ? servers : undefined,
-      defaultTurnServer: String((rawRtc as any).defaultTurnServer || "").trim() || (servers[0]?.id || ""),
+      defaultTurnServer: defaultTurnServerId,
       callsEnabled: envCallsEnabled ?? Boolean(rawRtc.callsEnabled),
       callsUnavailableReason: envCallsUnavailableReason || String(rawRtc.callsUnavailableReason || "").trim()
     }
