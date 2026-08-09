@@ -13,6 +13,23 @@ const props = defineProps({
 
 const emit = defineEmits(["close-mobile"]);
 
+let sidebarTouchStartX = 0;
+let sidebarTouchStartY = 0;
+
+function onSidebarTouchStart(event: TouchEvent) {
+  if (!props.showMobile) return;
+  sidebarTouchStartX = event.touches[0].clientX;
+  sidebarTouchStartY = event.touches[0].clientY;
+}
+
+function onSidebarTouchEnd(event: TouchEvent) {
+  if (!props.showMobile) return;
+  const dx = (event.changedTouches[0]?.clientX || 0) - sidebarTouchStartX;
+  const dy = (event.changedTouches[0]?.clientY || 0) - sidebarTouchStartY;
+  if (Math.abs(dx) <= Math.abs(dy) * 1.5) return;
+  if (dx > 60) emit("close-mobile");
+}
+
 function initialsFor(name: string) {
   const clean = String(name || "?").trim();
   const parts = clean.split(/[\s\-_]+/).filter(Boolean).slice(0, 2);
@@ -185,7 +202,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="members" :aria-label="t('thread.members')">
+  <aside class="members" :aria-label="t('thread.members')" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
     <div class="members__head">
       <div>
         <div class="members__eyebrow">{{ t('members.presence') }}</div>

@@ -131,7 +131,7 @@ function initialsFor(name: string) {
         </button>
         <div class="profile-card__identity">
           <div class="profile-card__name-row">
-            <strong>{{ displayName }}</strong>
+            <strong :title="`@${username}`">{{ displayName }}</strong>
             <div v-if="badges.length" class="profile-card__badges">
               <span v-for="badge in badges" :key="badge" class="profile-card__badge"
                 :class="`profile-card__badge--${badge}`" :data-title="isMobileProfile ? '' : badgeLabel(badge)"

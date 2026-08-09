@@ -146,12 +146,23 @@ function parseRuntimeToml(raw) {
     arrayValues = [];
   }
 
+  // Returns the array-of-tables entry we're currently populating, if any.
+  function activeArrayEntry() {
+    if (!section || !section.includes(".")) return null;
+    const parentSection = section.replace(/\.[^.]+$/, "");
+    const arrayName = section.split(".").pop();
+    const list = config[parentSection]?.[arrayName];
+    if (!Array.isArray(list) || list.length === 0) return null;
+    return list[list.length - 1];
+  }
+
   for (const line of String(raw || "").split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
 
+    // Handle array value lines (when we're inside a [ ... ] block)
     if (arrayKey) {
-      if (trimmed.startsWith("]")) {
+      if (trimmed === "]" || trimmed.startsWith("]")) {
         commitArray();
         continue;
       }
@@ -159,6 +170,33 @@ function parseRuntimeToml(raw) {
       continue;
     }
 
+    // Also handle values for an array-of-tables entry's nested array
+    const entry = activeArrayEntry();
+    if (entry?.__arrayKey) {
+      if (trimmed === "]" || trimmed.startsWith("]")) {
+        entry[entry.__arrayKey] = entry.__arrayValues;
+        delete entry.__arrayKey;
+        delete entry.__arrayValues;
+        continue;
+      }
+      entry.__arrayValues.push(parseTomlScalar(trimmed));
+      continue;
+    }
+
+    // Array of tables: [[section]] or [[section.sub]]
+    const arrayTableMatch = trimmed.match(/^\[\[([^\]]+)\]\]$/);
+    if (arrayTableMatch) {
+      commitArray();
+      section = arrayTableMatch[1].trim();
+      const parentSection = section.replace(/\.[^.]+$/, "");
+      const arrayName = section.split(".").pop();
+      config[parentSection] ||= {};
+      config[parentSection][arrayName] ||= [];
+      config[parentSection][arrayName].push({});
+      continue;
+    }
+
+    // Regular [section]
     const sectionMatch = trimmed.match(/^\[([^\]]+)\]$/);
     if (sectionMatch) {
       commitArray();
@@ -166,9 +204,23 @@ function parseRuntimeToml(raw) {
       continue;
     }
 
-    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (!match || !section) continue;
-    const [, key, rawValue] = match;
+    // Key = value
+    const entryMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!entryMatch || !section) continue;
+    const [, key, rawValue] = entryMatch;
+
+    // Populating an array-of-tables entry
+    if (entry) {
+      if (rawValue.trim() === "[") {
+        entry.__arrayKey = key;
+        entry.__arrayValues = [];
+      } else {
+        entry[key] = parseTomlScalar(rawValue);
+      }
+      continue;
+    }
+
+    // Regular key in a [section]
     config[section] ||= {};
     if (rawValue.trim() === "[") {
       arrayKey = key;
@@ -179,6 +231,23 @@ function parseRuntimeToml(raw) {
   }
 
   commitArray();
+
+  // Finalize any remaining __arrayKey in array-of-tables entries
+  for (const [, sectionValue] of Object.entries(config)) {
+    if (!sectionValue || typeof sectionValue !== "object") continue;
+    for (const [, value] of Object.entries(sectionValue)) {
+      if (!Array.isArray(value)) continue;
+      for (const e of value) {
+        if (!e || typeof e !== "object") continue;
+        if (e.__arrayKey && e.__arrayValues) {
+          e[e.__arrayKey] = e.__arrayValues;
+          delete e.__arrayKey;
+          delete e.__arrayValues;
+        }
+      }
+    }
+  }
+
   return config;
 }
 
@@ -192,11 +261,28 @@ async function buildConfigRuntimePayload() {
     const serverOrigin = publicDomain ? httpOrigin(publicDomain) : "";
     const apiBaseUrl = serverOrigin;
     const wsUrl = apiBaseUrl ? webSocketUrlFromOrigin(apiBaseUrl) : "";
+
+    // Legacy flat fields
     const turnUrls = Array.isArray(rtc.turnUrls) ? rtc.turnUrls.map(String).filter(Boolean) : [];
     const turnUsername = String(rtc.turnUsername || "").trim();
     const turnCredential = String(rtc.turnCredential || "").trim();
     const relayOnly = typeof rtc.relayOnly === "boolean" ? rtc.relayOnly : undefined;
-    const hasRtc = turnUrls.length || turnUsername || turnCredential || relayOnly !== undefined;
+    const defaultTurnServer = String(rtc.defaultTurnServer || "").trim();
+
+    // New [[rtc.servers]] array-of-tables
+    const rawServers = Array.isArray(rtc.servers) ? rtc.servers : [];
+    const servers = rawServers
+      .filter((s) => s && Array.isArray(s.turnUrls) && s.turnUrls.length > 0)
+      .map((s) => ({
+        id: String(s.id || "").trim(),
+        label: String(s.label || s.id || "").trim(),
+        hint: String(s.hint || "").trim(),
+        urls: s.turnUrls.map(String).filter(Boolean),
+        username: String(s.turnUsername || "").trim(),
+        credential: String(s.turnCredential || "").trim()
+      }));
+
+    const hasRtc = turnUrls.length || turnUsername || turnCredential || relayOnly !== undefined || servers.length > 0;
     const hasApp = serverOrigin || apiBaseUrl || wsUrl;
     if (!hasApp && !hasRtc) return null;
 
@@ -211,6 +297,8 @@ async function buildConfigRuntimePayload() {
               ...(turnUrls.length ? { turnUrls } : {}),
               ...(turnUsername ? { turnUsername } : {}),
               ...(turnCredential ? { turnCredential } : {}),
+              ...(servers.length ? { servers } : {}),
+              ...(defaultTurnServer ? { defaultTurnServer } : {}),
               callsEnabled: true,
               callsUnavailableReason: ""
             }
@@ -318,6 +406,23 @@ async function buildOutputScript() {
 
   const configUrl = argValue("--url") || firstEnv("QXP_RUNTIME_CONFIG_URL");
   const envPayload = buildEnvRuntimePayload();
+  const configPayload = await buildConfigRuntimePayload();
+
+  // Merge: env vars override TOML on a per-field basis.
+  // RTC fields from env take priority; TOML fills in the rest.
+  function mergePayloads(base, override) {
+    if (!base && !override) return null;
+    if (!base) return override;
+    if (!override) return base;
+    return {
+      ...base,
+      ...override,
+      rtc: {
+        ...(base.rtc || {}),
+        ...(override.rtc || {})
+      }
+    };
+  }
 
   if (configUrl) {
     const response = await fetch(configUrl);
@@ -327,39 +432,25 @@ async function buildOutputScript() {
 
     const htmlPayload = extractRuntimeConfigFromHtml(await response.text());
     const runtimeConfig = await fetchRuntimeConfigScript(configUrl, htmlPayload);
-    const payload = {
-      ...runtimeConfig,
-      ...(envPayload || {}),
-      rtc: {
-        ...(runtimeConfig.rtc || {}),
-        ...(envPayload?.rtc || {})
-      }
-    };
+    const merged = mergePayloads(mergePayloads(runtimeConfig, configPayload), envPayload);
 
     return {
-      outputScript: runtimeScript(payload),
-      summaryPayload: payload,
+      outputScript: runtimeScript(merged),
+      summaryPayload: merged,
       configSource: configUrl,
-      rtcStatus: payload.rtc?.callsEnabled ? "enabled" : "disabled"
+      rtcStatus: merged.rtc?.callsEnabled ? "enabled" : "disabled"
     };
   }
 
-  if (envPayload) {
+  const merged = mergePayloads(configPayload, envPayload);
+  if (merged) {
+    const hasApp = merged.serverOrigin || merged.apiBaseUrl || merged.wsUrl;
+    const hasRtc = merged.rtc && (merged.rtc.turnUrls?.length || merged.rtc.servers?.length || merged.rtc.turnUsername);
     return {
-      outputScript: runtimeScript(envPayload),
-      summaryPayload: envPayload,
-      configSource: "environment",
-      rtcStatus: envPayload.rtc?.callsEnabled ? "enabled" : envPayload.rtc ? "disabled" : "unknown"
-    };
-  }
-
-  const configPayload = await buildConfigRuntimePayload();
-  if (configPayload) {
-    return {
-      outputScript: runtimeScript(configPayload),
-      summaryPayload: configPayload,
-      configSource: "files/config.custom.toml",
-      rtcStatus: configPayload.rtc?.callsEnabled ? "enabled" : configPayload.rtc ? "disabled" : "unknown"
+      outputScript: runtimeScript(merged),
+      summaryPayload: merged,
+      configSource: hasRtc && configPayload?.rtc?.servers?.length ? "files/config.custom.toml" : "environment",
+      rtcStatus: merged.rtc?.callsEnabled ? "enabled" : merged.rtc ? "disabled" : "unknown"
     };
   }
 
@@ -395,6 +486,7 @@ async function syncRuntimeConfig() {
       rtc: {
         relayOnly: summaryPayload.rtc?.relayOnly,
         turnUrlsCount: Array.isArray(summaryPayload.rtc?.turnUrls) ? summaryPayload.rtc.turnUrls.length : 0,
+        turnServersCount: Array.isArray(summaryPayload.rtc?.servers) ? summaryPayload.rtc.servers.length : 0,
         turnUsername: summaryPayload.rtc?.turnUsername ? "***set***" : "",
         turnCredential: summaryPayload.rtc?.turnCredential ? "***set***" : "",
         callsEnabled: summaryPayload.rtc?.callsEnabled,

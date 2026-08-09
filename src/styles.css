@@ -40,8 +40,8 @@
   --row-h: 72px;
   --header-h: 64px;
   --app-viewport-height: 100dvh;
-  --mobile-status-offset: 0px;
-  --app-safe-top: 0px;
+  --mobile-status-offset: env(safe-area-inset-top, 0px);
+  --app-safe-top: env(safe-area-inset-top, 0px);
 
   --discord-text: #dcddde;
   --discord-text-strong: #ffffff;
@@ -162,9 +162,7 @@
   color: var(--red) !important;
 }
 
-:root.is-android-runtime {
-  --mobile-status-offset: 24px;
-}
+
 
 :root[data-theme="light"] {
   --bg: #f3f5f8;
@@ -1590,7 +1588,8 @@ textarea {
   position: relative;
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 36px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -3223,18 +3222,29 @@ textarea {
   font-weight: 600;
 }
 
+.camera-modal__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .camera-modal__preview {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 4 / 3;
+  max-height: 70vh;
+  max-height: 70dvh;
   background: #050506;
+  overflow: hidden;
 }
 
 .camera-modal__preview video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  max-height: 70dvh;
+  object-fit: contain;
+  display: block;
 }
 
 .camera-modal__error {
@@ -4208,6 +4218,8 @@ textarea {
   inset-block-start: 30px;
 }
 
+
+
 @keyframes modal-fade {
   from {
     opacity: 0;
@@ -4384,6 +4396,12 @@ textarea {
   min-height: 48px;
   margin-bottom: 24px;
   background: linear-gradient(var(--bg) 72%, transparent);
+}
+
+:root.is-android-runtime .settings__main-head {
+  top: 0;
+  padding-top: 8px;
+  min-height: 56px;
 }
 
 .settings__main-head h3 {
@@ -6527,14 +6545,12 @@ textarea {
 
   .app {
     width: 100%;
-    height: calc(var(--app-viewport-height) - var(--mobile-status-offset));
+    height: var(--app-viewport-height);
     grid-template-columns: minmax(0, 1fr);
-    margin-top: var(--mobile-status-offset);
   }
 
   .app.app--auth {
     height: var(--app-viewport-height);
-    margin-top: 0;
   }
 
   .side,

@@ -17,7 +17,7 @@ import {
   relayCallsRequirementMessage,
   webRtcSupported,
 } from "@/calls/WebRtcCallManager";
-import { apiUrl, appRuntimeConfig } from "@/config/runtime";
+import { apiUrl, appRuntimeConfig, turnServerList, selectedTurnServerId as runtimeDefaultTurnServerId } from "@/config/runtime";
 import {
   canonicalDeviceSigningKey,
   cryptoAvailable,
@@ -684,6 +684,7 @@ function clearInviteLinkFromUrl() {
 function defaultPersisted(overrides: Record<string, unknown> = {}) {
   return {
     authToken: "",
+    sessionExpired: false,
     userId: "",
     admin: false,
     recoveryWords: [],
@@ -737,6 +738,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
     callUserVolumes: {},
     roomNotes: {},
+    selectedTurnServerId: runtimeDefaultTurnServerId(),
     profile: loadPersistedProfile(),
     clientLockEnabled: false,
     clientLockSalt: "",
@@ -1049,6 +1051,7 @@ function loadPersisted() {
       ),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
+      selectedTurnServerId: String(raw.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
       profile,
       clientLockEnabled: false,
       clientLockSalt: "",
@@ -1234,6 +1237,7 @@ function buildPersistedPayload(state) {
   const payload = {
     version: 4,
     authToken: String(state.authToken || ""),
+    sessionExpired: Boolean(state.sessionExpired),
     userId: String(state.userId || ""),
     admin: Boolean(state.admin),
     recoveryWords: Array.isArray(state.recoveryWords)
@@ -1302,6 +1306,7 @@ function buildPersistedPayload(state) {
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
+    selectedTurnServerId: state.selectedTurnServerId,
     profile: normalizeProfile(state.profile),
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(state.clientLockPinLength)) ? Number(state.clientLockPinLength) : 6,
     clientLockAutolockEnabled: state.clientLockAutolockEnabled === true,
@@ -1742,6 +1747,7 @@ export function useMessenger() {
     authToken: persisted.authToken,
     userId: persisted.userId,
     admin: persisted.admin,
+    sessionExpired: Boolean((persisted as any).sessionExpired),
     authLoading: false,
     authMode: "login",
     recoveryWords: persisted.recoveryWords,
@@ -1862,6 +1868,7 @@ export function useMessenger() {
     localCallMedia: { ...EMPTY_CALL_MEDIA },
     remoteCallMediaByUser: {},
     remoteCallStreamsByUser: {},
+    selectedTurnServerId: persisted.selectedTurnServerId,
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
     speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
@@ -2062,6 +2069,7 @@ export function useMessenger() {
       profile: normalizeProfile(payload?.profile),
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
+      selectedTurnServerId: String(payload?.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(payload?.clientLockPinLength)) ? Number(payload.clientLockPinLength) : 6,
       clientLockAutolockEnabled: payload?.clientLockAutolockEnabled === true,
       clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
@@ -2109,6 +2117,7 @@ export function useMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
+    state.selectedTurnServerId = normalized.selectedTurnServerId;
     state.clientLockPinLength = normalized.clientLockPinLength;
     state.clientLockAutolockEnabled = normalized.clientLockAutolockEnabled;
     state.clientLockAutolockTimeoutMs = normalized.clientLockAutolockTimeoutMs;
@@ -4115,6 +4124,34 @@ export function useMessenger() {
 
   function teardownConnection(message) {
     clearHeartbeat();
+    // WebSocket dropped — clean up any live call state so we can
+    // rebuild peer connections from scratch on reconnect.
+    if (state.inCall) {
+      callManager?.close();
+      callManager = null;
+      state.remoteCallStreamsByUser = {};
+      state.remoteCallMediaByUser = {};
+      state.inCall = false;
+      state.voiceEnabled = false;
+      state.callRoom = "";
+      state.callElapsed = 0;
+      state.localCallMedia = { audio: false, camera: false, screen: false };
+      if (state.cameraStream) {
+        for (const t of state.cameraStream.getTracks()) t.stop();
+        state.cameraStream = null;
+      }
+      if (state.screenStream) {
+        for (const t of state.screenStream.getTracks()) t.stop();
+        state.screenStream = null;
+      }
+      const rawCallStream = state.callStream;
+      const outboundStream = callOutboundStream;
+      if (outboundStream && outboundStream !== rawCallStream) stopStreamTracks(outboundStream);
+      callOutboundStream = null;
+      if (rawCallStream) stopStreamTracks(rawCallStream);
+      state.callStream = null;
+      closeCallAnalyser();
+    }
     state.connected = false;
     state.identified = false;
     state.uuid = null;
@@ -4841,7 +4878,7 @@ export function useMessenger() {
       showToast(state.lastError);
       return;
     }
-    if (!relayCallsConfigured()) {
+    if (!relayCallsConfigured(state.selectedTurnServerId)) {
       const message = relayCallsRequirementMessage();
       state.lastError = message;
       showToast(message);
@@ -4872,17 +4909,18 @@ export function useMessenger() {
       state.callScreenEnabled = false;
       state.localCallMedia = currentCallMedia();
       const platform = currentLocalPlatform();
-      callManager = new WebRtcCallManager({
-        roomId,
-        username: sanitizeUsername(state.username),
-        clientId: localClientId,
-        platform,
-        localStream: outboundStream,
-        sendSignal: (payload: CallSignalPayload) =>
-          send({ op: 111, d: payload }),
-        onRemoteMedia: storeRemoteCallMedia,
-        onRemoteLeft: removeRemoteCallMedia,
-      });
+	      callManager = new WebRtcCallManager({
+	        roomId,
+	        username: sanitizeUsername(state.username),
+	        clientId: localClientId,
+	        platform,
+	        localStream: outboundStream,
+	        turnServerId: state.selectedTurnServerId,
+	        sendSignal: (payload: CallSignalPayload) =>
+	          send({ op: 111, d: payload }),
+	        onRemoteMedia: storeRemoteCallMedia,
+	        onRemoteLeft: removeRemoteCallMedia,
+	      });
       // Register self as voice member locally so our tile shows up immediately.
       const me = sanitizeUsername(state.username);
       if (me) {
@@ -4913,6 +4951,11 @@ export function useMessenger() {
     publishCallState(true);
     if (state.callMuted) playMuteSound();
     else playUnmuteSound();
+  }
+
+  function setSelectedTurnServer(serverId: string) {
+    state.selectedTurnServerId = String(serverId || "").trim();
+    persist();
   }
 
   async function toggleCamera() {
@@ -5174,8 +5217,17 @@ export function useMessenger() {
       return;
     }
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
-    if (d.isVoiceChat === true) members.add(user);
-    else members.delete(user);
+    if (d.isVoiceChat === true) {
+      members.add(user);
+    } else {
+      members.delete(user);
+      // Clean up WebRTC peer on disconnect (server broadcasts op 98 w/o media on leave).
+      if (state.inCall && state.callRoom === roomId) {
+        callManager?.removePeer(user, sanitizeClientId(d?.clientId));
+        removeRemoteCallMedia(user);
+        delete state.callClientsByRoom[roomId]?.[user];
+      }
+    }
     state.voiceMembersByRoom[roomId] = [...members];
   }
 
@@ -5423,6 +5475,7 @@ export function useMessenger() {
     state.uuid = null;
     state.recoveryWords = [];
     state.profile = normalizeProfile(null);
+    state.sessionExpired = false;
     state.status = "online";
     persist();
   }
@@ -5445,6 +5498,35 @@ export function useMessenger() {
       body: JSON.stringify({ password }),
     });
     logoutLocal();
+  }
+
+  async function renewSession(password: string) {
+    const username = sanitizeUsername(state.username);
+    if (!username) {
+      state.lastError = "Missing username.";
+      return false;
+    }
+    state.authLoading = true;
+    try {
+      const data = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      applyAuthenticatedPayload(data);
+      state.sessionExpired = false;
+      connect();
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Session renewal failed.";
+      return false;
+    } finally {
+      state.authLoading = false;
+    }
+  }
+
+  function dismissSessionExpired() {
+    logoutLocal();
+    state.sessionExpired = false;
   }
 
   function findMessageById(roomId, messageId) {
@@ -5673,7 +5755,10 @@ export function useMessenger() {
       case 2:
         if (d?.error) {
           state.lastError = d.error;
-          if (String(d.error) === "Invalid account session") disconnect();
+          if (String(d.error) === "Invalid account session") {
+            state.sessionExpired = true;
+            disconnect();
+          }
           break;
         }
         state.uuid = d.uuid || null;
@@ -6138,6 +6223,10 @@ export function useMessenger() {
     }
     if (removeCalls) {
       delete state.callClientsByRoom[id]?.[user];
+      if (state.inCall && state.callRoom === id) {
+        callManager?.removePeer(user, "");
+        removeRemoteCallMedia(user);
+      }
     }
     if (removeMedia) {
       removeRemoteCallMedia(user);
@@ -6539,6 +6628,7 @@ export function useMessenger() {
     connectionLabel,
     callsAvailable,
     callsUnavailableReason,
+    turnServers: computed(() => turnServerList()),
     screenShareAvailable,
     screenShareUnavailableReason,
     onlineCount,
@@ -6581,6 +6671,8 @@ export function useMessenger() {
     loginAccount,
     recoverAccount,
     refreshSession,
+    renewSession,
+    dismissSessionExpired,
     logoutAccount,
     deleteAccount,
     downloadRecoveryWords,
@@ -6650,6 +6742,7 @@ export function useMessenger() {
     startCall,
     endCall,
     toggleMute,
+    setSelectedTurnServer,
     toggleCamera,
     toggleScreenShare,
     toggleVoice,

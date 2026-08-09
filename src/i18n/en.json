@@ -38,6 +38,14 @@
         "passwordPlaceholder": "Password",
         "recoveryPlaceholder": "Recovery words"
     },
+    "sessionExpired": {
+        "title": "Session expired",
+        "subtitle": "Your login session has expired. Enter your password to renew it.",
+        "password": "Password",
+        "renew": "Renew session",
+        "renewing": "Renewing...",
+        "logoutInstead": "Logout instead"
+    },
     "lock": {
         "title": "QxChat is locked",
         "subtitle": "Enter your PIN to decrypt local data and resume your session.",
@@ -378,7 +386,13 @@
             "startingMic": "Starting...",
             "screenShare": "Screen sharing",
             "shareScreenAudio": "Share system audio with screen/window",
-            "shareScreenAudioNote": "When enabled, screen sharing requests system/window audio too when supported by the browser and operating system."
+            "shareScreenAudioNote": "When enabled, screen sharing requests system/window audio too when supported by the browser and operating system.",
+            "turnServer": "TURN / relay server",
+            "relayServer": "Relay server",
+            "turnHints": {
+                "qxp-turn": "Self-hosted relay on our infrastructure — may be unstable under load. No IP exposed, everything goes through our relay.",
+                "google-stun": "Google public STUN — very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."
+            }
         },
         "advanced": {
             "connection": "Connection",
@@ -455,7 +469,8 @@
     "camera": {
         "title": "Take photo",
         "capture": "Capture",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "switch": "Switch camera"
     },
     "ban": {
         "title": "Account Banned",
