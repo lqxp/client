@@ -5487,9 +5487,9 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: calc(62px + env(safe-area-inset-top));
+    min-height: calc(70px + env(safe-area-inset-top));
     margin: 0 -16px 18px;
-    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 8px;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
