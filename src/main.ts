@@ -27,41 +27,10 @@ function syncViewportHeight() {
   resetRootScroll();
 }
 
-function measureSafeAreaInsetTop(): number {
-  // Probe CSS env(safe-area-inset-top) — works in WebViews with edge-to-edge + viewport-fit=cover
-  const probe = document.createElement("div");
-  probe.style.cssText =
-    "position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top);pointer-events:none;z-index:-1;";
-  document.body.appendChild(probe);
-  const inset = Number.parseFloat(getComputedStyle(probe).paddingTop) || 0;
-  probe.remove();
-  return inset;
-}
-
-function measureSafeAreaInsetBottom(): number {
-  const probe = document.createElement("div");
-  probe.style.cssText =
-    "position:fixed;bottom:0;left:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom);pointer-events:none;z-index:-1;";
-  document.body.appendChild(probe);
-  const inset = Number.parseFloat(getComputedStyle(probe).paddingBottom) || 0;
-  probe.remove();
-  return inset;
-}
-
 function syncPlatformChromeOffset() {
   const isAndroid = /Android/i.test(navigator.userAgent);
   const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
-  const root = document.documentElement;
-  root.classList.toggle("is-android-runtime", isAndroid && isTauri);
-
-  if (isAndroid && isTauri) {
-    // Try to read real insets from the WebView; fall back to a sensible default (24px ~ status bar)
-    const safeTop = measureSafeAreaInsetTop() || 24;
-    const safeBottom = measureSafeAreaInsetBottom() || 0;
-    root.style.setProperty("--mobile-status-offset", `${safeTop}px`);
-    root.style.setProperty("--app-safe-top", `${safeTop}px`);
-    root.style.setProperty("--app-safe-bottom", `${safeBottom}px`);
-  }
+  document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
 }
 
 function preventMobileZoom() {

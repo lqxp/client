@@ -40,8 +40,8 @@
   --row-h: 72px;
   --header-h: 64px;
   --app-viewport-height: 100dvh;
-  --mobile-status-offset: 0px;
-  --app-safe-top: 0px;
+  --mobile-status-offset: env(safe-area-inset-top, 0px);
+  --app-safe-top: env(safe-area-inset-top, 0px);
 
   --discord-text: #dcddde;
   --discord-text-strong: #ffffff;
@@ -162,9 +162,7 @@
   color: var(--red) !important;
 }
 
-:root.is-android-runtime {
-  --mobile-status-offset: 24px;
-}
+
 
 :root[data-theme="light"] {
   --bg: #f3f5f8;
