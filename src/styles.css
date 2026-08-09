@@ -4218,7 +4218,9 @@ textarea {
   inset-block-start: 30px;
 }
 
-
+:root.is-android-runtime .settings {
+  padding-top: env(safe-area-inset-top);
+}
 
 @keyframes modal-fade {
   from {
@@ -5530,6 +5532,21 @@ textarea {
     min-height: 0;
     font-size: 28px;
   }
+}
+
+/* Android runtime: panel handles safe-area via padding-top,
+   so children must not double-apply env(safe-area-inset-top). */
+:root.is-android-runtime .settings__side {
+  padding-top: 16px;
+}
+:root.is-android-runtime .settings__side-head {
+  top: -16px;
+  margin-top: -16px;
+  padding-top: 16px;
+}
+:root.is-android-runtime .settings__main-head {
+  padding-top: 16px;
+  min-height: 70px;
 }
 
 @media (max-width: 640px) {
