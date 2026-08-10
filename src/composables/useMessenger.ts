@@ -2780,8 +2780,7 @@ export function useMessenger() {
 
   function downloadRecoveryWords() {
     if (!state.recoveryWords?.length) {
-      state.lastError =
-        "Recovery words are only available on this browser after account creation or recovery.";
+      state.lastError = t("settings.security.recoveryNote");
       showToast(state.lastError);
       return false;
     }
