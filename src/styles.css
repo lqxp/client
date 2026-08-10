@@ -6695,11 +6695,6 @@ textarea {
     overscroll-behavior: none;
   }
 
-  #app:has(.app--auth) {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
   body {
     touch-action: manipulation;
   }
