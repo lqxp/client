@@ -210,11 +210,7 @@ onBeforeUnmount(() => {
       <button type="button" :aria-label="t('sidebar.generateToken')" @mousedown.prevent @click="createRoom">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 3h5v5" />
-          <path d="M4 20 21 3" />
-          <path d="M21 16v5h-5" />
-          <path d="M15 15 21 21" />
-          <path d="M4 4l5 5" />
+          <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
       <button type="button" :aria-label="t('composer.cancelEdit')" @mousedown.prevent @click="messenger.cancelCompose">

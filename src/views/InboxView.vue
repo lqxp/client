@@ -392,80 +392,52 @@ async function lockClientNow() {
       <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
           @click="minimizeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M2 8.5h8" />
-          </svg>
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8.5h8" /></svg>
         </button>
         <button class="desktop-titlebar__window-button" type="button"
           :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
           <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M4.5 2.5h5v5" />
-            <path d="M2.5 4.5h5v5h-5z" />
+            <path d="M4.5 2.5h5v5" /><path d="M2.5 4.5h5v5h-5z" />
           </svg>
-          <svg v-else viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3h6v6H3z" />
-          </svg>
+          <svg v-else viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3h6v6H3z" /></svg>
         </button>
         <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
           aria-label="Fermer" @click="closeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="m3 3 6 6" />
-            <path d="m9 3-6 6" />
-          </svg>
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 3 6 6" /><path d="m9 3-6 6" /></svg>
         </button>
       </div>
     </header>
-    <section class="onboarding">
-      <div class="onboarding__shell">
-        <div class="onboarding__card">
-          <div class="onboarding__brand">
-            <div class="onboarding__brand-mark" aria-hidden="true">
-              <svg viewBox="-3.68 -3.68 23.36 23.36" role="img">
-                <rect x="-3.68" y="-3.68" width="23.36" height="23.36" rx="4" fill="#e5a00d" />
-                <g transform="translate(16 0) scale(-1 1)">
-                  <g transform="translate(0 1)" fill="#ffffff">
-                    <path d="M5.939 0C2.666 0 0.009 1.987 0.009 4.438c0 2.236 2.215 4.082 5.092 4.387L3.88 11.26l4.249-2.7C10.318 7.906 12 6.309 12 4.438 12 1.988 9.213 0 5.939 0Z" />
-                    <path d="M15.947 8.89c0-1.124-1.062-2.288-2.289-2.868-.344 1.95-1.924 3.745-4.417 4.447l-1.187.642c.454.34 1.01.611 1.634.788l3.638 1.971-1.303-1.776c2.217-.225 3.924-1.571 3.924-3.204Z" />
-                  </g>
-                </g>
-              </svg>
-            </div>
-            <span>QxChat</span>
-          </div>
-
-          <div class="onboarding__card-head">
-            <div>
-              <h1>{{ t('sessionExpired.title') }}</h1>
-              <p class="onboarding__copy">{{ t('sessionExpired.subtitle') }}</p>
-            </div>
-          </div>
-
-          <form class="onboarding__form" @submit.prevent="submitSessionRenewal">
-            <label class="onboarding__field" for="session-renew-username">
-              <span>{{ t('settings.security.username') }}</span>
-              <input id="session-renew-username" type="text" :value="messenger.state.username" disabled
-                autocomplete="username" spellcheck="false" />
-            </label>
-
-            <label class="onboarding__field" for="session-renew-password">
-              <span>{{ t('sessionExpired.password') }}</span>
-              <input id="session-renew-password" v-model="renewPassword" type="password" maxlength="128"
-                autocomplete="current-password" :placeholder="t('onboarding.passwordPlaceholder')" />
-            </label>
-
-            <p v-if="messenger.state.lastError" class="onboarding__error">{{ messenger.state.lastError }}</p>
-
-            <button class="btn btn--primary onboarding__submit" type="submit"
-              :disabled="!renewPassword || messenger.state.authLoading">
-              {{ messenger.state.authLoading ? t('sessionExpired.renewing') : t('sessionExpired.renew') }}
-            </button>
-
-            <button type="button" class="btn onboarding__submit" style="background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.18); margin-top: 8px;"
-              @click="cancelSessionRenewal">
-              {{ t('sessionExpired.logoutInstead') }}
-            </button>
-          </form>
+    <section class="session-renew">
+      <div class="session-renew__card">
+        <div class="session-renew__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
         </div>
+        <h1 class="session-renew__title">{{ t('sessionExpired.title') }}</h1>
+        <p class="session-renew__sub">{{ t('sessionExpired.subtitle') }}</p>
+
+        <form class="session-renew__form" @submit.prevent="submitSessionRenewal">
+          <label class="session-renew__field">
+            <span>{{ t('settings.security.username') }}</span>
+            <input type="text" :value="messenger.state.username" disabled autocomplete="username" spellcheck="false" />
+          </label>
+          <label class="session-renew__field">
+            <span>{{ t('sessionExpired.password') }}</span>
+            <input v-model="renewPassword" type="password" maxlength="128" autocomplete="current-password"
+              :placeholder="t('onboarding.passwordPlaceholder')" />
+          </label>
+          <p v-if="messenger.state.lastError" class="session-renew__error">{{ messenger.state.lastError }}</p>
+          <button class="session-renew__btn session-renew__btn--primary" type="submit"
+            :disabled="!renewPassword || messenger.state.authLoading">
+            {{ messenger.state.authLoading ? t('sessionExpired.renewing') : t('sessionExpired.renew') }}
+          </button>
+          <button type="button" class="session-renew__btn session-renew__btn--secondary"
+            @click="cancelSessionRenewal">
+            {{ t('sessionExpired.logoutInstead') }}
+          </button>
+        </form>
       </div>
     </section>
   </div>
