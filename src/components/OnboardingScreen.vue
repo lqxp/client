@@ -15,6 +15,12 @@ const newPassword = ref("");
 const recoveryWords = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
 
+function onFieldFocus(e: FocusEvent) {
+  const el = e.target as HTMLElement;
+  // Let the keyboard open, then scroll into view
+  setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+}
+
 const cleanUsername = computed(() => username.value.trim().toLowerCase());
 const usernameError = computed(() => props.messenger.validateUsername(cleanUsername.value));
 const passwordValid = computed(() => password.value.length >= 8 && password.value.length <= 128);
@@ -117,26 +123,27 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
               <em v-if="usernameError" class="onboarding__field-error">{{ usernameError }}</em>
             </span>
             <input id="onboarding-username" ref="inputRef" v-model="username" type="text" maxlength="32"
-              autocomplete="username" spellcheck="false" :placeholder="t('onboarding.usernamePlaceholder')" />
+              autocomplete="username" spellcheck="false" :placeholder="t('onboarding.usernamePlaceholder')"
+              @focus="onFieldFocus" />
           </label>
 
           <label v-if="mode !== 'recover'" class="onboarding__field" for="onboarding-password">
             <span>Password</span>
             <input id="onboarding-password" v-model="password" type="password" maxlength="128"
               :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
-              :placeholder="t('onboarding.passwordPlaceholder')" />
+              :placeholder="t('onboarding.passwordPlaceholder')" @focus="onFieldFocus" />
           </label>
 
           <label v-if="mode === 'recover'" class="onboarding__field onboarding__field--stacked" for="onboarding-recovery">
             <span>Recovery words</span>
             <textarea id="onboarding-recovery" v-model="recoveryWords" rows="4" autocomplete="off" spellcheck="false"
-              :placeholder="t('onboarding.recoveryPlaceholder')"></textarea>
+              :placeholder="t('onboarding.recoveryPlaceholder')" @focus="onFieldFocus"></textarea>
           </label>
 
           <label v-if="mode === 'recover'" class="onboarding__field" for="onboarding-new-password">
             <span>New password</span>
             <input id="onboarding-new-password" v-model="newPassword" type="password" maxlength="128"
-              autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" />
+              autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" @focus="onFieldFocus" />
           </label>
 
           <p v-if="errorMessage" class="onboarding__error">{{ errorMessage }}</p>

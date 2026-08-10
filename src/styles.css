@@ -746,7 +746,7 @@ textarea {
 
 .toast {
   position: fixed;
-  top: 18px;
+  top: calc(18px + env(safe-area-inset-top, 0px));
   left: 50%;
   z-index: 180;
   transform: translateX(-50%);
@@ -4218,7 +4218,9 @@ textarea {
   inset-block-start: 30px;
 }
 
-
+:root.is-android-runtime .settings {
+  padding-top: env(safe-area-inset-top);
+}
 
 @keyframes modal-fade {
   from {
@@ -4409,6 +4411,9 @@ textarea {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-page {
@@ -4528,8 +4533,15 @@ textarea {
 
 .settings-inline {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin: 12px 0 0 44px;
+}
+
+.settings-inline .btn--primary {
+  width: auto;
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .settings-input,
@@ -4788,6 +4800,144 @@ textarea {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, white));
   transition: width 0.18s ease;
+}
+
+/* ── Session expired ─────────────────────────────────────────── */
+
+.session-renew {
+  min-height: var(--app-viewport-height);
+  display: grid;
+  place-items: center;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+}
+
+.session-renew__card {
+  width: min(100%, 380px);
+  padding: 36px 28px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+}
+
+.session-renew__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red);
+}
+
+.session-renew__icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.session-renew__title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+}
+
+.session-renew__sub {
+  margin: 0 0 24px;
+  font-size: 13.5px;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.session-renew__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.session-renew__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-renew__field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.session-renew__field input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.session-renew__field input:focus {
+  border-color: var(--accent);
+}
+
+.session-renew__field input:disabled {
+  opacity: 0.5;
+}
+
+.session-renew__error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.session-renew__btn {
+  width: 100%;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.session-renew__btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.session-renew__btn--primary:hover {
+  filter: brightness(1.1);
+}
+
+.session-renew__btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.session-renew__btn--secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.session-renew__btn--secondary:hover {
+  background: var(--surface-active);
 }
 
 .lock-screen {
@@ -5360,8 +5510,11 @@ textarea {
   .settings__side-head h2 {
     position: static;
     text-align: left;
-    font-size: 22px;
+    font-size: 20px;
     letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .settings__card {
@@ -5487,11 +5640,15 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: calc(62px + env(safe-area-inset-top));
+    min-height: 58px;
     margin: 0 -16px 18px;
-    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
+  }
+
+  .settings__main-head h3 {
+    font-size: 16px;
   }
 
   .settings__back {
@@ -5530,6 +5687,22 @@ textarea {
     min-height: 0;
     font-size: 28px;
   }
+}
+
+/* Android runtime: panel handles safe-area via padding-top,
+   so children must not double-apply env(safe-area-inset-top). */
+:root.is-android-runtime .settings__side {
+  padding-top: 16px;
+}
+:root.is-android-runtime .settings__side-head {
+  top: -16px;
+  margin-top: -16px;
+  padding-top: 16px;
+}
+:root.is-android-runtime .settings__main-head {
+  padding-top: 16px;
+  padding-bottom: 0;
+  min-height: 58px;
 }
 
 @media (max-width: 640px) {
@@ -6575,6 +6748,10 @@ textarea {
 
   .side__search {
     gap: 6px;
+    padding: calc(10px + env(safe-area-inset-top)) 10px 8px;
+  }
+
+  .compose {
     padding: calc(10px + env(safe-area-inset-top)) 10px 8px;
   }
 
