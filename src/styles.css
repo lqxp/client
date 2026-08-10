@@ -260,7 +260,6 @@
 
 :root.is-android-runtime input,
 :root.is-android-runtime textarea,
-:root.is-android-runtime .bubble__text,
 :root.is-android-runtime .markdown,
 :root.is-android-runtime .codeblock pre,
 :root.is-android-runtime .text-viewer__code {
@@ -2128,6 +2127,7 @@ textarea {
   max-width: min(68%, 720px);
   margin: 0;
   min-width: 0;
+  touch-action: manipulation;
 }
 
 .msg+.msg {
