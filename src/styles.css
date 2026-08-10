@@ -4533,8 +4533,15 @@ textarea {
 
 .settings-inline {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin: 12px 0 0 44px;
+}
+
+.settings-inline .btn--primary {
+  width: auto;
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .settings-input,
