@@ -1183,10 +1183,18 @@ onBeforeUnmount(() => {
   .msg__context-reactions {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 6px;
     padding: 6px 18px 8px;
     flex: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .msg__context-reactions::-webkit-scrollbar {
+    display: none;
   }
 
   .msg__context-reaction {
@@ -1202,6 +1210,8 @@ onBeforeUnmount(() => {
     line-height: 1;
     background: var(--surface-2);
     transition: transform 120ms ease, background 120ms ease;
+    scroll-snap-align: start;
+    flex-shrink: 0;
   }
 
   .msg__context-reaction:hover,
