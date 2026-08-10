@@ -403,7 +403,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
 
 @media (max-width: 640px) {
   .onboarding {
-    min-height: var(--app-viewport-height, 100dvh);
+    min-height: 100%;
     padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
   }
 
