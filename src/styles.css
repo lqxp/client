@@ -4411,6 +4411,9 @@ textarea {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-page {
@@ -5500,8 +5503,11 @@ textarea {
   .settings__side-head h2 {
     position: static;
     text-align: left;
-    font-size: 22px;
+    font-size: 20px;
     letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .settings__card {
@@ -5632,6 +5638,10 @@ textarea {
     padding: calc(16px + env(safe-area-inset-top)) 16px 0;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
+  }
+
+  .settings__main-head h3 {
+    font-size: 16px;
   }
 
   .settings__back {
