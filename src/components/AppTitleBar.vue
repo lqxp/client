@@ -109,6 +109,8 @@ onMounted(() => {
 
 <style scoped>
 .app-titlebar {
+  position: relative;
+  z-index: 1000000;
   flex: none;
   height: 36px;
   display: flex;
