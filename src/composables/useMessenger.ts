@@ -1589,7 +1589,7 @@ function normalizeMessage(message, fallbackRoomId) {
     clientNonce: String(message.clientNonce || ""),
     user: message.system ? SYSTEM_USERNAME : (message.user || message.username || "Unknown"),
     username: message.system ? SYSTEM_USERNAME : (message.username || extractUsername(message.user)),
-    text: voiceDuration ? "Voice message" : rawText,
+    text: voiceDuration ? "" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
     profile: normalizeProfile(message.profile),
@@ -4301,28 +4301,16 @@ export function useMessenger() {
 
   function submitCompose() {
     const raw = String(state.composeInput || "").trim();
-    const compactToken = raw.replace(/\s+/g, "");
-    let id = "";
-    try {
-      if (/^[0-9a-f]{96}$/i.test(compactToken)) {
-        id = openImportedRoomToken(compactToken);
-      } else {
-        id = sanitizeRoomId(raw);
-        const validation = validateRoomId(id);
-        if (validation) {
-          state.lastError = validation;
-          showToast(validation);
-          return;
-        }
-      }
-    } catch (error) {
-      state.lastError = error?.message || "Invalid room token.";
-      showToast(state.lastError);
+    const id = sanitizeRoomId(raw);
+    const validation = validateRoomId(id);
+    if (validation) {
+      state.lastError = validation;
+      showToast(validation);
       return;
     }
     state.composing = false;
     state.composeInput = "";
-    if (!/^[0-9a-f]{96}$/i.test(compactToken)) selectConversation(id);
+    selectConversation(id);
   }
 
   function showToast(message, options: { badge?: string; badgeAvatarSrc?: string } = {}) {
@@ -4476,18 +4464,6 @@ export function useMessenger() {
 
   function sendChat() {
     const text = state.messageInput.trim();
-    const compactToken = text.replace(/\s+/g, "");
-    if (/^[0-9a-f]{96}$/i.test(compactToken)) {
-      try {
-        openImportedRoomToken(compactToken);
-        state.messageInput = "";
-        showToast("Room token imported. Joining room…");
-      } catch (error) {
-        state.lastError = error?.message || "Invalid room token.";
-        showToast(state.lastError);
-      }
-      return;
-    }
     const roomId = state.activeRoom;
     if (!text || !roomId) return;
     if (state.editingMessage) {

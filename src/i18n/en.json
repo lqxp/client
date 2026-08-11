@@ -200,7 +200,10 @@
         "screen": "Screen",
         "localMute": "Mute locally",
         "unmuteLocal": "Unmute locally",
-        "personalVolume": "Personal volume"
+        "muted": "Muted",
+        "personalVolume": "Personal volume",
+        "oneParticipant": "1 participant",
+        "nParticipants": "{n} participants"
     },
     "settings": {
         "title": "Settings",
