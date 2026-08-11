@@ -225,6 +225,7 @@
         "screen": "Экран",
         "localMute": "Заглушить локально",
         "unmuteLocal": "Включить локально",
+        "muted": "Микрофон выкл",
         "personalVolume": "Персональная громкость",
         "oneParticipant": "1 участник",
         "nParticipants": "{n} участников"

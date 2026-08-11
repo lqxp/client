@@ -198,6 +198,7 @@
         "voice": "Voz",
         "camera": "Cámara",
         "screen": "Pantalla",
+        "muted": "Silenciado",
         "oneParticipant": "1 participante",
         "nParticipants": "{n} participantes"
     },

@@ -200,6 +200,7 @@
         "screen": "Screen",
         "localMute": "Mute locally",
         "unmuteLocal": "Unmute locally",
+        "muted": "Muted",
         "personalVolume": "Personal volume",
         "oneParticipant": "1 participant",
         "nParticipants": "{n} participants"

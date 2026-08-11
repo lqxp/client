@@ -213,6 +213,12 @@ function mediaOf(username) {
   return props.messenger.state.remoteCallMediaByUser[username] || {};
 }
 
+function isRemotelyMuted(username) {
+  if (isSelf(username)) return false;
+  const media = mediaOf(username);
+  return media.audio === false;
+}
+
 function tileLabel(tile) {
   if (tile.kind === "screen") return t("call.screen");
   if (tile.kind === "camera") return t("call.camera");
@@ -386,7 +392,7 @@ function toggleLocalMute(username) {
           v-for="(tile, idx) in callTiles.slice(0, 3)"
           :key="tile.id"
           class="callpanel__mobile-avatar"
-          :class="{ 'is-speaking': isSpeaking(tile.username), 'is-self': tile.self }"
+          :class="{ 'is-self': tile.self }"
           :style="{ zIndex: 3 - idx }"
         >
           <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="tile.username" />
@@ -453,13 +459,13 @@ function toggleLocalMute(username) {
         :key="tile.id"
         class="calltile"
         :class="{
-          'is-speaking': isSpeaking(tile.username),
           'is-self': tile.self,
           'is-muted': tile.self && messenger.state.callMuted,
           'has-video': tile.video,
           'is-screen': tile.kind === 'screen',
           'is-fullscreen': fullscreenTileId === tile.id,
-          'is-local-muted': isLocallyMuted(tile.username)
+          'is-local-muted': isLocallyMuted(tile.username),
+          'is-remote-muted': isRemotelyMuted(tile.username)
         }"
         role="button"
         tabindex="0"
@@ -508,6 +514,9 @@ function toggleLocalMute(username) {
           <span class="calltile__name">
             {{ tile.username }}<span v-if="tile.self" class="calltile__you"> {{ t('call.you') }}</span>
           </span>
+          <span v-if="!tile.self && isRemotelyMuted(tile.username)" class="calltile__muted-badge calltile__muted-badge--remote" :aria-label="t('call.muted')">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+          </span>
           <span class="calltile__kind">{{ tileLabel(tile) }}</span>
           <span v-if="!tile.self && isLocallyMuted(tile.username)" class="calltile__muted-badge" :aria-label="t('call.localMute')">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="16" y1="8" x2="22" y2="14"/><line x1="22" y1="8" x2="16" y2="14"/></svg>
@@ -529,7 +538,11 @@ function toggleLocalMute(username) {
         >
           <div class="callpanel__context-head">
             <span class="callpanel__context-user">{{ memberMenu.username }}</span>
-            <span class="callpanel__context-status">{{ isLocallyMuted(memberMenu.username) ? t('call.localMute') : t('members.online') }}</span>
+            <span class="callpanel__context-status">
+              <template v-if="isRemotelyMuted(memberMenu.username)">{{ t('call.muted') }}</template>
+              <template v-else-if="isLocallyMuted(memberMenu.username)">{{ t('call.localMute') }}</template>
+              <template v-else>{{ t('members.online') }}</template>
+            </span>
           </div>
           <button type="button" class="callpanel__context-action" @click="openProfile(memberMenu.username)">
             <span>{{ t('members.viewProfile') }}</span>
@@ -590,7 +603,7 @@ function toggleLocalMute(username) {
           v-for="(tile, idx) in callTiles"
           :key="tile.id"
           class="call-mobile-card"
-          :class="{ 'is-active': idx === mobileActiveIndex, 'is-speaking': isSpeaking(tile.username), 'is-self': tile.self }"
+          :class="{ 'is-active': idx === mobileActiveIndex, 'is-self': tile.self }"
         >
           <div v-if="tile.video" class="call-mobile-card__video" @click="toggleTileFullscreen(tile)">
             <video
@@ -616,6 +629,9 @@ function toggleLocalMute(username) {
           <div class="call-mobile-card__label">
             <strong>{{ tile.username }}</strong>
             <span v-if="tile.self">{{ t('call.you') }}</span>
+            <span v-if="isRemotelyMuted(tile.username)" class="call-mobile-card__muted-icon" :aria-label="t('call.muted')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+            </span>
             <span v-if="tile.kind === 'screen'">— {{ t('call.screen') }}</span>
             <span v-if="tile.kind === 'camera'">— {{ t('call.camera') }}</span>
           </div>
@@ -676,8 +692,6 @@ function toggleLocalMute(username) {
   border-radius: 12px;
   border: 1px solid var(--call-context-border);
   background: var(--call-context-bg);
-  box-shadow: var(--call-context-shadow);
-  backdrop-filter: blur(18px);
 }
 
 .callpanel__context-head {
@@ -894,15 +908,11 @@ function toggleLocalMute(username) {
   font-weight: 700;
 }
 
-.call-mobile-card.is-speaking .call-mobile-card__label strong::after {
-  content: "";
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  vertical-align: middle;
+.call-mobile-card__muted-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #ef4444;
+  flex: none;
 }
 
 .call-mobile-overlay__dots {

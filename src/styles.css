@@ -1176,7 +1176,6 @@ textarea {
 
 .side__foot .dot.is-invisible {
   background: var(--dim);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.32);
 }
 
 .side__foot .dot.is-connecting {
@@ -1517,17 +1516,14 @@ textarea {
 
 .members__dot.is-call {
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(32, 144, 234, 0.14);
 }
 
 .members__dot.is-dnd {
   background: var(--red);
-  box-shadow: 0 0 0 3px rgba(255, 107, 112, 0.13);
 }
 
 .members__dot.is-invisible {
   background: var(--dim);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.32);
 }
 
 .members__empty {
@@ -1586,7 +1582,6 @@ textarea {
   place-items: center;
   padding: 18px;
   background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(3px);
 }
 
 .profile-card__panel {
@@ -1598,7 +1593,6 @@ textarea {
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px var(--line-strong);
 }
 
 .profile-card__banner {
@@ -6236,8 +6230,8 @@ textarea {
   height: 24px;
   padding: 0 9px;
   border-radius: 999px;
-  background: rgba(79, 214, 138, 0.12);
-  color: var(--green);
+  background: var(--surface-2);
+  color: var(--text);
   font-size: 12px;
   font-weight: 700;
 }
@@ -6303,14 +6297,9 @@ textarea {
   background: color-mix(in srgb, var(--surface-2) 88%, var(--bg) 12%);
   font-size: 13px;
   border: 1px solid var(--line-strong);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 24%, transparent);
   cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.calltile.is-speaking {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(79, 214, 138, 0.35);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .calltile.is-muted {
@@ -6382,7 +6371,6 @@ textarea {
   color: var(--text);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
-  backdrop-filter: blur(8px);
 }
 
 .calltile__name {
@@ -6418,6 +6406,10 @@ textarea {
   flex: none;
 }
 
+.calltile__muted-badge--remote {
+  color: #ef4444;
+}
+
 .calltile__tools {
   position: absolute;
   top: 8px;
@@ -6448,8 +6440,6 @@ textarea {
   background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
   color: var(--text);
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg) 18%, transparent);
 }
 
 .calltile__tools button:hover,
@@ -6552,9 +6542,6 @@ textarea {
     height: 100%;
     object-fit: cover;
   }
-  .callpanel__mobile-avatar.is-speaking {
-    border-color: var(--green);
-  }
 
   .callpanel__mobile-avatar .avatar {
     width: 100%;
@@ -6611,7 +6598,6 @@ textarea {
   background: color-mix(in srgb, var(--bg) 74%, transparent);
   color: #fff;
   font-weight: 700;
-  backdrop-filter: blur(8px);
 }
 
 .callpanel__audio {
