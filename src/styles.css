@@ -6337,9 +6337,7 @@ textarea {
   inset: 0;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--text) 10%, transparent), transparent 34%),
-    color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
+  background: color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
 }
 
 .calltile__video {
@@ -6373,7 +6371,7 @@ textarea {
   padding: 6px 8px;
   border-radius: 6px;
   color: var(--text);
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
   backdrop-filter: blur(8px);
 }
