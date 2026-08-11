@@ -128,50 +128,60 @@ const {
   justify-content: center;
   user-select: none;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
 .update-screen::before {
   content: "";
   position: absolute;
-  inset: -30px;
+  inset: -40px;
   background-image: url("/assets/wp_dark.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(24px) brightness(0.85);
+  filter: blur(36px) brightness(0.7);
   z-index: 0;
-  transition: background-image 0.3s ease;
+  transition: background-image 0.5s ease;
 }
 
-:global(:root[data-theme="light"]) .apple-update-screen {
-  color: var(--text, #111827);
-}
-
-:global(:root[data-theme="light"]) .apple-update-screen::before {
+:global(:root[data-theme="light"]) .update-screen::before {
   background-image: url("/assets/wp_light.jpg");
-  filter: blur(24px) brightness(0.95);
+  filter: blur(36px) brightness(0.92);
 }
 
 .update-canvas {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 440px;
+  max-width: 420px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 2rem;
+  padding: 2.5rem 2rem;
+  background: rgba(20, 20, 25, 0.45);
+  backdrop-filter: blur(40px) saturate(190%);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:global(:root[data-theme="light"]) .update-canvas {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .update-close-btn {
-  position: fixed;
-  top: 1.5rem;
-  right: 1.5rem;
-  width: 36px;
-  height: 36px;
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   color: var(--muted, rgba(255, 255, 255, 0.7));
   display: flex;
@@ -182,24 +192,19 @@ const {
 }
 
 :global(:root[data-theme="light"]) .update-close-btn {
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--muted, rgba(0, 0, 0, 0.6));
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .update-close-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: var(--text, #ffffff);
-}
-
-:global(:root[data-theme="light"]) .update-close-btn:hover {
-  background: rgba(0, 0, 0, 0.15);
-  color: var(--text, #000000);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 .update-hero-icon-container {
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: 96px;
+  height: 96px;
   margin-bottom: 1.75rem;
   display: flex;
   align-items: center;
@@ -216,22 +221,22 @@ const {
 
 .hero-progress-bg {
   fill: none;
-  stroke: var(--line-strong, rgba(255, 255, 255, 0.15));
+  stroke: rgba(255, 255, 255, 0.12);
   stroke-width: 4;
 }
 
 :global(:root[data-theme="light"]) .hero-progress-bg {
-  stroke: rgba(0, 0, 0, 0.12);
+  stroke: rgba(0, 0, 0, 0.08);
 }
 
 .hero-progress-fill {
   fill: none;
-  stroke: var(--blue, #2090ea);
-  stroke-width: 4;
+  stroke: var(--blue, #007aff);
+  stroke-width: 4.5;
   stroke-dasharray: 251;
   stroke-dashoffset: 251;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.25s ease-out;
+  transition: stroke-dashoffset 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hero-icon-content {
@@ -247,11 +252,11 @@ const {
   align-items: center;
   justify-content: center;
   color: var(--text, #ffffff);
-  animation: search-orbit 2.6s ease-in-out infinite;
+  animation: apple-pulse 2.2s ease-in-out infinite;
 }
 
 :global(:root[data-theme="light"]) .loupe-search {
-  color: var(--text, #111827);
+  color: #1d1d1f;
 }
 
 .loupe-svg {
@@ -259,26 +264,19 @@ const {
   height: 52px;
 }
 
-@keyframes search-orbit {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  25% {
-    transform: rotate(-18deg) scale(1.12);
+@keyframes apple-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
   }
   50% {
-    transform: rotate(18deg) scale(1.06);
-  }
-  75% {
-    transform: rotate(-10deg) scale(1.1);
-  }
-  100% {
-    transform: rotate(0deg) scale(1);
+    transform: scale(1.08);
+    opacity: 1;
   }
 }
 
 .install-gear-spin {
-  animation: gear-spin 4s linear infinite;
+  animation: gear-spin 3s linear infinite;
 }
 
 @keyframes gear-spin {
@@ -295,18 +293,18 @@ const {
 .download-badge,
 .installing-badge,
 .completed-badge {
-  color: var(--blue, #2090ea);
-  animation: badge-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  color: var(--blue, #007aff);
+  animation: apple-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.2);
 }
 
 .error-badge {
-  color: var(--red, #ff6b70);
-  animation: badge-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  color: #ff3b30;
+  animation: apple-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.2);
 }
 
-@keyframes badge-pop {
+@keyframes apple-pop {
   0% {
-    transform: scale(0.5);
+    transform: scale(0.6);
     opacity: 0;
   }
   100% {
@@ -316,21 +314,21 @@ const {
 }
 
 .update-title {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   margin: 0;
   color: var(--text, #ffffff);
 }
 
 :global(:root[data-theme="light"]) .update-title {
-  color: var(--text, #111827);
+  color: #1d1d1f;
 }
 
 .update-action-area {
   margin-top: 2rem;
   width: 100%;
-  max-width: 280px;
+  max-width: 260px;
   display: flex;
   justify-content: center;
 }
@@ -338,10 +336,10 @@ const {
 .update-primary-btn {
   width: 100%;
   padding: 0.875rem 1.5rem;
-  background: var(--blue, #2090ea);
+  background: var(--blue, #007aff);
   color: #ffffff;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
@@ -349,38 +347,41 @@ const {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: background 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .update-primary-btn:hover {
-  background: var(--blue-hover, #1f7ed1);
+  background: #0066cc;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.45);
 }
 
 .update-secondary-btn {
   padding: 0.75rem 1.5rem;
   background: rgba(255, 255, 255, 0.12);
   color: var(--text, #ffffff);
-  border: 1px solid var(--line-strong, rgba(255, 255, 255, 0.2));
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :global(:root[data-theme="light"]) .update-secondary-btn {
-  background: rgba(0, 0, 0, 0.08);
-  color: #111827;
-  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.06);
+  color: #1d1d1f;
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 .update-secondary-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .update-fade-enter-active,
 .update-fade-leave-active {
-  transition: opacity 0.35s ease;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .update-fade-enter-from,
