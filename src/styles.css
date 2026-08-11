@@ -259,11 +259,7 @@
 }
 
 :root.is-android-runtime input,
-:root.is-android-runtime textarea,
-:root.is-android-runtime .bubble__text,
-:root.is-android-runtime .markdown,
-:root.is-android-runtime .codeblock pre,
-:root.is-android-runtime .text-viewer__code {
+:root.is-android-runtime textarea {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
@@ -328,6 +324,14 @@ textarea,
 .text-viewer__code {
   user-select: text;
   -webkit-user-select: text;
+}
+
+:root.is-android-runtime .bubble__text,
+:root.is-android-runtime .markdown,
+:root.is-android-runtime .codeblock pre,
+:root.is-android-runtime .text-viewer__code {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-shell {
@@ -1565,6 +1569,7 @@ textarea {
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
     background: var(--surface);
     overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   .members-mobile--open {
@@ -2128,6 +2133,7 @@ textarea {
   max-width: min(68%, 720px);
   margin: 0;
   min-width: 0;
+  touch-action: manipulation;
 }
 
 .msg+.msg {
@@ -6331,9 +6337,7 @@ textarea {
   inset: 0;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--text) 10%, transparent), transparent 34%),
-    color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
+  background: color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
 }
 
 .calltile__video {
@@ -6367,7 +6371,7 @@ textarea {
   padding: 6px 8px;
   border-radius: 6px;
   color: var(--text);
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
   backdrop-filter: blur(8px);
 }
@@ -6735,6 +6739,10 @@ textarea {
     min-height: 0;
   }
 
+  .app:not(.is-thread) .no-thread {
+    display: none;
+  }
+
   .thread__shell {
     grid-template-columns: 1fr;
   }
@@ -7007,6 +7015,38 @@ textarea {
     border-radius: 14px;
     justify-content: center;
     text-align: center;
+  }
+}
+
+/* Desktop: window too narrow for sidebar + thread → same as mobile */
+@media (max-width: 560px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side,
+  .thread,
+  .thread__shell,
+  .thread__main {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .app.is-thread .side {
+    display: none;
+  }
+
+  .app.is-thread .thread {
+    display: flex;
+  }
+
+  .app:not(.is-thread) .no-thread {
+    display: none;
+  }
+
+  .thread__shell {
+    grid-template-columns: 1fr;
   }
 }
 

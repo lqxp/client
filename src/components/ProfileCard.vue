@@ -123,12 +123,6 @@ function initialsFor(name: string) {
           <img :src="avatarSrc" alt="" />
         </span>
         <span v-else class="avatar profile-card__avatar" :class="`avatar--${accent}`">{{ initialsFor(username) }}</span>
-        <button class="icon-btn profile-card__close" type="button" :aria-label="t('profile.close')"
-          @click="emit('close')">
-          <svg viewBox="0 0 24 24">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
         <div class="profile-card__identity">
           <div class="profile-card__name-row">
             <strong :title="`@${username}`">{{ displayName }}</strong>

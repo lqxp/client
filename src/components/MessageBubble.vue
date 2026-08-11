@@ -117,6 +117,50 @@ const contextMenuOpen = ref(false);
 const contextMenuRef = ref<HTMLElement | null>(null);
 const showReactionsSubmenu = ref(false);
 const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
+
+// Long-press to open context menu on touch devices
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
+
+function isTouchDevice() {
+  return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+}
+
+function onMessagePointerDown(event: PointerEvent) {
+  if (!isTouchDevice()) return;
+  longPressStartX = event.clientX;
+  longPressStartY = event.clientY;
+  if (longPressTimer) clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    contextMenuOpen.value = true;
+    positionContextMenu(longPressStartX, longPressStartY);
+  }, LONG_PRESS_MS);
+}
+
+function onMessagePointerMove(event: PointerEvent) {
+  if (!longPressTimer) return;
+  const dx = event.clientX - longPressStartX;
+  const dy = event.clientY - longPressStartY;
+  if (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function onMessagePointerUp() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function onMessagePointerCancel() {
+  onMessagePointerUp();
+}
 const reactionTooltip = ref<{
   emoji: string;
   count: number;
@@ -588,7 +632,9 @@ onBeforeUnmount(() => {
       'has-discord-reply': message.replyToMessageId && isDiscordStyle
     },
     runClass
-  ]" @contextmenu.prevent.stop="onMessageContextMenu">
+  ]" @contextmenu.prevent.stop="onMessageContextMenu"
+    @pointerdown="onMessagePointerDown" @pointermove="onMessagePointerMove"
+    @pointerup="onMessagePointerUp" @pointercancel="onMessagePointerCancel">
     <span v-if="showAvatar && !isSystem" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
       <img v-if="avatarSrc" :src="avatarSrc" :alt="`${message.username} avatar`" />
       <template v-else>{{ avatarInitials }}</template>
@@ -954,7 +1000,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <!-- Reactions submenu -->
-    <div v-if="showReactionsSubmenu" class="msg__context" @click="showReactionsSubmenu = false" @contextmenu.prevent>
+    <div v-if="showReactionsSubmenu" class="msg__context" @click.stop="showReactionsSubmenu = false" @contextmenu.prevent>
       <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="'Reactions'" @click.stop>
         <div class="msg__context-submenu-head">
           <button type="button" class="msg__context-back" @click="showReactionsSubmenu = false">
@@ -1418,6 +1464,11 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.bubble__text {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .reply-ref__icon {
   width: 20px;
   height: 20px;
@@ -1654,7 +1705,8 @@ onBeforeUnmount(() => {
   line-height: 1.375rem;
   white-space: pre-wrap;
   word-wrap: break-word;
-  user-select: text;
+  user-select: none;
+  -webkit-user-select: none;
   font-weight: 400;
 }
 
