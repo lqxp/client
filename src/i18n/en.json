@@ -488,6 +488,8 @@
         "completed": "Update Ready",
         "error": "Update Failed",
         "restartNow": "Restart Now",
-        "retry": "Retry Update"
+        "retry": "Retry Update",
+        "checkUpdates": "Check for updates",
+        "availableTitle": "Update available"
     }
 }
