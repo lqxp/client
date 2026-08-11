@@ -282,10 +282,6 @@ watch(isOpen, async (v) => {
     }
     if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
     await nextTick();
-    if (!isMobileSettings.value && activeSection.value === "profile") {
-      firstInputRef.value?.focus();
-      firstInputRef.value?.select();
-    }
   }
 });
 
@@ -296,10 +292,6 @@ watch(activeSection, async (section) => {
   if (section !== "calls") {
     props.messenger.stopMicTest();
     stopCameraPreview();
-  }
-  if (section === "profile") {
-    await nextTick();
-    firstInputRef.value?.focus();
   }
 });
 
