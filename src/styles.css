@@ -259,10 +259,7 @@
 }
 
 :root.is-android-runtime input,
-:root.is-android-runtime textarea,
-:root.is-android-runtime .markdown,
-:root.is-android-runtime .codeblock pre,
-:root.is-android-runtime .text-viewer__code {
+:root.is-android-runtime textarea {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
@@ -327,6 +324,14 @@ textarea,
 .text-viewer__code {
   user-select: text;
   -webkit-user-select: text;
+}
+
+:root.is-android-runtime .bubble__text,
+:root.is-android-runtime .markdown,
+:root.is-android-runtime .codeblock pre,
+:root.is-android-runtime .text-viewer__code {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-shell {
