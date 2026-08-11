@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useI18n } from "@/composables/useI18n";
 import { useUpdater } from "@/composables/useUpdater";
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const appWindow = isTauri ? getCurrentWindow() : null;
@@ -59,7 +62,7 @@ onMounted(() => {
       <div
         v-if="updateAvailable"
         class="app-titlebar__update-badge"
-        title="Mise à jour disponible (cliquez pour mettre à jour)"
+        :title="t('updater.availableTitle')"
         @click.stop="triggerCheckUpdatesEvent"
       >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
