@@ -51,8 +51,7 @@ export function useUpdater() {
     });
 
     if (isTauri.value) {
-      const eventPkg = "@tauri-apps/api/event";
-      import(/* @vite-ignore */ eventPkg)
+      import("@tauri-apps/api/event")
         .then((eventModule) => {
           if (eventModule && eventModule.listen) {
             eventModule.listen("qx:check-updates", () => {
@@ -69,8 +68,7 @@ export function useUpdater() {
       window.dispatchEvent(new CustomEvent("qx:check-updates"));
     }
     if (isTauri.value) {
-      const eventPkg = "@tauri-apps/api/event";
-      import(/* @vite-ignore */ eventPkg)
+      import("@tauri-apps/api/event")
         .then((eventModule) => {
           if (eventModule && eventModule.emit) {
             eventModule.emit("qx:check-updates");
@@ -98,8 +96,7 @@ export function useUpdater() {
   async function sendUpdateNotification(version: string) {
     if (!isTauri.value) return;
     try {
-      const notifPkg = "@tauri-apps/plugin-notification";
-      const notifModule = await import(/* @vite-ignore */ notifPkg).catch(() => null);
+      const notifModule = await import("@tauri-apps/plugin-notification").catch(() => null);
       if (notifModule) {
         let granted = await notifModule.isPermissionGranted();
         if (!granted) {
@@ -119,8 +116,7 @@ export function useUpdater() {
   async function performUpdate() {
     if (!pendingUpdateObj) {
       try {
-        const updaterPkg = "@tauri-apps/plugin-updater";
-        const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
+        const updaterModule = await import("@tauri-apps/plugin-updater").catch(() => null);
         if (updaterModule) {
           pendingUpdateObj = await updaterModule.check();
         }
@@ -187,8 +183,7 @@ export function useUpdater() {
   async function triggerRelaunch() {
     if (isTauri.value) {
       try {
-        const processPkg = "@tauri-apps/plugin-process";
-        const processModule = await import(/* @vite-ignore */ processPkg).catch(() => null);
+        const processModule = await import("@tauri-apps/plugin-process").catch(() => null);
         if (processModule && processModule.relaunch) {
           await processModule.relaunch();
           return;
@@ -210,8 +205,7 @@ export function useUpdater() {
     const searchMinTime = new Promise((resolve) => setTimeout(resolve, 1200));
 
     try {
-      const updaterPkg = "@tauri-apps/plugin-updater";
-      const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
+      const updaterModule = await import("@tauri-apps/plugin-updater").catch(() => null);
       if (!updaterModule) {
         throw new Error("Updater plugin unavailable");
       }
