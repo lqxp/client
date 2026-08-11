@@ -1176,7 +1176,6 @@ textarea {
 
 .side__foot .dot.is-invisible {
   background: var(--dim);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.32);
 }
 
 .side__foot .dot.is-connecting {
@@ -1517,17 +1516,14 @@ textarea {
 
 .members__dot.is-call {
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(32, 144, 234, 0.14);
 }
 
 .members__dot.is-dnd {
   background: var(--red);
-  box-shadow: 0 0 0 3px rgba(255, 107, 112, 0.13);
 }
 
 .members__dot.is-invisible {
   background: var(--dim);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.32);
 }
 
 .members__empty {
@@ -1586,7 +1582,6 @@ textarea {
   place-items: center;
   padding: 18px;
   background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(3px);
 }
 
 .profile-card__panel {
@@ -1598,7 +1593,6 @@ textarea {
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px var(--line-strong);
 }
 
 .profile-card__banner {
@@ -3724,16 +3718,11 @@ textarea {
   max-width: min(360px, 72vw);
   padding: 8px 10px 9px 8px;
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.24), transparent 28%),
-    rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .msg:not(.is-own) .audio-player {
-  background:
-    radial-gradient(circle at 18% 20%, rgba(32, 144, 234, 0.18), transparent 30%),
-    rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
 }
 
 .audio-player audio {
@@ -3747,15 +3736,13 @@ textarea {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #fff;
-  color: var(--accent);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  background: var(--accent);
+  color: #fff;
+  transition: transform 120ms ease;
 }
 
 .audio-player__play:hover {
-  transform: translateY(-1px) scale(1.03);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  transform: scale(1.06);
 }
 
 .audio-player__play:active {
@@ -3822,32 +3809,31 @@ textarea {
 .audio-player__seek input::-webkit-slider-runnable-track {
   height: 5px;
   border-radius: 999px;
-  background: linear-gradient(to right, currentColor var(--progress), rgba(255, 255, 255, 0.28) var(--progress));
+  background: linear-gradient(to right, currentColor var(--progress), color-mix(in srgb, var(--text) 16%, transparent) var(--progress));
 }
 
 .msg:not(.is-own) .audio-player__seek input::-webkit-slider-runnable-track {
-  background: linear-gradient(to right, var(--accent) var(--progress), rgba(255, 255, 255, 0.16) var(--progress));
+  background: linear-gradient(to right, var(--accent) var(--progress), color-mix(in srgb, var(--text) 10%, transparent) var(--progress));
 }
 
 .audio-player__seek input::-webkit-slider-thumb {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   margin-top: -5px;
   border-radius: 50%;
   appearance: none;
   -webkit-appearance: none;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  background: var(--text);
 }
 
 .audio-player__seek input::-moz-range-track {
   height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
+  background: color-mix(in srgb, var(--text) 16%, transparent);
 }
 
 .msg:not(.is-own) .audio-player__seek input::-moz-range-track {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .audio-player__seek input::-moz-range-progress {
@@ -3861,12 +3847,11 @@ textarea {
 }
 
 .audio-player__seek input::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   border: 0;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  background: var(--text);
 }
 
 .audio-player__bottom {
@@ -4181,28 +4166,46 @@ textarea {
   border-radius: 50%;
   background: var(--red);
   margin-right: 6px;
-  animation: rec-pulse 1.2s infinite ease-in-out;
 }
 
-/* Picture-in-picture call banner */
+/* In-call banner (shown when viewing a different conversation) */
 .call-pip {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 999px;
+  margin: 0;
   background: var(--surface-2);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--line-strong);
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
   cursor: pointer;
-  z-index: 30;
+  flex: none;
 }
 
-.call-pip:hover {
-  background: var(--surface-active);
+.call-pip__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-pip__end {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0;
+  background: #e53935;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 120ms ease;
+}
+.call-pip__end:hover {
+  background: #c62828;
 }
 
 /* Settings */
@@ -6227,8 +6230,8 @@ textarea {
   height: 24px;
   padding: 0 9px;
   border-radius: 999px;
-  background: rgba(79, 214, 138, 0.12);
-  color: var(--green);
+  background: var(--surface-2);
+  color: var(--text);
   font-size: 12px;
   font-weight: 700;
 }
@@ -6294,14 +6297,9 @@ textarea {
   background: color-mix(in srgb, var(--surface-2) 88%, var(--bg) 12%);
   font-size: 13px;
   border: 1px solid var(--line-strong);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 24%, transparent);
   cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.calltile.is-speaking {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(79, 214, 138, 0.35);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .calltile.is-muted {
@@ -6373,7 +6371,6 @@ textarea {
   color: var(--text);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
-  backdrop-filter: blur(8px);
 }
 
 .calltile__name {
@@ -6409,6 +6406,10 @@ textarea {
   flex: none;
 }
 
+.calltile__muted-badge--remote {
+  color: #ef4444;
+}
+
 .calltile__tools {
   position: absolute;
   top: 8px;
@@ -6439,8 +6440,6 @@ textarea {
   background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
   color: var(--text);
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg) 18%, transparent);
 }
 
 .calltile__tools button:hover,
@@ -6486,6 +6485,100 @@ textarea {
   background: #000;
 }
 
+/* ── Mobile call panel: compact drawer ── */
+@media (max-width: 760px) {
+  .callpanel {
+    flex: none;
+    padding: 8px 10px;
+    gap: 0;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  /* Single row: avatars | controls */
+  .callpanel__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    justify-content: space-between;
+  }
+
+  /* Hide the stage — avatars are now in the header */
+  .callpanel__stage {
+    display: none;
+  }
+
+  /* Mobile avatar strip */
+  .callpanel__mobile-strip {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .callpanel__mobile-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    background: var(--surface-2);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex: none;
+    margin-left: -6px;
+  }
+  .callpanel__mobile-avatar:first-child {
+    margin-left: 0;
+  }
+  .callpanel__mobile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .callpanel__mobile-avatar .avatar {
+    width: 100%;
+    height: 100%;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    border-radius: 50%;
+  }
+
+  .callpanel__mobile-overflow,
+  .callpanel__mobile-count {
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+    flex: none;
+  }
+  .callpanel__mobile-overflow {
+    color: var(--accent);
+  }
+
+  /* Controls */
+  .callpanel__actions {
+    margin-left: auto;
+    gap: 6px;
+    flex: none;
+  }
+
+  .callpanel__actions .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 760px) {
 .callpanel__focus-close {
   position: absolute;
   top: 10px;
@@ -6505,7 +6598,6 @@ textarea {
   background: color-mix(in srgb, var(--bg) 74%, transparent);
   color: #fff;
   font-weight: 700;
-  backdrop-filter: blur(8px);
 }
 
 .callpanel__audio {
@@ -6572,6 +6664,8 @@ textarea {
   font-size: 12px !important;
 }
 
+}
+
 /* Responsive */
 @media (max-width: 760px) {
   :root {
@@ -6613,31 +6707,6 @@ textarea {
 
   .app.is-thread .thread {
     display: flex;
-  }
-
-  .callpanel {
-    padding: 8px;
-  }
-
-  .callpanel__head {
-    align-items: flex-start;
-  }
-
-  .callpanel__meta {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .callpanel__actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .callpanel__stage,
-  .callpanel__stage--duo,
-  .callpanel__stage--grid {
-    grid-template-columns: 1fr;
-    height: clamp(180px, 34vh, 300px);
   }
 
   .att-image {
@@ -7009,12 +7078,8 @@ textarea {
   }
 
   .call-pip {
-    left: 10px;
-    right: 10px;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    border-radius: 14px;
-    justify-content: center;
-    text-align: center;
+    padding: 8px 12px;
+    font-size: 12px;
   }
 }
 
