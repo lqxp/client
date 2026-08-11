@@ -1589,7 +1589,7 @@ function normalizeMessage(message, fallbackRoomId) {
     clientNonce: String(message.clientNonce || ""),
     user: message.system ? SYSTEM_USERNAME : (message.user || message.username || "Unknown"),
     username: message.system ? SYSTEM_USERNAME : (message.username || extractUsername(message.user)),
-    text: voiceDuration ? "Voice message" : rawText,
+    text: voiceDuration ? "" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
     profile: normalizeProfile(message.profile),
