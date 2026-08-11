@@ -207,6 +207,8 @@ export function useUpdater() {
     isCheckActive.value = true;
     phase.value = "checking";
 
+    const searchMinTime = new Promise((resolve) => setTimeout(resolve, 1200));
+
     try {
       const updaterPkg = "@tauri-apps/plugin-updater";
       const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
@@ -214,11 +216,16 @@ export function useUpdater() {
         throw new Error("Updater plugin unavailable");
       }
 
-      const update = await updaterModule.check();
+      const updatePromise = updaterModule.check();
+      const [update] = await Promise.all([updatePromise, searchMinTime]);
 
       if (!update || !update.available) {
         updateAvailable.value = false;
         phase.value = "upToDate";
+        setTimeout(() => {
+          isCheckActive.value = false;
+          phase.value = "idle";
+        }, 1400);
         return;
       }
 
@@ -231,6 +238,7 @@ export function useUpdater() {
       sendUpdateNotification(newVersion.value);
       performUpdate();
     } catch (err: any) {
+      await searchMinTime;
       console.error("Failed to check for updates:", err);
       if (forceManual) {
         phase.value = "error";
