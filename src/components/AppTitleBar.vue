@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useUpdater } from "@/composables/useUpdater";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const appWindow = isTauri ? getCurrentWindow() : null;
 const isMaximized = ref(false);
+
+const { updateAvailable, triggerCheckUpdatesEvent } = useUpdater();
 
 const title = computed(() => `QxChat ${__APP_VERSION__}`);
 
@@ -52,6 +55,19 @@ onMounted(() => {
     <div class="app-titlebar__brand" data-tauri-drag-region>
       <span class="app-titlebar__mark" aria-hidden="true">Q</span>
       <span class="app-titlebar__title" data-tauri-drag-region>{{ title }}</span>
+
+      <div
+        v-if="updateAvailable"
+        class="app-titlebar__update-badge"
+        title="Mise à jour disponible (cliquez pour mettre à jour)"
+        @click.stop="triggerCheckUpdatesEvent"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </div>
     </div>
 
     <div class="app-titlebar__controls" aria-label="Contrôles de fenêtre">
@@ -142,6 +158,29 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
   color: color-mix(in srgb, var(--text) 88%, transparent);
+}
+
+.app-titlebar__update-badge {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  cursor: pointer;
+  margin-left: 4px;
+  animation: update-glow 2.2s infinite ease-in-out;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+}
+
+.app-titlebar__update-badge:hover {
+  transform: scale(1.12);
+  background: rgba(34, 197, 94, 0.35);
+  color: #4ade80;
 }
 
 .app-titlebar__controls {

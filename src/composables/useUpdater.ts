@@ -1,5 +1,4 @@
 import { ref, computed } from "vue";
-import { apiUrl } from "@/config/runtime";
 import { useI18n } from "@/composables/useI18n";
 
 export type UpdatePhase =
@@ -20,23 +19,26 @@ const currentStep = ref<1 | 2>(1);
 const step1Status = ref<StepStatus>("pending");
 const step2Status = ref<StepStatus>("pending");
 const progressPercent = ref(0);
-const currentVersion = ref("1.13.11");
+const currentVersion = ref(typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.15.0");
 const newVersion = ref("");
 const releaseNotes = ref("");
 const errorDetails = ref("");
 const countdownSeconds = ref(3);
+const updateAvailable = ref(false);
 
 let countdownInterval: ReturnType<typeof setInterval> | null = null;
 let listenerInitialized = false;
+let pendingUpdateObj: any = null;
 
 export function useUpdater() {
   const { t } = useI18n();
 
   const isTauri = computed(() => {
     return (
-      "__TAURI_INTERNALS__" in window ||
-      "__TAURI__" in window ||
-      "__TAURI_IPC__" in window
+      typeof window !== "undefined" &&
+      ("__TAURI_INTERNALS__" in window ||
+        "__TAURI__" in window ||
+        "__TAURI_IPC__" in window)
     );
   });
 
@@ -62,18 +64,19 @@ export function useUpdater() {
     }
   }
 
-  async function fetchLatestReleaseInfo() {
-    try {
-      const response = await fetch(apiUrl("api/release"), { cache: "no-store" });
-      if (!response.ok) return null;
-      const data = await response.json();
-      return {
-        tag_name: data.tag_name || data.name || "",
-        body: data.body || "",
-        assets: data.assets || [],
-      };
-    } catch {
-      return null;
+  function triggerCheckUpdatesEvent() {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("qx:check-updates"));
+    }
+    if (isTauri.value) {
+      const eventPkg = "@tauri-apps/api/event";
+      import(/* @vite-ignore */ eventPkg)
+        .then((eventModule) => {
+          if (eventModule && eventModule.emit) {
+            eventModule.emit("qx:check-updates");
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -85,39 +88,61 @@ export function useUpdater() {
     progressPercent.value = 0;
     errorDetails.value = "";
     countdownSeconds.value = 3;
+    pendingUpdateObj = null;
     if (countdownInterval) {
       clearInterval(countdownInterval);
       countdownInterval = null;
     }
   }
 
-  async function startRealTauriUpdate() {
+  async function sendUpdateNotification(version: string) {
+    if (!isTauri.value) return;
+    try {
+      const notifPkg = "@tauri-apps/plugin-notification";
+      const notifModule = await import(/* @vite-ignore */ notifPkg).catch(() => null);
+      if (notifModule) {
+        let granted = await notifModule.isPermissionGranted();
+        if (!granted) {
+          const permission = await notifModule.requestPermission();
+          granted = permission === "granted";
+        }
+        if (granted) {
+          notifModule.sendNotification({
+            title: "QxChat Update",
+            body: `A new version (v${version}) is available.`,
+          });
+        }
+      }
+    } catch { }
+  }
+
+  async function performUpdate() {
+    if (!pendingUpdateObj) {
+      try {
+        const updaterPkg = "@tauri-apps/plugin-updater";
+        const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
+        if (updaterModule) {
+          pendingUpdateObj = await updaterModule.check();
+        }
+      } catch { }
+    }
+
+    if (!pendingUpdateObj) {
+      phase.value = "error";
+      errorDetails.value = t("updater.error");
+      return;
+    }
+
     phase.value = "downloading";
     currentStep.value = 1;
     step1Status.value = "active";
     step2Status.value = "pending";
 
     try {
-      const updaterPkg = "@tauri-apps/plugin-updater";
-      const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
-      if (!updaterModule) {
-        throw new Error(t("updater.error"));
-      }
-
-      const update = await updaterModule.check();
-      if (!update) {
-        phase.value = "upToDate";
-        setTimeout(() => {
-          isCheckActive.value = false;
-          phase.value = "idle";
-        }, 1200);
-        return;
-      }
-
       let downloadedBytes = 0;
       let totalBytes = 0;
 
-      await update.downloadAndInstall((event: any) => {
+      await pendingUpdateObj.downloadAndInstall((event: any) => {
         if (event.event === "Started") {
           totalBytes = event.data.contentLength || 0;
         } else if (event.event === "Progress") {
@@ -133,8 +158,6 @@ export function useUpdater() {
       step2Status.value = "active";
       phase.value = "installing";
       progressPercent.value = 100;
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       step2Status.value = "completed";
       phase.value = "completed";
@@ -176,7 +199,7 @@ export function useUpdater() {
   }
 
   async function checkForUpdates(forceManual = false) {
-    if (!isTauri.value && !forceManual) {
+    if (!isTauri.value) {
       return;
     }
 
@@ -184,42 +207,38 @@ export function useUpdater() {
     isCheckActive.value = true;
     phase.value = "checking";
 
-    const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1400));
-
-    let updateFound = false;
-    let fetchedVersion = "";
-    let notes = "";
-
     try {
-      const releaseInfo = await fetchLatestReleaseInfo();
-      if (releaseInfo && releaseInfo.tag_name) {
-        fetchedVersion = releaseInfo.tag_name.replace(/^v/, "").trim();
-        notes = releaseInfo.body || "";
-        if (fetchedVersion && fetchedVersion !== currentVersion.value) {
-          updateFound = true;
-        }
+      const updaterPkg = "@tauri-apps/plugin-updater";
+      const updaterModule = await import(/* @vite-ignore */ updaterPkg).catch(() => null);
+      if (!updaterModule) {
+        throw new Error("Updater plugin unavailable");
       }
-    } catch { }
 
-    await minAnimationDelay;
+      const update = await updaterModule.check();
 
-    if (!updateFound && !forceManual) {
-      phase.value = "upToDate";
-      setTimeout(() => {
-        isCheckActive.value = false;
-        phase.value = "idle";
-      }, 1200);
-      return;
-    }
+      if (!update || !update.available) {
+        updateAvailable.value = false;
+        phase.value = "upToDate";
+        return;
+      }
 
-    if (updateFound || forceManual) {
-      newVersion.value = fetchedVersion || "1.14.0";
-      releaseNotes.value = notes;
+      updateAvailable.value = true;
+      pendingUpdateObj = update;
+      newVersion.value = update.version || "";
+      releaseNotes.value = update.body || "";
       phase.value = "found";
 
-      setTimeout(() => {
-        startRealTauriUpdate();
-      }, 1200);
+      sendUpdateNotification(newVersion.value);
+      performUpdate();
+    } catch (err: any) {
+      console.error("Failed to check for updates:", err);
+      if (forceManual) {
+        phase.value = "error";
+        errorDetails.value = err?.message || t("updater.error");
+      } else {
+        isCheckActive.value = false;
+        phase.value = "idle";
+      }
     }
   }
 
@@ -246,10 +265,13 @@ export function useUpdater() {
     releaseNotes,
     errorDetails,
     countdownSeconds,
+    updateAvailable,
     isTauri,
     checkForUpdates,
+    triggerCheckUpdatesEvent,
     dismissOverlay,
     retryUpdate,
     triggerRelaunch,
+    performUpdate,
   };
 }
