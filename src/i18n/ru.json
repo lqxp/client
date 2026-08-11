@@ -500,7 +500,19 @@
     "camera": {
         "title": "Сделать фото",
         "capture": "Снять",
-        "cancel": "Отмена",
-        "switch": "Переключить камеру"
+        "cancel": "Отмена"
+    },
+    "updater": {
+        "checking": "Поиск обновлений",
+        "upToDate": "QxChat обновлен",
+        "found": "Найдено обновление",
+        "downloading": "Загрузка обновления {version}",
+        "installing": "Установка приложения",
+        "completed": "Обновление готово",
+        "error": "Ошибка обновления",
+        "restartNow": "Перезапустить",
+        "retry": "Повторить",
+        "checkUpdates": "Проверить обновления",
+        "availableTitle": "Доступно обновление"
     }
 }

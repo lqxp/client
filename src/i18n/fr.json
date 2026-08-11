@@ -478,5 +478,18 @@
     "ban": {
         "title": "Compte banni",
         "message": "Hop hop hop! Ton compte a été banni."
+    },
+    "updater": {
+        "checking": "Recherche de mises à jour",
+        "upToDate": "QxChat est à jour",
+        "found": "Mise à jour disponible",
+        "downloading": "Téléchargement de la mise à jour {version}",
+        "installing": "Installation de l'application",
+        "completed": "Mise à jour prête",
+        "error": "Échec de la mise à jour",
+        "restartNow": "Redémarrer",
+        "retry": "Réessayer",
+        "checkUpdates": "Vérifier les mises à jour",
+        "availableTitle": "Mise à jour disponible"
     }
 }

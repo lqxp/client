@@ -490,5 +490,18 @@
     "ban": {
         "title": "Cuenta expulsada",
         "message": "Uy… tu cuenta acaba de ser expulsada."
+    },
+    "updater": {
+        "checking": "Buscando actualizaciones",
+        "upToDate": "QxChat está actualizado",
+        "found": "Actualización encontrada",
+        "downloading": "Descargando actualización {version}",
+        "installing": "Instalando la aplicación",
+        "completed": "Actualización lista",
+        "error": "Error de actualización",
+        "restartNow": "Reiniciar ahora",
+        "retry": "Reintentar",
+        "checkUpdates": "Buscar actualizaciones",
+        "availableTitle": "Actualización disponible"
     }
 }
