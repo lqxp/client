@@ -53,6 +53,32 @@ function onMobileStageScroll(e: Event) {
   }
 }
 
+let stageDragStartX = 0;
+let stageDragScrollStart = 0;
+let stageDragging = false;
+
+function onStageMouseDown(e: MouseEvent) {
+  const el = e.currentTarget as HTMLElement;
+  stageDragStartX = e.clientX;
+  stageDragScrollStart = el.scrollLeft;
+  stageDragging = true;
+  el.style.cursor = "grabbing";
+}
+
+function onStageMouseMove(e: MouseEvent) {
+  if (!stageDragging) return;
+  const el = e.currentTarget as HTMLElement;
+  const dx = stageDragStartX - e.clientX;
+  el.scrollLeft = stageDragScrollStart + dx;
+}
+
+function onStageMouseUp(e: MouseEvent) {
+  if (!stageDragging) return;
+  stageDragging = false;
+  const el = e.currentTarget as HTMLElement;
+  el.style.cursor = "";
+}
+
 onMounted(() => {
   syncMobile();
   window.addEventListener("resize", syncMobile, { passive: true });
@@ -555,6 +581,10 @@ function toggleLocalMute(username) {
       <div
         class="call-mobile-overlay__stage"
         @scroll="onMobileStageScroll"
+        @mousedown="onStageMouseDown"
+        @mousemove="onStageMouseMove"
+        @mouseup="onStageMouseUp"
+        @mouseleave="onStageMouseUp"
       >
         <div
           v-for="(tile, idx) in callTiles"
@@ -767,6 +797,9 @@ function toggleLocalMute(username) {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .call-mobile-overlay__stage::-webkit-scrollbar { display: none; }
 
