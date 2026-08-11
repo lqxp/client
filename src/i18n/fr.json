@@ -200,7 +200,9 @@
         "screen": "Écran",
         "localMute": "Couper localement",
         "unmuteLocal": "Rétablir localement",
-        "personalVolume": "Volume personnel"
+        "personalVolume": "Volume personnel",
+        "oneParticipant": "1 participant",
+        "nParticipants": "{n} participants"
     },
     "settings": {
         "title": "Paramètres",

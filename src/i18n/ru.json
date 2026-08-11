@@ -223,7 +223,9 @@
         "screen": "Экран",
         "localMute": "Заглушить локально",
         "unmuteLocal": "Включить локально",
-        "personalVolume": "Персональная громкость"
+        "personalVolume": "Персональная громкость",
+        "oneParticipant": "1 участник",
+        "nParticipants": "{n} участников"
     },
     "settings": {
         "title": "Настройки",

@@ -197,7 +197,9 @@
         "you": "(tú)",
         "voice": "Voz",
         "camera": "Cámara",
-        "screen": "Pantalla"
+        "screen": "Pantalla",
+        "oneParticipant": "1 participante",
+        "nParticipants": "{n} participantes"
     },
     "settings": {
         "title": "Ajustes",
