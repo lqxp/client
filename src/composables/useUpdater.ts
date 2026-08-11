@@ -219,7 +219,7 @@ export function useUpdater() {
         setTimeout(() => {
           isCheckActive.value = false;
           phase.value = "idle";
-        }, 1400);
+        }, 1600);
         return;
       }
 

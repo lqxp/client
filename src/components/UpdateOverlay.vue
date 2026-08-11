@@ -16,7 +16,7 @@ const {
 </script>
 
 <template>
-  <Transition name="update-fade">
+  <Transition name="update-screen-fade">
     <div v-if="isCheckActive" class="update-screen" role="dialog" aria-modal="true">
       <div class="update-canvas">
         <button
@@ -43,69 +43,77 @@ const {
           </svg>
 
           <div class="hero-icon-content">
-            <div v-if="phase === 'checking'" class="icon-slot loupe-search">
-              <svg class="loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <circle cx="11" cy="11" r="7" stroke-linecap="round" />
-                <path d="M16 16L21 21" stroke-linecap="round" />
-              </svg>
-            </div>
+            <Transition name="phase-fade" mode="out-in">
+              <div :key="phase" class="icon-slot-wrapper">
+                <div v-if="phase === 'checking'" class="icon-slot loupe-search">
+                  <svg class="loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <circle cx="11" cy="11" r="7" stroke-linecap="round" />
+                    <path d="M16 16L21 21" stroke-linecap="round" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'upToDate'" class="icon-slot success-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'upToDate'" class="icon-slot success-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'found'" class="icon-slot found-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'found'" class="icon-slot found-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'downloading'" class="icon-slot download-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'downloading'" class="icon-slot download-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'installing'" class="icon-slot installing-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" class="install-gear-spin">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'installing'" class="icon-slot installing-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" class="install-gear-spin">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'completed'" class="icon-slot completed-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'completed'" class="icon-slot completed-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
 
-            <div v-else-if="phase === 'error'" class="icon-slot error-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
+                <div v-else-if="phase === 'error'" class="icon-slot error-badge">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              </div>
+            </Transition>
           </div>
         </div>
 
-        <h2 class="update-title">
-          <template v-if="phase === 'checking'">{{ t('updater.checking') }}</template>
-          <template v-else-if="phase === 'upToDate'">{{ t('updater.upToDate') }}</template>
-          <template v-else-if="phase === 'found'">{{ t('updater.found') }}</template>
-          <template v-else-if="phase === 'downloading'">{{ t('updater.downloading', { version: newVersion ? `v${newVersion}` : '' }) }}</template>
-          <template v-else-if="phase === 'installing'">{{ t('updater.installing') }}</template>
-          <template v-else-if="phase === 'completed'">{{ t('updater.completed') }}</template>
-          <template v-else-if="phase === 'error'">{{ t('updater.error') }}</template>
-        </h2>
+        <Transition name="phase-fade" mode="out-in">
+          <h2 :key="phase" class="update-title">
+            <template v-if="phase === 'checking'">{{ t('updater.checking') }}</template>
+            <template v-else-if="phase === 'upToDate'">{{ t('updater.upToDate') }}</template>
+            <template v-else-if="phase === 'found'">{{ t('updater.found') }}</template>
+            <template v-else-if="phase === 'downloading'">{{ t('updater.downloading', { version: newVersion ? `v${newVersion}` : '' }) }}</template>
+            <template v-else-if="phase === 'installing'">{{ t('updater.installing') }}</template>
+            <template v-else-if="phase === 'completed'">{{ t('updater.completed') }}</template>
+            <template v-else-if="phase === 'error'">{{ t('updater.error') }}</template>
+          </h2>
+        </Transition>
 
         <div class="update-action-area">
-          <button v-if="phase === 'completed'" class="update-primary-btn" @click="triggerRelaunch">
-            <span>{{ t('updater.restartNow') }}</span>
-          </button>
-          <button v-else-if="phase === 'error'" class="update-secondary-btn" @click="retryUpdate">
-            {{ t('updater.retry') }}
-          </button>
+          <Transition name="phase-fade" mode="out-in">
+            <button v-if="phase === 'completed'" key="restart" class="update-primary-btn" @click="triggerRelaunch">
+              <span>{{ t('updater.restartNow') }}</span>
+            </button>
+            <button v-else-if="phase === 'error'" key="retry" class="update-secondary-btn" @click="retryUpdate">
+              {{ t('updater.retry') }}
+            </button>
+          </Transition>
         </div>
       </div>
     </div>
@@ -239,6 +247,15 @@ const {
 .hero-icon-content {
   position: relative;
   z-index: 2;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-slot-wrapper {
   width: 52px;
   height: 52px;
   display: flex;
@@ -386,13 +403,29 @@ const {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.update-fade-enter-active,
-.update-fade-leave-active {
-  transition: opacity 0.35s ease;
+/* Ultra smooth scale-fade transition */
+.phase-fade-enter-active,
+.phase-fade-leave-active {
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.update-fade-enter-from,
-.update-fade-leave-to {
+.phase-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.phase-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.05);
+}
+
+.update-screen-fade-enter-active,
+.update-screen-fade-leave-active {
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.update-screen-fade-enter-from,
+.update-screen-fade-leave-to {
   opacity: 0;
 }
 </style>
