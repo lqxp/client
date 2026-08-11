@@ -5,7 +5,9 @@
         "noConversation": "Беседа не выбрана",
         "noConversationHint": "Выберите комнату из списка или нажмите на значок карандаша, чтобы начать новую.",
         "desktopDirectMessage": "Личное сообщение",
-        "desktopGroupPlaceholder": "Групповая беседа"
+        "desktopGroupPlaceholder": "Групповая беседа",
+        "inCall": "В звонке · {room} · {elapsed}",
+        "endCall": "Завершить"
     },
     "titlebar": {
         "tray": "Трей",
@@ -223,7 +225,10 @@
         "screen": "Экран",
         "localMute": "Заглушить локально",
         "unmuteLocal": "Включить локально",
-        "personalVolume": "Персональная громкость"
+        "muted": "Микрофон выкл",
+        "personalVolume": "Персональная громкость",
+        "oneParticipant": "1 участник",
+        "nParticipants": "{n} участников"
     },
     "settings": {
         "title": "Настройки",

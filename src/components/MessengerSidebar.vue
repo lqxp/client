@@ -32,8 +32,8 @@ function onSidebarTouchEnd(event: TouchEvent) {
   const dx = (event.changedTouches[0]?.clientX || 0) - sidebarTouchStartX;
   const dy = (event.changedTouches[0]?.clientY || 0) - sidebarTouchStartY;
   if (Math.abs(dx) <= Math.abs(dy) * 1.5) return;
-  // Swipe right → open active conversation
-  if (dx > 60) {
+  // Swipe left → open active conversation
+  if (dx < -60) {
     const active = props.messenger.state.activeRoom;
     if (active) emit("conversation-selected", active);
   }
