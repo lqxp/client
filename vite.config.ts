@@ -9,8 +9,8 @@ const packageJson = JSON.parse(
 
 const isWeb = basename(process.cwd()) === "web";
 
-export default defineConfig({
-  base: isWeb ? "/app/" : "./",
+export default defineConfig(({ command }) => ({
+  base: isWeb ? "/app/" : command === "build" ? "./" : "/",
 
   plugins: [vue()],
 
@@ -35,4 +35,4 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(String(packageJson.version || "0.0.0")),
   },
-});
+}));
