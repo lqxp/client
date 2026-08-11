@@ -355,6 +355,20 @@ function toggleLocalMute(username) {
 <template>
   <section class="callpanel" v-if="messenger.state.inCall && messenger.state.callRoom === messenger.state.activeRoom">
     <header class="callpanel__head">
+      <div v-if="isMobile" class="callpanel__mobile-strip" @click="openMobileCall">
+        <span
+          v-for="(tile, idx) in callTiles.slice(0, 3)"
+          :key="tile.id"
+          class="callpanel__mobile-avatar"
+          :class="{ 'is-speaking': isSpeaking(tile.username), 'is-self': tile.self }"
+          :style="{ zIndex: 3 - idx }"
+        >
+          <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="tile.username" />
+          <span v-else class="avatar" :class="`avatar--${messenger.accentFor(tile.username)}`">{{ initialsOf(tile.username) }}</span>
+        </span>
+        <span v-if="callTiles.length > 3" class="callpanel__mobile-overflow">+{{ callTiles.length - 3 }}</span>
+        <span v-else class="callpanel__mobile-count">{{ callTiles.length }}</span>
+      </div>
       <div class="callpanel__actions">
         <button
           class="icon-btn"
@@ -376,6 +390,7 @@ function toggleLocalMute(username) {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"/></svg>
         </button>
         <button
+          v-if="!isMobile"
           class="icon-btn"
           :class="{ 'icon-btn--active': messenger.state.callScreenEnabled }"
           type="button"

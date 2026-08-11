@@ -4181,28 +4181,46 @@ textarea {
   border-radius: 50%;
   background: var(--red);
   margin-right: 6px;
-  animation: rec-pulse 1.2s infinite ease-in-out;
 }
 
-/* Picture-in-picture call banner */
+/* In-call banner (shown when viewing a different conversation) */
 .call-pip {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 999px;
+  margin: 0;
   background: var(--surface-2);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--line-strong);
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
   cursor: pointer;
-  z-index: 30;
+  flex: none;
 }
 
-.call-pip:hover {
-  background: var(--surface-active);
+.call-pip__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-pip__end {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0;
+  background: #e53935;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 120ms ease;
+}
+.call-pip__end:hover {
+  background: #c62828;
 }
 
 /* Settings */
@@ -6490,93 +6508,95 @@ textarea {
 @media (max-width: 760px) {
   .callpanel {
     flex: none;
-    padding: 0;
+    padding: 8px 10px;
     gap: 0;
     border-top: 1px solid var(--line);
     background: var(--surface);
   }
 
+  /* Single row: avatars | controls */
   .callpanel__head {
-    padding: 8px 10px;
-    justify-content: center;
-    gap: 8px;
-    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    justify-content: space-between;
   }
 
-  .callpanel__actions {
+  /* Hide the stage — avatars are now in the header */
+  .callpanel__stage {
+    display: none;
+  }
+
+  /* Mobile avatar strip */
+  .callpanel__mobile-strip {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .callpanel__mobile-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    background: var(--surface-2);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex: none;
+    margin-left: -6px;
+  }
+  .callpanel__mobile-avatar:first-child {
     margin-left: 0;
-    gap: 8px;
+  }
+  .callpanel__mobile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .callpanel__mobile-avatar.is-speaking {
+    border-color: var(--green);
+  }
+
+  .callpanel__mobile-avatar .avatar {
+    width: 100%;
+    height: 100%;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    border-radius: 50%;
+  }
+
+  .callpanel__mobile-overflow,
+  .callpanel__mobile-count {
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+    flex: none;
+  }
+  .callpanel__mobile-overflow {
+    color: var(--accent);
+  }
+
+  /* Controls */
+  .callpanel__actions {
+    margin-left: auto;
+    gap: 6px;
+    flex: none;
   }
 
   .callpanel__actions .icon-btn {
-    width: 40px;
-    height: 40px;
-  }
-
-  /* Stage: horizontal avatar strip */
-  .callpanel__stage,
-  .callpanel__stage--solo,
-  .callpanel__stage--duo,
-  .callpanel__stage--grid,
-  .callpanel__stage--many {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    height: auto;
-    min-height: 0;
-    padding: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .callpanel__stage::-webkit-scrollbar { display: none; }
-
-  /* Tiles → compact avatar circles */
-  .calltile {
-    flex: none;
-    width: 56px;
-    height: 56px;
-    min-width: 56px;
-    border-radius: 50%;
-    border: 2px solid var(--line-strong);
-    background: var(--surface-2);
-    box-shadow: none;
-    overflow: hidden;
-  }
-
-  .calltile.is-speaking {
-    border-color: var(--green);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 40%, transparent);
-  }
-
-  .calltile__video,
-  .calltile__empty {
-    position: static;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-  }
-
-  .calltile__video video {
-    object-fit: cover;
-    border-radius: 50%;
-  }
-
-  .calltile__avatar {
-    width: 100%;
-    height: 100%;
-    font-size: 20px;
-  }
-
-  .calltile__overlay,
-  .calltile__tools,
-  .calltile__kind,
-  .calltile__you,
-  .calltile__name,
-  .calltile__muted-badge {
-    display: none;
+    width: 36px;
+    height: 36px;
   }
 }
 
@@ -7081,12 +7101,8 @@ textarea {
   }
 
   .call-pip {
-    left: 10px;
-    right: 10px;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    border-radius: 14px;
-    justify-content: center;
-    text-align: center;
+    padding: 8px 12px;
+    font-size: 12px;
   }
 }
 

@@ -5,7 +5,9 @@
         "noConversation": "Беседа не выбрана",
         "noConversationHint": "Выберите комнату из списка или нажмите на значок карандаша, чтобы начать новую.",
         "desktopDirectMessage": "Личное сообщение",
-        "desktopGroupPlaceholder": "Групповая беседа"
+        "desktopGroupPlaceholder": "Групповая беседа",
+        "inCall": "В звонке · {room} · {elapsed}",
+        "endCall": "Завершить"
     },
     "titlebar": {
         "tray": "Трей",
