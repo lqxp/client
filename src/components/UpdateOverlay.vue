@@ -43,49 +43,51 @@ const {
           </svg>
 
           <div class="hero-icon-content">
-            <div v-if="phase === 'checking'" class="loupe-search">
-              <svg class="loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <circle cx="11" cy="11" r="7" stroke-linecap="round" />
-                <path d="M16 16L21 21" stroke-linecap="round" />
-              </svg>
-            </div>
+            <Transition name="icon-fade" mode="out-in">
+              <div v-if="phase === 'checking'" key="checking" class="icon-slot loupe-search">
+                <svg class="loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <circle cx="11" cy="11" r="7" stroke-linecap="round" />
+                  <path d="M16 16L21 21" stroke-linecap="round" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'upToDate'" class="success-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'upToDate'" key="upToDate" class="icon-slot success-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'found'" class="found-badge">
-              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'found'" key="found" class="icon-slot found-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'downloading'" class="download-badge">
-              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'downloading'" key="downloading" class="icon-slot download-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'installing'" class="installing-badge">
-              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" class="install-gear-spin">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'installing'" key="installing" class="icon-slot installing-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" class="install-gear-spin">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'completed'" class="completed-badge">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'completed'" key="completed" class="icon-slot completed-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
 
-            <div v-else-if="phase === 'error'" class="error-badge">
-              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
+              <div v-else-if="phase === 'error'" key="error" class="icon-slot error-badge">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </Transition>
           </div>
         </div>
 
@@ -99,16 +101,15 @@ const {
           <template v-else-if="phase === 'error'">{{ t('updater.error') }}</template>
         </h2>
 
-        <div v-if="phase === 'completed'" class="update-action-area">
-          <button class="update-primary-btn" @click="triggerRelaunch">
-            <span>{{ t('updater.restartNow') }}</span>
-          </button>
-        </div>
-
-        <div v-if="phase === 'error'" class="update-action-area">
-          <button class="update-secondary-btn" @click="retryUpdate">
-            {{ t('updater.retry') }}
-          </button>
+        <div class="update-action-area">
+          <Transition name="icon-fade" mode="out-in">
+            <button v-if="phase === 'completed'" key="restart" class="update-primary-btn" @click="triggerRelaunch">
+              <span>{{ t('updater.restartNow') }}</span>
+            </button>
+            <button v-else-if="phase === 'error'" key="retry" class="update-secondary-btn" @click="retryUpdate">
+              {{ t('updater.retry') }}
+            </button>
+          </Transition>
         </div>
       </div>
     </div>
@@ -119,9 +120,10 @@ const {
 .update-screen {
   position: fixed;
   inset: 0;
-  z-index: 999999;
+  z-index: 9999999;
   width: 100vw;
   height: 100vh;
+  background: #0f0c1b;
   color: var(--text, #f4f4f5);
   display: flex;
   align-items: center;
@@ -138,18 +140,21 @@ const {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(24px) brightness(0.85);
+  filter: blur(32px) brightness(0.7);
+  opacity: 0.95;
   z-index: 0;
   transition: background-image 0.3s ease;
 }
 
 :global(:root[data-theme="light"]) .update-screen {
+  background: #f3f4f6;
   color: var(--text, #111827);
 }
 
 :global(:root[data-theme="light"]) .update-screen::before {
   background-image: url("/assets/wp_light.jpg");
-  filter: blur(24px) brightness(0.95);
+  filter: blur(32px) brightness(0.95);
+  opacity: 0.95;
 }
 
 .update-canvas {
@@ -204,6 +209,7 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .hero-progress-svg {
@@ -237,9 +243,21 @@ const {
 .hero-icon-content {
   position: relative;
   z-index: 1;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-slot {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .loupe-search {
@@ -255,8 +273,8 @@ const {
 }
 
 .loupe-svg {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
 }
 
 @keyframes search-orbit {
@@ -264,13 +282,13 @@ const {
     transform: rotate(0deg) scale(1);
   }
   25% {
-    transform: rotate(-18deg) scale(1.12);
+    transform: rotate(-18deg) scale(1.08);
   }
   50% {
-    transform: rotate(18deg) scale(1.06);
+    transform: rotate(18deg) scale(1.04);
   }
   75% {
-    transform: rotate(-10deg) scale(1.1);
+    transform: rotate(-10deg) scale(1.06);
   }
   100% {
     transform: rotate(0deg) scale(1);
@@ -296,23 +314,20 @@ const {
 .installing-badge,
 .completed-badge {
   color: #2090ea;
-  animation: badge-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .error-badge {
   color: #ff453a;
-  animation: badge-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes badge-pop {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+.icon-fade-enter-active,
+.icon-fade-leave-active {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.icon-fade-enter-from,
+.icon-fade-leave-to {
+  opacity: 0;
 }
 
 .update-title {
@@ -321,6 +336,11 @@ const {
   letter-spacing: -0.02em;
   margin: 0;
   color: var(--text, #ffffff);
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 :global(:root[data-theme="light"]) .update-title {
@@ -328,10 +348,12 @@ const {
 }
 
 .update-action-area {
-  margin-top: 2rem;
+  margin-top: 1.75rem;
   width: 100%;
   max-width: 280px;
+  min-height: 52px;
   display: flex;
+  align-items: center;
   justify-content: center;
 }
 
