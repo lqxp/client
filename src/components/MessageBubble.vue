@@ -1000,7 +1000,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <!-- Reactions submenu -->
-    <div v-if="showReactionsSubmenu" class="msg__context" @click="showReactionsSubmenu = false" @contextmenu.prevent>
+    <div v-if="showReactionsSubmenu" class="msg__context" @click.stop="showReactionsSubmenu = false" @contextmenu.prevent>
       <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="'Reactions'" @click.stop>
         <div class="msg__context-submenu-head">
           <button type="button" class="msg__context-back" @click="showReactionsSubmenu = false">
