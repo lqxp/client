@@ -506,6 +506,7 @@ function platformIcon(platform) {
 function sanitizeRoomId(value) {
   return String(value || "")
     .trim()
+    .toLowerCase()
     .slice(0, ROOM_ID_MAX_LENGTH);
 }
 
@@ -660,10 +661,19 @@ function parseInviteLink() {
     const queryIndex = hash.indexOf("?");
     if (queryIndex === -1) return null;
     const params = new URLSearchParams(hash.slice(queryIndex + 1));
-    const roomId = sanitizeRoomId(params.get("room") || "");
-    const key = String(params.get("key") || "").trim();
-    if (!isValidRoomId(roomId) || !key) return null;
-    return { roomId, roomKey: normalizeRoomKey(key) };
+    // Unified token format (preferred)
+    let token = String(params.get("token") || "").trim();
+    // Backward compatibility: old room+key format
+    if (!token) {
+      const room = String(params.get("room") || "").trim();
+      const key = String(params.get("key") || "").trim();
+      if (room && key) {
+        token = `${sanitizeRoomId(room)}${normalizeRoomKey(key)}`;
+      }
+    }
+    if (!token) return null;
+    const parsed = parseRoomAccessToken(token);
+    return { roomId: parsed.roomId, roomKey: parsed.roomKey, token: parsed.token };
   } catch {
     return null;
   }
@@ -3050,6 +3060,9 @@ export function useMessenger() {
     state.roomKeysByRoom[id] = normalized;
     touchRoom(id);
     persist();
+    if (!state.roomKeysByRoom[id] || state.roomKeysByRoom[id] !== normalized) {
+      throw new Error("Failed to store room key.");
+    }
     return normalized;
   }
 
@@ -4301,6 +4314,51 @@ export function useMessenger() {
 
   function submitCompose() {
     const raw = String(state.composeInput || "").trim();
+    if (!raw) return;
+
+    // Handle a full 96-char hex E2EE room token (roomId + roomKey)
+    if (/^[0-9a-f]{96}$/i.test(raw)) {
+      try {
+        openImportedRoomToken(raw);
+        state.composing = false;
+        state.composeInput = "";
+        return;
+      } catch {
+        // Fall through — try to treat it as a plain room ID.
+      }
+    }
+
+    // Handle an invite URL with a unified token param
+    if (/[?&]token=/i.test(raw)) {
+      try {
+        let tokenFromUrl = "";
+        const hashIndex = raw.lastIndexOf("#");
+        if (hashIndex !== -1) {
+          const fragment = raw.slice(hashIndex + 1);
+          const queryIndex = fragment.indexOf("?");
+          if (queryIndex !== -1) {
+            const params = new URLSearchParams(fragment.slice(queryIndex + 1));
+            tokenFromUrl = String(params.get("token") || "").trim();
+          }
+        }
+        if (!tokenFromUrl) {
+          try {
+            const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+            tokenFromUrl = String(url.searchParams.get("token") || "").trim();
+          } catch { /* ignore */ }
+        }
+        if (/^[0-9a-f]{96}$/i.test(tokenFromUrl)) {
+          openImportedRoomToken(tokenFromUrl);
+          state.composing = false;
+          state.composeInput = "";
+          return;
+        }
+      } catch {
+        // Fall through.
+      }
+    }
+
+    // Plain room ID / room name
     const id = sanitizeRoomId(raw);
     const validation = validateRoomId(id);
     if (validation) {
