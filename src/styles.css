@@ -6380,6 +6380,10 @@ textarea {
   opacity: 0.7;
 }
 
+.calltile.is-speaking {
+  box-shadow: 0 0 0 2px rgb(69, 163, 102);
+}
+
 .calltile__avatar {
   width: clamp(58px, 8vw, 96px);
   height: clamp(58px, 8vw, 96px);

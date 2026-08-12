@@ -165,7 +165,7 @@ const callGridClass = computed(() => {
 const speakingSet = computed(() => {
   const roomId = callRoom.value;
   const table = props.messenger.state.speakingByRoom[roomId] || {};
-  const cutoff = now.value - 1500;
+  const cutoff = now.value - 600;
   return new Set(Object.keys(table).filter((u) => table[u] >= cutoff));
 });
 
@@ -192,11 +192,6 @@ function isLocallyMuted(username) {
 }
 
 function isSpeaking(username) {
-  if (isSelf(username)) {
-    return props.messenger.state.inCall && !props.messenger.state.callMuted && props.messenger.state.micTestLevel > 0
-      ? props.messenger.state.micTestLevel >= Number(props.messenger.state.microphoneThreshold || 0)
-      : speakingSet.value.has(username);
-  }
   return speakingSet.value.has(username);
 }
 
@@ -465,7 +460,8 @@ function toggleLocalMute(username) {
           'is-screen': tile.kind === 'screen',
           'is-fullscreen': fullscreenTileId === tile.id,
           'is-local-muted': isLocallyMuted(tile.username),
-          'is-remote-muted': isRemotelyMuted(tile.username)
+          'is-remote-muted': isRemotelyMuted(tile.username),
+          'is-speaking': isSpeaking(tile.username)
         }"
         role="button"
         tabindex="0"

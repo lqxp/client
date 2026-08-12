@@ -1886,6 +1886,7 @@ export function useMessenger() {
     typingByRoom: {}, // { roomId: { username: lastTypingTimestamp } }
     callAnalyser: null,
     callAnalyserData: null,
+    callAnalyserOutData: null,
 
     adminLoading: false,
     adminOverview: null,
@@ -1910,6 +1911,8 @@ export function useMessenger() {
   let callOutboundStream: MediaStream | null = null;
   let callGateTimer: ReturnType<typeof setInterval> | null = null;
   let callGateOpenUntil = 0;
+  let speakingSampler: ReturnType<typeof setInterval> | null = null;
+  const remoteCallAnalysers = new Map<string, { context: AudioContext; analyser: AnalyserNode; data: Uint8Array<ArrayBuffer> }>();
   const localClientId = getPersistentClientId();
   const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let typingIdleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -3781,20 +3784,28 @@ export function useMessenger() {
       const monitorSource = context.createMediaStreamSource(monitorStream);
       const outboundSource = context.createMediaStreamSource(stream);
       const analyser = context.createAnalyser();
+      const outAnalyser = context.createAnalyser();
       const gate = context.createGain();
       const destination = context.createMediaStreamDestination();
       analyser.fftSize = 1024;
+      outAnalyser.fftSize = 1024;
       gate.gain.value = Number(state.microphoneThreshold) > 0 ? 0 : 1;
       monitorSource.connect(analyser);
       outboundSource.connect(gate);
       gate.connect(destination);
+      // Mirror the actual outbound (post-gate) audio so the speaker indicator
+      // uses the same signal the other peers receive, not the raw mic.
+      const outboundMonitor = context.createMediaStreamSource(destination.stream);
+      outboundMonitor.connect(outAnalyser);
       context.resume?.().catch?.(() => { });
-      state.callAnalyser = { context, analyser, gate, monitorStream };
+      state.callAnalyser = { context, analyser, outAnalyser, gate, monitorStream };
       state.callAnalyserData = new Uint8Array(analyser.fftSize);
+      state.callAnalyserOutData = new Uint8Array(outAnalyser.fftSize);
       return destination.stream;
     } catch {
       state.callAnalyser = null;
       state.callAnalyserData = null;
+      state.callAnalyserOutData = null;
       return stream;
     }
   }
@@ -3809,7 +3820,87 @@ export function useMessenger() {
     const context = state.callAnalyser?.context;
     state.callAnalyser = null;
     state.callAnalyserData = null;
+    state.callAnalyserOutData = null;
     if (context) context.close().catch(() => { });
+  }
+
+  function attachRemoteCallAnalyser(username: string, stream: MediaStream) {
+    const key = sanitizeUsername(username);
+    if (!key) return;
+    removeRemoteCallAnalyser(key);
+    const audioTrack = stream.getAudioTracks()[0];
+    if (!audioTrack || audioTrack.readyState !== "live") return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const context = new AudioCtx();
+      const source = context.createMediaStreamSource(new MediaStream([audioTrack]));
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      context.resume?.().catch?.(() => { });
+      remoteCallAnalysers.set(key, {
+        context,
+        analyser,
+        data: new Uint8Array(analyser.fftSize),
+      });
+    } catch {
+      /* audio analysis is best-effort */
+    }
+  }
+
+  function removeRemoteCallAnalyser(username: string) {
+    const key = sanitizeUsername(username);
+    const entry = remoteCallAnalysers.get(key);
+    if (!entry) return;
+    remoteCallAnalysers.delete(key);
+    entry.context.close().catch(() => { });
+  }
+
+  function clearRemoteCallAnalysers() {
+    for (const key of [...remoteCallAnalysers.keys()]) removeRemoteCallAnalyser(key);
+  }
+
+  function startSpeakingSampler() {
+    if (speakingSampler) clearInterval(speakingSampler);
+    const tick = () => {
+      if (!state.inCall) {
+        if (speakingSampler) clearInterval(speakingSampler);
+        speakingSampler = null;
+        return;
+      }
+      const roomId = state.callRoom || state.activeRoom;
+      if (!roomId) return;
+      // Use the configured mic threshold when set, otherwise a floor high
+      // enough to ignore quiet room tone during a call.
+      const threshold = Math.max(12, Number(state.microphoneThreshold) || 0);
+
+      // Local microphone (via the outbound post-gate analyser, so the speaker
+      // indicator sees the same signal other peers receive).
+      if (!state.callMuted && state.callAnalyser?.outAnalyser && state.callAnalyserOutData) {
+        state.callAnalyser.outAnalyser.getByteTimeDomainData(state.callAnalyserOutData);
+        const level = microphoneLevelFromSamples(state.callAnalyserOutData);
+        if (level >= threshold) {
+          if (!state.speakingByRoom[roomId]) state.speakingByRoom[roomId] = {};
+          state.speakingByRoom[roomId][sanitizeUsername(state.username)] = Date.now();
+        }
+      } else if (state.callMuted && state.speakingByRoom[roomId]) {
+        // When muted, drop our own timestamp immediately so the ring clears.
+        delete state.speakingByRoom[roomId][sanitizeUsername(state.username)];
+      }
+
+      // Remote streams.
+      for (const [key, entry] of remoteCallAnalysers) {
+        entry.analyser.getByteTimeDomainData(entry.data);
+        const level = microphoneLevelFromSamples(entry.data);
+        if (level >= threshold) {
+          if (!state.speakingByRoom[roomId]) state.speakingByRoom[roomId] = {};
+          state.speakingByRoom[roomId][key] = Date.now();
+        }
+      }
+    };
+    tick();
+    speakingSampler = setInterval(tick, 60);
   }
 
   function primeCallAudioGate() {
@@ -4142,6 +4233,11 @@ export function useMessenger() {
     // WebSocket dropped — clean up any live call state so we can
     // rebuild peer connections from scratch on reconnect.
     if (state.inCall) {
+      if (speakingSampler) {
+        clearInterval(speakingSampler);
+        speakingSampler = null;
+      }
+      clearRemoteCallAnalysers();
       callManager?.close();
       callManager = null;
       state.remoteCallStreamsByUser = {};
@@ -4865,6 +4961,9 @@ export function useMessenger() {
     const key = sanitizeUsername(username);
     if (!key) return;
     state.remoteCallStreamsByUser[key] = remote.stream;
+    if (remote.stream && remote.stream.getAudioTracks().length) {
+      attachRemoteCallAnalyser(key, remote.stream);
+    }
     const existing = state.remoteCallMediaByUser[key] || EMPTY_CALL_MEDIA;
     const inferred = normalizeCallMedia(remote.media || EMPTY_CALL_MEDIA);
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
@@ -4883,6 +4982,7 @@ export function useMessenger() {
     if (!key) return;
     delete state.remoteCallStreamsByUser[key];
     delete state.remoteCallMediaByUser[key];
+    removeRemoteCallAnalyser(key);
   }
 
   function remoteCallStream(username) {
@@ -4972,6 +5072,7 @@ export function useMessenger() {
       connectKnownCallPeers(roomId);
       primeCallAudioGate();
       startCallAudioGate();
+      startSpeakingSampler();
       tickCall(Date.now());
       playJoinSound();
     } catch (error) {
@@ -5093,6 +5194,11 @@ export function useMessenger() {
   function endCall() {
     const roomId = state.callRoom;
     const wasInCall = state.inCall;
+    if (speakingSampler) {
+      clearInterval(speakingSampler);
+      speakingSampler = null;
+    }
+    clearRemoteCallAnalysers();
     callManager?.close();
     callManager = null;
     state.remoteCallStreamsByUser = {};
@@ -5222,19 +5328,6 @@ export function useMessenger() {
       sdp: typeof d?.sdp === "string" ? d.sdp : undefined,
       candidate: d?.candidate,
     });
-  }
-
-  function handleIncomingCallChunk(d, fromUser) {
-    // Backward compatibility for old clients still sending op 99 chunks.
-    if (!d?.chunk) return;
-    const roomId = sanitizeRoomId(d.gameId || state.activeRoom);
-    if (fromUser && roomId) {
-      if (!state.speakingByRoom[roomId]) state.speakingByRoom[roomId] = {};
-      state.speakingByRoom[roomId][fromUser] = Date.now();
-      const members = state.voiceMembersByRoom[roomId] || [];
-      if (!members.includes(fromUser))
-        state.voiceMembersByRoom[roomId] = [...members, fromUser];
-    }
   }
 
   function handleVoiceState(d) {
@@ -5956,9 +6049,6 @@ export function useMessenger() {
         break;
       case 98:
         handleVoiceState(d);
-        break;
-      case 99:
-        handleIncomingCallChunk(d, message.u);
         break;
       case 110:
         handleCallState(d);
