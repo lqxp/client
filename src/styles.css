@@ -3020,7 +3020,14 @@ textarea {
   height: 18px;
 }
 
+.composer__desktop-action {
+  align-self: center;
+  flex: none;
+}
+
 .composer__send {
+  align-self: center;
+  flex: none;
   color: var(--accent);
 }
 
