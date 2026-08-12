@@ -783,8 +783,8 @@ function toggleLocalMute(username) {
   z-index: 95;
   display: flex;
   flex-direction: column;
-  background: #0a0b10;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .call-mobile-overlay__head {
@@ -799,7 +799,7 @@ function toggleLocalMute(username) {
   font-weight: 700;
 }
 .call-mobile-overlay__head .icon-btn {
-  color: #fff;
+  color: var(--text);
 }
 
 .call-mobile-overlay__stage {
@@ -874,7 +874,7 @@ function toggleLocalMute(username) {
   height: calc(100% - 48px);
   display: grid;
   place-items: center;
-  background: #14161e;
+  background: var(--surface-2);
 }
 .call-mobile-card__avatar {
   width: 120px;
@@ -884,7 +884,7 @@ function toggleLocalMute(username) {
   place-items: center;
   font-size: 44px;
   font-weight: 800;
-  color: #fff;
+  color: var(--text);
   overflow: hidden;
 }
 .call-mobile-card__avatar img {
@@ -900,11 +900,11 @@ function toggleLocalMute(username) {
   justify-content: center;
   gap: 4px;
   font-size: 15px;
-  color: rgba(255,255,255,.7);
+  color: var(--muted);
   flex: none;
 }
 .call-mobile-card__label strong {
-  color: #fff;
+  color: var(--text);
   font-weight: 700;
 }
 
@@ -926,11 +926,11 @@ function toggleLocalMute(username) {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(255,255,255,.25);
+  background: var(--line-strong);
   transition: background .15s;
 }
 .call-mobile-overlay__dot.is-active {
-  background: #fff;
+  background: var(--accent);
 }
 
 .call-mobile-overlay__controls {
@@ -944,13 +944,15 @@ function toggleLocalMute(username) {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(255,255,255,.1);
-  color: #fff;
+  background: var(--surface-2);
+  color: var(--text);
 }
 .call-mobile-overlay__controls .icon-btn--danger {
-  background: #e53935;
+  background: var(--red);
+  color: #fff;
 }
 .call-mobile-overlay__controls .icon-btn--active {
-  background: rgba(255,255,255,.22);
+  background: var(--accent);
+  color: #fff;
 }
 </style>
