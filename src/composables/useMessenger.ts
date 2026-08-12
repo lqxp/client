@@ -970,6 +970,7 @@ function loadPersisted() {
 
     return {
       authToken: String(raw.authToken || ""),
+      sessionExpired: Boolean(raw.sessionExpired),
       userId: String(raw.userId || ""),
       admin: Boolean(raw.admin),
       recoveryWords: Array.isArray(raw.recoveryWords)
@@ -2896,9 +2897,11 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/auth/me");
       applyAuthenticatedPayload(data);
+      state.sessionExpired = false;
       return true;
     } catch {
-      logoutLocal();
+      disconnect();
+      state.sessionExpired = true;
       return false;
     }
   }
@@ -5790,6 +5793,7 @@ export function useMessenger() {
           state.lastError = d.error;
           if (String(d.error) === "Invalid account session") {
             state.sessionExpired = true;
+            persist();
             disconnect();
           }
           break;

@@ -428,7 +428,6 @@ async function lockClientNow() {
             <input v-model="renewPassword" type="password" maxlength="128" autocomplete="current-password"
               :placeholder="t('onboarding.passwordPlaceholder')" />
           </label>
-          <p v-if="messenger.state.lastError" class="session-renew__error">{{ messenger.state.lastError }}</p>
           <button class="session-renew__btn session-renew__btn--primary" type="submit"
             :disabled="!renewPassword || messenger.state.authLoading">
             {{ messenger.state.authLoading ? t('sessionExpired.renewing') : t('sessionExpired.renew') }}
