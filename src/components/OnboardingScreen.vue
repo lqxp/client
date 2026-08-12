@@ -177,16 +177,16 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   backdrop-filter: blur(24px) saturate(1.12);
 }
 
-:global(:root[data-theme="light"]) .onboarding {
+:global(:root[data-theme="light"] .onboarding) {
   background-image: url("/assets/wp_light.jpg");
   background-color: #f2f4f8;
 }
 
-:global(:root[data-theme="light"]) .onboarding::before {
+:global(:root[data-theme="light"] .onboarding::before) {
   background: rgba(255, 255, 255, 0.12);
 }
 
-:global(:root[data-theme="light"]) .onboarding__card {
+:global(:root[data-theme="light"] .onboarding__card) {
   background: rgba(255, 255, 255, 0.34);
   border-color: rgba(255, 255, 255, 0.52);
   box-shadow:

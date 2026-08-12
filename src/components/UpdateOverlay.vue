@@ -150,12 +150,12 @@ const {
   transition: background-image 0.3s ease;
 }
 
-:global(:root[data-theme="light"]) .update-screen {
+:global(:root[data-theme="light"] .update-screen) {
   background: #f3f4f6;
   color: var(--text, #111827);
 }
 
-:global(:root[data-theme="light"]) .update-screen::before {
+:global(:root[data-theme="light"] .update-screen::before) {
   background-image: url("/assets/wp_light.jpg");
   filter: blur(32px) brightness(0.95);
   opacity: 0.95;
@@ -190,7 +190,7 @@ const {
   transition: all 0.2s ease;
 }
 
-:global(:root[data-theme="light"]) .update-close-btn {
+:global(:root[data-theme="light"] .update-close-btn) {
   background: rgba(0, 0, 0, 0.08);
   color: var(--muted, rgba(0, 0, 0, 0.6));
 }
@@ -200,7 +200,7 @@ const {
   color: var(--text, #ffffff);
 }
 
-:global(:root[data-theme="light"]) .update-close-btn:hover {
+:global(:root[data-theme="light"] .update-close-btn:hover) {
   background: rgba(0, 0, 0, 0.15);
   color: var(--text, #000000);
 }
@@ -230,7 +230,7 @@ const {
   stroke-width: 4;
 }
 
-:global(:root[data-theme="light"]) .hero-progress-bg {
+:global(:root[data-theme="light"] .hero-progress-bg) {
   stroke: rgba(0, 0, 0, 0.12);
 }
 
@@ -281,7 +281,7 @@ const {
   animation: search-orbit 2.6s ease-in-out infinite;
 }
 
-:global(:root[data-theme="light"]) .loupe-search {
+:global(:root[data-theme="light"] .loupe-search) {
   color: #111827;
 }
 
@@ -346,7 +346,7 @@ const {
   text-align: center;
 }
 
-:global(:root[data-theme="light"]) .update-title {
+:global(:root[data-theme="light"] .update-title) {
   color: var(--text, #111827);
 }
 
@@ -393,7 +393,7 @@ const {
   transition: background 0.2s ease;
 }
 
-:global(:root[data-theme="light"]) .update-secondary-btn {
+:global(:root[data-theme="light"] .update-secondary-btn) {
   background: rgba(0, 0, 0, 0.08);
   color: #111827;
   border-color: rgba(0, 0, 0, 0.15);
