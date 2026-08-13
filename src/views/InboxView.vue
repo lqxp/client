@@ -666,9 +666,16 @@ async function lockClientNow() {
 
     <Teleport to="body">
       <Transition name="toast">
-        <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge }"
+        <div v-if="messenger.state.toastMessage" class="toast" :class="{ 'toast--badge': messenger.state.toastBadge, 'toast--error': messenger.state.toastError }"
           role="status" aria-live="polite">
-          <span v-if="messenger.state.toastBadge" class="toast__badge-icon">
+          <span v-if="messenger.state.toastError" class="toast__error-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </span>
+          <span v-else-if="messenger.state.toastBadge" class="toast__badge-icon">
             <BadgeIcon :badge="messenger.state.toastBadge" :avatar-src="messenger.state.toastBadgeAvatarSrc" />
           </span>
           <span>{{ messenger.state.toastMessage }}</span>

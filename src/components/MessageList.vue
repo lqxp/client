@@ -1,18 +1,13 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useI18n } from "@/composables/useI18n";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MessageBubble from "./MessageBubble.vue";
 
 const props = defineProps({
   messenger: { type: Object, required: true }
 });
 
-const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
-
 const RUN_GAP_MS = 3 * 60 * 1000;
-const BANNER_TIMEOUT_MS = 4500;
 const SCROLL_BOTTOM_THRESHOLD = 32;
-let bannerTimer: ReturnType<typeof setTimeout> | null = null;
 const feedRef = ref<HTMLElement | null>(null);
 const stickToBottom = ref(true);
 
@@ -36,25 +31,7 @@ function scrollToBottom() {
   feed.scrollTop = feed.scrollHeight;
 }
 
-watch(
-  () => props.messenger.state.lastError,
-  (message) => {
-    if (bannerTimer) {
-      clearTimeout(bannerTimer);
-      bannerTimer = null;
-    }
-    if (!message) return;
-    bannerTimer = setTimeout(() => {
-      if (props.messenger.state.lastError === message) {
-        props.messenger.state.lastError = "";
-      }
-      bannerTimer = null;
-    }, BANNER_TIMEOUT_MS);
-  }
-);
-
 onBeforeUnmount(() => {
-  if (bannerTimer) clearTimeout(bannerTimer);
   feedRef.value?.removeEventListener("scroll", updateStickToBottom);
 });
 
@@ -123,14 +100,6 @@ onMounted(() => {
 
 <template>
   <section ref="feedRef" class="feed">
-    <div
-      v-if="messenger.state.lastError || messenger.state.systemBanner"
-      class="banner"
-      :class="{ 'is-err': !!messenger.state.lastError }"
-    >
-      {{ messenger.state.lastError || messenger.state.systemBanner }}
-    </div>
-
     <template v-for="entry in decorated" :key="entry.m.messageId">
       <div v-if="entry.showDay" class="day">{{ messenger.formatDay(entry.m.timestamp) }}</div>
       <MessageBubble

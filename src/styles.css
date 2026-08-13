@@ -792,6 +792,37 @@ textarea {
   flex: 0 0 auto;
 }
 
+.toast--error {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 10px;
+  text-align: left;
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 42%, transparent);
+}
+
+.toast__error-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red);
+}
+
+.toast__error-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .badge-icon--fallback {
   display: inline-flex;
   align-items: center;
@@ -2133,20 +2164,6 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.banner {
-  align-self: center;
-  margin: 4px auto 14px;
-  padding: 6px 14px;
-  background: var(--surface);
-  border-radius: 999px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.banner.is-err {
-  color: var(--red);
 }
 
 .typing-indicator {

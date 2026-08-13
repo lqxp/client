@@ -1856,7 +1856,6 @@ export function useMessenger() {
 
     messageInput: "",
     voiceEnabled: false,
-    systemBanner: "",
     lastError: "",
     searchTerm: "",
 
@@ -1865,6 +1864,7 @@ export function useMessenger() {
     toastMessage: "",
     toastBadge: "",
     toastBadgeAvatarSrc: "",
+    toastError: false,
 
     settingsOpen: false,
     replyingTo: null,
@@ -4326,7 +4326,7 @@ export function useMessenger() {
     typingExpiryTimers.clear();
     typingActiveRoomId = "";
     typingLastSentAt = 0;
-    if (message) state.systemBanner = message;
+    if (message) showToast(message);
   }
 
   function send(payload) {
@@ -4512,16 +4512,20 @@ export function useMessenger() {
     selectConversation(id);
   }
 
-  function showToast(message, options: { badge?: string; badgeAvatarSrc?: string } = {}) {
+  function showToast(message, options: { badge?: string; badgeAvatarSrc?: string; error?: boolean } = {}) {
     state.toastMessage = message;
     state.toastBadge = String(options?.badge || "");
     state.toastBadgeAvatarSrc = String(options?.badgeAvatarSrc || "");
+    // Infer an error toast when the caller passed the current error state.
+    const isError = options?.error === true || (typeof options?.error !== "boolean" && !!state.lastError && message === state.lastError);
+    state.toastError = isError;
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       if (state.toastMessage === message) {
         state.toastMessage = "";
         state.toastBadge = "";
         state.toastBadgeAvatarSrc = "";
+        state.toastError = false;
       }
       toastTimer = null;
     }, 2400);
@@ -4572,7 +4576,6 @@ export function useMessenger() {
     state.ws.addEventListener("open", () => {
       state.connected = true;
       state.reconnectAttempts = 0;
-      state.systemBanner = "";
       send({
         op: 2,
         d: {
@@ -6022,7 +6025,6 @@ export function useMessenger() {
         state.typingByRoom = {};
         if (d?.profile) state.profile = mergeProfiles(state.profile, d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
-        state.systemBanner = "";
         for (const roomId of allKnownRooms) touchRoom(roomId);
         if (
           state.activeRoom &&
@@ -6043,6 +6045,7 @@ export function useMessenger() {
       case 7:
         if (d?.error) {
           state.lastError = d.error;
+          showToast(d.error, { error: true });
         } else if (d?.messageId && typeof d?.timestamp === "number") {
           // Full broadcast frame ({messageId, text, username, timestamp, ...}).
           upsertMessage(d).catch(() => {
@@ -6130,7 +6133,7 @@ export function useMessenger() {
       case 13:
         break;
       case 87:
-        state.systemBanner = d?.msg || state.systemBanner;
+        if (d?.msg) showToast(d.msg);
         break;
       case 98:
         handleVoiceState(d);
@@ -6679,10 +6682,7 @@ export function useMessenger() {
     a.remove();
     URL.revokeObjectURL(url);
     state.settingsOpen = false;
-    state.systemBanner = "Backup exported.";
-    setTimeout(() => {
-      if (state.systemBanner === "Backup exported.") state.systemBanner = "";
-    }, 2000);
+    showToast("Backup exported.");
   }
 
   function importData(file) {
@@ -6806,11 +6806,7 @@ export function useMessenger() {
 
         persist();
         state.lastError = "";
-        state.systemBanner = "Backup imported.";
-        setTimeout(() => {
-          if (state.systemBanner === "Backup imported.")
-            state.systemBanner = "";
-        }, 2000);
+        showToast("Backup imported.");
 
         if (usedToBeConnected) connect();
       } catch (err) {
