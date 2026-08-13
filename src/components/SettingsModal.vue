@@ -4,7 +4,7 @@ import BadgeIcon from "@/components/BadgeIcon.vue";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
-import { appRuntimeConfig, rtcRuntimeConfig, turnServerList } from "@/config/runtime";
+import { appRuntimeConfig, turnServerList } from "@/config/runtime";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -40,6 +40,36 @@ const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinL
 const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
 const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
+
+// Custom TURN server form state
+const showAddTurn = ref(false);
+const newTurnLabel = ref("");
+const newTurnUrls = ref("");
+const newTurnUsername = ref("");
+const newTurnCredential = ref("");
+const turnServerError = ref("");
+
+function addCustomTurnServer() {
+  turnServerError.value = "";
+  const urls = newTurnUrls.value
+    .split(/[\s,;]+/)
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const ok = props.messenger.addCustomTurnServer({
+    label: newTurnLabel.value,
+    urls,
+    username: newTurnUsername.value,
+    credential: newTurnCredential.value,
+  });
+  if (ok) {
+    newTurnLabel.value = "";
+    newTurnUrls.value = "";
+    newTurnUsername.value = "";
+    newTurnCredential.value = "";
+  } else {
+    turnServerError.value = t('settings.calls.turnInvalid');
+  }
+}
 
 function autolockLabel(ms: number) {
   switch (Number(ms)) {
@@ -82,7 +112,7 @@ const nameValid = computed(() => !props.messenger.validateUsername(draftName.val
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const profile = computed(() => props.messenger.myProfile.value);
-const turnServers = computed(() => turnServerList());
+const turnServers = computed(() => props.messenger.turnServers.value || turnServerList());
 const selectedTurnInfo = computed(() => {
   const id = props.messenger.state.selectedTurnServerId;
   if (!id) return null;
@@ -499,9 +529,17 @@ const runtimePlatform = computed(() => {
 
 const browserLanguage = computed(() => navigator.language || "—");
 
+const selectedTurnServer = computed(() => {
+  const id = props.messenger.state.selectedTurnServerId;
+  if (!id) return null;
+  return turnServers.value.find((s: any) => s.id === id) || null;
+});
+
 const runtimeDetails = computed(() => {
   const uaData = (navigator as Navigator & { userAgentData?: { platform?: string; mobile?: boolean } }).userAgentData;
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
+  const turn = selectedTurnServer.value;
+  const turnUrls = Array.isArray(turn?.urls) ? turn.urls : [];
   return {
     appVersion: __APP_VERSION__,
     platform: props.messenger.platformLabel(runtimePlatform.value),
@@ -515,11 +553,11 @@ const runtimeDetails = computed(() => {
     serverOrigin: appRuntimeConfig.serverOrigin,
     apiBaseUrl: appRuntimeConfig.apiBaseUrl,
     wsUrl: appRuntimeConfig.wsUrl,
-    turnUser: rtcRuntimeConfig.turnUsername || "—",
-    turnHost: rtcRuntimeConfig.turnUrls[0] || "—",
-    turnRemote: rtcRuntimeConfig.relayOnly,
-    turnSecure: rtcRuntimeConfig.turnUrls.some((url) => String(url).trim().toLowerCase().startsWith("turns:")),
-    turnPassword: rtcRuntimeConfig.turnCredential || "—"
+    turnUser: turn?.username || "—",
+    turnHost: turnUrls[0] || "—",
+    turnRemote: Boolean(turn?.urls?.some((url: string) => /^turn|turns:/i.test(url))),
+    turnSecure: turnUrls.some((url: string) => String(url).trim().toLowerCase().startsWith("turns:")),
+    turnPassword: turn?.credential || "—"
   };
 });
 
@@ -1224,6 +1262,70 @@ onBeforeUnmount(() => {
             <span class="turn-server-detail__urls">{{ selectedTurnInfo.urls }}</span>
             <small v-if="selectedTurnInfo.hint" class="turn-server-detail__hint">{{ selectedTurnInfo.hint }}</small>
           </div>
+
+          <div v-if="messenger.state.customTurnServers?.length" class="custom-turn-list">
+            <div v-for="srv in messenger.state.customTurnServers" :key="srv.id" class="custom-turn-row">
+              <div class="custom-turn-row__info">
+                <strong>{{ srv.label }}</strong>
+                <small>{{ srv.urls.join(' · ') }}</small>
+              </div>
+              <button type="button" class="icon-btn" :aria-label="t('settings.calls.removeTurnServer')"
+                @click="messenger.removeCustomTurnServer(srv.id)">
+                <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <button type="button" class="btn settings-btn" @click="showAddTurn = !showAddTurn">
+            {{ showAddTurn ? t('settings.calls.hideAddTurn') : t('settings.calls.showAddTurn') }}
+          </button>
+
+          <template v-if="showAddTurn">
+            <div class="turn-form-field">
+              <label class="settings-field">
+                <span class="settings-field__body">
+                  <span class="settings-field__label">{{ t('settings.calls.turnLabel') }}</span>
+                </span>
+              </label>
+              <input v-model="newTurnLabel" type="text" class="settings-input" placeholder="My TURN" />
+            </div>
+
+            <div class="turn-form-field">
+              <label class="settings-field">
+                <span class="settings-field__body">
+                  <span class="settings-field__label">{{ t('settings.calls.turnUrls') }}</span>
+                </span>
+              </label>
+              <input v-model="newTurnUrls" type="text" class="settings-input"
+                placeholder="turn:host:3478?transport=udp, turns:host:5349?transport=tcp" />
+            </div>
+
+            <div class="turn-form-field">
+              <label class="settings-field">
+                <span class="settings-field__body">
+                  <span class="settings-field__label">{{ t('settings.calls.turnUsername') }}</span>
+                </span>
+              </label>
+              <input v-model="newTurnUsername" type="text" class="settings-input" autocomplete="off" />
+            </div>
+
+            <div class="turn-form-field">
+              <label class="settings-field">
+                <span class="settings-field__body">
+                  <span class="settings-field__label">{{ t('settings.calls.turnCredential') }}</span>
+                </span>
+              </label>
+              <input v-model="newTurnCredential" type="password" class="settings-input" autocomplete="new-password" />
+            </div>
+
+            <p v-if="turnServerError" class="settings-note settings-note--error">{{ turnServerError }}</p>
+            <button type="button" class="btn settings-btn turn-form-submit"
+              :disabled="!newTurnUrls.trim() || !newTurnLabel.trim()" @click="addCustomTurnServer">
+              {{ t('settings.calls.addTurnServer') }}
+            </button>
+          </template>
         </div>
 
         <div class="settings-group">
@@ -1759,5 +1861,77 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: var(--color-text-dim, #999);
   line-height: 1.4;
+}
+
+.custom-turn-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-turn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-bg-input, rgba(255,255,255,0.04));
+}
+
+.custom-turn-row__info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.custom-turn-row__info strong {
+  font-size: 13px;
+  color: var(--color-text, #e5e5e5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-turn-row__info small {
+  font-size: 11px;
+  color: var(--color-text-dim, #888);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-turn-row .icon-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.turn-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.turn-form-field:first-of-type {
+  margin-top: 16px;
+}
+
+.turn-form-field .settings-field {
+  min-height: 0;
+  gap: 0;
+}
+
+.turn-form-submit {
+  margin-top: 16px;
+}
+
+.settings-note--error {
+  color: var(--red, #ff6b70);
 }
 </style>

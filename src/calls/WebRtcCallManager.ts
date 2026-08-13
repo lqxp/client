@@ -1,6 +1,7 @@
 import { callPeerClientId, callPeerId, callPeerUsername } from "./callTypes";
 import type { CallMediaState, CallSignalPayload, RemoteCallMedia } from "./callTypes";
 import { rtcRuntimeConfig, turnServerById, turnServerList } from "@/config/runtime";
+import type { TurnServerConfig } from "@/config/runtime";
 
 interface PeerState {
   pc: RTCPeerConnection;
@@ -27,6 +28,7 @@ interface WebRtcCallManagerOptions {
   platform?: string;
   localStream: MediaStream;
   turnServerId?: string;
+  turnServer?: TurnServerConfig;
   sendSignal: (payload: CallSignalPayload) => void;
   onRemoteMedia: (username: string, media: RemoteCallMedia) => void;
   onRemoteLeft: (username: string) => void;
@@ -67,8 +69,8 @@ function resolveTurnServer(turnServerId?: string) {
   return turnServerList()[0];
 }
 
-export function relayCallsConfigured(turnServerId?: string) {
-  const server = resolveTurnServer(turnServerId);
+export function relayCallsConfigured(turnServerId?: string, turnServer?: TurnServerConfig) {
+  const server = turnServer || resolveTurnServer(turnServerId);
   if (!server || !Array.isArray(server.urls) || server.urls.length === 0) return false;
   // STUN-only servers don't need credentials.
   const isStunOnly = server.urls.every(u => u.startsWith("stun:"));
@@ -97,8 +99,8 @@ export function relayCallsRequirementMessage() {
   return "Calls are available.";
 }
 
-function rtcConfig(turnServerId?: string): RTCConfiguration {
-  const server = resolveTurnServer(turnServerId);
+function rtcConfig(turnServerId?: string, turnServer?: TurnServerConfig): RTCConfiguration {
+  const server = turnServer || resolveTurnServer(turnServerId);
   if (server && server.urls.length > 0) {
     const hasTurn = server.urls.some(u => u.startsWith("turn:") || u.startsWith("turns:"));
     return {
@@ -121,6 +123,7 @@ export class WebRtcCallManager {
   private readonly clientId: string;
   private readonly platform: string;
   private readonly turnServerId: string;
+  private readonly turnServer?: TurnServerConfig;
   private readonly selfPeerId: string;
   private readonly sendSignal: WebRtcCallManagerOptions["sendSignal"];
   private readonly onRemoteMedia: WebRtcCallManagerOptions["onRemoteMedia"];
@@ -135,6 +138,7 @@ export class WebRtcCallManager {
     this.clientId = String(options.clientId || "");
     this.platform = String(options.platform || "");
     this.turnServerId = String(options.turnServerId || "");
+    this.turnServer = options.turnServer;
     this.selfPeerId = callPeerId(this.username, this.clientId);
     this.localStream = options.localStream;
     this.sendSignal = options.sendSignal;
@@ -288,7 +292,7 @@ export class WebRtcCallManager {
       throw new Error(relayCallsRequirementMessage());
     }
 
-    const pc = new RtcPeerConnection(rtcConfig(this.turnServerId));
+    const pc = new RtcPeerConnection(rtcConfig(this.turnServerId, this.turnServer));
     const stream = new MediaStream();
     const peer: PeerState = {
       pc,

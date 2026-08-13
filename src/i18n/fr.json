@@ -392,6 +392,15 @@
             "shareScreenAudioNote": "Quand c'est activé, le partage d'écran demande aussi l'audio système/de la fenêtre si le navigateur et le système d'exploitation le prennent en charge.",
             "turnServer": "Serveur TURN/relais",
             "relayServer": "Serveur relais",
+            "addTurnServer": "Ajouter un serveur TURN",
+            "showAddTurn": "Afficher les options d'ajout de serveur TURN",
+            "hideAddTurn": "Masquer les options d'ajout de serveur TURN",
+            "removeTurnServer": "Supprimer ce serveur",
+            "turnLabel": "Nom",
+            "turnUrls": "URLs (séparées par des virgules)",
+            "turnUsername": "Nom d'utilisateur",
+            "turnCredential": "Mot de passe",
+            "turnInvalid": "Adresse invalide. Utilisez turn:, turns: ou stun:",
             "turnHints": {
                 "qxp-turn": "Relais auto-hébergé sur notre infrastructure — peut être instable selon la charge. Aucune IP exposée, tout passe par notre relais.",
                 "google-stun": "STUN public de Google — très stable et rapide, mais ⚠️ vos IPs sont exposées (pas de relay anonyme). Utile uniquement en réseau local ou pour du test."

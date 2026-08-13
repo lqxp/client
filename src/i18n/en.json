@@ -392,6 +392,15 @@
             "shareScreenAudioNote": "When enabled, screen sharing requests system/window audio too when supported by the browser and operating system.",
             "turnServer": "TURN / relay server",
             "relayServer": "Relay server",
+            "addTurnServer": "Add TURN server",
+            "showAddTurn": "Show TURN server add options",
+            "hideAddTurn": "Hide TURN server add options",
+            "removeTurnServer": "Remove this server",
+            "turnLabel": "Name",
+            "turnUrls": "URLs (comma-separated)",
+            "turnUsername": "Username",
+            "turnCredential": "Password",
+            "turnInvalid": "Invalid address. Use turn:, turns: or stun:",
             "turnHints": {
                 "qxp-turn": "Self-hosted relay on our infrastructure — may be unstable under load. No IP exposed, everything goes through our relay.",
                 "google-stun": "Google public STUN — very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."

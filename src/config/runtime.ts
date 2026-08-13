@@ -4,7 +4,7 @@ function normalizedStringArray(value: unknown) {
     : [];
 }
 
-interface TurnServerConfig {
+export interface TurnServerConfig {
   id: string;
   label: string;
   hint?: string;

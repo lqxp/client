@@ -581,7 +581,7 @@ function toggleLocalMute(username) {
   <Teleport to="body">
     <div v-if="isMobile && mobileExpanded && messenger.state.inCall" class="call-mobile-overlay">
       <header class="call-mobile-overlay__head">
-        <span class="call-mobile-overlay__title">{{ callTiles.length === 1 ? t('call.oneParticipant') : t('call.nParticipants', { n: callTiles.length }) }}</span>
+        <span class="call-mobile-overlay__title">{{ callTiles.length === 1 ? t('call.oneParticipant') : t('call.nParticipants', { n: String(callTiles.length) }) }}</span>
         <button class="icon-btn" type="button" :aria-label="t('camera.close')" @click="closeMobileCall">
           <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>

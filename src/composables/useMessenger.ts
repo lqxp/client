@@ -749,6 +749,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     callUserVolumes: {},
     roomNotes: {},
     selectedTurnServerId: runtimeDefaultTurnServerId(),
+    customTurnServers: [],
     profile: loadPersistedProfile(),
     clientLockEnabled: false,
     clientLockSalt: "",
@@ -1063,6 +1064,7 @@ function loadPersisted() {
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
       selectedTurnServerId: String(raw.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
+      customTurnServers: sanitizeCustomTurnServers(raw.customTurnServers),
       profile,
       clientLockEnabled: false,
       clientLockSalt: "",
@@ -1121,6 +1123,34 @@ function sanitizeRoomNotes(raw) {
       .slice(0, MAX_ROOM_NOTE_LENGTH);
   }
   return next;
+}
+
+function sanitizeCustomTurnServers(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const label = String(item.label || "").trim().slice(0, 64) || "Custom TURN";
+    const urls = Array.isArray(item.urls)
+      ? item.urls
+        .map((u) => String(u || "").trim())
+        .filter((u) => /^(turn|turns|stun):/i.test(u))
+        .slice(0, 8)
+      : [];
+    if (!urls.length) continue;
+    const username = String(item.username || "").trim().slice(0, 128);
+    const credential = String(item.credential || "").trim().slice(0, 256);
+    const id = `custom-${urls[0]}-${username}-${label}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 96);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label, urls, username, credential, hint: item.hint || "" });
+  }
+  return out;
 }
 
 function stripAttachmentDataForStorage(arr) {
@@ -1318,6 +1348,7 @@ function buildPersistedPayload(state) {
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     selectedTurnServerId: state.selectedTurnServerId,
+    customTurnServers: sanitizeCustomTurnServers(state.customTurnServers),
     profile: normalizeProfile(state.profile),
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(state.clientLockPinLength)) ? Number(state.clientLockPinLength) : 6,
     clientLockAutolockEnabled: state.clientLockAutolockEnabled === true,
@@ -1880,6 +1911,7 @@ export function useMessenger() {
     remoteCallMediaByUser: {},
     remoteCallStreamsByUser: {},
     selectedTurnServerId: persisted.selectedTurnServerId,
+    customTurnServers: persisted.customTurnServers,
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
     speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
@@ -2084,6 +2116,7 @@ export function useMessenger() {
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
       selectedTurnServerId: String(payload?.selectedTurnServerId || runtimeDefaultTurnServerId()).trim(),
+      customTurnServers: sanitizeCustomTurnServers(payload?.customTurnServers),
       clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(Number(payload?.clientLockPinLength)) ? Number(payload.clientLockPinLength) : 6,
       clientLockAutolockEnabled: payload?.clientLockAutolockEnabled === true,
       clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(payload?.clientLockAutolockTimeoutMs),
@@ -2132,6 +2165,7 @@ export function useMessenger() {
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
     state.selectedTurnServerId = normalized.selectedTurnServerId;
+    state.customTurnServers = normalized.customTurnServers;
     state.clientLockPinLength = normalized.clientLockPinLength;
     state.clientLockAutolockEnabled = normalized.clientLockAutolockEnabled;
     state.clientLockAutolockTimeoutMs = normalized.clientLockAutolockTimeoutMs;
@@ -5007,6 +5041,16 @@ export function useMessenger() {
   }
 
   // Calls use WebRTC media and the WebSocket only as a typed signaling relay.
+  function resolveTurnServerForCall() {
+    const all = [...turnServerList(), ...(state.customTurnServers || [])];
+    const id = state.selectedTurnServerId;
+    if (id) {
+      const found = all.find((s) => s.id === id);
+      if (found) return found;
+    }
+    return all[0];
+  }
+
   async function startCall() {
     if (state.inCall) return;
     if (sanitizePresenceStatus(state.status) === "invisible") {
@@ -5014,7 +5058,8 @@ export function useMessenger() {
       showToast(state.lastError);
       return;
     }
-    if (!relayCallsConfigured(state.selectedTurnServerId)) {
+    const turnServer = resolveTurnServerForCall();
+    if (!relayCallsConfigured(state.selectedTurnServerId, turnServer)) {
       const message = relayCallsRequirementMessage();
       state.lastError = message;
       showToast(message);
@@ -5052,6 +5097,7 @@ export function useMessenger() {
 	        platform,
 	        localStream: outboundStream,
 	        turnServerId: state.selectedTurnServerId,
+	        turnServer,
 	        sendSignal: (payload: CallSignalPayload) =>
 	          send({ op: 111, d: payload }),
 	        onRemoteMedia: storeRemoteCallMedia,
@@ -5092,6 +5138,37 @@ export function useMessenger() {
 
   function setSelectedTurnServer(serverId: string) {
     state.selectedTurnServerId = String(serverId || "").trim();
+    persist();
+  }
+
+  function addCustomTurnServer(server) {
+    if (!server || typeof server !== "object") return false;
+    const urls = Array.isArray(server.urls)
+      ? server.urls.map((u) => String(u || "").trim()).filter((u) => /^(turn|turns|stun):/i.test(u))
+      : [];
+    if (!urls.length) return false;
+    const label = String(server.label || "").trim().slice(0, 64) || "Custom TURN";
+    const username = String(server.username || "").trim().slice(0, 128);
+    const credential = String(server.credential || "").trim().slice(0, 256);
+    const next = sanitizeCustomTurnServers([
+      ...(state.customTurnServers || []),
+      { label, urls, username, credential, hint: server.hint || "" },
+    ]);
+    state.customTurnServers = next;
+    // Auto-select the newly added server so the user can use it immediately.
+    if (next.length) state.selectedTurnServerId = next[next.length - 1].id;
+    persist();
+    return true;
+  }
+
+  function removeCustomTurnServer(serverId: string) {
+    const id = String(serverId || "").trim();
+    if (!id) return;
+    const next = (state.customTurnServers || []).filter((s) => s.id !== id);
+    state.customTurnServers = next;
+    if (state.selectedTurnServerId === id) {
+      state.selectedTurnServerId = runtimeDefaultTurnServerId();
+    }
     persist();
   }
 
@@ -6755,7 +6832,10 @@ export function useMessenger() {
     connectionLabel,
     callsAvailable,
     callsUnavailableReason,
-    turnServers: computed(() => turnServerList()),
+    turnServers: computed(() => [
+      ...turnServerList(),
+      ...(state.customTurnServers || []),
+    ]),
     screenShareAvailable,
     screenShareUnavailableReason,
     onlineCount,
@@ -6870,6 +6950,8 @@ export function useMessenger() {
     endCall,
     toggleMute,
     setSelectedTurnServer,
+    addCustomTurnServer,
+    removeCustomTurnServer,
     toggleCamera,
     toggleScreenShare,
     toggleVoice,
