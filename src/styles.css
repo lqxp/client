@@ -6588,6 +6588,18 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+.calltile.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  background: var(--bg);
+}
+
 .calltile.is-muted {
   opacity: 0.7;
 }
