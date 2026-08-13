@@ -1396,7 +1396,7 @@ onBeforeUnmount(() => {
           <label class="settings-range">
             <span>{{ t('settings.calls.micThreshold') }}</span>
             <small>{{ t('settings.calls.micThresholdHint') }}</small>
-            <div class="settings-meter">
+            <div class="settings-meter" :class="{ 'is-active': messenger.state.micTestActive }">
               <span class="settings-meter__bar" :style="{ width: `${messenger.state.micTestLevel}%` }"></span>
               <span class="settings-meter__threshold"
                 :style="{ left: `${messenger.state.microphoneThreshold}%` }"></span>
