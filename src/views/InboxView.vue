@@ -4,6 +4,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
 import { useDialog } from "@/composables/useDialog";
+import { usePermissions } from "@/composables/usePermissions";
+import { useBackground } from "@/composables/useBackground";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -21,6 +23,8 @@ import ProfileCard from "@/components/ProfileCard.vue";
 
 const messenger = useMessenger();
 const dialog = useDialog();
+const permissions = usePermissions();
+const background = useBackground();
 provide("dialog", dialog);
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
@@ -140,6 +144,48 @@ watch(
   (required) => {
     if (!required && !messenger.state.connected && !messenger.state.ws) {
       messenger.connect();
+    }
+  },
+  { immediate: true },
+);
+
+// Once the user reaches the home screen (authenticated and unlocked), request
+// every native runtime permission required by the client in one pass instead of
+// relying on the Web runtime (camera/micro/notifications/media).
+let permissionsRequested = false;
+watch(
+  () =>
+    !isLocked.value
+    && !sessionExpired.value
+    && !needsOnboarding.value
+    && Boolean(String(messenger.state.authToken || "").trim()),
+  (ready) => {
+    if (!ready || permissionsRequested) return;
+    permissionsRequested = true;
+    permissions.request();
+  },
+  { immediate: true },
+);
+
+// Start / stop the background keep-alive (native foreground service) following
+// the authentication state, so the WebSocket that receives new messages survives
+// while the app is backgrounded — and it shuts down on lock/logout.
+let backgroundStarted = false;
+watch(
+  () =>
+    !isLocked.value
+    && !sessionExpired.value
+    && !needsOnboarding.value
+    && Boolean(String(messenger.state.authToken || "").trim()),
+  (ready) => {
+    if (ready) {
+      if (!backgroundStarted) {
+        backgroundStarted = true;
+        background.start();
+      }
+    } else if (backgroundStarted) {
+      backgroundStarted = false;
+      background.stop();
     }
   },
   { immediate: true },
