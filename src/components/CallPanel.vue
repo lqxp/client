@@ -784,7 +784,7 @@ function toggleLocalMute(username) {
         @click="closeMemberMenu"
       >
         <div
-          class="callpanel__context-menu"
+          class="callpanel__context-menu context-menu-base"
           :style="{ left: `${memberMenu.x}px`, top: `${memberMenu.y}px` }"
           @click.stop
           @contextmenu.prevent
@@ -793,15 +793,6 @@ function toggleLocalMute(username) {
             <span class="callpanel__context-user">{{
               memberMenu.username
             }}</span>
-            <span class="callpanel__context-status">
-              <template v-if="isRemotelyMuted(memberMenu.username)">{{
-                t("call.muted")
-              }}</template>
-              <template v-else-if="isLocallyMuted(memberMenu.username)">{{
-                t("call.localMute")
-              }}</template>
-              <template v-else>{{ t("members.online") }}</template>
-            </span>
           </div>
           <button
             type="button"
@@ -1087,13 +1078,8 @@ function toggleLocalMute(username) {
 }
 
 .callpanel__context-menu {
-  position: fixed;
   z-index: 71;
-  width: 224px;
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--call-context-border);
-  background: var(--call-context-bg);
+  min-width: 224px;
 }
 
 .callpanel__context-head {
@@ -1106,47 +1092,27 @@ function toggleLocalMute(username) {
 .callpanel__context-user {
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--call-context-title);
-}
-
-.callpanel__context-status {
-  font-size: 0.74rem;
-  color: var(--call-context-muted);
+  color: var(--text);
 }
 
 .callpanel__context-action {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--call-context-text);
-  font: inherit;
-  text-align: left;
+  width: 100%;
   cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.callpanel__context-action:hover {
-  background: rgba(88, 101, 242, 0.16);
-  color: #ffffff;
 }
 
 .callpanel__context-hint {
   font-size: 0.72rem;
-  color: var(--call-context-muted-2);
+  color: var(--muted);
 }
 
 .callpanel__context-divider {
   height: 1px;
-  margin: 6px 4px 8px;
-  background: var(--call-context-divider);
+  margin: 4px 8px;
+  background: var(--line);
 }
 
 .callpanel__context-volume {
@@ -1159,7 +1125,7 @@ function toggleLocalMute(username) {
 .callpanel__context-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--call-context-label);
+  color: var(--text);
 }
 
 .callpanel__context-slider-row {
@@ -1177,7 +1143,7 @@ function toggleLocalMute(username) {
   min-width: 40px;
   text-align: right;
   font-size: 0.78rem;
-  color: var(--call-context-title);
+  color: var(--text);
 }
 
 /* ── Mobile full-screen call overlay ── */
