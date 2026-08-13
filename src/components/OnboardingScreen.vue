@@ -364,6 +364,19 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   color: rgba(255, 255, 255, 0.56);
 }
 
+.onboarding__field input:-webkit-autofill,
+.onboarding__field input:-webkit-autofill:hover,
+.onboarding__field input:-webkit-autofill:focus,
+.onboarding__field textarea:-webkit-autofill,
+.onboarding__field textarea:-webkit-autofill:hover,
+.onboarding__field textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  box-shadow: 0 0 0 1000px transparent inset;
+  caret-color: #fff;
+  transition: background-color 9999s ease-out 0s;
+}
+
 .onboarding__field input:focus,
 .onboarding__field textarea:focus {
   border-color: rgba(255, 255, 255, 0.7);
