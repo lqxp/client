@@ -599,25 +599,38 @@ onBeforeUnmount(() => {
         </Teleport>
       </div>
 
-      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.attachFile')"
-        :disabled="mediaDisabled" @click="pickFile">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
-        </svg>
-      </button>
-      <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
-        :disabled="mediaDisabled" @click="pickCamera">
-        <svg viewBox="0 0 24 24">
-          <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-          <circle cx="12" cy="13" r="3.5" />
-        </svg>
-      </button>
-
       <label class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }">
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
           :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false" @input="onInput"
           @click="onComposerClick" @keyup="onComposerKeyup" @keydown="onComposerKeydown"></textarea>
+
+        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
+          :disabled="mediaDisabled" @click="pickCamera">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+            <circle cx="12" cy="13" r="3.5" />
+          </svg>
+        </button>
+        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.attachFile')"
+          :disabled="mediaDisabled" @click="pickFile">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
+          </svg>
+        </button>
+
+        <button v-if="!canSend" class="icon-btn composer__mic composer__desktop-action" type="button"
+          :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold"
+          @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold"
+          @touchend.prevent="endHold" @touchcancel.prevent="cancelHold">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10a7 7 0 0 1-14 0" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
+        </button>
+
         <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
           <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
             :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"
@@ -651,17 +664,6 @@ onBeforeUnmount(() => {
         @click="send">
         <svg viewBox="0 0 24 24">
           <path d="m22 2-7 20-4-9-9-4 20-7Z" />
-        </svg>
-      </button>
-      <button v-else class="icon-btn composer__mic composer__desktop-action" type="button"
-        :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold"
-        @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold" @touchend.prevent="endHold"
-        @touchcancel.prevent="cancelHold">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-          <path d="M19 10a7 7 0 0 1-14 0" />
-          <line x1="12" y1="19" x2="12" y2="23" />
-          <line x1="8" y1="23" x2="16" y2="23" />
         </svg>
       </button>
     </template>
