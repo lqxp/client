@@ -219,6 +219,14 @@ function applyAppearance() {
   document.documentElement.setAttribute("data-lock-theme", lockTheme || "dark");
   document.documentElement.setAttribute("data-accent", messenger.state.appAccent || "blue");
   document.documentElement.setAttribute("data-message-style", messenger.state.messageStyle || "bubble");
+
+  // Sync the native Tauri window titlebar with the active theme.
+  // The lock screen uses its own theme, so use lockTheme when locked.
+  if (appWindow) {
+    const activeTheme = isLocked.value ? lockTheme : theme;
+    const nativeTheme = activeTheme === "light" ? "light" : "dark";
+    appWindow.setTheme?.(nativeTheme).catch?.(() => {});
+  }
 }
 
 function onDocumentPointerDown(event: PointerEvent) {
@@ -339,7 +347,7 @@ function syncAppearanceWatchers() {
 }
 
 watch(
-  () => [messenger.state.themeMode, messenger.state.clientLockThemeMode, messenger.state.appAccent, messenger.state.messageStyle],
+  () => [messenger.state.themeMode, messenger.state.clientLockThemeMode, messenger.state.appAccent, messenger.state.messageStyle, isLocked.value],
   () => {
     syncAppearanceWatchers();
     applyAppearance();
