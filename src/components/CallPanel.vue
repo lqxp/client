@@ -499,7 +499,7 @@ function toggleLocalMute(username) {
           <button type="button" :title="t('members.viewProfile')" :aria-label="t('members.openProfile', { username: tile.username })" @click.stop="openProfile(tile.username)">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
           </button>
-          <button type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click.stop="toggleTileFullscreen(tile)">
+          <button v-if="!isMobile" type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click.stop="toggleTileFullscreen(tile)">
             <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           </button>
           <button v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click.stop="openTileWindow(tile)">

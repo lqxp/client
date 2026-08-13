@@ -1197,7 +1197,13 @@ textarea {
   border-radius: 4px;
   color: var(--text);
   text-align: left;
-  transition: background 120ms ease;
+  cursor: default;
+}
+
+.side-user:hover,
+.side-user:focus-visible {
+  background: transparent;
+  color: var(--text);
 }
 
 
