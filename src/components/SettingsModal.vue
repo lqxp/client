@@ -1372,20 +1372,23 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="cameraPreviewError" class="settings-camera-preview__error">{{ cameraPreviewError }}</div>
           </div>
-          <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': cameraPreviewActive }"
-            :disabled="cameraPreviewLoading" @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
-            {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ?
-              t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
-          </button>
+
+          <div class="settings-camera-actions">
+            <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': cameraPreviewActive }"
+              :disabled="cameraPreviewLoading" @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
+              {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ?
+                t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
+            </button>
+            <button type="button" class="btn settings-btn" :disabled="messenger.state.audioDevicesLoading"
+              @click="messenger.unlockAudioDevices">
+              {{ messenger.state.audioDevicesLoading ? t('settings.calls.checkingDevices') :
+                t('settings.calls.allowDevices') }}
+            </button>
+          </div>
 
           <p class="settings-note" v-if="messenger.state.audioDevicesPermission !== 'granted'">
             {{ t('settings.calls.devicesNote') }}
           </p>
-          <button type="button" class="btn settings-btn" :disabled="messenger.state.audioDevicesLoading"
-            @click="messenger.unlockAudioDevices">
-            {{ messenger.state.audioDevicesLoading ? t('settings.calls.checkingDevices') :
-              t('settings.calls.allowDevices') }}
-          </button>
         </div>
 
         <div class="settings-group">

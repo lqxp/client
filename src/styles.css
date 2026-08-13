@@ -4913,10 +4913,18 @@ textarea {
   width: 100%;
   aspect-ratio: 16 / 9;
   margin-top: 14px;
+  margin-bottom: 12px;
   overflow: hidden;
   border-radius: 12px;
   border: 1px solid var(--line-strong);
   background: var(--surface-2);
+}
+
+.settings-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
 }
 
 .settings-camera-preview video {
