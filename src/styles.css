@@ -1353,7 +1353,9 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 20px 16px 12px;
+  height: var(--header-h);
+  padding: 0 16px;
+  flex: none;
   border-bottom: 1px solid var(--line);
 }
 
