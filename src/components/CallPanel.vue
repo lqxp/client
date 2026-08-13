@@ -16,6 +16,9 @@ const isMobile = ref(false);
 const mobileExpanded = ref(false);
 const mobileActiveIndex = ref(0);
 const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
+const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
+const showNativeTitlebar = isTauri && !isAndroidRuntime;
 let tickId = null;
 let panelWindow = null;
 let panelWindowSyncId = null;
@@ -835,6 +838,7 @@ function toggleLocalMute(username) {
     <div
       v-if="isMobile && mobileExpanded && messenger.state.inCall"
       class="call-mobile-overlay"
+      :class="{ 'has-native-titlebar': showNativeTitlebar }"
     >
       <header class="call-mobile-overlay__head">
         <span class="call-mobile-overlay__title">{{
@@ -1161,6 +1165,10 @@ function toggleLocalMute(username) {
   flex-direction: column;
   background: var(--bg);
   color: var(--text);
+}
+
+.call-mobile-overlay.has-native-titlebar {
+  top: 30px;
 }
 
 .call-mobile-overlay__head {
