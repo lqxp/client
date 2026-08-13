@@ -3160,10 +3160,6 @@ textarea {
   color: var(--muted);
 }
 
-.composer__attach {
-  margin-left: 8px;
-}
-
 .composer__send {
   align-self: center;
   flex: none;

@@ -676,9 +676,21 @@ async function send() {
   }
 
   try {
-    for (const item of files) {
+    const text = props.messenger.state.messageInput.trim();
+
+    if (files.length === 0) {
+      // Text-only message.
+      if (text) props.messenger.sendChat();
+      props.messenger.setTyping?.(false);
+      return;
+    }
+
+    for (let i = 0; i < files.length; i++) {
+      const item = files[i];
       const target = pendingFiles.value.find((f) => f.id === item.id);
-      await props.messenger.sendAttachment(item.file, "", (pct: number) => {
+      // Attach the text to the last file so text and image(s) ship as a single message.
+      const caption = i === files.length - 1 ? text : "";
+      await props.messenger.sendAttachment(item.file, caption, (pct: number) => {
         if (target) target.progress = pct;
       });
       if (target) {
@@ -687,9 +699,7 @@ async function send() {
       }
     }
 
-    if (props.messenger.state.messageInput.trim().length > 0) {
-      props.messenger.sendChat();
-    }
+    props.messenger.state.messageInput = "";
     props.messenger.setTyping?.(false);
   } finally {
     uploading.value = false;
