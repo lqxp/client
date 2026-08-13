@@ -242,12 +242,20 @@ onBeforeUnmount(() => {
 <template>
   <aside class="side" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
     <div v-if="messenger.state.composing" class="compose">
-      <input ref="composeRef" v-model="messenger.state.composeInput" type="text" maxlength="96" minlength="8"
-        pattern="[A-Za-z0-9]{8,96}" autocomplete="off" spellcheck="false" :placeholder="t('sidebar.pasteRoomToken')"
-        @keydown.enter.prevent="messenger.submitCompose" @keydown="onComposeKey"
-        @blur="messenger.state.composeInput ? null : messenger.cancelCompose()" />
+      <label class="compose__field">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
+          <path d="m21 2-9.6 9.6" />
+          <circle cx="7.5" cy="15.5" r="5.5" />
+        </svg>
+        <input ref="composeRef" v-model="messenger.state.composeInput" type="text" maxlength="96" minlength="8"
+          pattern="[A-Za-z0-9]{8,96}" autocomplete="off" spellcheck="false"
+          :placeholder="t('sidebar.pasteRoomToken')" :aria-label="t('sidebar.pasteRoomToken')"
+          @keydown.enter.prevent="messenger.submitCompose" @keydown="onComposeKey"
+          @blur="messenger.state.composeInput ? null : messenger.cancelCompose()" />
+      </label>
       <button type="button" :aria-label="t('composer.cancelEdit')" @mousedown.prevent @click="messenger.cancelCompose">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </button>

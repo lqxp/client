@@ -20,15 +20,15 @@ const displayName = computed(() => isSystem.value ? "QxChat System" : `@${props.
 const isSelf = computed(() => String(props.messenger.state.username || "").trim() === props.username);
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
 const status = computed(() => props.messenger.statusFor(props.username));
-const statusLabel = computed(() => {
-  if (voiceMembers.value.has(props.username)) return t("profile.inVoiceChat");
+const presenceClass = computed(() => {
+  if (voiceMembers.value.has(props.username)) return "is-call";
   switch (status.value) {
-    case "invisible":
-      return t("sidebar.invisible");
     case "dnd":
-      return t("sidebar.dnd");
+      return "is-dnd";
+    case "invisible":
+      return "is-invisible";
     default:
-      return t("sidebar.online");
+      return "is-online";
   }
 });
 const platforms = computed(() => props.messenger.platformsForUser?.(props.username) || []);
@@ -121,8 +121,12 @@ function initialsFor(name: string) {
       <div class="profile-card__body">
         <span v-if="avatarSrc" class="profile-card__avatar profile-card__avatar--image">
           <img :src="avatarSrc" alt="" />
+          <span v-if="!isSystem" class="profile-card__presence" :class="presenceClass" aria-hidden="true"></span>
         </span>
-        <span v-else class="avatar profile-card__avatar" :class="`avatar--${accent}`">{{ initialsFor(username) }}</span>
+        <span v-else class="avatar profile-card__avatar" :class="`avatar--${accent}`">
+          {{ initialsFor(username) }}
+          <span v-if="!isSystem" class="profile-card__presence" :class="presenceClass" aria-hidden="true"></span>
+        </span>
         <div class="profile-card__identity">
           <div class="profile-card__name-row">
             <strong :title="`@${username}`">{{ displayName }}</strong>
@@ -245,13 +249,10 @@ function initialsFor(name: string) {
             </div>
           </div>
           <small>
-            <span class="members__dot" :class="{
-              'is-call': voiceMembers.has(username),
-              'is-dnd': status === 'dnd',
-              'is-invisible': status === 'invisible'
-            }"></span>
-            {{ statusLabel }}<template v-if="profile.pronouns"> · {{ profile.pronouns }}</template><template
-              v-if="isSelf"> · {{ t('members.you') }}</template>
+            <template v-if="profile.pronouns">
+              {{ profile.pronouns }}<template v-if="isSelf"> · {{ t('members.you') }}</template>
+            </template>
+            <template v-else-if="isSelf">{{ t('members.you') }}</template>
             <span v-if="platforms.length" class="profile-card__platforms" :aria-label="t('profile.clientPlatforms')">
               <span v-for="platform in platforms" :key="platform" class="platforms__badge"
                 :title="messenger.platformLabel(platform)">{{ messenger.platformIcon(platform) }}</span>
