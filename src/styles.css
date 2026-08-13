@@ -3155,10 +3155,31 @@ textarea {
   flex: none;
 }
 
+.composer__desktop-action:hover {
+  background: none;
+  color: var(--muted);
+}
+
+.composer__attach {
+  margin-left: 8px;
+}
+
 .composer__send {
   align-self: center;
   flex: none;
   color: var(--accent);
+  position: relative;
+}
+
+.composer__send::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 20px;
+  background: var(--line);
 }
 
 .composer__send svg {
@@ -4189,6 +4210,7 @@ textarea {
 .composer__emoji-wrap {
   position: relative;
   display: inline-flex;
+  margin-right: 8px;
 }
 
 .emoji-picker {
