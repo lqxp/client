@@ -80,7 +80,7 @@ const callElapsed = computed(() => messenger.formatDuration(messenger.state.call
 const desktopConversationSelected = computed(() => !!String(messenger.state.activeRoom || "").trim());
 const desktopTitle = computed(() => {
   if (messenger.state.settingsOpen) return t("settings.title");
-  return desktopConversationSelected.value ? messenger.displayRoomName(messenger.state.activeRoom) : t("app.noConversation");
+  return desktopConversationSelected.value ? messenger.displayRoomName(messenger.state.activeRoom) : "QxChat";
 });
 const desktopAccent = computed(() => messenger.activeConversation.value?.accent || "slate");
 const desktopInitials = computed(() => {

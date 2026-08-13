@@ -1579,6 +1579,11 @@ textarea {
   .members-mobile--open {
     transform: translateX(0) !important;
   }
+
+  .members-mobile .members__head {
+    height: 58px;
+    padding: 0 12px;
+  }
 }
 
 /* Keep profile card above mobile members panel */
