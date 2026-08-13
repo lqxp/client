@@ -2907,7 +2907,7 @@ textarea {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 16px 14px;
+  padding: 10px 16px 10px;
   flex: none;
 }
 
