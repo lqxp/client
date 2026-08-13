@@ -1087,7 +1087,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-      <input ref="fileInputRef" type="file" multiple accept="image/png,image/gif,image/jpeg" style="display: none" @change="onFile" />
+      <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFile" />
       <div class="composer__mobile-actions">
         <button class="icon-btn composer__more" type="button" aria-label="More message actions"
           :aria-expanded="mobileActionsOpen" :disabled="disabled" @click="toggleMobileActions">
