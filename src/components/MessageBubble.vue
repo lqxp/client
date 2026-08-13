@@ -522,16 +522,38 @@ function closeContextMenu() {
 }
 
 async function positionContextMenu(clientX: number, clientY: number) {
-  const padding = 12;
+  const padding = 16;
   contextMenuStyle.value = {
     left: `${clientX}px`,
     top: `${clientY}px`
   };
+
+  // Menu is rendered in a Teleport with conditional (v-if) content, so a
+  // single nextTick is not enough for its final size to be measurable.
   await nextTick();
-  const rect = contextMenuRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  const left = Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding));
-  const top = Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding));
+  await nextTick();
+
+  let rect = contextMenuRef.value?.getBoundingClientRect();
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    await nextTick();
+    rect = contextMenuRef.value?.getBoundingClientRect();
+  }
+
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    return;
+  }
+
+  const maxLeft = Math.max(padding, window.innerWidth - rect.width - padding);
+  const maxTop = Math.max(padding, window.innerHeight - rect.height - padding);
+
+  let left = Math.min(Math.max(clientX, padding), maxLeft);
+  const top = Math.min(Math.max(clientY, padding), maxTop);
+
+  const rightThreshold = window.innerWidth - rect.width - padding * 2;
+  if (clientX > rightThreshold) {
+    left = Math.max(padding, clientX - rect.width - padding);
+  }
+
   contextMenuStyle.value = {
     left: `${left}px`,
     top: `${top}px`

@@ -132,15 +132,35 @@ function roomIconIsImage(roomId) {
 }
 
 async function positionRoomContext(clientX: number, clientY: number) {
-  const padding = 12;
+  const padding = 16;
   roomContextPos.value = { x: clientX, y: clientY };
+
+  // Rendered in a Teleport with conditional content; wait for layout to settle.
   await nextTick();
-  const rect = roomContextMenuRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  roomContextPos.value = {
-    x: Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding)),
-    y: Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding)),
-  };
+  await nextTick();
+
+  let rect = roomContextMenuRef.value?.getBoundingClientRect();
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    await nextTick();
+    rect = roomContextMenuRef.value?.getBoundingClientRect();
+  }
+
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    return;
+  }
+
+  const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+  const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+
+  let x = Math.min(Math.max(clientX, padding), maxX);
+  const y = Math.min(Math.max(clientY, padding), maxY);
+
+  const rightThreshold = window.innerWidth - rect.width - padding * 2;
+  if (clientX > rightThreshold) {
+    x = Math.max(padding, clientX - rect.width - padding);
+  }
+
+  roomContextPos.value = { x, y };
 }
 
 function onRoomContext(event, roomId) {

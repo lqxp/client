@@ -85,15 +85,43 @@ const memberContextMenuRef = ref<HTMLElement | null>(null);
 const memberContextPos = ref({ x: 0, y: 0 });
 
 async function positionMemberContext(clientX: number, clientY: number) {
-  const padding = 12;
+  const padding = 16;
   memberContextPos.value = { x: clientX, y: clientY };
+
+  // The menu is rendered inside a <Teleport to="body"> and contains
+  // conditional (v-if) content, so a single nextTick is not enough for its
+  // final layout to be measurable. Wait for the teleport + render to settle.
   await nextTick();
-  const rect = memberContextMenuRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  memberContextPos.value = {
-    x: Math.min(Math.max(clientX, padding), Math.max(padding, window.innerWidth - rect.width - padding)),
-    y: Math.min(Math.max(clientY, padding), Math.max(padding, window.innerHeight - rect.height - padding)),
-  };
+  await nextTick();
+
+  let rect = memberContextMenuRef.value?.getBoundingClientRect();
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    // Fallback: give the browser one more frame to flush layout.
+    await nextTick();
+    rect = memberContextMenuRef.value?.getBoundingClientRect();
+  }
+
+  if (!rect || rect.width === 0 || rect.height === 0) {
+    // Last resort fallback so we never compute a nonsense clamp.
+    memberContextPos.value = { x: clientX, y: clientY };
+    return;
+  }
+
+  const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+  const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+
+  let x = Math.min(Math.max(clientX, padding), maxX);
+  let y = Math.min(Math.max(clientY, padding), maxY);
+
+  // If the click is near the right edge of the viewport, open the menu to the
+  // left of the cursor so it stays fully visible instead of hugging the edge.
+  const rightThreshold = window.innerWidth - rect.width - padding * 2;
+  if (clientX > rightThreshold) {
+    x = clientX - rect.width - padding;
+    x = Math.max(padding, x);
+  }
+
+  memberContextPos.value = { x, y };
 }
 
 const sections = computed(() => {
