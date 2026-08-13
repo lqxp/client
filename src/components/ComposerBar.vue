@@ -27,7 +27,11 @@ const cameraFacing = ref<"user" | "environment">(
 );
 let cameraStream: MediaStream | null = null;
 
-const canSend = computed(() => props.messenger.state.messageInput.trim().length > 0 && !!props.messenger.state.activeRoom);
+const pendingFiles = ref<{ id: string; file: File; preview: string; progress: number }[]>([]);
+const uploading = ref(false);
+
+const hasPendingFiles = computed(() => pendingFiles.value.length > 0);
+const canSend = computed(() => !uploading.value && (props.messenger.state.messageInput.trim().length > 0 || hasPendingFiles.value) && !!props.messenger.state.activeRoom);
 const disabled = computed(() => !props.messenger.state.activeRoom);
 const editing = computed(() => !!props.messenger.state.editingMessage);
 const composerPlaceholder = computed(() => disabled.value
@@ -659,16 +663,38 @@ async function onPaste(event: ClipboardEvent) {
 
   event.preventDefault();
   pickerOpen.value = false;
-  for (const file of files) {
-    await props.messenger.sendAttachment(file);
-  }
+  addPendingFiles(files);
 }
 
-function send() {
+async function send() {
   if (!canSend.value) return;
-  props.messenger.sendChat();
-  props.messenger.setTyping?.(false);
-  nextTick(() => focusInput());
+
+  // Upload pending attachments with progress before/alongside the text.
+  const files = pendingFiles.value.map((f) => ({ ...f }));
+  if (files.length) {
+    uploading.value = true;
+  }
+
+  try {
+    for (const item of files) {
+      const target = pendingFiles.value.find((f) => f.id === item.id);
+      await props.messenger.sendAttachment(item.file, "", (pct: number) => {
+        if (target) target.progress = pct;
+      });
+      if (target) {
+        URL.revokeObjectURL(target.preview);
+        pendingFiles.value = pendingFiles.value.filter((f) => f.id !== item.id);
+      }
+    }
+
+    if (props.messenger.state.messageInput.trim().length > 0) {
+      props.messenger.sendChat();
+    }
+    props.messenger.setTyping?.(false);
+  } finally {
+    uploading.value = false;
+    nextTick(() => focusInput());
+  }
 }
 
 function syncCursor(options: { resetMentionIndex?: boolean } = {}) {
@@ -742,12 +768,32 @@ function pickFile() {
   fileInputRef.value?.click();
 }
 
+function addPendingFiles(files: File[]) {
+  for (const file of files) {
+    pendingFiles.value.push({
+      id: crypto.randomUUID(),
+      file,
+      preview: URL.createObjectURL(file),
+      progress: 0,
+    });
+  }
+}
+
+function removePendingFile(id: string) {
+  const item = pendingFiles.value.find((f) => f.id === id);
+  if (item) URL.revokeObjectURL(item.preview);
+  pendingFiles.value = pendingFiles.value.filter((f) => f.id !== id);
+}
+
+function clearPendingFiles() {
+  for (const item of pendingFiles.value) URL.revokeObjectURL(item.preview);
+  pendingFiles.value = [];
+}
+
 async function onFile(event: Event) {
   const target = event.target as HTMLInputElement;
   const files = Array.from(target.files || []);
-  for (const file of files) {
-    await props.messenger.sendAttachment(file);
-  }
+  addPendingFiles(files);
   target.value = "";
   nextTick(() => focusInput());
 }
@@ -921,14 +967,8 @@ async function capturePhoto() {
   }
 
   const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
-  try {
-    await props.messenger.sendAttachment(file);
-    closeCamera();
-  } catch (error) {
-    cameraError.value = error instanceof Error ? error.message : "Could not send photo.";
-  } finally {
-    cameraBusy.value = false;
-  }
+  addPendingFiles([file]);
+  closeCamera();
 }
 
 watch(() => props.messenger.state.activeRoom, () => {
@@ -997,6 +1037,28 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
+      <div v-if="hasPendingFiles" class="composer__attachments">
+        <div
+          v-for="item in pendingFiles"
+          :key="item.id"
+          class="composer__attachment"
+        >
+          <img v-if="item.file.type.startsWith('image/')" :src="item.preview" alt="" class="composer__attachment-thumb" />
+          <div v-else class="composer__attachment-thumb composer__attachment-thumb--file">
+            <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M13 2v7h7"/></svg>
+          </div>
+          <div class="composer__attachment-meta">
+            <span class="composer__attachment-name">{{ item.file.name }}</span>
+            <div v-if="uploading" class="composer__attachment-progress">
+              <span class="composer__attachment-progress-bar" :style="{ width: `${item.progress}%` }"></span>
+            </div>
+          </div>
+          <button v-if="!uploading" type="button" class="icon-btn composer__attachment-remove" :aria-label="t('composer.removeAttachment')" @click="removePendingFile(item.id)">
+            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+
       <div class="composer__topline">
         <div v-if="typingLabel" class="typing-indicator composer__typing-indicator" aria-live="polite">{{ typingLabel }}
         </div>

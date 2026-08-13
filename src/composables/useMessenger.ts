@@ -1652,11 +1652,19 @@ function normalizeMessage(message, fallbackRoomId) {
   };
 }
 
-function blobToBase64(blob) {
+function blobToBase64(blob, onProgress) {
   return new Promise((resolve, reject) => {
+    if (onProgress) onProgress(0);
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read failed"));
+    reader.onprogress = (event) => {
+      if (onProgress && event.lengthComputable) {
+        const pct = Math.min(100, Math.round((event.loaded / event.total) * 100));
+        onProgress(pct);
+      }
+    };
     reader.onload = () => {
+      if (onProgress) onProgress(100);
       const result = String(reader.result || "");
       const comma = result.indexOf(",");
       resolve(comma >= 0 ? result.slice(comma + 1) : result);
@@ -4686,7 +4694,7 @@ export function useMessenger() {
     }
   }
 
-  async function sendAttachment(file, caption = "") {
+  async function sendAttachment(file, caption = "", onProgress?) {
     const roomId = state.activeRoom;
     if (!file || !roomId) return;
     if (!state.connected || !state.identified) {
@@ -4712,7 +4720,7 @@ export function useMessenger() {
       const clientNonce = crypto.randomUUID();
       const uploadFile = file;
       const previewUrl = URL.createObjectURL(uploadFile);
-      const dataB64 = await blobToBase64(uploadFile);
+      const dataB64 = await blobToBase64(uploadFile, onProgress);
       const encrypted = await buildEncryptedOutgoingMessage(roomId, {
         clientNonce,
         text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
