@@ -6,7 +6,7 @@ import ProfileCard from "@/components/ProfileCard.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object, required: true },
 });
 
 const now = ref(Date.now());
@@ -32,16 +32,26 @@ function clampMenuPosition(x, y) {
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
     x: Math.min(Math.max(margin, x), maxX),
-    y: Math.min(Math.max(margin, y), maxY)
+    y: Math.min(Math.max(margin, y), maxY),
   };
 }
 
 function openMobileCall() {
   mobileExpanded.value = true;
   mobileActiveIndex.value = 0;
+  fullscreenTileId.value = "";
 }
 function closeMobileCall() {
   mobileExpanded.value = false;
+  fullscreenTileId.value = "";
+}
+
+function toggleTileFullscreen(tile) {
+  if (fullscreenTileId.value === tile.id) {
+    fullscreenTileId.value = "";
+  } else {
+    fullscreenTileId.value = tile.id;
+  }
 }
 
 function onMobileStageScroll(e: Event) {
@@ -85,7 +95,9 @@ onMounted(() => {
   window.addEventListener("click", closeMemberMenu, { passive: true });
   window.addEventListener("contextmenu", closeMemberMenu, { passive: true });
   window.addEventListener("keydown", handleWindowKeydown);
-  tickId = setInterval(() => { now.value = Date.now(); }, 500);
+  tickId = setInterval(() => {
+    now.value = Date.now();
+  }, 500);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobile);
@@ -100,7 +112,8 @@ const callRoom = computed(() => props.messenger.state.callRoom);
 const screenShareTitle = computed(() =>
   props.messenger.state.callScreenEnabled
     ? t("call.stopScreen")
-    : props.messenger.screenShareUnavailableReason.value || t("call.shareScreen")
+    : props.messenger.screenShareUnavailableReason.value ||
+      t("call.shareScreen"),
 );
 
 const members = computed(() => {
@@ -116,7 +129,9 @@ const members = computed(() => {
   return sorted;
 });
 
-const remoteMembers = computed(() => members.value.filter((username) => !isSelf(username)));
+const remoteMembers = computed(() =>
+  members.value.filter((username) => !isSelf(username)),
+);
 
 const callTiles = computed(() => {
   const tiles = [];
@@ -136,7 +151,8 @@ const callTiles = computed(() => {
           video: true,
           self,
           media,
-          trackIndex: kind === "screen" && media.camera ? 0 : videoKinds.indexOf(kind)
+          trackIndex:
+            kind === "screen" && media.camera ? 0 : videoKinds.indexOf(kind),
         });
       }
     } else {
@@ -147,7 +163,7 @@ const callTiles = computed(() => {
         video: false,
         self,
         media,
-        trackIndex: 0
+        trackIndex: 0,
       });
     }
   }
@@ -169,22 +185,32 @@ const speakingSet = computed(() => {
   return new Set(Object.keys(table).filter((u) => table[u] >= cutoff));
 });
 
-const activeMemberMenuVolume = computed(() => volumeOf(memberMenu.value.username));
+const activeMemberMenuVolume = computed(() =>
+  volumeOf(memberMenu.value.username),
+);
 
 function initialsOf(name) {
   const trimmed = String(name || "?").trim();
   if (!trimmed) return "?";
   const parts = trimmed.split(/[\s\-_]+/).slice(0, 2);
-  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 2 && parts[1])
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   return trimmed.slice(0, 2).toUpperCase();
 }
 
 function avatarSrcOf(username) {
-  return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
+  return (
+    props.messenger.profileImageSrc?.(
+      props.messenger.profileFor?.(username)?.avatar,
+      "avatar",
+    ) || ""
+  );
 }
 
 function isSelf(username) {
-  return String(username || "") === String(props.messenger.state.username || "");
+  return (
+    String(username || "") === String(props.messenger.state.username || "")
+  );
 }
 
 function isLocallyMuted(username) {
@@ -233,7 +259,9 @@ function videoStreamForTile(tile) {
   if (!tile?.video) return null;
   if (tile.self) return props.messenger.localPreviewStream(tile.kind);
   const stream = props.messenger.remoteVideoStream(tile.username);
-  const tracks = (stream?.getVideoTracks?.() || []).filter((track) => track.readyState === "live" && !track.muted);
+  const tracks = (stream?.getVideoTracks?.() || []).filter(
+    (track) => track.readyState === "live" && !track.muted,
+  );
   const track = tracks[tile.trackIndex] || tracks[0];
   return track ? new MediaStream([track]) : null;
 }
@@ -247,7 +275,9 @@ function bindLocalPreview(el, kind) {
 function bindRemoteVideo(el, username, trackIndex = 0) {
   if (!el) return;
   const stream = props.messenger.remoteVideoStream(username);
-  const tracks = (stream?.getVideoTracks?.() || []).filter((track) => track.readyState === "live" && !track.muted);
+  const tracks = (stream?.getVideoTracks?.() || []).filter(
+    (track) => track.readyState === "live" && !track.muted,
+  );
   const track = tracks[trackIndex] || tracks[0];
   if (!track) {
     el.srcObject = null;
@@ -266,18 +296,19 @@ function closeProfile() {
   selectedProfile.value = "";
 }
 
-function toggleTileFullscreen(tile) {
-  if (!tile?.video) return;
-  fullscreenTileId.value = fullscreenTileId.value === tile.id ? "" : tile.id;
-}
-
 function openTileWindow(tile) {
   if (!tile?.video) return;
   const stream = videoStreamForTile(tile);
-  const child = window.open("", `qxp-tile-${tile.id}`, "popup=yes,width=960,height=640");
+  const child = window.open(
+    "",
+    `qxp-tile-${tile.id}`,
+    "popup=yes,width=960,height=640",
+  );
   if (!child) return;
   const safeTitle = `${escapePopupHtml(tile.username)} - ${escapePopupHtml(tileLabel(tile))}`;
-  child.document.write(`<!doctype html><html><head><title>${safeTitle}</title><style>html,body{margin:0;width:100%;height:100%;background:#020305;color:#fff;font-family:system-ui,sans-serif}body{display:flex;flex-direction:column}.bar{height:42px;display:flex;align-items:center;padding:0 14px;background:#090b10;border-bottom:1px solid rgba(255,255,255,.12);font-weight:700}video{width:100%;height:calc(100% - 43px);object-fit:${tile.kind === "screen" ? "contain" : "cover"};background:#000}</style></head><body><div class="bar">${safeTitle}</div><video autoplay playsinline ${tile.self ? "muted" : ""}></video></body></html>`);
+  child.document.write(
+    `<!doctype html><html><head><title>${safeTitle}</title><style>html,body{margin:0;width:100%;height:100%;background:#020305;color:#fff;font-family:system-ui,sans-serif}body{display:flex;flex-direction:column}.bar{height:42px;display:flex;align-items:center;padding:0 14px;background:#090b10;border-bottom:1px solid rgba(255,255,255,.12);font-weight:700}video{width:100%;height:calc(100% - 43px);object-fit:${tile.kind === "screen" ? "contain" : "cover"};background:#000}</style></head><body><div class="bar">${safeTitle}</div><video autoplay playsinline ${tile.self ? "muted" : ""}></video></body></html>`,
+  );
   child.document.close();
   const video = child.document.querySelector("video");
   if (video) {
@@ -326,9 +357,15 @@ function syncPanelWindow() {
 }
 
 function openPanelWindow() {
-  panelWindow = window.open("", "qxp-voice-panel", "popup=yes,width=1180,height=760");
+  panelWindow = window.open(
+    "",
+    "qxp-voice-panel",
+    "popup=yes,width=1180,height=760",
+  );
   if (!panelWindow) return;
-  panelWindow.document.write(`<!doctype html><html><head><title>QxChat Call Panel</title><style>html,body{margin:0;min-height:100%;background:#111318;color:#f4f4f5;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#1d2129;border:1px solid rgba(255,255,255,.08)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(10,12,16,.64);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}.empty img{width:96px;height:96px;border-radius:50%;object-fit:cover}</style></head><body><main id="tiles" class="grid"></main></body></html>`);
+  panelWindow.document.write(
+    `<!doctype html><html><head><title>QxChat Call Panel</title><style>html,body{margin:0;min-height:100%;background:#111318;color:#f4f4f5;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:10px}.tile{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#1d2129;border:1px solid rgba(255,255,255,.08)}video{width:100%;height:100%;display:block;object-fit:cover;background:#000}.screen video{object-fit:contain}.label{position:absolute;z-index:2;left:8px;bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(10,12,16,.64);font-weight:700}.empty{height:100%;display:grid;place-items:center;font-size:42px;font-weight:800}.empty img{width:96px;height:96px;border-radius:50%;object-fit:cover}</style></head><body><main id="tiles" class="grid"></main></body></html>`,
+  );
   panelWindow.document.close();
   syncPanelWindow();
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
@@ -353,7 +390,7 @@ function openMemberMenu(event, username) {
     open: true,
     x: position.x,
     y: position.y,
-    username
+    username,
   };
 }
 
@@ -380,9 +417,19 @@ function toggleLocalMute(username) {
 </script>
 
 <template>
-  <section class="callpanel" v-if="messenger.state.inCall && messenger.state.callRoom === messenger.state.activeRoom">
+  <section
+    class="callpanel"
+    v-if="
+      messenger.state.inCall &&
+      messenger.state.callRoom === messenger.state.activeRoom
+    "
+  >
     <header class="callpanel__head">
-      <div v-if="isMobile" class="callpanel__mobile-strip" @click="openMobileCall">
+      <div
+        v-if="isMobile"
+        class="callpanel__mobile-strip"
+        @click="openMobileCall"
+      >
         <span
           v-for="(tile, idx) in callTiles.slice(0, 3)"
           :key="tile.id"
@@ -390,42 +437,122 @@ function toggleLocalMute(username) {
           :class="{ 'is-self': tile.self }"
           :style="{ zIndex: 3 - idx }"
         >
-          <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="tile.username" />
-          <span v-else class="avatar" :class="`avatar--${messenger.accentFor(tile.username)}`">{{ initialsOf(tile.username) }}</span>
+          <img
+            v-if="avatarSrcOf(tile.username)"
+            :src="avatarSrcOf(tile.username)"
+            :alt="tile.username"
+          />
+          <span
+            v-else
+            class="avatar"
+            :class="`avatar--${messenger.accentFor(tile.username)}`"
+            >{{ initialsOf(tile.username) }}</span
+          >
         </span>
-        <span v-if="callTiles.length > 3" class="callpanel__mobile-overflow">+{{ callTiles.length - 3 }}</span>
-        <span v-else class="callpanel__mobile-count">{{ callTiles.length }}</span>
+        <span v-if="callTiles.length > 3" class="callpanel__mobile-overflow"
+          >+{{ callTiles.length - 3 }}</span
+        >
+        <span v-else class="callpanel__mobile-count">{{
+          callTiles.length
+        }}</span>
       </div>
       <div class="callpanel__actions">
         <button
           class="icon-btn"
           :class="{ 'icon-btn--danger': messenger.state.callMuted }"
           type="button"
-          :aria-label="messenger.state.callMuted ? t('call.unmute') : t('call.mute')"
+          :aria-label="
+            messenger.state.callMuted ? t('call.unmute') : t('call.mute')
+          "
           @click="messenger.toggleMute"
         >
-          <svg v-if="!messenger.state.callMuted" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+          <svg
+            v-if="!messenger.state.callMuted"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10a7 7 0 0 1-14 0" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10a7 7 0 0 1-14 0" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="4" y1="4" x2="20" y2="20" />
+          </svg>
         </button>
         <button
           class="icon-btn"
           :class="{ 'icon-btn--active': messenger.state.callCameraEnabled }"
           type="button"
-          :aria-label="messenger.state.callCameraEnabled ? t('call.stopCamera') : t('call.startCamera')"
+          :aria-label="
+            messenger.state.callCameraEnabled
+              ? t('call.stopCamera')
+              : t('call.startCamera')
+          "
           @click="messenger.toggleCamera"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"
+            />
+          </svg>
         </button>
         <button
           v-if="!isMobile"
           class="icon-btn"
           :class="{ 'icon-btn--active': messenger.state.callScreenEnabled }"
           type="button"
-          :aria-label="messenger.state.callScreenEnabled ? t('call.stopScreen') : t('call.shareScreen')"
+          :aria-label="
+            messenger.state.callScreenEnabled
+              ? t('call.stopScreen')
+              : t('call.shareScreen')
+          "
           :title="screenShareTitle"
           @click="messenger.toggleScreenShare"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="m9 10 3-3 3 3"/><path d="M12 7v7"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="13" rx="2" />
+            <path d="M8 21h8" />
+            <path d="M12 17v4" />
+            <path d="m9 10 3-3 3 3" />
+            <path d="M12 7v7" />
+          </svg>
         </button>
         <button
           v-if="!isMobile"
@@ -435,7 +562,22 @@ function toggleLocalMute(username) {
           :title="t('call.extractPanel')"
           @click="openPanelWindow"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"
+            />
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+          </svg>
         </button>
         <button
           class="icon-btn icon-btn--danger"
@@ -443,7 +585,22 @@ function toggleLocalMute(username) {
           :aria-label="t('call.endCall')"
           @click="messenger.endCall"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 15.4c3.3-2.1 7.5-2.1 10.8 0l1.45.92c.7.44.92 1.37.48 2.07l-1.15 1.84c-.44.7-1.37.92-2.07.48l-1.55-.97a4.95 4.95 0 0 0-5.12 0l-1.55.97c-.7.44-1.63.22-2.07-.48l-1.15-1.84c-.44-.7-.22-1.63.48-2.07l1.45-.92Z"/><path d="M6 8.5C9.7 6.2 14.3 6.2 18 8.5"/><path d="M3.5 5.2c5.2-3.4 11.8-3.4 17 0"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M6.6 15.4c3.3-2.1 7.5-2.1 10.8 0l1.45.92c.7.44.92 1.37.48 2.07l-1.15 1.84c-.44.7-1.37.92-2.07.48l-1.55-.97a4.95 4.95 0 0 0-5.12 0l-1.55.97c-.7.44-1.63.22-2.07-.48l-1.15-1.84c-.44-.7-.22-1.63.48-2.07l1.45-.92Z"
+            />
+            <path d="M6 8.5C9.7 6.2 14.3 6.2 18 8.5" />
+            <path d="M3.5 5.2c5.2-3.4 11.8-3.4 17 0" />
+          </svg>
         </button>
       </div>
     </header>
@@ -461,7 +618,7 @@ function toggleLocalMute(username) {
           'is-fullscreen': fullscreenTileId === tile.id,
           'is-local-muted': isLocallyMuted(tile.username),
           'is-remote-muted': isRemotelyMuted(tile.username),
-          'is-speaking': isSpeaking(tile.username)
+          'is-speaking': isSpeaking(tile.username),
         }"
         role="button"
         tabindex="0"
@@ -489,43 +646,116 @@ function toggleLocalMute(username) {
         <div v-else class="calltile__empty">
           <span
             class="calltile__avatar"
-            :class="avatarSrcOf(tile.username) ? 'calltile__avatar--image' : `avatar--${messenger.accentFor(tile.username)}`"
+            :class="
+              avatarSrcOf(tile.username)
+                ? 'calltile__avatar--image'
+                : `avatar--${messenger.accentFor(tile.username)}`
+            "
           >
-            <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="`${tile.username} avatar`" />
+            <img
+              v-if="avatarSrcOf(tile.username)"
+              :src="avatarSrcOf(tile.username)"
+              :alt="`${tile.username} avatar`"
+            />
             <template v-else>{{ initialsOf(tile.username) }}</template>
           </span>
         </div>
         <div v-if="tile.video" class="calltile__tools">
-          <button type="button" :title="t('members.viewProfile')" :aria-label="t('members.openProfile', { username: tile.username })" @click.stop="openProfile(tile.username)">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-          </button>
-          <button v-if="!isMobile" type="button" :title="t('call.fullscreen')" :aria-label="t('call.fullscreen')" @click.stop="toggleTileFullscreen(tile)">
-            <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-          </button>
-          <button v-if="!isMobile" type="button" :title="t('call.extractView')" :aria-label="t('call.extractView')" @click.stop="openTileWindow(tile)">
-            <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          <button
+            v-if="!isMobile"
+            type="button"
+            :title="t('call.extractView')"
+            :aria-label="t('call.extractView')"
+            @click.stop="openTileWindow(tile)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"
+              />
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+            </svg>
           </button>
         </div>
         <div class="calltile__overlay">
           <span class="calltile__name">
-            {{ tile.username }}<span v-if="tile.self" class="calltile__you"> {{ t('call.you') }}</span>
+            {{ tile.username
+            }}<span v-if="tile.self" class="calltile__you">
+              {{ t("call.you") }}</span
+            >
           </span>
-          <span v-if="!tile.self && isRemotelyMuted(tile.username)" class="calltile__muted-badge calltile__muted-badge--remote" :aria-label="t('call.muted')">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+          <span
+            v-if="!tile.self && isRemotelyMuted(tile.username)"
+            class="calltile__muted-badge calltile__muted-badge--remote"
+            :aria-label="t('call.muted')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10a7 7 0 0 1-14 0" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="4" y1="4" x2="20" y2="20" />
+            </svg>
           </span>
           <span class="calltile__kind">{{ tileLabel(tile) }}</span>
-          <span v-if="!tile.self && isLocallyMuted(tile.username)" class="calltile__muted-badge" :aria-label="t('call.localMute')">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><line x1="16" y1="8" x2="22" y2="14"/><line x1="22" y1="8" x2="16" y2="14"/></svg>
+          <span
+            v-if="!tile.self && isLocallyMuted(tile.username)"
+            class="calltile__muted-badge"
+            :aria-label="t('call.localMute')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+              <line x1="16" y1="8" x2="22" y2="14" />
+              <line x1="22" y1="8" x2="16" y2="14" />
+            </svg>
           </span>
-          <span v-if="tile.self && messenger.state.callMuted" class="calltile__muted-badge" aria-label="muted">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+          <span
+            v-if="tile.self && messenger.state.callMuted"
+            class="calltile__muted-badge"
+            aria-label="muted"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10a7 7 0 0 1-14 0" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="4" y1="4" x2="20" y2="20" />
+            </svg>
           </span>
         </div>
       </div>
     </div>
 
     <Teleport to="body">
-      <div v-if="memberMenu.open" class="callpanel__menu-layer" @click="closeMemberMenu">
+      <div
+        v-if="memberMenu.open"
+        class="callpanel__menu-layer"
+        @click="closeMemberMenu"
+      >
         <div
           class="callpanel__context-menu"
           :style="{ left: `${memberMenu.x}px`, top: `${memberMenu.y}px` }"
@@ -533,23 +763,45 @@ function toggleLocalMute(username) {
           @contextmenu.prevent
         >
           <div class="callpanel__context-head">
-            <span class="callpanel__context-user">{{ memberMenu.username }}</span>
+            <span class="callpanel__context-user">{{
+              memberMenu.username
+            }}</span>
             <span class="callpanel__context-status">
-              <template v-if="isRemotelyMuted(memberMenu.username)">{{ t('call.muted') }}</template>
-              <template v-else-if="isLocallyMuted(memberMenu.username)">{{ t('call.localMute') }}</template>
-              <template v-else>{{ t('members.online') }}</template>
+              <template v-if="isRemotelyMuted(memberMenu.username)">{{
+                t("call.muted")
+              }}</template>
+              <template v-else-if="isLocallyMuted(memberMenu.username)">{{
+                t("call.localMute")
+              }}</template>
+              <template v-else>{{ t("members.online") }}</template>
             </span>
           </div>
-          <button type="button" class="callpanel__context-action" @click="openProfile(memberMenu.username)">
-            <span>{{ t('members.viewProfile') }}</span>
+          <button
+            type="button"
+            class="callpanel__context-action"
+            @click="openProfile(memberMenu.username)"
+          >
+            <span>{{ t("members.viewProfile") }}</span>
           </button>
-          <button type="button" class="callpanel__context-action" @click="toggleLocalMute(memberMenu.username)">
-            <span>{{ isLocallyMuted(memberMenu.username) ? t('call.unmuteLocal') : t('call.localMute') }}</span>
-            <span class="callpanel__context-hint">{{ isLocallyMuted(memberMenu.username) ? '100%' : '0%' }}</span>
+          <button
+            type="button"
+            class="callpanel__context-action"
+            @click="toggleLocalMute(memberMenu.username)"
+          >
+            <span>{{
+              isLocallyMuted(memberMenu.username)
+                ? t("call.unmuteLocal")
+                : t("call.localMute")
+            }}</span>
+            <span class="callpanel__context-hint">{{
+              isLocallyMuted(memberMenu.username) ? "100%" : "0%"
+            }}</span>
           </button>
           <div class="callpanel__context-divider"></div>
           <label class="callpanel__context-volume">
-            <span class="callpanel__context-label">{{ t('call.personalVolume') }}</span>
+            <span class="callpanel__context-label">{{
+              t("call.personalVolume")
+            }}</span>
             <div class="callpanel__context-slider-row">
               <input
                 type="range"
@@ -557,7 +809,9 @@ function toggleLocalMute(username) {
                 max="100"
                 step="1"
                 :value="activeMemberMenuVolume"
-                @input="setMemberVolume(memberMenu.username, inputValue($event))"
+                @input="
+                  setMemberVolume(memberMenu.username, inputValue($event))
+                "
               />
               <strong>{{ activeMemberMenuVolume }}%</strong>
             </div>
@@ -574,16 +828,27 @@ function toggleLocalMute(username) {
         @close="closeProfile"
       />
     </Teleport>
-
   </section>
 
   <!-- Mobile: full-screen call overlay -->
   <Teleport to="body">
-    <div v-if="isMobile && mobileExpanded && messenger.state.inCall" class="call-mobile-overlay">
+    <div
+      v-if="isMobile && mobileExpanded && messenger.state.inCall"
+      class="call-mobile-overlay"
+    >
       <header class="call-mobile-overlay__head">
-        <span class="call-mobile-overlay__title">{{ callTiles.length === 1 ? t('call.oneParticipant') : t('call.nParticipants', { n: String(callTiles.length) }) }}</span>
-        <button class="icon-btn" type="button" :aria-label="t('camera.close')" @click="closeMobileCall">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <span class="call-mobile-overlay__title">{{
+          callTiles.length === 1
+            ? t("call.oneParticipant")
+            : t("call.nParticipants", { n: String(callTiles.length) })
+        }}</span>
+        <button
+          class="icon-btn"
+          type="button"
+          :aria-label="t('camera.close')"
+          @click="closeMobileCall"
+        >
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
       </header>
 
@@ -599,37 +864,76 @@ function toggleLocalMute(username) {
           v-for="(tile, idx) in callTiles"
           :key="tile.id"
           class="call-mobile-card"
-          :class="{ 'is-active': idx === mobileActiveIndex, 'is-self': tile.self }"
+          :class="{
+            'is-active': idx === mobileActiveIndex,
+            'is-self': tile.self,
+            'is-fullscreen': fullscreenTileId === tile.id,
+          }"
         >
-          <div v-if="tile.video" class="call-mobile-card__video" @click="toggleTileFullscreen(tile)">
+          <div
+            v-if="tile.video"
+            class="call-mobile-card__video"
+            @click="toggleTileFullscreen(tile)"
+          >
             <video
               v-if="tile.self"
               :ref="(el) => bindLocalPreview(el, tile.kind)"
-              autoplay muted playsinline
+              autoplay
+              muted
+              playsinline
             ></video>
             <video
               v-else
               :ref="(el) => bindRemoteVideo(el, tile.username, tile.trackIndex)"
-              autoplay playsinline
+              autoplay
+              playsinline
             ></video>
-            <button v-if="!isMobile" class="call-mobile-card__fullscreen" :aria-label="t('call.fullscreen')">
-              <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-            </button>
           </div>
           <div v-else class="call-mobile-card__empty">
-            <span class="call-mobile-card__avatar" :class="avatarSrcOf(tile.username) ? '' : `avatar--${messenger.accentFor(tile.username)}`">
-              <img v-if="avatarSrcOf(tile.username)" :src="avatarSrcOf(tile.username)" :alt="tile.username" />
+            <span
+              class="call-mobile-card__avatar"
+              :class="
+                avatarSrcOf(tile.username)
+                  ? ''
+                  : `avatar--${messenger.accentFor(tile.username)}`
+              "
+            >
+              <img
+                v-if="avatarSrcOf(tile.username)"
+                :src="avatarSrcOf(tile.username)"
+                :alt="tile.username"
+              />
               <template v-else>{{ initialsOf(tile.username) }}</template>
             </span>
           </div>
           <div class="call-mobile-card__label">
             <strong>{{ tile.username }}</strong>
-            <span v-if="tile.self">{{ t('call.you') }}</span>
-            <span v-if="isRemotelyMuted(tile.username)" class="call-mobile-card__muted-icon" :aria-label="t('call.muted')">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+            <span v-if="tile.self">{{ t("call.you") }}</span>
+            <span
+              v-if="isRemotelyMuted(tile.username)"
+              class="call-mobile-card__muted-icon"
+              :aria-label="t('call.muted')"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+                />
+                <path d="M19 10a7 7 0 0 1-14 0" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="4" y1="4" x2="20" y2="20" />
+              </svg>
             </span>
-            <span v-if="tile.kind === 'screen'">— {{ t('call.screen') }}</span>
-            <span v-if="tile.kind === 'camera'">— {{ t('call.camera') }}</span>
+            <span v-if="tile.kind === 'screen'">— {{ t("call.screen") }}</span>
+            <span v-if="tile.kind === 'camera'">— {{ t("call.camera") }}</span>
           </div>
         </div>
       </div>
@@ -644,15 +948,89 @@ function toggleLocalMute(username) {
       </div>
 
       <footer class="call-mobile-overlay__controls">
-        <button class="icon-btn" :class="{ 'icon-btn--danger': messenger.state.callMuted }" type="button" @click="messenger.toggleMute">
-          <svg v-if="!messenger.state.callMuted" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-          <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+        <button
+          class="icon-btn"
+          :class="{ 'icon-btn--danger': messenger.state.callMuted }"
+          type="button"
+          @click="messenger.toggleMute"
+        >
+          <svg
+            v-if="!messenger.state.callMuted"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10a7 7 0 0 1-14 0" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10a7 7 0 0 1-14 0" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="4" y1="4" x2="20" y2="20" />
+          </svg>
         </button>
-        <button class="icon-btn" :class="{ 'icon-btn--active': messenger.state.callCameraEnabled }" type="button" @click="messenger.toggleCamera">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"/></svg>
+        <button
+          class="icon-btn"
+          :class="{ 'icon-btn--active': messenger.state.callCameraEnabled }"
+          type="button"
+          @click="messenger.toggleCamera"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"
+            />
+          </svg>
         </button>
-        <button class="icon-btn icon-btn--danger" type="button" @click="messenger.endCall(); closeMobileCall()">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 15.4c3.3-2.1 7.5-2.1 10.8 0l1.45.92c.7.44.92 1.37.48 2.07l-1.15 1.84c-.44.7-1.37.92-2.07.48l-1.55-.97a4.95 4.95 0 0 0-5.12 0l-1.55.97c-.7.44-1.63.22-2.07-.48l-1.15-1.84c-.44-.7-.22-1.63.48-2.07l1.45-.92Z"/><path d="M6 8.5C9.7 6.2 14.3 6.2 18 8.5"/><path d="M3.5 5.2c5.2-3.4 11.8-3.4 17 0"/></svg>
+        <button
+          class="icon-btn icon-btn--danger"
+          type="button"
+          @click="
+            messenger.endCall();
+            closeMobileCall();
+          "
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M6.6 15.4c3.3-2.1 7.5-2.1 10.8 0l1.45.92c.7.44.92 1.37.48 2.07l-1.15 1.84c-.44.7-1.37.92-2.07.48l-1.55-.97a4.95 4.95 0 0 0-5.12 0l-1.55.97c-.7.44-1.63.22-2.07-.48l-1.15-1.84c-.44-.7-.22-1.63.48-2.07l1.45-.92Z"
+            />
+            <path d="M6 8.5C9.7 6.2 14.3 6.2 18 8.5" />
+            <path d="M3.5 5.2c5.2-3.4 11.8-3.4 17 0" />
+          </svg>
         </button>
       </footer>
     </div>
@@ -722,7 +1100,9 @@ function toggleLocalMute(username) {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .callpanel__context-action:hover {
@@ -811,7 +1191,9 @@ function toggleLocalMute(username) {
   user-select: none;
   -webkit-user-select: none;
 }
-.call-mobile-overlay__stage::-webkit-scrollbar { display: none; }
+.call-mobile-overlay__stage::-webkit-scrollbar {
+  display: none;
+}
 
 .call-mobile-card {
   flex: none;
@@ -823,6 +1205,27 @@ function toggleLocalMute(username) {
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+.call-mobile-card.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #000;
+}
+
+.call-mobile-card.is-fullscreen .call-mobile-card__video {
+  height: 100%;
+}
+
+.call-mobile-card.is-fullscreen .call-mobile-card__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .call-mobile-card__video {
@@ -839,30 +1242,6 @@ function toggleLocalMute(username) {
 }
 .call-mobile-card.is-screen .call-mobile-card__video video {
   object-fit: contain;
-}
-
-.call-mobile-card__fullscreen {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 0;
-  background: rgba(0,0,0,.55);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.call-mobile-card__fullscreen svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .call-mobile-card__empty {
@@ -923,7 +1302,7 @@ function toggleLocalMute(username) {
   height: 7px;
   border-radius: 50%;
   background: var(--line-strong);
-  transition: background .15s;
+  transition: background 0.15s;
 }
 .call-mobile-overlay__dot.is-active {
   background: var(--accent);
