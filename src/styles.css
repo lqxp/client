@@ -5688,6 +5688,10 @@ textarea {
   font-size: 14px;
 }
 
+.settings-btn + .settings-kv {
+  margin-top: 16px;
+}
+
 .settings-kv--language {
   margin-top: 18px;
   padding-top: 18px;
