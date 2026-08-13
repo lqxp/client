@@ -106,16 +106,490 @@ function focusInput(options: { end?: boolean } = {}) {
   try { input.setSelectionRange(length, length); } catch { }
 }
 
-const EMOJIS = [
-  "😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤩", "😇",
-  "🙂", "😉", "😋", "😛", "😜", "🤪", "🤗", "🤭", "🤔", "🧐",
-  "😏", "🙄", "😬", "😒", "😞", "😔", "😢", "😭", "😤", "😡",
-  "🥺", "😳", "😱", "😴", "🤒", "🤕", "🤧", "🥳", "🤯", "💀",
-  "👍", "👎", "👌", "✌️", "🤞", "🤘", "🤙", "👏", "🙏", "🤝",
-  "💪", "👀", "👋", "🙌", "🤦", "🤷", "💃", "🕺", "🦾", "🧠",
-  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔", "💘",
-  "🔥", "✨", "⭐", "🎉", "🎊", "💯", "💢", "💥", "💫", "☕"
+const EMOJI_CATEGORIES = [
+  {
+    id: "smileys",
+    label: "Smileys & People",
+    emojis: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃",
+      "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙",
+      "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔",
+      "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥",
+      "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮",
+      "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "😎", "🤓",
+      "🧐", "😕", "😟", "🙁", "😮", "😯", "😲", "😳", "🥺", "😦",
+      "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞",
+      "😓", "😩", "😫", "🥱", "😤", "😡", "😠", "🤬", "😈", "👿",
+      "💀", "☠️", "💩", "🤡", "👹", "👺", "👻", "👽", "👾", "🤖",
+      "👶", "👧", "🧒", "👦", "👩", "🧑", "👨", "👵", "🧓", "👴",
+      "👮", "🕵️", "💂", "👷", "🤴", "👸", "🧙", "🧚", "🧛", "🧜",
+      "💃", "🕺", "👫", "👬", "👭", "💏", "💑", "👪"
+    ]
+  },
+  {
+    id: "gestures",
+    label: "Gestures",
+    emojis: [
+      "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞",
+      "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍",
+      "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝",
+      "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂",
+      "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄"
+    ]
+  },
+  {
+    id: "nature",
+    label: "Animals & Nature",
+    emojis: [
+      "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯",
+      "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒",
+      "🐔", "🐧", "🐦", "🐤", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗",
+      "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🕷️", "🦂",
+      "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑", "🦐", "🦀", "🐡",
+      "🐠", "🐟", "🐬", "🐳", "🐋", "🦈", "🌵", "🎄", "🌲", "🌳",
+      "🌴", "🌱", "🌿", "🍀", "🍁", "🍂", "🌹", "🌻", "🌼", "🌸", "💐", "🍄"
+    ]
+  },
+  {
+    id: "food",
+    label: "Food & Drink",
+    emojis: [
+      "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐",
+      "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦",
+      "🥬", "🥒", "🌶️", "🌽", "🥕", "🧄", "🧅", "🥔", "🍠", "🥐",
+      "🥯", "🍞", "🥖", "🥨", "🧀", "🥚", "🍳", "🧈", "🥞", "🧇",
+      "🥓", "🥩", "🍗", "🍖", "🌭", "🍔", "🍟", "🍕", "🥪", "🥙",
+      "🌮", "🌯", "🥗", "🥘", "🍝", "🍜", "🍲", "🍛", "🍣", "🍱",
+      "🥟", "🍤", "🍙", "🍚", "🍘", "🍥", "🍡", "🍧", "🍨", "🍦",
+      "🥧", "🍰", "🎂", "🍮", "🍭", "🍬", "🍫", "🍿", "🍩", "🍪",
+      "☕", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂",
+      "🥃", "🥤", "🧋", "🧃", "🧉", "🧊"
+    ]
+  },
+  {
+    id: "activities",
+    label: "Activities & Travel",
+    emojis: [
+      "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸",
+      "🏒", "🏑", "🏏", "🥅", "⛳", "🏹", "🎣", "🥊", "🥋", "🎽",
+      "🛹", "🛼", "🛷", "⛸️", "🎿", "⛷️", "🏂", "🏋️", "🤸", "⛹️",
+      "🏇", "🏄", "🏊", "🤽", "🚣", "🧗", "🚵", "🚴", "🏆", "🥇",
+      "🥈", "🥉", "🏅", "🎖️", "🎗️", "🎫", "🎟️", "🎪", "🤹", "🎭",
+      "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸",
+      "🎻", "🎲", "♟️", "🎯", "🎳", "🎮", "🎰", "🧩",
+      "🚗", "🚕", "🚙", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚐",
+      "🛻", "🚚", "🚛", "🚜", "🛵", "🏍️", "🚲", "🛴", "🛹", "🚡",
+      "🚠", "🚟", "🚃", "🚋", "🚞", "🚝", "🚄", "🚅", "🚈", "🚂",
+      "🚆", "🚇", "🚊", "🚉", "✈️", "🛫", "🛬", "🛩️", "💺", "🛰️",
+      "🚀", "🛸", "🚁", "🛶", "⛵", "🚤", "🛥️", "🛳️", "⛴️", "🚢",
+      "⚓", "🗺️", "🌍", "🌎", "🌏", "🗻", "🏕️", "🏖️", "🏜️", "🏝️",
+      "🏟️", "🏛️", "🏗️", "🏘️", "🏙️", "🏠", "🏡", "🏢", "🏥", "🏦",
+      "🏨", "🏫", "🏬", "🏭", "🏯", "🏰", "💒", "🗼", "🗽", "⛪", "🕌", "⛩️"
+    ]
+  },
+  {
+    id: "objects",
+    label: "Objects & Symbols",
+    emojis: [
+      "⌚", "📱", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️", "🕹️", "💽",
+      "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽️", "📞",
+      "☎️", "📟", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🧭", "⏱️",
+      "⏲️", "⏰", "⌛", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "🕯️",
+      "💸", "💵", "💴", "💶", "💷", "🪙", "💰", "💳", "💎", "⚖️",
+      "🧰", "🧲", "🔧", "🔨", "⚒️", "🛠️", "⛏️", "🔩", "⚙️", "🧱",
+      "⛓️", "🔫", "🧨", "💣", "🏹", "🛡️", "🗡️", "⚔️", "🔪", "🪓",
+      "🔒", "🔓", "🔐", "🔑", "🗝️", "⚰️", "⚱️", "🧿", "💄", "💍",
+      "👑", "🎩", "🧢", "👒", "🎓", "⛑️", "🪖", "💼", "🎒", "👝", "👛", "👜",
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
+      "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "💯",
+      "💢", "🔥", "✨", "⭐", "🎉", "🎊", "☕", "❗", "❓", "✅",
+      "❌", "⭕", "🛑", "⛔", "🚫", "⚠️", "♻️", "➕", "➖", "➗", "✖️"
+    ]
+  }
 ];
+
+const EMOJI_NAMES = {
+  // Smileys & People
+  "😀": "smile grinning face happy",
+  "😃": "smile grinning happy face",
+  "😄": "smile happy open mouth",
+  "😁": "grin smile happy",
+  "😆": "laugh smiling",
+  "😅": "sweat smile nervous laugh",
+  "🤣": "rofl laugh rolling",
+  "😂": "joy laugh tears crying happy",
+  "🙂": "smile",
+  "🙃": "upside face",
+  "😉": "wink",
+  "😊": "smile blush happy",
+  "😇": "angel innocent",
+  "🥰": "love hearts smiling",
+  "😍": "love heart eyes",
+  "🤩": "star eyes wow",
+  "😘": "kiss",
+  "😗": "kiss",
+  "😚": "kiss",
+  "😙": "kiss",
+  "😋": "yum tasty",
+  "😛": "tongue",
+  "😜": "wink tongue",
+  "🤪": "crazy zany",
+  "😝": "tongue playful",
+  "🤑": "money rich",
+  "🤗": "hug",
+  "🤭": "giggle oops",
+  "🤫": "shh quiet",
+  "🤔": "think hmm",
+  "🤐": "zip mouth",
+  "🤨": "skeptical raised eyebrow",
+  "😐": "neutral",
+  "😑": "expressionless",
+  "😶": "silent no mouth",
+  "😏": "smirk",
+  "😒": "unamused",
+  "🙄": "roll eyes",
+  "😬": "grimace",
+  "🤥": "lie liar",
+  "😌": "relieved",
+  "😔": "sad pensive",
+  "😪": "sleepy tired",
+  "🤤": "drool",
+  "😴": "sleep sleeping",
+  "😷": "mask sick",
+  "🤒": "sick ill",
+  "🤕": "hurt injured",
+  "🤢": "nauseated sick",
+  "🤮": "vomit puke",
+  "🤧": "sneeze",
+  "🥵": "hot overheated",
+  "🥶": "cold freezing",
+  "🥴": "woozy drunk",
+  "😵": "dizzy dead",
+  "🤯": "explode mind blown",
+  "🤠": "cowboy",
+  "🥳": "party celebrate birthday",
+  "😎": "cool sunglasses",
+  "🤓": "nerd",
+  "🧐": "monocle",
+  "😕": "confused",
+  "😟": "worried",
+  "🙁": "frown sad",
+  "😮": "surprised wow",
+  "😯": "surprised",
+  "😲": "astonished",
+  "😳": "flushed blush",
+  "🥺": "pleading puppy",
+  "😦": "frown",
+  "😧": "anguished",
+  "😨": "fearful scared",
+  "😰": "anxious sweat",
+  "😥": "sad disappointed",
+  "😢": "cry tear sad",
+  "😭": "cry sob tears bawl",
+  "😱": "scream scared",
+  "😖": "confounded",
+  "😣": "persevere",
+  "😞": "disappointed sad",
+  "😓": "sweat downcast",
+  "😩": "weary tired",
+  "😫": "tired exhausted",
+  "🥱": "yawning bored",
+  "😤": "frustrated triumph",
+  "😡": "angry rage pout",
+  "😠": "angry mad",
+  "🤬": "cursing swear",
+  "😈": "devil evil smile",
+  "👿": "devil angry",
+  "💀": "skull dead skeleton",
+  "☠️": "skull crossbones danger",
+  "💩": "poop poop shit",
+  "🤡": "clown",
+  "👹": "ogre monster",
+  "👺": "goblin",
+  "👻": "ghost halloween",
+  "👽": "alien",
+  "👾": "alien monster",
+  "🤖": "robot",
+  // Gestures
+  "👋": "wave hi hello bye",
+  "🤚": "raised hand back",
+  "🖐️": "hand fingers",
+  "✋": "hand stop",
+  "🖖": "vulcan star trek",
+  "👌": "ok perfect",
+  "🤌": "pinched fingers italian",
+  "🤏": "pinch small",
+  "✌️": "peace victory",
+  "🤞": "crossed fingers luck",
+  "🤟": "love you hand",
+  "🤘": "rock devil horns",
+  "🤙": "call me",
+  "👈": "point left",
+  "👉": "point right",
+  "👆": "point up",
+  "🖕": "middle finger",
+  "👇": "point down",
+  "☝️": "point up",
+  "👍": "thumbs up good yes",
+  "👎": "thumbs down no",
+  "✊": "fist",
+  "👊": "punch fist",
+  "👏": "clap applause",
+  "🙌": "raised hands celebrate",
+  "👐": "open hands",
+  "🤲": "palms up",
+  "🤝": "handshake deal",
+  "🙏": "pray please thanks",
+  "💪": "muscle strong power",
+  "👀": "eyes look",
+  "👁️": "eye",
+  "👅": "tongue",
+  "👄": "lips mouth",
+  // Animals
+  "🐶": "dog puppy",
+  "🐱": "cat kitten",
+  "🐭": "mouse",
+  "🐹": "hamster",
+  "🐰": "rabbit bunny",
+  "🦊": "fox",
+  "🐻": "bear",
+  "🐼": "panda",
+  "🐨": "koala",
+  "🐯": "tiger",
+  "🦁": "lion",
+  "🐮": "cow",
+  "🐷": "pig",
+  "🐸": "frog",
+  "🐵": "monkey",
+  "🐔": "chicken",
+  "🐧": "penguin",
+  "🐦": "bird",
+  "🦆": "duck",
+  "🦅": "eagle",
+  "🦉": "owl",
+  "🦇": "bat",
+  "🐺": "wolf",
+  "🐴": "horse",
+  "🦄": "unicorn",
+  "🐝": "bee",
+  "🐛": "bug caterpillar",
+  "🦋": "butterfly",
+  "🐌": "snail",
+  "🐞": "ladybug",
+  "🐜": "ant",
+  "🕷️": "spider",
+  "🦂": "scorpion",
+  "🐢": "turtle",
+  "🐍": "snake",
+  "🦖": "dinosaur t-rex",
+  "🦕": "dinosaur",
+  "🐙": "octopus",
+  "🦑": "squid",
+  "🦀": "crab",
+  "🐟": "fish",
+  "🐬": "dolphin",
+  "🐳": "whale",
+  "🐋": "whale",
+  "🦈": "shark",
+  "🌵": "cactus",
+  "🎄": "christmas tree",
+  "🌲": "tree",
+  "🌴": "palm tree",
+  "🌹": "rose flower",
+  "🌻": "sunflower",
+  "🌸": "cherry blossom flower",
+  "🍀": "clover luck",
+  "🍁": "maple leaf",
+  "🍄": "mushroom",
+  // Food
+  "🍏": "apple",
+  "🍎": "apple red",
+  "🍊": "orange",
+  "🍋": "lemon",
+  "🍌": "banana",
+  "🍉": "watermelon",
+  "🍇": "grapes",
+  "🍓": "strawberry",
+  "🍒": "cherry",
+  "🍑": "peach",
+  "🍍": "pineapple",
+  "🥥": "coconut",
+  "🍅": "tomato",
+  "🍆": "eggplant",
+  "🥑": "avocado",
+  "🥕": "carrot",
+  "🌽": "corn",
+  "🍞": "bread",
+  "🥖": "baguette",
+  "🧀": "cheese",
+  "🥚": "egg",
+  "🍳": "cooking fry egg",
+  "🥞": "pancakes",
+  "🧇": "waffle",
+  "🥓": "bacon",
+  "🥩": "steak meat",
+  "🍗": "chicken leg",
+  "🍔": "burger hamburger",
+  "🍟": "fries",
+  "🍕": "pizza",
+  "🥪": "sandwich",
+  "🥗": "salad",
+  "🍝": "pasta spaghetti",
+  "🍜": "noodles ramen",
+  "🍣": "sushi",
+  "🍙": "rice ball",
+  "🍚": "rice",
+  "🍦": "ice cream",
+  "🍰": "cake",
+  "🎂": "birthday cake",
+  "🍩": "donut",
+  "🍪": "cookie",
+  "🍫": "chocolate",
+  "🍿": "popcorn",
+  "☕": "coffee",
+  "🍵": "tea",
+  "🍷": "wine",
+  "🍺": "beer",
+  "🍻": "beers cheers",
+  "🥂": "champagne toast",
+  "🥤": "soda drink",
+  // Activities & Travel
+  "⚽": "soccer football ball",
+  "🏀": "basketball",
+  "🏈": "football american",
+  "⚾": "baseball",
+  "🎾": "tennis",
+  "🏓": "ping pong",
+  "🎮": "video game",
+  "🎯": "dart target",
+  "🎳": "bowling",
+  "🏆": "trophy winner",
+  "🥇": "gold medal",
+  "🥈": "silver medal",
+  "🥉": "bronze medal",
+  "🎨": "art palette",
+  "🎬": "cinema movie",
+  "🎤": "microphone sing",
+  "🎧": "headphones music",
+  "🎸": "guitar",
+  "🎹": "piano keyboard",
+  "🎺": "trumpet",
+  "🎻": "violin",
+  "🚗": "car",
+  "🚕": "taxi",
+  "🚌": "bus",
+  "🚓": "police car",
+  "🚑": "ambulance",
+  "🚒": "fire truck",
+  "🚲": "bicycle bike",
+  "🏍️": "motorcycle motorbike",
+  "✈️": "airplane plane",
+  "🚀": "rocket",
+  "🛸": "ufo flying saucer",
+  "🚁": "helicopter",
+  "⛵": "sailboat boat",
+  "🚢": "ship",
+  "🗺️": "map",
+  "🌍": "earth globe world",
+  "🌎": "earth globe",
+  "🌏": "earth globe",
+  "🏠": "house home",
+  "🏡": "house home",
+  "🏢": "building office",
+  "🏥": "hospital",
+  "🏦": "bank",
+  "🏫": "school",
+  "🏰": "castle",
+  "⛪": "church",
+  "🕌": "mosque",
+  // Objects & Symbols
+  "⌚": "watch",
+  "📱": "phone smartphone mobile",
+  "💻": "computer laptop",
+  "⌨️": "keyboard",
+  "🖥️": "computer desktop",
+  "📷": "camera",
+  "📸": "camera photo",
+  "📹": "video camera",
+  "🎥": "camera movie",
+  "📺": "tv television",
+  "📻": "radio",
+  "⏰": "alarm clock",
+  "⏳": "hourglass time",
+  "📡": "satellite antenna",
+  "🔋": "battery",
+  "💡": "light bulb idea",
+  "💰": "money cash",
+  "💳": "credit card",
+  "💎": "diamond gem",
+  "🔧": "wrench tool",
+  "🔨": "hammer",
+  "🔑": "key",
+  "🔒": "lock locked",
+  "🔓": "unlock unlocked",
+  "💄": "lipstick makeup",
+  "💍": "ring",
+  "👑": "crown king",
+  "🎓": "graduation cap",
+  "💼": "briefcase work",
+  "🎒": "backpack school",
+  "❤️": "heart love red",
+  "🧡": "heart orange",
+  "💛": "heart yellow",
+  "💚": "heart green",
+  "💙": "heart blue",
+  "💜": "heart purple",
+  "🖤": "heart black",
+  "🤍": "heart white",
+  "💔": "broken heart",
+  "💕": "two hearts love",
+  "💓": "beating heart",
+  "💗": "growing heart",
+  "💖": "sparkling heart",
+  "💘": "heart arrow love",
+  "💯": "hundred perfect score",
+  "💢": "anger symbol",
+  "🔥": "fire hot flame",
+  "✨": "sparkles star",
+  "⭐": "star",
+  "🎉": "party celebration confetti",
+  "🎊": "confetti celebration",
+  "❗": "exclamation",
+  "❓": "question",
+  "✅": "check mark done",
+  "❌": "cross no wrong",
+  "⚠️": "warning danger",
+  "♻️": "recycle",
+  "➕": "plus",
+  "➖": "minus",
+  "➗": "divide",
+  "✖️": "multiply"
+};
+
+const emojiSearch = ref("");
+const emojiCategory = ref("smileys");
+
+function emojiMatchesQuery(emoji: string, q: string): boolean {
+  if (!q) return true;
+  if (emoji.toLowerCase().includes(q)) return true;
+  const names = EMOJI_NAMES[emoji];
+  return Boolean(names && names.includes(q));
+}
+
+const filteredEmojiCategories = computed(() => {
+  const q = emojiSearch.value.trim().toLowerCase();
+  if (!q) return EMOJI_CATEGORIES;
+  return EMOJI_CATEGORIES
+    .map((cat) => ({
+      ...cat,
+      emojis: cat.emojis.filter((e) => emojiMatchesQuery(e, q)),
+    }))
+    .filter((cat) => cat.emojis.length > 0);
+});
+
+const activeEmojiCategory = computed(() => {
+  return EMOJI_CATEGORIES.find((c) => c.id === emojiCategory.value) || EMOJI_CATEGORIES[0];
+});
 
 function pastedExtension(mimeType) {
   const type = String(mimeType || "").toLowerCase().split(";")[0];
@@ -644,7 +1118,7 @@ onBeforeUnmount(() => {
         </div>
         <span class="composer__emoji-wrap" ref="emojiWrapRef">
           <button class="icon-btn" type="button" :aria-label="t('composer.emoji')" :aria-expanded="pickerOpen"
-            :disabled="disabled" @click.prevent="togglePicker">
+            :class="{ 'is-active': pickerOpen }" :disabled="disabled" @click.prevent="togglePicker">
             <svg viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
               <path d="M8 14s1.5 2 4 2 4-2 4-2" />
@@ -653,9 +1127,62 @@ onBeforeUnmount(() => {
             </svg>
           </button>
 
-          <div v-if="pickerOpen" class="emoji-picker" role="menu">
-            <button v-for="emoji in EMOJIS" :key="emoji" type="button" class="emoji-picker__cell" :aria-label="emoji"
-              @click="insertEmoji(emoji)">{{ emoji }}</button>
+          <div v-if="pickerOpen" class="emoji-picker" role="menu" aria-label="Emoji picker">
+            <div class="emoji-picker__search">
+              <input
+                v-model="emojiSearch"
+                type="text"
+                class="emoji-picker__search-input"
+                :placeholder="t('composer.emojiSearch')"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+
+            <div class="emoji-picker__tabs" role="tablist">
+              <button
+                v-for="cat in EMOJI_CATEGORIES"
+                :key="cat.id"
+                type="button"
+                class="emoji-picker__tab"
+                :class="{ 'is-active': emojiCategory === cat.id }"
+                role="tab"
+                :aria-selected="emojiCategory === cat.id"
+                :aria-label="cat.label"
+                :title="cat.label"
+                @click="emojiCategory = cat.id"
+              >{{ cat.emojis[0] }}</button>
+            </div>
+
+            <div v-if="emojiSearch.trim()" class="emoji-picker__results">
+              <template v-for="cat in filteredEmojiCategories" :key="cat.id">
+                <div class="emoji-picker__section-label">{{ cat.label }}</div>
+                <div class="emoji-picker__grid">
+                  <button
+                    v-for="emoji in cat.emojis"
+                    :key="emoji"
+                    type="button"
+                    class="emoji-picker__cell"
+                    :aria-label="emoji"
+                    @click="insertEmoji(emoji)"
+                  >{{ emoji }}</button>
+                </div>
+              </template>
+            </div>
+
+            <div v-else class="emoji-picker__results">
+              <div class="emoji-picker__section-label">{{ activeEmojiCategory.label }}</div>
+              <div class="emoji-picker__grid">
+                <button
+                  v-for="emoji in activeEmojiCategory.emojis"
+                  :key="emoji"
+                  type="button"
+                  class="emoji-picker__cell"
+                  :aria-label="emoji"
+                  @click="insertEmoji(emoji)"
+                >{{ emoji }}</button>
+              </div>
+            </div>
           </div>
         </span>
       </label>
