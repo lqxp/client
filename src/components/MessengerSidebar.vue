@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
           :style="desktopRoomContextStyle" @click.stop>
           <!-- Header (mobile only) -->
           <div class="room-context__header">
-            <strong class="room-context__header-name">{{ roomContextRoomName || roomContextRoomId }}</strong>
+            <strong class="room-context__header-name">{{ messenger.displayRoomNameBeautified(roomContextRoomId) }}</strong>
           </div>
           <button type="button" role="menuitem" @click="pickRoomImageFromContext">
             <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
