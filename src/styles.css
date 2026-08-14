@@ -4508,15 +4508,13 @@ textarea {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  animation: modal-fade 120ms ease-out;
 }
 
-.app.is-tauri .settings {
+.app.app--desktop-titlebar.is-tauri .settings,
+.app.app--desktop-titlebar.is-web-titlebar .settings {
+  top: 30px;
   inset-block-start: 30px;
-}
-
-:root.is-android-runtime .settings {
-  padding-top: env(safe-area-inset-top);
+  height: calc(100% - 30px);
 }
 
 @keyframes modal-fade {
@@ -4697,11 +4695,7 @@ textarea {
   background: linear-gradient(var(--bg) 72%, transparent);
 }
 
-:root.is-android-runtime .settings__main-head {
-  top: 0;
-  padding-top: 8px;
-  min-height: 56px;
-}
+
 
 .settings__main-head h3 {
   margin: 0;
@@ -5869,11 +5863,19 @@ textarea {
     background: var(--bg);
   }
 
+  .app.app--desktop-titlebar.is-tauri .settings,
+  .app.app--desktop-titlebar.is-web-titlebar .settings {
+    inset: 30px 0 0 0;
+    inset-block-start: 30px;
+    top: 30px;
+    height: calc(var(--app-viewport-height) - 30px);
+  }
+
   .settings__side {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(28px + env(safe-area-inset-bottom));
     background: var(--bg);
     border-right: 0;
     border-bottom: 0;
@@ -5881,31 +5883,37 @@ textarea {
 
   .settings__side-head {
     position: sticky;
-    top: calc(-16px - env(safe-area-inset-top));
+    top: 0;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    min-height: 58px;
-    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
+    min-height: calc(58px + env(safe-area-inset-top));
+    margin: 0 -16px 18px;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
 
   .settings__close {
     order: -1;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
   }
 
   .settings__side-head h2 {
     position: static;
     text-align: left;
     font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
     letter-spacing: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin: 0;
   }
 
   .settings__card {
@@ -6029,29 +6037,40 @@ textarea {
     position: sticky;
     top: 0;
     z-index: 2;
-    display: grid;
-    grid-template-columns: 52px 1fr 52px;
-    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: calc(58px + env(safe-area-inset-top));
     margin: 0 -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
-    background: color-mix(in srgb, var(--bg) 98%, transparent);
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
 
   .settings__main-head h3 {
-    font-size: 16px;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .settings__back {
     display: inline-grid;
-    width: 42px;
-    height: 42px;
-    justify-self: start;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    margin: 0;
   }
 
   .settings__back svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
   }
 
   .settings-inline {
@@ -6080,21 +6099,7 @@ textarea {
   }
 }
 
-/* Android runtime: panel handles safe-area via padding-top,
-   so children must not double-apply env(safe-area-inset-top). */
-:root.is-android-runtime .settings__side {
-  padding-top: 16px;
-}
-:root.is-android-runtime .settings__side-head {
-  top: -16px;
-  margin-top: -16px;
-  padding-top: 16px;
-}
-:root.is-android-runtime .settings__main-head {
-  padding-top: 16px;
-  padding-bottom: 0;
-  min-height: 58px;
-}
+
 
 @media (max-width: 640px) {
   .settings__side {
@@ -6102,8 +6107,9 @@ textarea {
     padding-right: 16px;
   }
 
-  .settings__side-head h2 {
-    font-size: 22px;
+  .settings__side-head h2,
+  .settings__main-head h3 {
+    font-size: 20px;
   }
 
   .settings__nav-item {
@@ -7100,7 +7106,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    transform: translateX(-100%);
+    display: none;
   }
 
   .app.is-thread .thread {
@@ -7210,15 +7216,6 @@ textarea {
   }
 
   .side {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    height: auto;
-    z-index: 40;
-    transform: translateX(0);
-    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
     border-right: 0;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 160px),
@@ -7486,7 +7483,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    transform: translateX(-100%);
+    display: none;
   }
 
   .app.is-thread .thread {

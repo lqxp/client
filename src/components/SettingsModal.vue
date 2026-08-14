@@ -1845,15 +1845,27 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.settings-enter-active,
-.settings-leave-active {
-  transition: opacity 200ms ease, transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+@media (max-width: 820px) {
+  .settings.settings-enter-active,
+  .settings.settings-leave-active {
+    transition: opacity 200ms ease, transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+  }
+
+  .settings.settings-enter-from,
+  .settings.settings-leave-to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
 }
 
-.settings-enter-from,
-.settings-leave-to {
-  opacity: 0;
-  transform: translateY(100%);
+:global(.app.app--desktop-titlebar) .settings.settings-enter-active,
+:global(.app.app--desktop-titlebar) .settings.settings-leave-active,
+:global(.app.is-tauri) .settings.settings-enter-active,
+:global(.app.is-tauri) .settings.settings-leave-active,
+:global(.app.is-web-titlebar) .settings.settings-enter-active,
+:global(.app.is-web-titlebar) .settings.settings-leave-active {
+  transition: none !important;
+  transform: none !important;
 }
 
 .turn-server-detail {
