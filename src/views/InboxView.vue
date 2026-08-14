@@ -539,8 +539,8 @@ async function lockClientNow() {
     <OnboardingScreen :messenger="messenger" />
   </div>
 
-  <div v-else class="app app--desktop-titlebar"
-    :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
+  <div v-else class="app"
+    :class="{ 'app--desktop-titlebar': showDesktopTitlebar, 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>

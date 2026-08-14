@@ -4511,16 +4511,11 @@ textarea {
   animation: modal-fade 120ms ease-out;
 }
 
-.app.is-tauri .settings,
-.app.is-web-titlebar .settings,
-.app.app--desktop-titlebar .settings {
+.app.app--desktop-titlebar.is-tauri .settings,
+.app.app--desktop-titlebar.is-web-titlebar .settings {
   top: 30px;
   inset-block-start: 30px;
   height: calc(100% - 30px);
-}
-
-:root.is-android-runtime .settings {
-  padding-top: env(safe-area-inset-top);
 }
 
 @keyframes modal-fade {
@@ -4701,11 +4696,7 @@ textarea {
   background: linear-gradient(var(--bg) 72%, transparent);
 }
 
-:root.is-android-runtime .settings__main-head {
-  top: 0;
-  padding-top: 8px;
-  min-height: 56px;
-}
+
 
 .settings__main-head h3 {
   margin: 0;
@@ -5873,9 +5864,8 @@ textarea {
     background: var(--bg);
   }
 
-  .app.is-tauri .settings,
-  .app.is-web-titlebar .settings,
-  .app.app--desktop-titlebar .settings {
+  .app.app--desktop-titlebar.is-tauri .settings,
+  .app.app--desktop-titlebar.is-web-titlebar .settings {
     inset: 30px 0 0 0;
     inset-block-start: 30px;
     top: 30px;
@@ -6093,21 +6083,7 @@ textarea {
   }
 }
 
-/* Android runtime: panel handles safe-area via padding-top,
-   so children must not double-apply env(safe-area-inset-top). */
-:root.is-android-runtime .settings__side {
-  padding-top: 16px;
-}
-:root.is-android-runtime .settings__side-head {
-  top: -16px;
-  margin-top: -16px;
-  padding-top: 16px;
-}
-:root.is-android-runtime .settings__main-head {
-  padding-top: 16px;
-  padding-bottom: 0;
-  min-height: 58px;
-}
+
 
 @media (max-width: 640px) {
   .settings__side {
