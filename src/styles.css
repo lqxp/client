@@ -5844,7 +5844,7 @@ textarea {
 }
 
 :root[data-theme="light"] .side__list .conv.is-active {
-  background: #a8a8a899;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 :root[data-theme="light"] .mention-picker__item:hover,
