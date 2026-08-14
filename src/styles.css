@@ -4511,8 +4511,12 @@ textarea {
   animation: modal-fade 120ms ease-out;
 }
 
-.app.is-tauri .settings {
+.app.is-tauri .settings,
+.app.is-web-titlebar .settings,
+.app.app--desktop-titlebar .settings {
+  top: 30px;
   inset-block-start: 30px;
+  height: calc(100% - 30px);
 }
 
 :root.is-android-runtime .settings {
@@ -5869,6 +5873,15 @@ textarea {
     background: var(--bg);
   }
 
+  .app.is-tauri .settings,
+  .app.is-web-titlebar .settings,
+  .app.app--desktop-titlebar .settings {
+    inset: 30px 0 0 0;
+    inset-block-start: 30px;
+    top: 30px;
+    height: calc(var(--app-viewport-height) - 30px);
+  }
+
   .settings__side {
     min-height: 0;
     overflow-y: auto;
@@ -7100,7 +7113,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    transform: translateX(-100%);
+    display: none;
   }
 
   .app.is-thread .thread {
@@ -7210,15 +7223,6 @@ textarea {
   }
 
   .side {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    height: auto;
-    z-index: 40;
-    transform: translateX(0);
-    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
     border-right: 0;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 160px),
@@ -7486,7 +7490,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    transform: translateX(-100%);
+    display: none;
   }
 
   .app.is-thread .thread {

@@ -788,10 +788,15 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri>.side,
+.app.app--desktop-titlebar.is-web-titlebar>.side,
 .app.app--desktop-titlebar.is-tauri>.thread,
+.app.app--desktop-titlebar.is-web-titlebar>.thread,
 .app.app--desktop-titlebar.is-tauri>.no-thread,
+.app.app--desktop-titlebar.is-web-titlebar>.no-thread,
 .app.app--lock-titlebar.is-tauri>.lock-screen,
-.app.app--onboarding-titlebar.is-tauri>.onboarding {
+.app.app--lock-titlebar.is-web-titlebar>.lock-screen,
+.app.app--onboarding-titlebar.is-tauri>.onboarding,
+.app.app--onboarding-titlebar.is-web-titlebar>.onboarding {
   grid-row: 2;
 }
 
@@ -815,7 +820,7 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
 .app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
-  z-index: 10;
+  z-index: 50;
   grid-column: 1 / -1;
   grid-row: 1;
   width: 100%;
