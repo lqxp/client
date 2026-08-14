@@ -1595,7 +1595,7 @@ textarea {
     height: 100dvh;
     width: min(320px, 85vw);
     z-index: 80;
-    transform: translateX(100%);
+    transform: translateX(0);
     transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
     background: var(--surface);
@@ -1603,8 +1603,29 @@ textarea {
     padding-top: env(safe-area-inset-top, 0px);
   }
 
-  .members-mobile--open {
-    transform: translateX(0) !important;
+  .members-fade-enter-active,
+  .members-fade-leave-active {
+    transition: opacity 200ms ease;
+  }
+
+  .members-fade-enter-from,
+  .members-fade-leave-to {
+    opacity: 0;
+  }
+
+  .members-slide-enter-active,
+  .members-slide-leave-active {
+    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+  }
+
+  .members-slide-enter-from,
+  .members-slide-leave-to {
+    transform: translateX(100%);
+  }
+
+  .members-slide-enter-to,
+  .members-slide-leave-from {
+    transform: translateX(0);
   }
 
   .members-mobile .members__head {

@@ -733,8 +733,12 @@ async function lockClientNow() {
 
     <!-- Mobile: members overlay sliding from right -->
     <Teleport to="body">
-      <div v-if="showMobileMembers" class="members-mobile-backdrop" @click="closeMobileMembers" @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd" aria-hidden="true"></div>
-      <MemberSidebar v-if="showMobileMembers" :messenger="messenger" :show-mobile="true" class="members-mobile" :class="{ 'members-mobile--open': showMobileMembers }" @close-mobile="closeMobileMembers" />
+      <Transition name="members-fade">
+        <div v-if="showMobileMembers" class="members-mobile-backdrop" @click="closeMobileMembers" @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd" aria-hidden="true"></div>
+      </Transition>
+      <Transition name="members-slide">
+        <MemberSidebar v-if="showMobileMembers" :messenger="messenger" :show-mobile="true" class="members-mobile" @close-mobile="closeMobileMembers" />
+      </Transition>
     </Teleport>
 
     <SettingsModal :messenger="messenger" :initial-section="settingsInitialSection" />
