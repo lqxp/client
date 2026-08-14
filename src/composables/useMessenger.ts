@@ -2532,9 +2532,17 @@ export function useMessenger() {
       const payload = JSON.parse(payloadText);
       const salt = state.clientLockSalt;
       activeClientLockKey = key;
+      const lockThemeChoice = state.clientLockThemeMode;
       await applyPersistedPayloadAfterUnlock(payload);
       state.clientLockEnabled = true;
       state.clientLockLocked = false;
+      // If the user toggled the theme on the lock screen, keep that choice
+      // after the decrypted settings restore (which resets themeMode).
+      if (lockThemeChoice && lockThemeChoice !== state.themeMode) {
+        state.themeMode = lockThemeChoice;
+        state.clientLockThemeMode = lockThemeChoice;
+        await persist();
+      }
       state.clientLockSalt = salt;
       state.clientLockIv = "";
       state.clientLockCiphertext = "";

@@ -35,6 +35,7 @@ function toggleTheme() {
   const next = isLightTheme.value ? "dark" : "light";
   if (props.lock) {
     props.messenger.setClientLockThemeMode?.(next);
+    props.messenger.setThemeMode?.(next);
   } else {
     props.messenger.setThemeMode?.(next);
   }
