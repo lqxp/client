@@ -5875,7 +5875,7 @@ textarea {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(28px + env(safe-area-inset-bottom));
     background: var(--bg);
     border-right: 0;
     border-bottom: 0;
@@ -5883,14 +5883,14 @@ textarea {
 
   .settings__side-head {
     position: sticky;
-    top: calc(-16px - env(safe-area-inset-top));
+    top: 0;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
     min-height: calc(58px + env(safe-area-inset-top));
-    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
+    margin: 0 -16px 18px;
     padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
@@ -5898,16 +5898,22 @@ textarea {
 
   .settings__close {
     order: -1;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
   }
 
   .settings__side-head h2 {
     position: static;
     text-align: left;
     font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
     letter-spacing: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin: 0;
   }
 
   .settings__card {
@@ -6031,29 +6037,40 @@ textarea {
     position: sticky;
     top: 0;
     z-index: 2;
-    display: grid;
-    grid-template-columns: 52px 1fr 52px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
     min-height: calc(58px + env(safe-area-inset-top));
     margin: 0 -16px 18px;
     padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
-    background: color-mix(in srgb, var(--bg) 98%, transparent);
+    background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
 
   .settings__main-head h3 {
-    font-size: 16px;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .settings__back {
     display: inline-grid;
-    width: 42px;
-    height: 42px;
-    justify-self: start;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    margin: 0;
   }
 
   .settings__back svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
   }
 
   .settings-inline {
@@ -6090,8 +6107,9 @@ textarea {
     padding-right: 16px;
   }
 
-  .settings__side-head h2 {
-    font-size: 22px;
+  .settings__side-head h2,
+  .settings__main-head h3 {
+    font-size: 20px;
   }
 
   .settings__nav-item {
