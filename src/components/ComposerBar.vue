@@ -19,6 +19,7 @@ const cameraOpen = ref(false);
 const cameraBusy = ref(false);
 const cameraError = ref("");
 const mobileActionsOpen = ref(false);
+const isMobile = ref(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
 const cursorPosition = ref(0);
 const mentionIndex = ref(0);
 const mentionSuppressedStart = ref(-1);
@@ -927,6 +928,7 @@ function onDocKey(event: KeyboardEvent) {
 }
 
 function onResize() {
+  isMobile.value = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
   syncComposerHeight();
 }
 
@@ -1146,7 +1148,7 @@ onBeforeUnmount(() => {
       </div>
 
       <label class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }">
-        <button class="icon-btn composer__desktop-action composer__attach" type="button" :aria-label="t('composer.attachFile')"
+        <button v-if="!isMobile" class="icon-btn composer__desktop-action composer__attach" type="button" :aria-label="t('composer.attachFile')"
           :disabled="mediaDisabled" @click="pickFile">
           <svg viewBox="0 0 24 24">
             <path
