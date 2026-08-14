@@ -597,7 +597,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="settings" :class="{ 'settings--section-open': mobileSectionOpen }" role="dialog"
+  <Transition name="settings">
+    <div v-if="isOpen" class="settings" :class="{ 'settings--section-open': mobileSectionOpen }" role="dialog"
     aria-modal="true" aria-labelledby="settings-title">
     <aside class="settings__side">
       <header class="settings__side-head">
@@ -1839,10 +1840,22 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </main>
-  </div>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
+.settings-enter-active,
+.settings-leave-active {
+  transition: opacity 200ms ease, transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+}
+
+.settings-enter-from,
+.settings-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
 .turn-server-detail {
   margin-top: 8px;
   padding: 8px 12px;

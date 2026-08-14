@@ -12,6 +12,7 @@ const props = defineProps({
 const emit = defineEmits(["conversation-selected", "open-spotlight"]);
 
 const composeRef = ref(null);
+const sideListRef = ref<HTMLElement | null>(null);
 const statusMenuOpen = ref(false);
 const roomContextOpen = ref(false);
 const roomContextRoomId = ref("");
@@ -22,6 +23,9 @@ const roomIconUploadRoomId = ref("");
 
 let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
+let sideListTouchStartX = 0;
+let sideListTouchStartY = 0;
+const isMobile = ref(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
 
 function onSidebarTouchStart(event: TouchEvent) {
   sidebarTouchStartX = event.touches[0].clientX;
@@ -36,6 +40,21 @@ function onSidebarTouchEnd(event: TouchEvent) {
   if (dx < -60) {
     const active = props.messenger.state.activeRoom;
     if (active) emit("conversation-selected", active);
+  }
+}
+
+function onSideListTouchStart(event: TouchEvent) {
+  sideListTouchStartX = event.touches[0].clientX;
+  sideListTouchStartY = event.touches[0].clientY;
+}
+
+function onSideListTouchEnd(event: TouchEvent) {
+  if (!isMobile.value) return;
+  const dx = (event.changedTouches[0]?.clientX || 0) - sideListTouchStartX;
+  const dy = (event.changedTouches[0]?.clientY || 0) - sideListTouchStartY;
+  // Swipe up → open settings
+  if (dy < -70 && Math.abs(dx) < 40) {
+    openSettings();
   }
 }
 
@@ -209,6 +228,7 @@ function openConversation(roomId) {
 }
 
 function openSettings() {
+  if (sideListRef.value) sideListRef.value.scrollTop = 0;
   props.messenger.state.settingsOpen = true;
 }
 
@@ -284,7 +304,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div class="side__list">
+    <div ref="sideListRef" class="side__list">
       <template v-if="messenger.conversations.value.length">
         <div v-for="c in messenger.conversations.value" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
@@ -365,7 +385,7 @@ onBeforeUnmount(() => {
     <input ref="roomIconInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
       class="sr-only" @change="onRoomIconFileChange" />
 
-    <div class="side__foot" @click.stop>
+    <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
       <button class="side-user" type="button" :title="messenger.state.username">
         <span v-if="meAvatar" class="side-user__avatar">
           <img :src="meAvatar" alt="" />
