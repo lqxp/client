@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import ThemeToggleButton from "./ThemeToggleButton.vue";
 
 const props = defineProps({
   messenger: { type: Object, required: true }
@@ -8,6 +9,15 @@ const props = defineProps({
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const pin = ref("");
+const themeSwitchVisible = ref(false);
+
+function showThemeSwitch() {
+  themeSwitchVisible.value = true;
+}
+
+function hideThemeSwitch() {
+  themeSwitchVisible.value = false;
+}
 const pinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
@@ -61,7 +71,7 @@ function onPinKeydown(event: KeyboardEvent) {
 
 <template>
   <main class="lock-screen" role="main" aria-labelledby="lock-title">
-    <section class="lock-card">
+    <section class="lock-card" @mouseenter="hideThemeSwitch" @mouseleave="showThemeSwitch">
       <div class="lock-card__avatar lock-card__avatar--image" aria-hidden="true">
         <img :src="avatarSrc" alt="" />
       </div>
@@ -99,5 +109,7 @@ function onPinKeydown(event: KeyboardEvent) {
         {{ props.messenger.state.lastError }}
       </p>
     </section>
+
+    <ThemeToggleButton :messenger="messenger" :visible="themeSwitchVisible" lock />
   </main>
 </template>

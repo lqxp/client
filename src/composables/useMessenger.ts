@@ -3420,6 +3420,16 @@ export function useMessenger() {
     persist();
   }
 
+  function setClientLockThemeMode(value) {
+    const next = THEME_MODES.includes(
+      String(value || "").toLowerCase(),
+    )
+      ? String(value).toLowerCase()
+      : "system";
+    state.clientLockThemeMode = next;
+    persist();
+  }
+
   function setAppAccent(value) {
     const next = ["blue", "violet", "emerald", "rose", "amber"].includes(
       String(value || "").toLowerCase(),
@@ -6925,6 +6935,7 @@ export function useMessenger() {
     previewSound,
     setAndroidNotificationsEnabled,
     setThemeMode,
+    setClientLockThemeMode,
     setAppAccent,
     setMessageStyle,
     setSpotlightSearchEnabled,

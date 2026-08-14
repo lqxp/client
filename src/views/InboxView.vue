@@ -20,6 +20,7 @@ import BanOverlay from "@/components/BanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
+import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
 
 const messenger = useMessenger();
 const dialog = useDialog();
@@ -58,6 +59,15 @@ const needsOnboarding = computed(
     && (!String(messenger.state.authToken || "").trim() || !String(messenger.state.username || "").trim()),
 );
 const renewPassword = ref("");
+const sessionThemeSwitchVisible = ref(false);
+
+function showSessionThemeSwitch() {
+  sessionThemeSwitchVisible.value = true;
+}
+
+function hideSessionThemeSwitch() {
+  sessionThemeSwitchVisible.value = false;
+}
 
 async function submitSessionRenewal() {
   await messenger.renewSession(renewPassword.value);
@@ -462,7 +472,7 @@ async function lockClientNow() {
       </div>
     </header>
     <section class="session-renew">
-      <div class="session-renew__card">
+      <div class="session-renew__card" @mouseenter="hideSessionThemeSwitch" @mouseleave="showSessionThemeSwitch">
         <div class="session-renew__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -492,6 +502,7 @@ async function lockClientNow() {
           </button>
         </form>
       </div>
+      <ThemeToggleButton :messenger="messenger" :visible="sessionThemeSwitchVisible" />
     </section>
   </div>
   <div v-else-if="needsOnboarding" class="app app--auth"
