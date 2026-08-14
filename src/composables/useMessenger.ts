@@ -30,7 +30,8 @@ import {
   parseRoomAccessToken,
   normalizeRoomKey,
 } from "@/crypto/e2ee";
-import { solvePoW } from "@/crypto/pow";
+import { solveVdf } from "@/crypto/vdf";
+import { computeNullifier } from "@/crypto/rln";
 import {
   playCameraOffSound,
   playCameraOnSound,
@@ -2869,27 +2870,42 @@ export function useMessenger() {
       state.lastError = validation;
       return false;
     }
+    const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      const challengeData = await apiRequest("/api/auth/challenge?action=register", {
+      const challengeData = await apiRequest(`/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`, {
         method: "GET",
       });
-      if (!challengeData?.challenge || !challengeData?.signature) {
+      if (!challengeData) {
         throw new Error("Unable to obtain security challenge.");
       }
-      const nonce = await solvePoW(challengeData.challenge, challengeData.difficulty || 18);
-      if (nonce === null) {
-        throw new Error("Failed to solve security challenge.");
+
+      let vdfProof = null;
+      let vdfChallenge = null;
+      let nullifier = null;
+      let quotaToken = null;
+
+      if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
+        quotaToken = challengeData.quotaToken;
+        nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "register");
+      }
+
+      if (challengeData.vdf?.x && challengeData.vdf?.modulus && challengeData.vdf?.t) {
+        vdfChallenge = challengeData.vdf;
+        vdfProof = await solveVdf(vdfChallenge.x, vdfChallenge.t, vdfChallenge.modulus);
+      } else {
+        throw new Error("Invalid VDF security challenge received from server.");
       }
 
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          username: sanitizeUsername(username),
+          username: cleanUsername,
           password,
-          powChallenge: challengeData.challenge,
-          powSignature: challengeData.signature,
-          powNonce: nonce,
+          vdfChallenge,
+          vdfProof,
+          quotaToken,
+          nullifier,
         }),
       });
       applyAuthenticatedPayload(data);
