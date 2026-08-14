@@ -1021,20 +1021,20 @@ async function lockClientNow() {
   stroke-linejoin: round;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray {
+.desktop-titlebar__tray {
   position: relative;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-toggle {
+.desktop-titlebar__tray-toggle {
   transition: transform 140ms ease, background-color 140ms ease;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
+.desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
   transform: translateY(1px) scale(0.96);
   background: var(--surface-2);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-menu {
+.desktop-titlebar__tray-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -1048,7 +1048,7 @@ async function lockClientNow() {
   backdrop-filter: blur(18px) saturate(1.1);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-menu::before {
+.desktop-titlebar__tray-menu::before {
   content: "";
   position: absolute;
   top: -6px;
@@ -1061,7 +1061,7 @@ async function lockClientNow() {
   transform: rotate(45deg);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-hint {
+.desktop-titlebar__tray-hint {
   position: relative;
   z-index: 1;
   max-width: 220px;
@@ -1071,7 +1071,7 @@ async function lockClientNow() {
   line-height: 1.35;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-empty {
+.desktop-titlebar__tray-empty {
   position: relative;
   z-index: 1;
   padding: 10px 12px;
@@ -1080,7 +1080,7 @@ async function lockClientNow() {
   text-align: center;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-row {
+.desktop-titlebar__tray-row {
   position: relative;
   z-index: 1;
   display: flex;
@@ -1088,7 +1088,7 @@ async function lockClientNow() {
   gap: 4px;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item {
+.desktop-titlebar__tray-item {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -1107,12 +1107,12 @@ async function lockClientNow() {
   cursor: pointer;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item:hover,
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move:hover {
+.desktop-titlebar__tray-item:hover,
+.desktop-titlebar__tray-move:hover {
   background: var(--surface-2);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move {
+.desktop-titlebar__tray-move {
   width: 26px;
   height: 26px;
   display: grid;
@@ -1126,11 +1126,11 @@ async function lockClientNow() {
   cursor: pointer;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move:hover {
+.desktop-titlebar__tray-move:hover {
   color: var(--text);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item svg {
+.desktop-titlebar__tray-item svg {
   width: 18px;
   height: 18px;
   flex: none;
@@ -1141,11 +1141,11 @@ async function lockClientNow() {
   stroke-linejoin: round;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item svg circle {
+.desktop-titlebar__tray-item svg circle {
   fill: none;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-move svg {
+.desktop-titlebar__tray-move svg {
   width: 12px;
   height: 12px;
   fill: none;

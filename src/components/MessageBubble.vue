@@ -1615,39 +1615,89 @@ onBeforeUnmount(() => {
 }
 
 .msg.is-streamer-blur {
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 88px;
+  position: relative;
 }
 
-.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
-  filter: blur(8px);
-  opacity: 0.72;
-  transition: filter 120ms ease, opacity 120ms ease;
+.msg.is-streamer-blur :is(.bubble-actions, .pick, .msg__context) {
+  filter: none !important;
 }
 
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):hover,
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):focus-within,
-.msg.is-streamer-blur .msg__avatar:hover,
-.msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar, .reply-ref__username, .reply-ref__text),
-.msg.is-streamer-blur .reply-card:hover :is(.reply-card__author, .reply-card__text),
-.msg.is-streamer-blur .att-file:hover .att-file-meta {
-  filter: none;
-  opacity: 1;
-}
-
-.msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
-  filter: blur(24px);
-  opacity: 0.72;
+.msg.is-streamer-blur :is(
+  .bubble__author > span:first-child,
+  .jumbo__author,
+  .reply-ref__username,
+  .reply-ref__text,
+  .reply-card__author,
+  .reply-card__text,
+  .bubble__text,
+  .att-file-meta,
+  .embed__body,
+  .reactions,
+  .jumbo__glyph
+) {
+  filter: blur(6.5px);
+  opacity: 0.58;
+  user-select: none;
+  transition: filter 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease;
+  will-change: filter, opacity;
 }
 
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) {
-  filter: blur(22px);
+  filter: blur(10px) brightness(0.92);
+  opacity: 0.65;
+  border-radius: 50%;
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: filter 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: filter, opacity, transform;
 }
 
 .msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
+  filter: blur(16px) brightness(0.85);
+  opacity: 0.75;
+  border-radius: 12px;
   overflow: hidden;
-  transform: translateZ(0);
+  transform: scale(0.98);
+  transition: filter 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms ease, transform 260ms cubic-bezier(0.16, 1, 0.3, 1), brightness 260ms ease;
+  will-change: filter, opacity, transform;
+}
+
+.msg.is-streamer-blur:hover :is(
+  .bubble__author > span:first-child,
+  .jumbo__author,
+  .reply-ref__username,
+  .reply-ref__text,
+  .reply-card__author,
+  .reply-card__text,
+  .bubble__text,
+  .att-file-meta,
+  .embed__body,
+  .reactions,
+  .jumbo__glyph
+),
+.msg.is-streamer-blur:focus-within :is(
+  .bubble__author > span:first-child,
+  .jumbo__author,
+  .reply-ref__username,
+  .reply-ref__text,
+  .reply-card__author,
+  .reply-card__text,
+  .bubble__text,
+  .att-file-meta,
+  .embed__body,
+  .reactions,
+  .jumbo__glyph
+),
+.msg.is-streamer-blur:hover .msg__avatar,
+.msg.is-streamer-blur:hover .reply-ref :is(.reply-ref__avatar, .reply-ref__username, .reply-ref__text),
+.msg.is-streamer-blur:hover .reply-card :is(.reply-card__author, .reply-card__text),
+.msg.is-streamer-blur:hover .att-file .att-file-meta,
+.msg.is-streamer-blur:hover :is(.att-image-link, .audio-player, .video-player, .embed__media),
+.msg.is-streamer-blur:focus-within :is(.att-image-link, .audio-player, .video-player, .embed__media) {
+  filter: blur(0px) brightness(1);
+  opacity: 1;
+  transform: scale(1);
+  user-select: text;
 }
 
 :global(:root[data-message-style="discord"] .msg__avatar) {
