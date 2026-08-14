@@ -30,6 +30,7 @@ import {
   parseRoomAccessToken,
   normalizeRoomKey,
 } from "@/crypto/e2ee";
+import { solvePoW } from "@/crypto/pow";
 import {
   playCameraOffSound,
   playCameraOnSound,
@@ -2870,11 +2871,25 @@ export function useMessenger() {
     }
     state.authLoading = true;
     try {
+      const challengeData = await apiRequest("/api/auth/challenge?action=register", {
+        method: "GET",
+      });
+      if (!challengeData?.challenge || !challengeData?.signature) {
+        throw new Error("Unable to obtain security challenge.");
+      }
+      const nonce = await solvePoW(challengeData.challenge, challengeData.difficulty || 18);
+      if (nonce === null) {
+        throw new Error("Failed to solve security challenge.");
+      }
+
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
           username: sanitizeUsername(username),
           password,
+          powChallenge: challengeData.challenge,
+          powSignature: challengeData.signature,
+          powNonce: nonce,
         }),
       });
       applyAuthenticatedPayload(data);
