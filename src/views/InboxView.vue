@@ -87,7 +87,12 @@ const callRoom = computed(() => messenger.state.callRoom);
 const callRoomLabel = computed(() => messenger.displayRoomName(callRoom.value));
 const callRoomDifferent = computed(() => inCall.value && callRoom.value !== messenger.state.activeRoom);
 const callElapsed = computed(() => messenger.formatDuration(messenger.state.callElapsed));
-const desktopConversationSelected = computed(() => !!String(messenger.state.activeRoom || "").trim());
+const desktopConversationSelected = computed(() => {
+  if (isMobile.value) {
+    return mobileThreadOpen.value && !!String(messenger.state.activeRoom || "").trim();
+  }
+  return !!String(messenger.state.activeRoom || "").trim();
+});
 const desktopTitle = computed(() => {
   if (messenger.state.settingsOpen) return t("settings.title");
   return desktopConversationSelected.value ? messenger.displayRoomNameBeautified(messenger.state.activeRoom) : "QxChat";
@@ -763,7 +768,6 @@ async function lockClientNow() {
 </style>
 
 <style scoped>
-
 .app.app--desktop-titlebar.is-tauri,
 .app.app--desktop-titlebar.is-web-titlebar,
 .app.app--lock-titlebar.is-tauri,
@@ -787,24 +791,24 @@ async function lockClientNow() {
   grid-template-rows: minmax(0, 1fr);
 }
 
-.app.app--desktop-titlebar.is-tauri>.side,
-.app.app--desktop-titlebar.is-tauri>.thread,
-.app.app--desktop-titlebar.is-tauri>.no-thread,
-.app.app--lock-titlebar.is-tauri>.lock-screen,
-.app.app--onboarding-titlebar.is-tauri>.onboarding {
+.app.app--desktop-titlebar.is-tauri > .side,
+.app.app--desktop-titlebar.is-tauri > .thread,
+.app.app--desktop-titlebar.is-tauri > .no-thread,
+.app.app--lock-titlebar.is-tauri > .lock-screen,
+.app.app--onboarding-titlebar.is-tauri > .onboarding {
   grid-row: 2;
 }
 
-.app.app--auth>.lock-screen,
-.app.app--auth>.onboarding,
-.app.app--lock-titlebar:not(.is-tauri)>.lock-screen,
-.app.app--onboarding-titlebar:not(.is-tauri)>.onboarding {
+.app.app--auth > .lock-screen,
+.app.app--auth > .onboarding,
+.app.app--lock-titlebar:not(.is-tauri) > .lock-screen,
+.app.app--onboarding-titlebar:not(.is-tauri) > .onboarding {
   grid-column: 1 / -1;
   grid-row: 1;
 }
 
-.app.app--auth.is-tauri>.lock-screen,
-.app.app--auth.is-tauri>.onboarding {
+.app.app--auth.is-tauri > .lock-screen,
+.app.app--auth.is-tauri > .onboarding {
   grid-row: 2;
 }
 
@@ -815,7 +819,7 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
 .app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
-  z-index: 10;
+  z-index: 1000;
   grid-column: 1 / -1;
   grid-row: 1;
   width: 100%;
@@ -961,6 +965,12 @@ async function lockClientNow() {
 @media (max-width: 1120px) {
   .app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__room {
     display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .app.app--desktop-titlebar.is-tauri .desktop-titlebar__room {
+    max-width: calc(100% - 130px);
   }
 }
 
@@ -1143,344 +1153,5 @@ async function lockClientNow() {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-@media (min-width: 901px) {
-  .app.app--desktop-titlebar.is-tauri {
-    grid-template-rows: 30px minmax(0, 1fr);
-    align-content: stretch;
-  }
-
-  .app.app--lock-titlebar,
-  .app.app--onboarding-titlebar.is-tauri {
-    display: grid;
-    min-height: 100dvh;
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .app.app--lock-titlebar.is-tauri,
-  .app.app--onboarding-titlebar.is-tauri {
-    grid-template-rows: 30px minmax(0, 1fr);
-  }
-
-  .app.app--lock-titlebar>.lock-screen,
-  .app.app--onboarding-titlebar.is-tauri>.onboarding {
-    grid-row: 1;
-  }
-
-  .app.app--lock-titlebar.is-tauri>.lock-screen,
-  .app.app--onboarding-titlebar.is-tauri>.onboarding {
-    grid-row: 2;
-  }
-
-  .app.app--desktop-titlebar.is-tauri>.side,
-  .app.app--desktop-titlebar.is-tauri>.thread,
-  .app.app--desktop-titlebar.is-tauri>.no-thread {
-    grid-row: 2;
-  }
-
-  .app.app--desktop-titlebar.is-tauri .desktop-titlebar,
-  .app.app--lock-titlebar.is-tauri .desktop-titlebar,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
-    position: relative;
-    z-index: 50;
-    grid-column: 1 / -1;
-    grid-row: 1;
-    width: 100%;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-    background: color-mix(in srgb, var(--surface) 94%, black 6%);
-    backdrop-filter: blur(16px) saturate(1.08);
-    user-select: none;
-  }
-
-  .app.app--lock-titlebar .desktop-titlebar,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar {
-    border-bottom-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
-    background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
-  }
-
-  .app.app--lock-titlebar .desktop-titlebar__window-controls,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
-    border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
-  }
-
-  .app.app--lock-titlebar .desktop-titlebar__window-button,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
-    color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
-  }
-
-  .app.app--lock-titlebar .desktop-titlebar__window-button:hover,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button:hover {
-    background: var(--lock-titlebar-hover);
-    color: var(--lock-titlebar-text);
-  }
-
-  .desktop-titlebar__spacer {
-    flex: 1;
-  }
-
-  .desktop-titlebar__room {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    max-width: min(520px, calc(100% - 160px));
-    min-width: 0;
-    max-height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    overflow: hidden;
-    transform: translate(-50%, -50%);
-  }
-
-  .desktop-titlebar__room-icon {
-    width: 20px;
-    height: 20px;
-    overflow: hidden;
-    flex: none;
-  }
-
-  .desktop-titlebar__room-icon--image {
-    background: transparent;
-  }
-
-  .desktop-titlebar__room-icon img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-
-  .desktop-titlebar__title {
-    min-width: 0;
-    font-size: 12px;
-    line-height: 1;
-    font-weight: 700;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .desktop-titlebar__actions {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 4px;
-    margin-left: auto;
-  }
-
-  .desktop-titlebar__actions .icon-btn {
-    width: 24px;
-    height: 24px;
-  }
-
-  .desktop-titlebar__actions .icon-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .desktop-titlebar__action-wrap {
-    position: relative;
-  }
-
-  .desktop-titlebar__tray-move svg {
-    width: 12px;
-    height: 12px;
-  }
-
-  .desktop-titlebar__streamer.is-active {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
-  }
-
-  .desktop-titlebar__window-controls {
-    height: 30px;
-    display: flex;
-    align-items: stretch;
-    margin: 0 -8px 0 8px;
-    padding-left: 8px;
-    border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  }
-
-  .desktop-titlebar__window-button {
-    width: 42px;
-    height: 30px;
-    display: grid;
-    place-items: center;
-    color: color-mix(in srgb, var(--text) 78%, transparent);
-    border-radius: 0;
-    transition: background-color 120ms ease, color 120ms ease;
-  }
-
-  .desktop-titlebar__window-button:hover {
-    background: var(--surface-hover);
-    color: var(--text);
-  }
-
-  .desktop-titlebar__window-button--close:hover {
-    background: var(--red);
-    color: #fff;
-  }
-
-  .desktop-titlebar__window-button svg {
-    width: 12px;
-    height: 12px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .desktop-titlebar__tray {
-    position: relative;
-  }
-
-  .desktop-titlebar__tray-toggle {
-    transition: transform 140ms ease, background-color 140ms ease;
-  }
-
-  .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
-    transform: translateY(1px) scale(0.96);
-    background: var(--surface-2);
-  }
-
-  .desktop-titlebar__tray-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    z-index: 80;
-    min-width: 190px;
-    padding: 6px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--surface) 94%, black 6%);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(18px) saturate(1.1);
-  }
-
-  .desktop-titlebar__tray-menu::before {
-    content: "";
-    position: absolute;
-    top: -6px;
-    right: 11px;
-    width: 10px;
-    height: 10px;
-    border-left: 1px solid var(--line);
-    border-top: 1px solid var(--line);
-    background: inherit;
-    transform: rotate(45deg);
-  }
-
-  .desktop-titlebar__tray-hint {
-    position: relative;
-    z-index: 1;
-    max-width: 220px;
-    padding: 8px 10px 10px;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.35;
-  }
-
-  .desktop-titlebar__tray-empty {
-    position: relative;
-    z-index: 1;
-    padding: 10px 12px;
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
-  }
-
-  .desktop-titlebar__tray-row {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .desktop-titlebar__tray-item {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    min-height: 38px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .desktop-titlebar__tray-item:hover {
-    background: var(--surface-2);
-  }
-
-  .desktop-titlebar__tray-move {
-    width: 26px;
-    height: 26px;
-    display: grid;
-    place-items: center;
-    flex: none;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-  }
-
-  .desktop-titlebar__tray-move:hover {
-    background: var(--surface-2);
-    color: var(--text);
-  }
-
-  .desktop-titlebar__tray-item svg {
-    width: 18px;
-    height: 18px;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .desktop-titlebar__tray-item svg circle {
-    fill: none;
-  }
-
-  .desktop-titlebar__tray-move svg {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  :deep(.thread__main) {
-    min-width: 0;
-  }
-
-  :deep(.thread__main > .thread-header) {
-    display: none;
-  }
-
 }
 </style>

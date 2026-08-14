@@ -769,6 +769,14 @@ textarea {
   backdrop-filter: blur(14px);
 }
 
+.app.is-tauri ~ .toast,
+.app.is-tauri .toast,
+.app.app--desktop-titlebar .toast,
+.is-tauri-desktop .toast,
+:root.is-tauri-desktop .toast {
+  top: calc(44px + env(safe-area-inset-top, 0px));
+}
+
 .toast--badge {
   display: inline-flex;
   align-items: center;
@@ -1601,6 +1609,20 @@ textarea {
     background: var(--surface);
     overflow: hidden;
     padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .app.is-tauri .members-mobile,
+  .app.app--desktop-titlebar .members-mobile,
+  .is-tauri-desktop .members-mobile {
+    top: 30px !important;
+    height: calc(100vh - 30px) !important;
+    height: calc(100dvh - 30px) !important;
+  }
+
+  .app.is-tauri .members-mobile-backdrop,
+  .app.app--desktop-titlebar .members-mobile-backdrop,
+  .is-tauri-desktop .members-mobile-backdrop {
+    top: 30px;
   }
 
   .members-fade-enter-active,
@@ -4511,8 +4533,14 @@ textarea {
   animation: modal-fade 120ms ease-out;
 }
 
-.app.is-tauri .settings {
-  inset-block-start: 30px;
+.app.is-tauri .settings,
+.app.app--desktop-titlebar .settings,
+:root.is-tauri-desktop .settings {
+  top: 30px !important;
+  inset-block-start: 30px !important;
+  height: calc(100% - 30px) !important;
+  height: calc(var(--app-viewport-height) - 30px) !important;
+  bottom: 0 !important;
 }
 
 :root.is-android-runtime .settings {
@@ -4873,9 +4901,25 @@ textarea {
 }
 
 .settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 40px;
   padding: 0 16px;
   border-radius: 8px;
+  text-align: center;
+}
+
+.settings-btn--secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.settings-btn--secondary:hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
 }
 
 .settings-btn--danger {
@@ -5869,6 +5913,32 @@ textarea {
     background: var(--bg);
   }
 
+  .app.is-tauri .settings,
+  .app.app--desktop-titlebar .settings,
+  .is-tauri-desktop .settings,
+  :root.is-tauri-desktop .settings {
+    top: 30px !important;
+    inset-block-start: 30px !important;
+    height: calc(var(--app-viewport-height) - 30px) !important;
+    bottom: 0 !important;
+  }
+
+  :root.is-tauri-desktop .settings__side {
+    padding-top: 16px;
+  }
+
+  :root.is-tauri-desktop .settings__side-head {
+    top: 0;
+    margin: -16px -16px 18px;
+    padding: 16px 16px 0;
+  }
+
+  :root.is-tauri-desktop .settings__main-head {
+    top: 0;
+    margin: 0 -16px 18px;
+    padding: 16px 16px 0;
+  }
+
   .settings__side {
     min-height: 0;
     overflow-y: auto;
@@ -6156,6 +6226,10 @@ textarea {
     padding: 0 10px;
     border-radius: 8px;
     white-space: normal;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
 
   .settings-group {
@@ -7223,6 +7297,16 @@ textarea {
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 160px),
       var(--surface);
+  }
+
+  .app.is-tauri > .side,
+  .app.app--desktop-titlebar > .side,
+  .is-tauri-desktop .side,
+  :root.is-tauri-desktop .side {
+    top: 30px !important;
+    height: calc(100% - 30px) !important;
+    height: calc(var(--app-viewport-height) - 30px) !important;
+    bottom: 0 !important;
   }
 
   .side__search {
