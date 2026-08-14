@@ -3272,6 +3272,25 @@ export function useMessenger() {
     return id;
   }
 
+  function beautifyRoomName(name, maxLength = 12) {
+    const text = String(name || "").trim();
+    if (!text) return "";
+    // Keep only the first meaningful segment (like a short git commit hash).
+    const segment = text.split(/[-_.]+/)[0].trim() || text;
+    if (segment.length <= maxLength) return segment;
+    return segment.slice(0, maxLength);
+  }
+
+  function displayRoomNameBeautified(roomId) {
+    const name = displayRoomName(roomId);
+    if (!name || state.streamerMode) return name;
+    const id = sanitizeRoomId(roomId);
+    const room = state.rooms.find((entry) => entry.roomId === id);
+    const title = String(room?.title || "").trim();
+    const isCustom = Boolean(title && title !== id);
+    return isCustom ? name : beautifyRoomName(name);
+  }
+
   function roomNote(roomId) {
     const id = sanitizeRoomId(roomId);
     return id ? String(state.roomNotes[id] || "") : "";
@@ -6892,6 +6911,8 @@ export function useMessenger() {
     buildWaveform,
     attachmentUrlFor,
     displayRoomName,
+    displayRoomNameBeautified,
+    beautifyRoomName,
     validateUsername,
     isSystemUsername,
     validateRoomId,

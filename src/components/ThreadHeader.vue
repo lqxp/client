@@ -11,7 +11,7 @@ const props = defineProps({
 });
 defineEmits(["back"]);
 
-const name = computed(() => props.messenger.displayRoomName(props.messenger.state.activeRoom));
+const name = computed(() => props.messenger.displayRoomNameBeautified(props.messenger.state.activeRoom));
 const accent = computed(() => props.messenger.activeConversation.value?.accent || "slate");
 
 const initials = computed(() => {

@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
 
           <span class="conv__head">
             <span class="conv__name">
-              {{ c.name }}
+              {{ messenger.displayRoomNameBeautified(c.roomId) }}
               <span v-if="c.joined" class="conv__joined" :title="t('sidebar.joined')"></span>
             </span>
             <span class="conv__time">{{ c.timestampLabel }}</span>
