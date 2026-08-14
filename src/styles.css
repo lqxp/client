@@ -1053,11 +1053,11 @@ textarea {
 }
 
 .conv:hover {
-  background: rgba(79, 84, 92, 0.32);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .conv.is-active {
-  background: rgba(79, 84, 92, 0.6);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .conv:focus-visible {
