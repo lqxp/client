@@ -88,6 +88,11 @@
         "streamerPreviewHidden": "Mensaje oculto",
         "anonymous": "anónimo",
         "roomOptions": "Opciones de la sala",
+        "listOptions": "Opciones de la lista",
+        "leaveAllRooms": "Salir de todas las salas",
+        "leaveAllRoomsDelete": "Salir de todas las salas y borrar mensajes",
+        "leaveAllRoomsConfirm": "¿Salir de todas las salas?",
+        "leaveAllRoomsDeleteConfirm": "¿Salir de todas las salas y borrar sus mensajes locales?",
         "statusOptions": "Estado"
     },
     "members": {

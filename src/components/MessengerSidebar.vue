@@ -20,6 +20,9 @@ const roomContextMenuRef = ref<HTMLElement | null>(null);
 const roomContextPos = ref({ x: 0, y: 0 });
 const roomIconInputRef = ref<HTMLInputElement | null>(null);
 const roomIconUploadRoomId = ref("");
+const sideListContextOpen = ref(false);
+const sideListContextPos = ref({ x: 0, y: 0 });
+const sideListContextMenuRef = ref<HTMLElement | null>(null);
 
 let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
@@ -80,6 +83,11 @@ const statusOptions = computed(() => [
 const desktopRoomContextStyle = computed(() => ({
   left: `${roomContextPos.value.x}px`,
   top: `${roomContextPos.value.y}px`
+}));
+
+const desktopSideListContextStyle = computed(() => ({
+  left: `${sideListContextPos.value.x}px`,
+  top: `${sideListContextPos.value.y}px`
 }));
 
 const roomContextRoomName = computed(() =>
@@ -150,18 +158,23 @@ function roomIconIsImage(roomId) {
   return !!icon && !icon.startsWith("data:");
 }
 
-async function positionRoomContext(clientX: number, clientY: number) {
+async function positionContextMenu(
+  menuRef: { value: HTMLElement | null },
+  posRef: { value: { x: number; y: number } },
+  clientX: number,
+  clientY: number
+) {
   const padding = 16;
-  roomContextPos.value = { x: clientX, y: clientY };
+  posRef.value = { x: clientX, y: clientY };
 
   // Rendered in a Teleport with conditional content; wait for layout to settle.
   await nextTick();
   await nextTick();
 
-  let rect = roomContextMenuRef.value?.getBoundingClientRect();
+  let rect = menuRef.value?.getBoundingClientRect();
   if (!rect || rect.width === 0 || rect.height === 0) {
     await nextTick();
-    rect = roomContextMenuRef.value?.getBoundingClientRect();
+    rect = menuRef.value?.getBoundingClientRect();
   }
 
   if (!rect || rect.width === 0 || rect.height === 0) {
@@ -179,7 +192,15 @@ async function positionRoomContext(clientX: number, clientY: number) {
     x = Math.max(padding, clientX - rect.width - padding);
   }
 
-  roomContextPos.value = { x, y };
+  posRef.value = { x, y };
+}
+
+function positionRoomContext(clientX: number, clientY: number) {
+  return positionContextMenu(roomContextMenuRef, roomContextPos, clientX, clientY);
+}
+
+function positionSideListContext(clientX: number, clientY: number) {
+  return positionContextMenu(sideListContextMenuRef, sideListContextPos, clientX, clientY);
 }
 
 function onRoomContext(event, roomId) {
@@ -190,9 +211,33 @@ function onRoomContext(event, roomId) {
   positionRoomContext(event.clientX, event.clientY);
 }
 
+function onSideListContext(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  sideListContextOpen.value = true;
+  positionSideListContext(event.clientX, event.clientY);
+}
+
 function closeRoomContext() {
   roomContextOpen.value = false;
   roomContextRoomId.value = "";
+}
+
+function closeSideListContext() {
+  sideListContextOpen.value = false;
+}
+
+async function leaveAllRoomsFromContext(deleteMessages: boolean) {
+  if (!props.messenger.state.rooms.length) {
+    closeSideListContext();
+    return;
+  }
+  const confirmed = await dialog.showConfirm(
+    t(deleteMessages ? "sidebar.leaveAllRoomsDeleteConfirm" : "sidebar.leaveAllRoomsConfirm")
+  );
+  if (!confirmed) return;
+  props.messenger.leaveAllRooms(deleteMessages);
+  closeSideListContext();
 }
 
 async function renameRoomFromContext() {
@@ -249,6 +294,7 @@ function setStatus(value) {
 function onDocumentClick() {
   statusMenuOpen.value = false;
   closeRoomContext();
+  closeSideListContext();
 }
 
 onMounted(() => {
@@ -304,7 +350,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div ref="sideListRef" class="side__list">
+    <div ref="sideListRef" class="side__list" @contextmenu="onSideListContext">
       <template v-if="messenger.conversations.value.length">
         <div v-for="c in messenger.conversations.value" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
@@ -376,6 +422,33 @@ onBeforeUnmount(() => {
           <!-- Cancel (mobile only) -->
           <div class="room-context__separator" aria-hidden="true"></div>
           <button type="button" class="room-context__cancel" role="menuitem" @click="closeRoomContext">
+            <span>{{ t('message.cancel') }}</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="sideListContextOpen" class="room-context-backdrop" @click="closeSideListContext">
+        <div ref="sideListContextMenuRef" class="room-context context-menu-base" role="menu"
+          :style="desktopSideListContextStyle" @click.stop>
+          <!-- Header (mobile only) -->
+          <div class="room-context__header">
+            <strong class="room-context__header-name">{{ t('sidebar.listOptions') }}</strong>
+          </div>
+          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+            @click="leaveAllRoomsFromContext(false)">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>{{ t('sidebar.leaveAllRooms') }}</span>
+          </button>
+          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+            @click="leaveAllRoomsFromContext(true)">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>{{ t('sidebar.leaveAllRoomsDelete') }}</span>
+          </button>
+          <!-- Cancel (mobile only) -->
+          <div class="room-context__separator" aria-hidden="true"></div>
+          <button type="button" class="room-context__cancel" role="menuitem" @click="closeSideListContext">
             <span>{{ t('message.cancel') }}</span>
           </button>
         </div>

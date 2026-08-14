@@ -88,6 +88,11 @@
         "streamerPreviewHidden": "Message hidden",
         "anonymous": "anonymous",
         "roomOptions": "Room options",
+        "listOptions": "List options",
+        "leaveAllRooms": "Leave all rooms",
+        "leaveAllRoomsDelete": "Leave all rooms and delete messages",
+        "leaveAllRoomsConfirm": "Leave all rooms?",
+        "leaveAllRoomsDeleteConfirm": "Leave all rooms and delete their local messages?",
         "statusOptions": "Status"
     },
     "members": {

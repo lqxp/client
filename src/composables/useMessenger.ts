@@ -4495,6 +4495,19 @@ export function useMessenger() {
     send({ op: 4, d: { gameId: id } });
   }
 
+  function leaveAllRooms(deleteMessages = false) {
+    const roomIds = state.rooms
+      .map((room) => room.roomId)
+      .filter((id) => isValidRoomId(sanitizeRoomId(id)));
+
+    for (const id of roomIds) {
+      if (deleteMessages) {
+        clearRoomMessages(id);
+      }
+      leaveRoom(id);
+    }
+  }
+
   function startCompose() {
     state.composing = true;
     state.composeInput = "";
@@ -7000,6 +7013,7 @@ export function useMessenger() {
     disconnect,
     selectConversation,
     leaveRoom,
+    leaveAllRooms,
     sendChat,
     setTyping,
     sendAttachment,

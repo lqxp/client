@@ -113,6 +113,11 @@
         "streamerPreviewHidden": "Сообщение скрыто",
         "anonymous": "аноним",
         "roomOptions": "Настройки комнаты",
+        "listOptions": "Параметры списка",
+        "leaveAllRooms": "Покинуть все комнаты",
+        "leaveAllRoomsDelete": "Покинуть все комнаты и удалить сообщения",
+        "leaveAllRoomsConfirm": "Покинуть все комнаты?",
+        "leaveAllRoomsDeleteConfirm": "Покинуть все комнаты и удалить их локальные сообщения?",
         "statusOptions": "Статус"
     },
     "members": {
