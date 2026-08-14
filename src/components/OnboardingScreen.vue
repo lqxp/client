@@ -194,6 +194,100 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
     inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
+:global(:root[data-theme="light"] .onboarding__brand) {
+  color: var(--text);
+  text-shadow: none;
+}
+
+:global(:root[data-theme="light"] .onboarding__card-head h1) {
+  color: var(--text);
+  text-shadow: none;
+}
+
+:global(:root[data-theme="light"] .onboarding__copy) {
+  color: var(--muted);
+  text-shadow: none;
+}
+
+:global(:root[data-theme="light"] .onboarding__tabs) {
+  background: rgba(12, 22, 34, 0.06);
+  border-color: rgba(12, 22, 34, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+:global(:root[data-theme="light"] .onboarding__tabs button) {
+  color: var(--muted);
+}
+
+:global(:root[data-theme="light"] .onboarding__tabs button.is-active) {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 8px 22px rgba(57, 72, 92, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:global(:root[data-theme="light"] .onboarding__field span) {
+  color: var(--muted);
+  text-shadow: none;
+}
+
+:global(:root[data-theme="light"] .onboarding__field-error) {
+  color: var(--red);
+}
+
+:global(:root[data-theme="light"] .onboarding__field input),
+:global(:root[data-theme="light"] .onboarding__field textarea) {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(12, 22, 34, 0.14);
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    0 8px 24px rgba(57, 72, 92, 0.08);
+}
+
+:global(:root[data-theme="light"] .onboarding__field input::placeholder),
+:global(:root[data-theme="light"] .onboarding__field textarea::placeholder) {
+  color: var(--dim);
+}
+
+:global(:root[data-theme="light"] .onboarding__field input:focus),
+:global(:root[data-theme="light"] .onboarding__field textarea:focus) {
+  background: #fff;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 10px 28px rgba(57, 72, 92, 0.12);
+}
+
+:global(:root[data-theme="light"] .onboarding__field input:-webkit-autofill),
+:global(:root[data-theme="light"] .onboarding__field input:-webkit-autofill:hover),
+:global(:root[data-theme="light"] .onboarding__field input:-webkit-autofill:focus),
+:global(:root[data-theme="light"] .onboarding__field textarea:-webkit-autofill),
+:global(:root[data-theme="light"] .onboarding__field textarea:-webkit-autofill:hover),
+:global(:root[data-theme="light"] .onboarding__field textarea:-webkit-autofill:focus) {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  box-shadow: 0 0 0 1000px #fff inset;
+  caret-color: var(--text);
+}
+
+:global(:root[data-theme="light"] .onboarding__error) {
+  color: var(--red);
+  text-shadow: none;
+}
+
+:global(:root[data-theme="light"] .onboarding__submit) {
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(12, 22, 34, 0.16);
+  color: var(--text);
+  box-shadow:
+    0 12px 30px rgba(57, 72, 92, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+:global(:root[data-theme="light"] .onboarding__submit:hover) {
+  background: rgba(255, 255, 255, 0.58);
+}
+
 .onboarding__shell {
   position: relative;
   z-index: 1;
