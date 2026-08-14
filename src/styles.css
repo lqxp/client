@@ -7096,7 +7096,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    display: none;
+    transform: translateX(-100%);
   }
 
   .app.is-thread .thread {
@@ -7206,6 +7206,15 @@ textarea {
   }
 
   .side {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    z-index: 40;
+    transform: translateX(0);
+    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
     border-right: 0;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 160px),
@@ -7473,7 +7482,7 @@ textarea {
   }
 
   .app.is-thread .side {
-    display: none;
+    transform: translateX(-100%);
   }
 
   .app.is-thread .thread {
