@@ -4508,7 +4508,6 @@ textarea {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  animation: modal-fade 120ms ease-out;
 }
 
 .app.app--desktop-titlebar.is-tauri .settings,
@@ -5890,9 +5889,9 @@ textarea {
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    min-height: 58px;
+    min-height: calc(58px + env(safe-area-inset-top));
     margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -6034,9 +6033,9 @@ textarea {
     z-index: 2;
     display: grid;
     grid-template-columns: 52px 1fr 52px;
-    min-height: 58px;
+    min-height: calc(58px + env(safe-area-inset-top));
     margin: 0 -16px 18px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 0;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 98%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
