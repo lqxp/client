@@ -568,7 +568,7 @@ function toggleLocalMute(username) {
           </svg>
         </button>
         <button
-          v-if="!isMobile"
+          v-if="!isMobile && !isTauri"
           class="icon-btn"
           type="button"
           :aria-label="t('call.extractPanel')"
