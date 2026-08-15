@@ -5078,7 +5078,12 @@ export function useMessenger() {
     const inferred = normalizeCallMedia(remote.media || EMPTY_CALL_MEDIA);
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
       ...existing,
-      audio: Boolean(remote.media?.audio),
+      // The mute state broadcast over signaling (op 110 / d.media.audio) is
+      // authoritative. A remote track briefly reports muted when it first
+      // arrives (before the first RTP packet is decoded), so never let that
+      // transient track state downgrade a known "not muted". Genuine mutes
+      // still arrive via op 110 and via the track's onmute event.
+      audio: existing.audio ? existing.audio : Boolean(remote.media?.audio),
       camera:
         existing.screen && !existing.camera && inferred.camera
           ? false
