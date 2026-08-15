@@ -539,8 +539,8 @@ async function lockClientNow() {
     <OnboardingScreen :messenger="messenger" />
   </div>
 
-  <div v-else class="app app--desktop-titlebar"
-    :class="{ 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
+  <div v-else class="app"
+    :class="{ 'app--desktop-titlebar': showDesktopTitlebar, 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
@@ -788,10 +788,15 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri>.side,
+.app.app--desktop-titlebar.is-web-titlebar>.side,
 .app.app--desktop-titlebar.is-tauri>.thread,
+.app.app--desktop-titlebar.is-web-titlebar>.thread,
 .app.app--desktop-titlebar.is-tauri>.no-thread,
+.app.app--desktop-titlebar.is-web-titlebar>.no-thread,
 .app.app--lock-titlebar.is-tauri>.lock-screen,
-.app.app--onboarding-titlebar.is-tauri>.onboarding {
+.app.app--lock-titlebar.is-web-titlebar>.lock-screen,
+.app.app--onboarding-titlebar.is-tauri>.onboarding,
+.app.app--onboarding-titlebar.is-web-titlebar>.onboarding {
   grid-row: 2;
 }
 
@@ -815,7 +820,7 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
 .app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
-  z-index: 10;
+  z-index: 50;
   grid-column: 1 / -1;
   grid-row: 1;
   width: 100%;
