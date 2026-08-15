@@ -3213,6 +3213,11 @@ textarea {
   color: var(--muted);
 }
 
+.composer .composer__attach {
+  width: 26px;
+  height: 26px;
+}
+
 .composer__send {
   align-self: center;
   flex: none;
