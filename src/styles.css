@@ -3168,7 +3168,7 @@ textarea {
 .composer__input textarea {
   max-height: 120px;
   height: 32px;
-  padding: 6px 0;
+  padding: 6px 0 6px 4px;
   line-height: 1.375;
   resize: none;
   overflow-y: hidden;
