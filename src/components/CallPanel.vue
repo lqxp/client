@@ -17,8 +17,13 @@ const mobileExpanded = ref(false);
 const mobileActiveIndex = ref(0);
 const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
 const shareSettingsOpen = ref(false);
-const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
-const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+const isAndroidRuntime =
+  typeof navigator !== "undefined" &&
+  /Android/i.test(navigator.userAgent) &&
+  isTauri;
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
 let tickId = null;
 let panelWindow = null;
@@ -338,7 +343,9 @@ function openTileWindow(tile) {
   // On Tauri Desktop, window.open() creates a cross-origin WebviewWindow that
   // cannot access this window's MediaStream, so the extracted preview stays blank.
   // Fall back to the in-app fullscreen tile view.
-  const isTauri = typeof window !== "undefined" && ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+  const isTauri =
+    typeof window !== "undefined" &&
+    ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
   if (isTauri) {
     toggleTileFullscreen(tile);
     return;
@@ -555,14 +562,10 @@ function toggleLocalMute(username) {
           :class="{ 'icon-btn--danger': messenger.state.callDeafened }"
           type="button"
           :aria-label="
-            messenger.state.callDeafened
-              ? t('call.undeafen')
-              : t('call.deafen')
+            messenger.state.callDeafened ? t('call.undeafen') : t('call.deafen')
           "
           :title="
-            messenger.state.callDeafened
-              ? t('call.undeafen')
-              : t('call.deafen')
+            messenger.state.callDeafened ? t('call.undeafen') : t('call.deafen')
           "
           @click="messenger.toggleDeafen"
         >
@@ -678,10 +681,7 @@ function toggleLocalMute(username) {
             <path d="M21 3v5h-5" />
           </svg>
         </button>
-        <div
-          v-if="isTauri && !isMobile"
-          class="share-settings"
-        >
+        <div v-if="isTauri && !isMobile" class="share-settings">
           <button
             class="share-settings__toggle"
             type="button"
@@ -689,14 +689,15 @@ function toggleLocalMute(username) {
             :title="t('call.screenSettings')"
             @click.stop="shareSettingsOpen = !shareSettingsOpen"
           >
-            {{ messenger.state.screenShareFps }} FPS · {{ messenger.state.screenShareQuality }}
+            {{ messenger.state.screenShareFps }} FPS ·
+            {{ messenger.state.screenShareQuality }}
           </button>
           <div
             v-if="shareSettingsOpen"
             class="share-settings__popover"
             @click.stop
           >
-            <span class="share-settings__label">{{ t('call.screenFps') }}</span>
+            <span class="share-settings__label">{{ t("call.screenFps") }}</span>
             <div class="share-settings__segmented">
               <button
                 v-for="fps in messenger.screenShareFpsOptions"
@@ -708,13 +709,18 @@ function toggleLocalMute(username) {
                 {{ fps }}
               </button>
             </div>
-            <span class="share-settings__label">{{ t('call.screenQuality') }}</span>
+            <span class="share-settings__label">{{
+              t("call.screenQuality")
+            }}</span>
             <div class="share-settings__segmented">
               <button
                 v-for="quality in messenger.screenShareQualities"
                 :key="quality.id"
                 type="button"
-                :class="{ 'is-active': messenger.state.screenShareQuality === quality.id }"
+                :class="{
+                  'is-active':
+                    messenger.state.screenShareQuality === quality.id,
+                }"
                 @click="messenger.setScreenShareQuality(quality.id)"
               >
                 {{ quality.id }}
@@ -887,6 +893,7 @@ function toggleLocalMute(username) {
               <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           </span>
+          <span class="calltile__kind">{{ tileLabel(tile) }}</span>
           <span
             v-if="isDeafened(tile.username)"
             class="calltile__muted-badge calltile__muted-badge--deafen"
@@ -909,7 +916,6 @@ function toggleLocalMute(username) {
               <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           </span>
-          <span class="calltile__kind">{{ tileLabel(tile) }}</span>
           <span
             v-if="!tile.self && isLocallyMuted(tile.username)"
             class="calltile__muted-badge"
@@ -1208,9 +1214,7 @@ function toggleLocalMute(username) {
           :class="{ 'icon-btn--danger': messenger.state.callDeafened }"
           type="button"
           :aria-label="
-            messenger.state.callDeafened
-              ? t('call.undeafen')
-              : t('call.deafen')
+            messenger.state.callDeafened ? t('call.undeafen') : t('call.deafen')
           "
           @click="messenger.toggleDeafen"
         >
@@ -1589,7 +1593,9 @@ function toggleLocalMute(username) {
   align-items: center;
   gap: 4px;
   white-space: nowrap;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .share-settings__toggle:hover {
   background: var(--surface-hover);
@@ -1631,7 +1637,9 @@ function toggleLocalMute(username) {
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 700;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .share-settings__segmented button:hover {
   background: var(--surface-hover);
