@@ -7090,11 +7090,6 @@ export function useMessenger() {
         const usedToBeConnected = state.connected;
         if (usedToBeConnected) disconnect();
 
-        if (typeof data.username === "string")
-          state.username = sanitizeUsername(data.username);
-        state.status = sanitizePresenceStatus(data.status);
-        state.profile = mergeProfiles(state.profile, data.profile);
-
         if (Array.isArray(data.rooms)) {
           const previousRooms = Object.fromEntries(
             state.rooms.map((room) => [
@@ -7156,7 +7151,7 @@ export function useMessenger() {
           state.unreadByRoom = next;
         }
 
-        state.roomKeysByRoom = sanitizeRoomKeys(data.roomKeysByRoom);
+        state.roomKeysByRoom = sanitizeRoomKeys(state.roomKeysByRoom);
 
         if (typeof data.activeRoom === "string") {
           state.activeRoom = isValidRoomId(data.activeRoom)
