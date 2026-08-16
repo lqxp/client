@@ -2940,19 +2940,55 @@ export function useMessenger() {
       state.lastError = validation;
       return false;
     }
+    const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      const data = await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          username: sanitizeUsername(username),
-          password,
-        }),
-      });
+      let data = null;
+      try {
+        data = await apiRequest("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: cleanUsername,
+            password,
+          }),
+        });
+      } catch (firstErr: any) {
+        const msg = String(firstErr?.message || "").toLowerCase();
+        if (msg.includes("security challenge") || msg.includes("challenge") || msg.includes("too many failed")) {
+          const challengeData = await apiRequest(
+            `/api/auth/challenge?action=login&target=${encodeURIComponent(cleanUsername)}`,
+            { method: "GET" }
+          );
+          if (challengeData?.vdf?.x && challengeData?.vdf?.modulus && challengeData?.vdf?.t) {
+            const vdfProof = await solveVdf(challengeData.vdf.x, challengeData.vdf.t, challengeData.vdf.modulus);
+            let quotaToken = null;
+            let nullifier = null;
+            if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
+              quotaToken = challengeData.quotaToken;
+              nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "login");
+            }
+            data = await apiRequest("/api/auth/login", {
+              method: "POST",
+              body: JSON.stringify({
+                username: cleanUsername,
+                password,
+                vdfChallenge: challengeData.vdf,
+                vdfProof,
+                quotaToken,
+                nullifier,
+              }),
+            });
+          } else {
+            throw firstErr;
+          }
+        } else {
+          throw firstErr;
+        }
+      }
       applyAuthenticatedPayload(data);
       connect();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       state.lastError = error?.message || "Login failed.";
       return false;
     } finally {
