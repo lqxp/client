@@ -30,7 +30,9 @@ import {
   parseRoomAccessToken,
   normalizeRoomKey,
 } from "@/crypto/e2ee";
-import { solvePoW } from "@/crypto/pow";
+import { solveVdf } from "@/crypto/vdf";
+import { computeNullifier } from "@/crypto/rln";
+import { encapsulatePqcSecret } from "@/crypto/pqc";
 import {
   playCameraOffSound,
   playCameraOnSound,
@@ -2874,27 +2876,55 @@ export function useMessenger() {
       state.lastError = validation;
       return false;
     }
+    const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      const challengeData = await apiRequest("/api/auth/challenge?action=register", {
+      const challengeData = await apiRequest(`/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`, {
         method: "GET",
       });
-      if (!challengeData?.challenge || !challengeData?.signature) {
+      if (!challengeData) {
         throw new Error("Unable to obtain security challenge.");
       }
-      const nonce = await solvePoW(challengeData.challenge, challengeData.difficulty || 18);
-      if (nonce === null) {
-        throw new Error("Failed to solve security challenge.");
+
+      let vdfProof = null;
+      let vdfChallenge = null;
+      let nullifier = null;
+      let quotaToken = null;
+
+      if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
+        quotaToken = challengeData.quotaToken;
+        nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "register");
+      }
+
+      if (challengeData.vdf?.x && challengeData.vdf?.modulus && challengeData.vdf?.t) {
+        vdfChallenge = challengeData.vdf;
+        vdfProof = await solveVdf(vdfChallenge.x, vdfChallenge.t, vdfChallenge.modulus);
+      } else {
+        throw new Error("Invalid VDF security challenge received from server.");
+      }
+
+      if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.tHex || !challengeData.pqcKey?.rhoHex) {
+        throw new Error("Post-quantum security challenge missing from server.");
+      }
+
+      let pqcCiphertext = null;
+      try {
+        const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
+        pqcCiphertext = pqcRes.ciphertext;
+      } catch {
+        throw new Error("Your browser does not support post-quantum lattice cryptography (Ring-LWE). Please update your browser.");
       }
 
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          username: sanitizeUsername(username),
+          username: cleanUsername,
           password,
-          powChallenge: challengeData.challenge,
-          powSignature: challengeData.signature,
-          powNonce: nonce,
+          vdfChallenge,
+          vdfProof,
+          quotaToken,
+          nullifier,
+          pqcCiphertext,
         }),
       });
       applyAuthenticatedPayload(data);
@@ -2915,19 +2945,55 @@ export function useMessenger() {
       state.lastError = validation;
       return false;
     }
+    const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      const data = await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          username: sanitizeUsername(username),
-          password,
-        }),
-      });
+      let data = null;
+      try {
+        data = await apiRequest("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: cleanUsername,
+            password,
+          }),
+        });
+      } catch (firstErr: any) {
+        const msg = String(firstErr?.message || "").toLowerCase();
+        if (msg.includes("security challenge") || msg.includes("challenge") || msg.includes("too many failed")) {
+          const challengeData = await apiRequest(
+            `/api/auth/challenge?action=login&target=${encodeURIComponent(cleanUsername)}`,
+            { method: "GET" }
+          );
+          if (challengeData?.vdf?.x && challengeData?.vdf?.modulus && challengeData?.vdf?.t) {
+            const vdfProof = await solveVdf(challengeData.vdf.x, challengeData.vdf.t, challengeData.vdf.modulus);
+            let quotaToken = null;
+            let nullifier = null;
+            if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
+              quotaToken = challengeData.quotaToken;
+              nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "login");
+            }
+            data = await apiRequest("/api/auth/login", {
+              method: "POST",
+              body: JSON.stringify({
+                username: cleanUsername,
+                password,
+                vdfChallenge: challengeData.vdf,
+                vdfProof,
+                quotaToken,
+                nullifier,
+              }),
+            });
+          } else {
+            throw firstErr;
+          }
+        } else {
+          throw firstErr;
+        }
+      }
       applyAuthenticatedPayload(data);
       connect();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       state.lastError = error?.message || "Login failed.";
       return false;
     } finally {
