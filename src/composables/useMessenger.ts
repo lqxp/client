@@ -32,6 +32,7 @@ import {
 } from "@/crypto/e2ee";
 import { solveVdf } from "@/crypto/vdf";
 import { computeNullifier } from "@/crypto/rln";
+import { encapsulatePqcSecret } from "@/crypto/pqc";
 import {
   playCameraOffSound,
   playCameraOnSound,
@@ -2897,6 +2898,18 @@ export function useMessenger() {
         throw new Error("Invalid VDF security challenge received from server.");
       }
 
+      if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.tHex || !challengeData.pqcKey?.rhoHex) {
+        throw new Error("Post-quantum security challenge missing from server.");
+      }
+
+      let pqcCiphertext = null;
+      try {
+        const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
+        pqcCiphertext = pqcRes.ciphertext;
+      } catch {
+        throw new Error("Your browser does not support post-quantum lattice cryptography (Ring-LWE). Please update your browser.");
+      }
+
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
@@ -2906,6 +2919,7 @@ export function useMessenger() {
           vdfProof,
           quotaToken,
           nullifier,
+          pqcCiphertext,
         }),
       });
       applyAuthenticatedPayload(data);
