@@ -893,7 +893,6 @@ function toggleLocalMute(username) {
               <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           </span>
-          <span class="calltile__kind">{{ tileLabel(tile) }}</span>
           <span
             v-if="isDeafened(tile.username)"
             class="calltile__muted-badge calltile__muted-badge--deafen"
