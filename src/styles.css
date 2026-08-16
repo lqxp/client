@@ -3168,7 +3168,7 @@ textarea {
 .composer__input textarea {
   max-height: 120px;
   height: 32px;
-  padding: 6px 0;
+  padding: 6px 0 6px 4px;
   line-height: 1.375;
   resize: none;
   overflow-y: hidden;
@@ -3206,11 +3206,24 @@ textarea {
 .composer__desktop-action {
   align-self: center;
   flex: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.composer__desktop-action:hover {
-  background: none;
-  color: var(--muted);
+.composer__desktop-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.composer__emoji-wrap .icon-btn:hover,
+.composer__emoji-wrap .icon-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.composer .composer__attach {
+  width: 26px;
+  height: 26px;
 }
 
 .composer__send {

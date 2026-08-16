@@ -11,6 +11,8 @@ const _flags: Record<string, boolean> = {
   leave: true,
   mute: true,
   unmute: true,
+  deafen: true,
+  undeafen: true,
   cameraOn: true,
   cameraOff: true,
   screenOn: true,
@@ -98,6 +100,20 @@ export function playUnmuteSound(preview = false): void {
     { f: 329.63, d: 0.15, t: 0.00, type: "sine", v: 0.4 }, // E4
     { f: 440.00, d: 0.25, t: 0.04, type: "sine", v: 0.5 }  // A4
   ], 0.14, preview ? undefined : "unmute");
+}
+
+export function playDeafenSound(preview = false): void {
+  playSynth([
+    { f: 440.00, d: 0.15, t: 0.00, type: "sine", v: 0.6 }, // A4
+    { f: 293.66, d: 0.20, t: 0.03, type: "sine", v: 0.7 }  // D4
+  ], 0.14, preview ? undefined : "deafen");
+}
+
+export function playUndeafenSound(preview = false): void {
+  playSynth([
+    { f: 293.66, d: 0.15, t: 0.00, type: "sine", v: 0.4 }, // D4
+    { f: 440.00, d: 0.25, t: 0.04, type: "sine", v: 0.5 }  // A4
+  ], 0.14, preview ? undefined : "undeafen");
 }
 
 export function playJoinSound(preview = false): void {

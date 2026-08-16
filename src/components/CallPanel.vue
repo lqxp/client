@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ProfileCard from "@/components/ProfileCard.vue";
 
@@ -243,6 +243,23 @@ function isRemotelyMuted(username) {
   return media.audio === false;
 }
 
+function isDeafened(username) {
+  if (isSelf(username)) return Boolean(props.messenger.state.callDeafened);
+  return Boolean(props.messenger.state.deafenedByUser[username]);
+}
+
+function applyDeafenToAudio() {
+  const els = document.querySelectorAll<HTMLAudioElement>(
+    ".callpanel__audio audio",
+  );
+  for (const el of els) el.muted = Boolean(props.messenger.state.callDeafened);
+}
+
+watch(
+  () => props.messenger.state.callDeafened,
+  () => applyDeafenToAudio(),
+);
+
 function tileLabel(tile) {
   if (tile.kind === "screen") return t("call.screen");
   if (tile.kind === "camera") return t("call.camera");
@@ -390,6 +407,7 @@ function bindRemoteAudio(el, username) {
   const stream = props.messenger.remoteCallStream(username);
   if (el.srcObject !== stream) el.srcObject = stream;
   el.volume = Math.max(0, Math.min(1, volumeOf(username) / 100));
+  el.muted = Boolean(props.messenger.state.callDeafened);
   props.messenger.applyAudioOutput(el);
   el.play?.().catch?.(() => {});
 }
@@ -513,6 +531,54 @@ function toggleLocalMute(username) {
         </button>
         <button
           class="icon-btn"
+          :class="{ 'icon-btn--danger': messenger.state.callDeafened }"
+          type="button"
+          :aria-label="
+            messenger.state.callDeafened
+              ? t('call.undeafen')
+              : t('call.deafen')
+          "
+          :title="
+            messenger.state.callDeafened
+              ? t('call.undeafen')
+              : t('call.deafen')
+          "
+          @click="messenger.toggleDeafen"
+        >
+          <svg
+            v-if="!messenger.state.callDeafened"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 14h3v5H3z" />
+            <path d="M18 14h3v5h-3z" />
+            <path d="M4 14a8 8 0 0 1 16 0" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 14h3v5H3z" />
+            <path d="M18 14h3v5h-3z" />
+            <path d="M4 14a8 8 0 0 1 16 0" />
+            <line x1="4" y1="4" x2="20" y2="20" />
+          </svg>
+        </button>
+        <button
+          class="icon-btn"
           :class="{ 'icon-btn--active': messenger.state.callCameraEnabled }"
           type="button"
           :aria-label="
@@ -568,7 +634,7 @@ function toggleLocalMute(username) {
           </svg>
         </button>
         <button
-          v-if="!isMobile"
+          v-if="!isMobile && !isTauri"
           class="icon-btn"
           type="button"
           :aria-label="t('call.extractPanel')"
@@ -729,6 +795,28 @@ function toggleLocalMute(username) {
               <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
               <path d="M19 10a7 7 0 0 1-14 0" />
               <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="4" y1="4" x2="20" y2="20" />
+            </svg>
+          </span>
+          <span
+            v-if="isDeafened(tile.username)"
+            class="calltile__muted-badge calltile__muted-badge--deafen"
+            :aria-label="t('call.deafened')"
+            :title="t('call.deafened')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 14h3v5H3z" />
+              <path d="M18 14h3v5h-3z" />
+              <path d="M4 14a8 8 0 0 1 16 0" />
               <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           </span>
@@ -951,6 +1039,27 @@ function toggleLocalMute(username) {
                 <line x1="4" y1="4" x2="20" y2="20" />
               </svg>
             </span>
+            <span
+              v-if="isDeafened(tile.username)"
+              class="call-mobile-card__muted-icon"
+              :aria-label="t('call.deafened')"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 14h3v5H3z" />
+                <path d="M18 14h3v5h-3z" />
+                <path d="M4 14a8 8 0 0 1 16 0" />
+                <line x1="4" y1="4" x2="20" y2="20" />
+              </svg>
+            </span>
             <span v-if="tile.kind === 'screen'">— {{ t("call.screen") }}</span>
             <span v-if="tile.kind === 'camera'">— {{ t("call.camera") }}</span>
           </div>
@@ -1002,6 +1111,49 @@ function toggleLocalMute(username) {
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10a7 7 0 0 1-14 0" />
             <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="4" y1="4" x2="20" y2="20" />
+          </svg>
+        </button>
+        <button
+          class="icon-btn"
+          :class="{ 'icon-btn--danger': messenger.state.callDeafened }"
+          type="button"
+          :aria-label="
+            messenger.state.callDeafened
+              ? t('call.undeafen')
+              : t('call.deafen')
+          "
+          @click="messenger.toggleDeafen"
+        >
+          <svg
+            v-if="!messenger.state.callDeafened"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 14h3v5H3z" />
+            <path d="M18 14h3v5h-3z" />
+            <path d="M4 14a8 8 0 0 1 16 0" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 14h3v5H3z" />
+            <path d="M18 14h3v5h-3z" />
+            <path d="M4 14a8 8 0 0 1 16 0" />
             <line x1="4" y1="4" x2="20" y2="20" />
           </svg>
         </button>
@@ -1064,6 +1216,7 @@ function toggleLocalMute(username) {
       v-for="u in remoteMembers"
       :key="`hidden-audio-${u}`"
       :ref="(el) => bindRemoteAudio(el, u)"
+      :muted="messenger.state.callDeafened"
       autoplay
       playsinline
     ></audio>

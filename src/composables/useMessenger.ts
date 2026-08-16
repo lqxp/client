@@ -36,11 +36,13 @@ import { encapsulatePqcSecret } from "@/crypto/pqc";
 import {
   playCameraOffSound,
   playCameraOnSound,
+  playDeafenSound,
   playJoinSound,
   playLeaveSound,
   playMuteSound,
   playScreenOffSound,
   playScreenOnSound,
+  playUndeafenSound,
   playUnmuteSound,
   setCallSoundsActive,
   setSoundFlag,
@@ -1916,6 +1918,9 @@ export function useMessenger() {
     screenStream: null,
     callElapsed: 0, // seconds
     callMuted: false, // local mic mute applied to the outbound call gate
+    callDeafened: false, // local headset mute: silences call output locally
+    callMutedBeforeDeafen: false, // mic state before deafening, restored on undeafen
+    deafenedByUser: {}, // { username: true } — remote users who muted their headset
     callCameraEnabled: false,
     callScreenEnabled: false,
     localCallMedia: { ...EMPTY_CALL_MEDIA },
@@ -4847,6 +4852,7 @@ export function useMessenger() {
     // }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       state.lastError = `File too large: ${file.name} (${formatSize(file.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
+      showToast(state.lastError);
       return;
     }
 
@@ -5023,7 +5029,13 @@ export function useMessenger() {
     const platform = currentLocalPlatform();
     send({
       op: 98,
-      d: { isVoiceChat, media, clientId: localClientId, platform },
+      d: {
+        gameId: state.callRoom || state.activeRoom,
+        isVoiceChat,
+        media,
+        clientId: localClientId,
+        platform,
+      },
     });
     send({
       op: 110,
@@ -5144,7 +5156,12 @@ export function useMessenger() {
     const inferred = normalizeCallMedia(remote.media || EMPTY_CALL_MEDIA);
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
       ...existing,
-      audio: Boolean(remote.media?.audio),
+      // The mute state broadcast over signaling (op 110 / d.media.audio) is
+      // authoritative. A remote track briefly reports muted when it first
+      // arrives (before the first RTP packet is decoded), so never let that
+      // transient track state downgrade a known "not muted". Genuine mutes
+      // still arrive via op 110 and via the track's onmute event.
+      audio: existing.audio ? existing.audio : Boolean(remote.media?.audio),
       camera:
         existing.screen && !existing.camera && inferred.camera
           ? false
@@ -5227,6 +5244,9 @@ export function useMessenger() {
       state.callRoom = roomId;
       state.inCall = true;
       state.callMuted = false;
+      state.callDeafened = false;
+      state.callMutedBeforeDeafen = false;
+      state.deafenedByUser = {};
       state.voiceEnabled = true;
       state.callCameraEnabled = false;
       state.callScreenEnabled = false;
@@ -5271,11 +5291,60 @@ export function useMessenger() {
 
   function toggleMute() {
     if (!state.callStream && !callOutboundStream) return;
+    if (state.callDeafened) return; // deafen overrides mic mute
     state.callMuted = !state.callMuted;
     updateCallAudioGate();
     publishCallState(true);
     if (state.callMuted) playMuteSound();
     else playUnmuteSound();
+  }
+
+  function broadcastDeafenState() {
+    const roomId = state.callRoom || state.activeRoom;
+    if (!roomId) return;
+    const platform = currentLocalPlatform();
+    send({
+      op: 112,
+      d: {
+        gameId: roomId,
+        isDeafened: state.callDeafened,
+        clientId: localClientId,
+        platform,
+      },
+    });
+  }
+
+  function toggleDeafen() {
+    if (!state.inCall) return;
+    const wasDeafened = state.callDeafened;
+    if (wasDeafened) {
+      // Undeafen: restore the mic state from before deafening.
+      state.callDeafened = false;
+      state.callMuted = state.callMutedBeforeDeafen;
+    } else {
+      // Deafen is a super mute: force-mute the mic (no longer emits audio)
+      // and remember the previous mic state to restore it on undeafen.
+      state.callMutedBeforeDeafen = state.callMuted;
+      state.callMuted = true;
+      state.callDeafened = true;
+    }
+    updateCallAudioGate();
+    broadcastDeafenState();
+    publishCallState(true);
+    if (state.callDeafened) playDeafenSound();
+    else playUndeafenSound();
+  }
+
+  function handleDeafenState(d) {
+    const roomId = sanitizeRoomId(d?.gameId);
+    const user = sanitizeUsername(d?.user);
+    if (!roomId || !user) return;
+    if (d?.platform) rememberClientPlatform(user, d.platform);
+    if (user === sanitizeUsername(state.username)) {
+      state.callDeafened = d?.isDeafened === true;
+    } else {
+      state.deafenedByUser[user] = d?.isDeafened === true;
+    }
   }
 
   function setSelectedTurnServer(serverId: string) {
@@ -5458,6 +5527,9 @@ export function useMessenger() {
     state.callRoom = "";
     state.callElapsed = 0;
     state.callMuted = false;
+    state.callDeafened = false;
+    state.callMutedBeforeDeafen = false;
+    state.deafenedByUser = {};
     state.callCameraEnabled = false;
     state.callScreenEnabled = false;
     state.localCallMedia = { ...EMPTY_CALL_MEDIA };
@@ -5509,6 +5581,7 @@ export function useMessenger() {
         state.callClientsByRoom[roomId][user] = [...clients];
       } else {
         delete state.callClientsByRoom[roomId][user];
+        delete state.deafenedByUser[user];
         if (
           user !== me ||
           clientId === localClientId ||
@@ -5569,6 +5642,7 @@ export function useMessenger() {
       members.add(user);
     } else {
       members.delete(user);
+      delete state.deafenedByUser[user];
       // Clean up WebRTC peer on disconnect (server broadcasts op 98 w/o media on leave).
       if (state.inCall && state.callRoom === roomId) {
         callManager?.removePeer(user, sanitizeClientId(d?.clientId));
@@ -5656,6 +5730,10 @@ export function useMessenger() {
             state.remoteCallMediaByUser[next] =
               state.remoteCallMediaByUser[previous];
             delete state.remoteCallMediaByUser[previous];
+          }
+          if (state.deafenedByUser[previous]) {
+            state.deafenedByUser[next] = state.deafenedByUser[previous];
+            delete state.deafenedByUser[previous];
           }
           if (state.remoteCallStreamsByUser[previous]) {
             state.remoteCallStreamsByUser[next] =
@@ -6153,6 +6231,7 @@ export function useMessenger() {
         state.usersByRoom = {};
         state.voiceMembersByRoom = {};
         state.callClientsByRoom = {};
+        state.deafenedByUser = {};
         state.typingByRoom = {};
         if (d?.profile) state.profile = mergeProfiles(state.profile, d.profile);
         if (d?.status) state.status = sanitizePresenceStatus(d.status);
@@ -6274,6 +6353,9 @@ export function useMessenger() {
         break;
       case 111:
         handleCallSignal(d);
+        break;
+      case 112:
+        handleDeafenState(d);
         break;
       case 999:
         triggerBan(d?.message);
@@ -7088,6 +7170,7 @@ export function useMessenger() {
     startCall,
     endCall,
     toggleMute,
+    toggleDeafen,
     setSelectedTurnServer,
     addCustomTurnServer,
     removeCustomTurnServer,
