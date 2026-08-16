@@ -1616,8 +1616,6 @@ onBeforeUnmount(() => {
 
 .msg.is-streamer-blur {
   contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 88px;
 }
 
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {

@@ -10,6 +10,7 @@ const RUN_GAP_MS = 3 * 60 * 1000;
 const SCROLL_BOTTOM_THRESHOLD = 32;
 const feedRef = ref<HTMLElement | null>(null);
 const stickToBottom = ref(true);
+let feedResizeObserver: ResizeObserver | null = null;
 
 function dayKey(ts) {
   return new Date(ts).toDateString();
@@ -31,7 +32,15 @@ function scrollToBottom() {
   feed.scrollTop = feed.scrollHeight;
 }
 
+async function onFeedResize() {
+  if (!stickToBottom.value) return;
+  await nextTick();
+  scrollToBottom();
+}
+
 onBeforeUnmount(() => {
+  feedResizeObserver?.disconnect();
+  feedResizeObserver = null;
   feedRef.value?.removeEventListener("scroll", updateStickToBottom);
 });
 
@@ -95,6 +104,10 @@ watch(
 onMounted(() => {
   feedRef.value?.addEventListener("scroll", updateStickToBottom, { passive: true });
   updateStickToBottom();
+  if (feedRef.value) {
+    feedResizeObserver = new ResizeObserver(onFeedResize);
+    feedResizeObserver.observe(feedRef.value);
+  }
 });
 </script>
 

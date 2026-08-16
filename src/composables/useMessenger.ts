@@ -6337,7 +6337,12 @@ export function useMessenger() {
     const { op, d } = message;
     switch (op) {
       case 0:
-        if (d?.error) state.lastError = d.error;
+        if (d?.error) {
+          state.lastError = d.error;
+          if (/account deleted/i.test(String(d.error))) {
+            handleAccountDeleted();
+          }
+        }
         break;
       case 1:
         /* heartbeat ack — ignored */
@@ -6533,6 +6538,15 @@ export function useMessenger() {
     if (state.isBanned) return;
     state.isBanned = true;
     state.banMessage = t("ban.message");
+    resetToOnboarding();
+  }
+
+  function handleAccountDeleted() {
+    if (state.isBanned || !state.authToken) return;
+    resetToOnboarding();
+  }
+
+  function resetToOnboarding() {
     if (state.inCall) endCall();
     if (state.recording) stopRecordingVoiceMemo(true);
     disconnect();
