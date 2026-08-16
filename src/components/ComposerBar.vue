@@ -720,6 +720,13 @@ function onComposerClick() {
   syncCursor();
 }
 
+function onComposerContainerClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (target.closest("button")) return;
+  focusInput();
+  syncCursor();
+}
+
 function onComposerKeyup() {
   syncCursor({ resetMentionIndex: !mentionOpen.value });
 }
@@ -1147,7 +1154,8 @@ onBeforeUnmount(() => {
         </Teleport>
       </div>
 
-      <label class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }">
+      <div class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }"
+        @click="onComposerContainerClick">
         <button v-if="!isMobile" class="icon-btn composer__desktop-action composer__attach" type="button" :aria-label="t('composer.attachFile')"
           :disabled="mediaDisabled" @click="pickFile">
           <svg viewBox="0 0 24 24">
@@ -1267,7 +1275,7 @@ onBeforeUnmount(() => {
             <path d="m22 2-7 20-4-9-9-4 20-7Z" />
           </svg>
         </button>
-      </label>
+      </div>
     </template>
   </footer>
 

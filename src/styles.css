@@ -3206,11 +3206,19 @@ textarea {
 .composer__desktop-action {
   align-self: center;
   flex: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.composer__desktop-action:hover {
-  background: none;
-  color: var(--muted);
+.composer__desktop-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.composer__emoji-wrap .icon-btn:hover,
+.composer__emoji-wrap .icon-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 .composer .composer__attach {
