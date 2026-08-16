@@ -736,6 +736,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
       leave: true,
       mute: true,
       unmute: true,
+      deafen: true,
+      undeafen: true,
       cameraOn: true,
       cameraOff: true,
       screenOn: true,
@@ -1024,6 +1026,8 @@ function loadPersisted() {
         leave: raw.soundFlags?.leave !== false,
         mute: raw.soundFlags?.mute !== false,
         unmute: raw.soundFlags?.unmute !== false,
+        deafen: raw.soundFlags?.deafen !== false,
+        undeafen: raw.soundFlags?.undeafen !== false,
         cameraOn: raw.soundFlags?.cameraOn !== false,
         cameraOff: raw.soundFlags?.cameraOff !== false,
         screenOn: raw.soundFlags?.screenOn !== false,
@@ -3498,6 +3502,12 @@ export function useMessenger() {
         break;
       case "unmute":
         playUnmuteSound(true);
+        break;
+      case "deafen":
+        playDeafenSound(true);
+        break;
+      case "undeafen":
+        playUndeafenSound(true);
         break;
       case "cameraOn":
         playCameraOnSound(true);

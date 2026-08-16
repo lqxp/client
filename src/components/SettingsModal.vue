@@ -1181,6 +1181,30 @@ onBeforeUnmount(() => {
             </div>
             <div class="sound-row">
               <div class="sound-row__info">
+                <span class="sound-row__label">{{ t('settings.notifications.soundDeafen') }}</span>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('deafen')">{{
+                  t('settings.notifications.previewSound') }}</button>
+              </div>
+              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.deafen }">
+                <input type="checkbox" :checked="messenger.state.soundFlags.deafen"
+                  @change="messenger.setSoundEnabled('deafen', targetChecked($event))" />
+                <span class="toggle__track"><span class="toggle__thumb"></span></span>
+              </label>
+            </div>
+            <div class="sound-row">
+              <div class="sound-row__info">
+                <span class="sound-row__label">{{ t('settings.notifications.soundUndeafen') }}</span>
+                <button type="button" class="sound-row__preview" @click="messenger.previewSound('undeafen')">{{
+                  t('settings.notifications.previewSound') }}</button>
+              </div>
+              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.undeafen }">
+                <input type="checkbox" :checked="messenger.state.soundFlags.undeafen"
+                  @change="messenger.setSoundEnabled('undeafen', targetChecked($event))" />
+                <span class="toggle__track"><span class="toggle__thumb"></span></span>
+              </label>
+            </div>
+            <div class="sound-row">
+              <div class="sound-row__info">
                 <span class="sound-row__label">{{ t('settings.notifications.soundCameraOn') }}</span>
                 <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOn')">{{
                   t('settings.notifications.previewSound') }}</button>

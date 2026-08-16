@@ -392,6 +392,8 @@
             "soundLeave": "Отключение от голосового чата",
             "soundMute": "Выключение микрофона",
             "soundUnmute": "Включение микрофона",
+            "soundDeafen": "Заглушить наушники",
+            "soundUndeafen": "Включить наушники",
             "soundCameraOn": "Камера включена",
             "soundCameraOff": "Камера выключена",
             "soundScreenOn": "Демонстрация экрана включена",

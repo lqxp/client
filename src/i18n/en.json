@@ -368,6 +368,8 @@
             "soundLeave": "Voice Disconnected",
             "soundMute": "Mute",
             "soundUnmute": "Unmute",
+            "soundDeafen": "Deafen",
+            "soundUndeafen": "Undeafen",
             "soundCameraOn": "Camera On",
             "soundCameraOff": "Camera Off",
             "soundScreenOn": "Screen Share On",

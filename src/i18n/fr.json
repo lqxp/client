@@ -368,6 +368,8 @@
             "soundLeave": "Déconnexion vocale",
             "soundMute": "Mute",
             "soundUnmute": "Unmute",
+            "soundDeafen": "Couper le casque",
+            "soundUndeafen": "Rétablir le casque",
             "soundCameraOn": "Caméra activée",
             "soundCameraOff": "Caméra désactivée",
             "soundScreenOn": "Partage d’écran activé",

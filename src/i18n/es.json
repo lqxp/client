@@ -365,6 +365,8 @@
             "soundLeave": "Desconexión de voz",
             "soundMute": "Silenciar",
             "soundUnmute": "Activar micrófono",
+            "soundDeafen": "Silenciar auriculares",
+            "soundUndeafen": "Activar auriculares",
             "soundCameraOn": "Cámara activada",
             "soundCameraOff": "Cámara desactivada",
             "soundScreenOn": "Pantalla compartida activada",
