@@ -7087,9 +7087,6 @@ export function useMessenger() {
       try {
         const data = JSON.parse(String(e.target.result));
         if (!data || typeof data !== "object") throw new Error("Not an object");
-        const usedToBeConnected = state.connected;
-        if (usedToBeConnected) disconnect();
-
         if (Array.isArray(data.rooms)) {
           const previousRooms = Object.fromEntries(
             state.rooms.map((room) => [
@@ -7194,7 +7191,7 @@ export function useMessenger() {
         state.lastError = "";
         showToast("Backup imported.");
 
-        if (usedToBeConnected) connect();
+        window.location.reload();
       } catch (err) {
         state.lastError = `Import failed: ${err.message}`;
       }
