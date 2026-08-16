@@ -1964,6 +1964,8 @@ export function useMessenger() {
   let callGateTimer: ReturnType<typeof setInterval> | null = null;
   let callGateOpenUntil = 0;
   let speakingSampler: ReturnType<typeof setInterval> | null = null;
+  const DEAFEN_SOUND_WINDOW_MS = 1000;
+  const remoteDeafenAt = new Map<string, number>();
   const remoteCallAnalysers = new Map<string, { context: AudioContext; analyser: AnalyserNode; data: Uint8Array<ArrayBuffer> }>();
   const localClientId = getPersistentClientId();
   const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -5354,6 +5356,11 @@ export function useMessenger() {
       state.callDeafened = d?.isDeafened === true;
     } else {
       state.deafenedByUser[user] = d?.isDeafened === true;
+      if (state.inCall && state.callRoom === roomId && !state.callDeafened) {
+        remoteDeafenAt.set(user, Date.now());
+        if (d?.isDeafened === true) playDeafenSound();
+        else playUndeafenSound();
+      }
     }
   }
 
@@ -5572,6 +5579,8 @@ export function useMessenger() {
 
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
     const wasKnownMember = members.has(user);
+    const prevMedia = state.remoteCallMediaByUser[user] || EMPTY_CALL_MEDIA;
+    const hearRemote = user !== me && state.inCall && state.callRoom === roomId && !state.callDeafened;
     if (d.isVoiceChat === true) {
       members.add(user);
       if (clientId) {
@@ -5584,6 +5593,7 @@ export function useMessenger() {
         callManager?.connectPeer(user, clientId);
         if (!wasKnownMember) publishCallState(true);
       }
+      if (hearRemote && !wasKnownMember) playJoinSound();
     } else {
       const clients = new Set(state.callClientsByRoom[roomId][user] || []);
       if (clientId) clients.delete(clientId);
@@ -5602,8 +5612,34 @@ export function useMessenger() {
         callManager?.removePeer(user, clientId);
         if (user !== me) removeRemoteCallMedia(user);
       }
+      if (hearRemote && wasKnownMember && !members.has(user)) playLeaveSound();
     }
     state.voiceMembersByRoom[roomId] = [...members];
+
+    if (hearRemote && wasKnownMember && d.media) {
+      const nextMedia = normalizeCallMedia({
+        ...prevMedia,
+        ...d.media,
+      });
+      if (prevMedia.audio !== nextMedia.audio) {
+        const deafenWindow = Date.now() - (remoteDeafenAt.get(user) || 0) < DEAFEN_SOUND_WINDOW_MS;
+        if (deafenWindow) {
+          remoteDeafenAt.delete(user);
+        } else if (nextMedia.audio) {
+          playUnmuteSound();
+        } else {
+          playMuteSound();
+        }
+      }
+      if (prevMedia.camera !== nextMedia.camera) {
+        if (nextMedia.camera) playCameraOnSound();
+        else playCameraOffSound();
+      }
+      if (prevMedia.screen !== nextMedia.screen) {
+        if (nextMedia.screen) playScreenOnSound();
+        else playScreenOffSound();
+      }
+    }
   }
 
   function handleCallSignal(d) {
@@ -5648,8 +5684,11 @@ export function useMessenger() {
       return;
     }
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
+    const wasKnownMember = members.has(user);
+    const hearRemote = user !== sanitizeUsername(state.username) && state.inCall && state.callRoom === roomId && !state.callDeafened;
     if (d.isVoiceChat === true) {
       members.add(user);
+      if (hearRemote && !wasKnownMember) playJoinSound();
     } else {
       members.delete(user);
       delete state.deafenedByUser[user];
@@ -5659,6 +5698,7 @@ export function useMessenger() {
         removeRemoteCallMedia(user);
         delete state.callClientsByRoom[roomId]?.[user];
       }
+      if (hearRemote && wasKnownMember) playLeaveSound();
     }
     state.voiceMembersByRoom[roomId] = [...members];
   }
