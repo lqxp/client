@@ -4781,6 +4781,7 @@ export function useMessenger() {
     // }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       state.lastError = `File too large: ${file.name} (${formatSize(file.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
+      showToast(state.lastError);
       return;
     }
 
