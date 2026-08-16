@@ -1614,10 +1614,6 @@ onBeforeUnmount(() => {
   background-color: rgba(88, 101, 242, 0.16);
 }
 
-.msg.is-streamer-blur {
-  contain: layout paint style;
-}
-
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
   filter: blur(8px);
   opacity: 0.72;

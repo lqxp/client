@@ -101,6 +101,20 @@ watch(
   }
 );
 
+watch(
+  () =>
+    [
+      props.messenger.state.streamerMode,
+      props.messenger.state.inCall,
+      props.messenger.state.callRoom,
+    ].join("|"),
+  async () => {
+    if (!stickToBottom.value) return;
+    await nextTick();
+    scrollToBottom();
+  }
+);
+
 onMounted(() => {
   feedRef.value?.addEventListener("scroll", updateStickToBottom, { passive: true });
   updateStickToBottom();

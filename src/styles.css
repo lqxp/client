@@ -6718,7 +6718,7 @@ textarea {
 .calltile.is-fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 40;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -6858,6 +6858,10 @@ textarea {
   transform: translateY(0);
 }
 
+.calltile.is-fullscreen .calltile__tools {
+  top: calc(30px + 8px);
+}
+
 .calltile__tools button,
 .callpanel__focus-close {
   display: grid;
@@ -6899,7 +6903,7 @@ textarea {
 .callpanel__focus.is-fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 40;
   min-height: 100vh;
   border-radius: 0;
   border: 0;
