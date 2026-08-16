@@ -120,7 +120,9 @@ function initialsFor(name: string) {
       </div>
       <div class="profile-card__body">
         <span v-if="avatarSrc" class="profile-card__avatar profile-card__avatar--image">
-          <img :src="avatarSrc" alt="" />
+          <span class="profile-card__avatar-clip">
+            <img :src="avatarSrc" alt="" />
+          </span>
           <span v-if="!isSystem" class="profile-card__presence" :class="presenceClass" aria-hidden="true"></span>
         </span>
         <span v-else class="avatar profile-card__avatar" :class="`avatar--${accent}`">

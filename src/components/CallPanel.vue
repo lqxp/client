@@ -24,7 +24,7 @@ let panelWindow = null;
 let panelWindowSyncId = null;
 
 function syncMobile() {
-  isMobile.value = window.matchMedia("(max-width: 820px)").matches;
+  isMobile.value = window.matchMedia("(max-width: 760px)").matches;
 }
 
 function clampMenuPosition(x, y) {
