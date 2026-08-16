@@ -4958,7 +4958,13 @@ export function useMessenger() {
     const platform = currentLocalPlatform();
     send({
       op: 98,
-      d: { isVoiceChat, media, clientId: localClientId, platform },
+      d: {
+        gameId: state.callRoom || state.activeRoom,
+        isVoiceChat,
+        media,
+        clientId: localClientId,
+        platform,
+      },
     });
     send({
       op: 110,
