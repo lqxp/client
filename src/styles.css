@@ -3815,9 +3815,7 @@ textarea {
   inset: 0;
   z-index: 0;
   cursor: zoom-out;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(42, 42, 48, 0.72), rgba(0, 0, 0, 0.92) 62%),
-    rgba(0, 0, 0, 0.86);
+  background: rgba(0, 0, 0, 0.86);
   backdrop-filter: blur(5px);
 }
 
