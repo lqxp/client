@@ -16,6 +16,7 @@ const isMobile = ref(false);
 const mobileExpanded = ref(false);
 const mobileActiveIndex = ref(0);
 const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
+const shareSettingsOpen = ref(false);
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
@@ -96,6 +97,7 @@ onMounted(() => {
   syncMobile();
   window.addEventListener("resize", syncMobile, { passive: true });
   window.addEventListener("click", closeMemberMenu, { passive: true });
+  window.addEventListener("click", closeShareSettings, { passive: true });
   window.addEventListener("contextmenu", closeMemberMenu, { passive: true });
   window.addEventListener("keydown", handleWindowKeydown);
   tickId = setInterval(() => {
@@ -105,6 +107,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobile);
   window.removeEventListener("click", closeMemberMenu);
+  window.removeEventListener("click", closeShareSettings);
   window.removeEventListener("contextmenu", closeMemberMenu);
   window.removeEventListener("keydown", handleWindowKeydown);
   if (tickId) clearInterval(tickId);
@@ -258,6 +261,19 @@ function applyDeafenToAudio() {
 watch(
   () => props.messenger.state.callDeafened,
   () => applyDeafenToAudio(),
+);
+
+watch(
+  () => props.messenger.state.screenStream,
+  (stream) => {
+    if (!stream) return;
+    const els = document.querySelectorAll<HTMLVideoElement>(
+      ".callpanel .calltile.is-self.is-screen video",
+    );
+    for (const el of els) {
+      if (el.srcObject !== stream) el.srcObject = stream;
+    }
+  },
 );
 
 function tileLabel(tile) {
@@ -430,9 +446,14 @@ function closeMemberMenu() {
   memberMenu.value = { open: false, x: 0, y: 0, username: "" };
 }
 
+function closeShareSettings() {
+  shareSettingsOpen.value = false;
+}
+
 function handleWindowKeydown(event) {
   if (event.key === "Escape") {
     closeMemberMenu();
+    closeShareSettings();
     closeProfile();
   }
 }
@@ -633,6 +654,74 @@ function toggleLocalMute(username) {
             <path d="M12 7v7" />
           </svg>
         </button>
+        <button
+          v-if="isTauri && !isMobile && messenger.state.callScreenEnabled"
+          class="icon-btn"
+          type="button"
+          :aria-label="t('call.changeScreenSource')"
+          :title="t('call.changeScreenSource')"
+          @click="messenger.changeScreenShareSource"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16" />
+            <path d="M3 21v-5h5" />
+            <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+        </button>
+        <div
+          v-if="isTauri && !isMobile"
+          class="share-settings"
+        >
+          <button
+            class="share-settings__toggle"
+            type="button"
+            :aria-label="t('call.screenSettings')"
+            :title="t('call.screenSettings')"
+            @click.stop="shareSettingsOpen = !shareSettingsOpen"
+          >
+            {{ messenger.state.screenShareFps }} FPS · {{ messenger.state.screenShareQuality }}
+          </button>
+          <div
+            v-if="shareSettingsOpen"
+            class="share-settings__popover"
+            @click.stop
+          >
+            <span class="share-settings__label">{{ t('call.screenFps') }}</span>
+            <div class="share-settings__segmented">
+              <button
+                v-for="fps in messenger.screenShareFpsOptions"
+                :key="fps"
+                type="button"
+                :class="{ 'is-active': messenger.state.screenShareFps === fps }"
+                @click="messenger.setScreenShareFps(fps)"
+              >
+                {{ fps }}
+              </button>
+            </div>
+            <span class="share-settings__label">{{ t('call.screenQuality') }}</span>
+            <div class="share-settings__segmented">
+              <button
+                v-for="quality in messenger.screenShareQualities"
+                :key="quality.id"
+                type="button"
+                :class="{ 'is-active': messenger.state.screenShareQuality === quality.id }"
+                @click="messenger.setScreenShareQuality(quality.id)"
+              >
+                {{ quality.id }}
+              </button>
+            </div>
+          </div>
+        </div>
         <button
           v-if="!isMobile && !isTauri"
           class="icon-btn"
@@ -1480,5 +1569,76 @@ function toggleLocalMute(username) {
 .call-mobile-overlay__controls .icon-btn--active {
   background: var(--accent);
   color: #fff;
+}
+
+.share-settings {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.share-settings__toggle {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+.share-settings__toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.share-settings__popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 72;
+  width: 228px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-settings__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.share-settings__segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.share-settings__segmented button {
+  flex: 1 1 auto;
+  min-width: 44px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  transition: background 120ms ease, color 120ms ease;
+}
+.share-settings__segmented button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.share-settings__segmented button.is-active {
+  background: var(--surface-hover);
+  color: var(--accent);
 }
 </style>

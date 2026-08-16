@@ -696,6 +696,17 @@ function clearInviteLinkFromUrl() {
   }
 }
 
+const SCREEN_SHARE_FPS_OPTIONS = [15, 30, 60];
+const SCREEN_SHARE_QUALITIES = [
+  { id: "360p", label: "360p", width: 640, height: 360 },
+  { id: "480p", label: "480p", width: 854, height: 480 },
+  { id: "720p", label: "720p", width: 1280, height: 720 },
+  { id: "1080p", label: "1080p", width: 1920, height: 1080 },
+  { id: "1440p", label: "1440p", width: 2560, height: 1440 },
+];
+const SCREEN_SHARE_DEFAULT_FPS = 30;
+const SCREEN_SHARE_DEFAULT_QUALITY = "720p";
+
 function defaultPersisted(overrides: Record<string, unknown> = {}) {
   return {
     authToken: "",
@@ -726,6 +737,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     microphoneThreshold: 0,
     deleteMessagesOnLeave: false,
     shareScreenAudio: true,
+    screenShareFps: SCREEN_SHARE_DEFAULT_FPS,
+    screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
     autoArchiveUploads: false,
     streamerMode: false,
     typingIndicatorsEnabled: true,
@@ -1013,6 +1026,16 @@ function loadPersisted() {
       ),
       deleteMessagesOnLeave: Boolean(raw.deleteMessagesOnLeave),
       shareScreenAudio: raw.shareScreenAudio !== false,
+      screenShareFps: SCREEN_SHARE_FPS_OPTIONS.includes(
+        Number(raw.screenShareFps),
+      )
+        ? Number(raw.screenShareFps)
+        : SCREEN_SHARE_DEFAULT_FPS,
+      screenShareQuality: SCREEN_SHARE_QUALITIES.some(
+        (quality) => quality.id === raw.screenShareQuality,
+      )
+        ? String(raw.screenShareQuality)
+        : SCREEN_SHARE_DEFAULT_QUALITY,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
@@ -1339,6 +1362,8 @@ function buildPersistedPayload(state) {
     microphoneThreshold: state.microphoneThreshold,
     deleteMessagesOnLeave: state.deleteMessagesOnLeave,
     shareScreenAudio: state.shareScreenAudio,
+    screenShareFps: state.screenShareFps,
+    screenShareQuality: state.screenShareQuality,
     autoArchiveUploads: state.autoArchiveUploads,
     streamerMode: state.streamerMode,
     typingIndicatorsEnabled: state.typingIndicatorsEnabled,
@@ -1886,6 +1911,8 @@ export function useMessenger() {
     microphoneThreshold: persisted.microphoneThreshold,
     deleteMessagesOnLeave: persisted.deleteMessagesOnLeave,
     shareScreenAudio: persisted.shareScreenAudio,
+    screenShareFps: persisted.screenShareFps,
+    screenShareQuality: persisted.screenShareQuality,
     autoArchiveUploads: persisted.autoArchiveUploads,
     streamerMode: persisted.streamerMode,
     typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
@@ -3463,6 +3490,56 @@ export function useMessenger() {
 
   function setShareScreenAudio(value) {
     state.shareScreenAudio = Boolean(value);
+    persist();
+  }
+
+  function screenShareQualityOf() {
+    return (
+      SCREEN_SHARE_QUALITIES.find(
+        (quality) => quality.id === state.screenShareQuality,
+      ) || SCREEN_SHARE_QUALITIES[2]
+    );
+  }
+
+  function screenShareVideoConstraints() {
+    const quality = screenShareQualityOf();
+    return {
+      frameRate: { ideal: state.screenShareFps },
+      width: { ideal: quality.width },
+      height: { ideal: quality.height },
+    };
+  }
+
+  function applyScreenShareConstraints() {
+    const stream = state.screenStream;
+    if (!stream || !state.callScreenEnabled) return;
+    const [track] = stream.getVideoTracks();
+    if (!track) return;
+    track.applyConstraints(screenShareVideoConstraints()).catch(() => {
+      // Some capture sources reject live constraints;
+      // they are applied on the next share instead.
+    });
+  }
+
+  function setScreenShareFps(value) {
+    const fps = SCREEN_SHARE_FPS_OPTIONS.includes(Number(value))
+      ? Number(value)
+      : SCREEN_SHARE_DEFAULT_FPS;
+    if (state.screenShareFps === fps) return;
+    state.screenShareFps = fps;
+    applyScreenShareConstraints();
+    persist();
+  }
+
+  function setScreenShareQuality(value) {
+    const quality = SCREEN_SHARE_QUALITIES.some(
+      (option) => option.id === value,
+    )
+      ? String(value)
+      : SCREEN_SHARE_DEFAULT_QUALITY;
+    if (state.screenShareQuality === quality) return;
+    state.screenShareQuality = quality;
+    applyScreenShareConstraints();
     persist();
   }
 
@@ -5463,7 +5540,7 @@ export function useMessenger() {
         return;
       }
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
+        video: screenShareVideoConstraints(),
         audio: state.shareScreenAudio,
       });
       stopStreamTracks(state.screenStream);
@@ -5484,6 +5561,43 @@ export function useMessenger() {
       publishCallState(true);
     } catch {
       state.lastError = "Screen sharing was cancelled.";
+    }
+  }
+
+  async function changeScreenShareSource() {
+    if (!state.inCall || !callManager) return;
+    if (!state.callScreenEnabled) {
+      await toggleScreenShare();
+      return;
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: screenShareVideoConstraints(),
+        audio: state.shareScreenAudio,
+      });
+      const [track] = stream.getVideoTracks();
+      if (!track) throw new Error("Screen share has no video track.");
+      const previousStream = state.screenStream;
+      callManager.setLocalTrack("screen", track, stream);
+      state.screenStream = stream;
+      if (previousStream && previousStream !== stream) {
+        for (const previousTrack of previousStream.getVideoTracks()) {
+          previousTrack.onended = null;
+        }
+        stopStreamTracks(previousStream);
+      }
+      track.onended = () => {
+        callManager?.removeLocalTrack("screen");
+        state.callScreenEnabled = false;
+        stopStreamTracks(stream);
+        if (state.screenStream === stream) state.screenStream = null;
+        publishCallState(true);
+        playScreenOffSound();
+      };
+      publishCallState(true);
+    } catch {
+      // Picker dismissed; the current source keeps running.
     }
   }
 
@@ -7183,6 +7297,11 @@ export function useMessenger() {
     setDeleteMessagesOnLeave,
     setStreamerMode,
     setShareScreenAudio,
+    screenShareFpsOptions: SCREEN_SHARE_FPS_OPTIONS,
+    screenShareQualities: SCREEN_SHARE_QUALITIES,
+    setScreenShareFps,
+    setScreenShareQuality,
+    changeScreenShareSource,
     setMessageSoundEnabled,
     setTypingIndicatorsEnabled,
     setCallSoundsEnabled,
