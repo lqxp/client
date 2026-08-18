@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, ref } from "vue";
+import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ThemeToggleButton from "./ThemeToggleButton.vue";
 import CapWidget from "./CapWidget.vue";
@@ -37,6 +37,13 @@ function onFieldFocus(e: FocusEvent) {
 function onCapSolve(payload: { token: string }) {
   capToken.value = payload.token;
 }
+
+watch(username, () => {
+  if (capToken.value) {
+    capToken.value = null;
+    capWidgetRef.value?.reset();
+  }
+});
 
 const cleanUsername = computed(() => username.value.trim().toLowerCase());
 const usernameError = computed(() => props.messenger.validateUsername(cleanUsername.value));
@@ -96,12 +103,21 @@ function setMode(next: string) {
 
 async function submit() {
   props.messenger.state.lastError = "";
-  if (mode.value === "register") {
-    await props.messenger.registerAccount(cleanUsername.value, password.value, capToken.value);
-  } else if (mode.value === "recover") {
-    await props.messenger.recoverAccount(cleanUsername.value, recoveryWords.value, newPassword.value, capToken.value);
-  } else {
-    await props.messenger.loginAccount(cleanUsername.value, password.value, capToken.value);
+  let ok = false;
+  try {
+    if (mode.value === "register") {
+      ok = await props.messenger.registerAccount(cleanUsername.value, password.value, capToken.value);
+    } else if (mode.value === "recover") {
+      ok = await props.messenger.recoverAccount(cleanUsername.value, recoveryWords.value, newPassword.value, capToken.value);
+    } else {
+      ok = await props.messenger.loginAccount(cleanUsername.value, password.value, capToken.value);
+    }
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    capToken.value = null;
+    capWidgetRef.value?.reset();
   }
 }
 

@@ -2928,6 +2928,7 @@ export function useMessenger() {
 
       if (capToken) {
         payload.capToken = capToken;
+        payload.cap_token = capToken;
       } else {
         const challengeData = await apiRequest(`/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`, {
           method: "GET",
@@ -3003,6 +3004,7 @@ export function useMessenger() {
       };
       if (capToken) {
         payload.capToken = capToken;
+        payload.cap_token = capToken;
       }
 
       let data = null;
@@ -3047,6 +3049,7 @@ export function useMessenger() {
       };
       if (capToken) {
         payload.capToken = capToken;
+        payload.cap_token = capToken;
       }
       const data = await apiRequest("/api/auth/recover", {
         method: "POST",
@@ -6181,6 +6184,7 @@ export function useMessenger() {
         body: JSON.stringify({
           username,
           password,
+          capToken: capToken || undefined,
           cap_token: capToken || undefined,
         }),
       });
