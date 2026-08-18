@@ -30,7 +30,7 @@ const background = useBackground();
 provide("dialog", dialog);
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
-const TITLEBAR_ACTIONS = ["streamer", "settings", "lock"] as const;
+const TITLEBAR_ACTIONS = ["streamer", "settings", "lock", "theme", "logout"] as const;
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
 const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
@@ -159,6 +159,7 @@ function closeMobileMembers() {
 const titlebarMainItems = computed(() => TITLEBAR_ACTIONS.filter((action) => !titlebarTrayItems.value.includes(action)));
 const titlebarTrayActionItems = computed(() => TITLEBAR_ACTIONS.filter((action) => titlebarTrayItems.value.includes(action)));
 const titlebarTrayEmpty = computed(() => titlebarTrayActionItems.value.length === 0);
+const titlebarResolvedTheme = computed(() => resolveThemeMode(messenger.state.themeMode || "system"));
 
 let adaptiveThemeTimer: ReturnType<typeof setInterval> | null = null;
 let systemThemeMedia: MediaQueryList | null = null;
@@ -277,6 +278,8 @@ function toggleStreamerMode() {
 function titlebarActionLabel(action: TitlebarAction) {
   if (action === "streamer") return messenger.state.streamerMode ? t("titlebar.disableStreamer") : t("titlebar.enableStreamer");
   if (action === "settings") return t("sidebar.settings");
+  if (action === "theme") return titlebarResolvedTheme.value === "light" ? t("settings.ui.dark") : t("settings.ui.light");
+  if (action === "logout") return t("settings.security.logout");
   return t("settings.security.lockNow");
 }
 
@@ -317,6 +320,15 @@ function runTitlebarAction(action: TitlebarAction) {
   }
   if (action === "settings") {
     openSettings();
+    titlebarTrayOpen.value = false;
+    return;
+  }
+  if (action === "theme") {
+    messenger.setThemeMode(titlebarResolvedTheme.value === "light" ? "dark" : "light");
+    return;
+  }
+  if (action === "logout") {
+    messenger.logoutAccount();
     titlebarTrayOpen.value = false;
     return;
   }
@@ -605,6 +617,18 @@ async function lockClientNow() {
               <path
                 d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
             </svg>
+            <svg v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+            </svg>
+            <svg v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+            <svg v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
             <svg v-else viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 10V8a5 5 0 0 1 10 0v2" />
               <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
@@ -645,6 +669,19 @@ async function lockClientNow() {
                     <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
                     <path
                       d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
+                  </svg>
+                  <svg v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                  </svg>
+                  <svg v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                  </svg>
+                  <svg v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <path d="M16 17l5-5-5-5" />
+                    <path d="M21 12H9" />
                   </svg>
                   <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M7 10V8a5 5 0 0 1 10 0v2" />
