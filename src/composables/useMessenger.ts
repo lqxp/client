@@ -1541,8 +1541,13 @@ function savePersistedProfile(profile) {
 }
 
 function parseVoiceLabel(text) {
-  const match = /^\[voice:(\d+:\d{2})\]$/i.exec(String(text || "").trim());
-  return match ? match[1] : "";
+  const match = /^\[voice:(\d+:\d{2})(?::([0-9,]+))?\]$/i.exec(String(text || "").trim());
+  if (!match) return { duration: "", waveform: [] };
+  const duration = match[1];
+  const waveform = match[2]
+    ? match[2].split(",").map(Number).filter((n) => Number.isFinite(n))
+    : [];
+  return { duration, waveform };
 }
 
 function extractUsername(label) {
@@ -1605,7 +1610,9 @@ function isOnlyEmoji(text) {
 }
 
 function normalizeMessage(message, fallbackRoomId) {
-  const voiceDuration = parseVoiceLabel(message.text);
+  const voiceInfo = parseVoiceLabel(message.text);
+  const voiceDuration = voiceInfo.duration;
+  const voiceWaveform = voiceInfo.waveform;
   const attachment =
     message.attachment && typeof message.attachment === "object"
       ? {
@@ -1679,6 +1686,7 @@ function normalizeMessage(message, fallbackRoomId) {
     preview,
     kind,
     voiceDuration,
+    voiceWaveform,
     jumboEmoji,
     locked: Boolean(message.locked),
     editedAt: Number(message.editedAt) || 0,
@@ -1833,6 +1841,7 @@ export function useMessenger() {
     admin: persisted.admin,
     sessionExpired: Boolean((persisted as any).sessionExpired),
     authLoading: false,
+    requireCaptcha: false,
     authMode: "login",
     recoveryWords: persisted.recoveryWords,
     clientLockEnabled: persisted.clientLockEnabled,
@@ -2903,7 +2912,7 @@ export function useMessenger() {
     return true;
   }
 
-  async function registerAccount(username, password) {
+  async function registerAccount(username, password, capToken = null) {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -2912,59 +2921,66 @@ export function useMessenger() {
     const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      const challengeData = await apiRequest(`/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`, {
-        method: "GET",
-      });
-      if (!challengeData) {
-        throw new Error("Unable to obtain security challenge.");
-      }
+      let payload: any = {
+        username: cleanUsername,
+        password,
+      };
 
-      let vdfProof = null;
-      let vdfChallenge = null;
-      let nullifier = null;
-      let quotaToken = null;
-
-      if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
-        quotaToken = challengeData.quotaToken;
-        nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "register");
-      }
-
-      if (challengeData.vdf?.x && challengeData.vdf?.modulus && challengeData.vdf?.t) {
-        vdfChallenge = challengeData.vdf;
-        vdfProof = await solveVdf(vdfChallenge.x, vdfChallenge.t, vdfChallenge.modulus);
+      if (capToken) {
+        payload.capToken = capToken;
       } else {
-        throw new Error("Invalid VDF security challenge received from server.");
-      }
+        const challengeData = await apiRequest(`/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`, {
+          method: "GET",
+        });
+        if (!challengeData) {
+          throw new Error("Unable to obtain security challenge.");
+        }
 
-      if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.tHex || !challengeData.pqcKey?.rhoHex) {
-        throw new Error("Post-quantum security challenge missing from server.");
-      }
+        let vdfProof = null;
+        let vdfChallenge = null;
+        let nullifier = null;
+        let quotaToken = null;
 
-      let pqcCiphertext = null;
-      try {
-        const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
-        pqcCiphertext = pqcRes.ciphertext;
-      } catch {
-        throw new Error("Your browser does not support post-quantum lattice cryptography (Ring-LWE). Please update your browser.");
+        if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
+          quotaToken = challengeData.quotaToken;
+          nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "register");
+        }
+
+        if (challengeData.vdf?.x && challengeData.vdf?.modulus && challengeData.vdf?.t) {
+          vdfChallenge = challengeData.vdf;
+          vdfProof = await solveVdf(vdfChallenge.x, vdfChallenge.t, vdfChallenge.modulus);
+        } else {
+          throw new Error("Invalid VDF security challenge received from server.");
+        }
+
+        if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.tHex || !challengeData.pqcKey?.rhoHex) {
+          throw new Error("Post-quantum security challenge missing from server.");
+        }
+
+        let pqcCiphertext = null;
+        try {
+          const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
+          pqcCiphertext = pqcRes.ciphertext;
+        } catch {
+          throw new Error("Your browser does not support post-quantum lattice cryptography (Ring-LWE). Please update your browser.");
+        }
+
+        payload.vdfChallenge = vdfChallenge;
+        payload.vdfProof = vdfProof;
+        payload.quotaToken = quotaToken;
+        payload.nullifier = nullifier;
+        payload.pqcCiphertext = pqcCiphertext;
       }
 
       const data = await apiRequest("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          username: cleanUsername,
-          password,
-          vdfChallenge,
-          vdfProof,
-          quotaToken,
-          nullifier,
-          pqcCiphertext,
-        }),
+        body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
       downloadRecoveryWords();
       connect();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       state.lastError = error?.message || "Registration failed.";
       return false;
     } finally {
@@ -2972,7 +2988,7 @@ export function useMessenger() {
     }
   }
 
-  async function loginAccount(username, password) {
+  async function loginAccount(username, password, capToken = null) {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -2981,48 +2997,30 @@ export function useMessenger() {
     const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
+      let payload: any = {
+        username: cleanUsername,
+        password,
+      };
+      if (capToken) {
+        payload.capToken = capToken;
+      }
+
       let data = null;
       try {
         data = await apiRequest("/api/auth/login", {
           method: "POST",
-          body: JSON.stringify({
-            username: cleanUsername,
-            password,
-          }),
+          body: JSON.stringify(payload),
         });
       } catch (firstErr: any) {
         const msg = String(firstErr?.message || "").toLowerCase();
         if (msg.includes("security challenge") || msg.includes("challenge") || msg.includes("too many failed")) {
-          const challengeData = await apiRequest(
-            `/api/auth/challenge?action=login&target=${encodeURIComponent(cleanUsername)}`,
-            { method: "GET" }
-          );
-          if (challengeData?.vdf?.x && challengeData?.vdf?.modulus && challengeData?.vdf?.t) {
-            const vdfProof = await solveVdf(challengeData.vdf.x, challengeData.vdf.t, challengeData.vdf.modulus);
-            let quotaToken = null;
-            let nullifier = null;
-            if (challengeData.quotaToken?.ticket && challengeData.quotaToken?.epoch !== undefined) {
-              quotaToken = challengeData.quotaToken;
-              nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, "login");
-            }
-            data = await apiRequest("/api/auth/login", {
-              method: "POST",
-              body: JSON.stringify({
-                username: cleanUsername,
-                password,
-                vdfChallenge: challengeData.vdf,
-                vdfProof,
-                quotaToken,
-                nullifier,
-              }),
-            });
-          } else {
-            throw firstErr;
-          }
+          state.requireCaptcha = true;
+          throw firstErr;
         } else {
           throw firstErr;
         }
       }
+      state.requireCaptcha = false;
       applyAuthenticatedPayload(data);
       connect();
       return true;
@@ -3034,7 +3032,7 @@ export function useMessenger() {
     }
   }
 
-  async function recoverAccount(username, recoveryWords, newPassword) {
+  async function recoverAccount(username, recoveryWords, newPassword, capToken = null) {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -3042,13 +3040,17 @@ export function useMessenger() {
     }
     state.authLoading = true;
     try {
+      const payload: any = {
+        username: sanitizeUsername(username),
+        recoveryWords: String(recoveryWords || ""),
+        newPassword,
+      };
+      if (capToken) {
+        payload.capToken = capToken;
+      }
       const data = await apiRequest("/api/auth/recover", {
         method: "POST",
-        body: JSON.stringify({
-          username: sanitizeUsername(username),
-          recoveryWords: String(recoveryWords || ""),
-          newPassword,
-        }),
+        body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
       state.recoveryWords = normalizeRecoveryWords(recoveryWords);
@@ -3056,7 +3058,7 @@ export function useMessenger() {
       downloadRecoveryWords();
       connect();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       state.lastError = error?.message || "Recovery failed.";
       return false;
     } finally {
@@ -5023,7 +5025,42 @@ export function useMessenger() {
       recorder.onerror = () => {
         state.lastError = "Recording error.";
       };
-      recorder.start();
+      recorder.start(100);
+
+      // Real-time audio waveform analyzer
+      let audioCtx: AudioContext | null = null;
+      let analyser: AnalyserNode | null = null;
+      let waveInterval: any = null;
+      const rawWaveSamples: number[] = [];
+
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+          const source = audioCtx.createMediaStreamSource(stream);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.3;
+          source.connect(analyser);
+
+          const timeData = new Uint8Array(analyser.fftSize);
+          waveInterval = setInterval(() => {
+            if (!state.recording) return;
+            analyser?.getByteTimeDomainData(timeData);
+            let sum = 0;
+            for (let i = 0; i < timeData.length; i++) {
+              const v = (timeData[i] - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / timeData.length);
+            const level = Math.round(rms * 100);
+            rawWaveSamples.push(level);
+          }, 80);
+        }
+      } catch {
+        /* audio analysis is optional */
+      }
+
       state.recording = {
         recorder,
         stream,
@@ -5032,6 +5069,9 @@ export function useMessenger() {
         startedAt: Date.now(),
         mimeType,
         ownsStream: !reusingCallStream,
+        audioCtx,
+        waveInterval,
+        rawWaveSamples,
       };
       tickRecording();
     } catch (err) {
@@ -5050,13 +5090,30 @@ export function useMessenger() {
   async function stopRecordingVoiceMemo(cancel = false) {
     const rec = state.recording;
     if (!rec) return;
+    const durationSeconds = Math.max(1, Math.round((Date.now() - rec.startedAt) / 1000));
+    if (rec.waveInterval) clearInterval(rec.waveInterval);
+    try {
+      if (rec.audioCtx) await rec.audioCtx.close();
+    } catch {
+      /* ignore */
+    }
+
     state.recording = null;
     state.recordingElapsed = 0;
     try {
       await new Promise<void>((resolve) => {
-        rec.recorder.onstop = resolve;
+        rec.recorder.onstop = () => resolve();
         try {
-          rec.recorder.stop();
+          if (rec.recorder.state !== "inactive") {
+            try {
+              rec.recorder.requestData();
+            } catch {
+              /* ignore */
+            }
+            rec.recorder.stop();
+          } else {
+            resolve();
+          }
         } catch {
           resolve();
         }
@@ -5076,9 +5133,30 @@ export function useMessenger() {
     const file = new File([blob], `voice-${Date.now()}.${ext}`, {
       type: blob.type,
     });
+
+    // Compute normalized 32-bar waveform from microphone samples
+    const samples = rec.rawWaveSamples || [];
+    let waveParam = "";
+    if (samples.length > 0) {
+      const maxVal = Math.max(...samples, 5);
+      const targetCount = 32;
+      const finalWave: number[] = [];
+      for (let i = 0; i < targetCount; i++) {
+        const startIdx = Math.floor((i / targetCount) * samples.length);
+        const endIdx = Math.max(startIdx + 1, Math.floor(((i + 1) / targetCount) * samples.length));
+        let sliceMax = 0;
+        for (let j = startIdx; j < endIdx && j < samples.length; j++) {
+          if (samples[j] > sliceMax) sliceMax = samples[j];
+        }
+        const pct = Math.round((sliceMax / maxVal) * 100);
+        finalWave.push(Math.max(16, Math.min(100, pct)));
+      }
+      waveParam = `:${finalWave.join(",")}`;
+    }
+
     await sendAttachment(
       file,
-      `[voice:${formatDuration(Math.floor(blob.size / 6000))}]`,
+      `[voice:${formatDuration(durationSeconds)}${waveParam}]`,
     );
   }
 
@@ -6090,7 +6168,7 @@ export function useMessenger() {
     logoutLocal();
   }
 
-  async function renewSession(password: string) {
+  async function renewSession(password: string, capToken?: string | null) {
     const username = sanitizeUsername(state.username);
     if (!username) {
       state.lastError = "Missing username.";
@@ -6100,7 +6178,11 @@ export function useMessenger() {
     try {
       const data = await apiRequest("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          cap_token: capToken || undefined,
+        }),
       });
       applyAuthenticatedPayload(data);
       state.sessionExpired = false;

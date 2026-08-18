@@ -21,6 +21,7 @@ import DialogModal from "@/components/DialogModal.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
+import CapWidget from "@/components/CapWidget.vue";
 
 const messenger = useMessenger();
 const dialog = useDialog();
@@ -59,6 +60,8 @@ const needsOnboarding = computed(
     && (!String(messenger.state.authToken || "").trim() || !String(messenger.state.username || "").trim()),
 );
 const renewPassword = ref("");
+const renewCapToken = ref<string | null>(null);
+const renewCapWidgetRef = ref<{ reset: () => void } | null>(null);
 const sessionThemeSwitchVisible = ref(false);
 
 function showSessionThemeSwitch() {
@@ -70,15 +73,26 @@ function hideSessionThemeSwitch() {
 }
 
 async function submitSessionRenewal() {
-  await messenger.renewSession(renewPassword.value);
-  if (!messenger.state.sessionExpired) {
+  if (!renewCapToken.value) {
+    messenger.state.lastError = "Please complete the CAPTCHA.";
+    return;
+  }
+  const ok = await messenger.renewSession(renewPassword.value, renewCapToken.value);
+  if (ok && !messenger.state.sessionExpired) {
     renewPassword.value = "";
+    renewCapToken.value = null;
+    renewCapWidgetRef.value?.reset();
+  } else {
+    renewCapToken.value = null;
+    renewCapWidgetRef.value?.reset();
   }
 }
 
 function cancelSessionRenewal() {
   messenger.dismissSessionExpired();
   renewPassword.value = "";
+  renewCapToken.value = null;
+  renewCapWidgetRef.value?.reset();
 }
 
 const hasActive = computed(() => !!messenger.roomLabel.value);
@@ -492,8 +506,15 @@ async function lockClientNow() {
             <input v-model="renewPassword" type="password" maxlength="128" autocomplete="current-password"
               :placeholder="t('onboarding.passwordPlaceholder')" />
           </label>
+          <CapWidget
+            ref="renewCapWidgetRef"
+            scope="login"
+            :target="messenger.state.username"
+            @solve="(payload) => renewCapToken = payload.token"
+            @reset="renewCapToken = null"
+          />
           <button class="session-renew__btn session-renew__btn--primary" type="submit"
-            :disabled="!renewPassword || messenger.state.authLoading">
+            :disabled="!renewPassword || !renewCapToken || messenger.state.authLoading">
             {{ messenger.state.authLoading ? t('sessionExpired.renewing') : t('sessionExpired.renew') }}
           </button>
           <button type="button" class="session-renew__btn session-renew__btn--secondary"

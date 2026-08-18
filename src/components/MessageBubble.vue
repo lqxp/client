@@ -853,6 +853,7 @@ onBeforeUnmount(() => {
       <template v-else-if="(attachmentKind === 'audio' || attachmentKind === 'voice') && attachmentUrl">
         <AudioPlayer :src="attachmentUrl" :filename="message.attachment.filename"
           :size-label="messenger.formatSize(message.attachment.size)" :fallback-duration="message.voiceDuration || ''"
+          :waveform="message.voiceWaveform || []"
           :messenger="messenger" />
         <div v-if="message.text && !message.text.startsWith('[voice:')" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
@@ -1043,32 +1044,54 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-@import url("https://fonts.bunny.net/css?family=roboto:400,500,700");
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @font-face {
   font-family: "Whitney";
-  src: url("https://cdn.jsdelivr.net/gh/ItzDerock/discord-components@master/assets/fonts/Book.woff") format("woff");
+  src: url("/fonts/whitney-book.woff") format("woff");
   font-weight: 400;
   font-display: swap;
 }
 
 @font-face {
   font-family: "Whitney";
-  src: url("https://cdn.jsdelivr.net/gh/ItzDerock/discord-components@master/assets/fonts/Medium.woff") format("woff");
+  src: url("/fonts/whitney-medium.woff") format("woff");
   font-weight: 500;
   font-display: swap;
 }
 
 @font-face {
   font-family: "Whitney";
-  src: url("https://cdn.jsdelivr.net/gh/ItzDerock/discord-components@master/assets/fonts/Semibold.woff") format("woff");
+  src: url("/fonts/whitney-semibold.woff") format("woff");
   font-weight: 600;
   font-display: swap;
 }
 
 @font-face {
   font-family: "Whitney";
-  src: url("https://cdn.jsdelivr.net/gh/ItzDerock/discord-components@master/assets/fonts/Bold.woff") format("woff");
+  src: url("/fonts/whitney-bold.woff") format("woff");
   font-weight: 700;
   font-display: swap;
 }

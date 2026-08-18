@@ -2,6 +2,7 @@
 import { computed, inject, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ThemeToggleButton from "./ThemeToggleButton.vue";
+import CapWidget from "./CapWidget.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -16,6 +17,8 @@ const newPassword = ref("");
 const recoveryWords = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
 const themeSwitchVisible = ref(false);
+const capToken = ref<string | null>(null);
+const capWidgetRef = ref<any>(null);
 
 function showThemeSwitch() {
   themeSwitchVisible.value = true;
@@ -31,12 +34,22 @@ function onFieldFocus(e: FocusEvent) {
   setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
 }
 
+function onCapSolve(payload: { token: string }) {
+  capToken.value = payload.token;
+}
+
 const cleanUsername = computed(() => username.value.trim().toLowerCase());
 const usernameError = computed(() => props.messenger.validateUsername(cleanUsername.value));
 const passwordValid = computed(() => password.value.length >= 8 && password.value.length <= 128);
 const newPasswordValid = computed(() => newPassword.value.length >= 8 && newPassword.value.length <= 128);
+
+const requiresCaptcha = computed(() => {
+  return mode.value === "register" || mode.value === "login" || Boolean(props.messenger.state.requireCaptcha);
+});
+
 const canSubmit = computed(() => {
   if (usernameError.value) return false;
+  if (requiresCaptcha.value && !capToken.value) return false;
   if (mode.value === "recover") return recoveryWords.value.trim().length > 0 && newPasswordValid.value;
   return passwordValid.value;
 });
@@ -76,17 +89,19 @@ function initialsOf(name: string) {
 function setMode(next: string) {
   mode.value = next;
   props.messenger.state.lastError = "";
+  capToken.value = null;
+  capWidgetRef.value?.reset();
   nextTick(() => inputRef.value?.focus());
 }
 
 async function submit() {
   props.messenger.state.lastError = "";
   if (mode.value === "register") {
-    await props.messenger.registerAccount(cleanUsername.value, password.value);
+    await props.messenger.registerAccount(cleanUsername.value, password.value, capToken.value);
   } else if (mode.value === "recover") {
-    await props.messenger.recoverAccount(cleanUsername.value, recoveryWords.value, newPassword.value);
+    await props.messenger.recoverAccount(cleanUsername.value, recoveryWords.value, newPassword.value, capToken.value);
   } else {
-    await props.messenger.loginAccount(cleanUsername.value, password.value);
+    await props.messenger.loginAccount(cleanUsername.value, password.value, capToken.value);
   }
 }
 
@@ -155,6 +170,15 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
             <input id="onboarding-new-password" v-model="newPassword" type="password" maxlength="128"
               autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" @focus="onFieldFocus" />
           </label>
+
+          <CapWidget
+            v-if="requiresCaptcha"
+            ref="capWidgetRef"
+            :scope="mode"
+            :target="cleanUsername"
+            @solve="onCapSolve"
+            @reset="capToken = null"
+          />
 
           <p v-if="errorMessage" class="onboarding__error">{{ errorMessage }}</p>
 
