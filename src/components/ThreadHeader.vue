@@ -49,6 +49,7 @@ function copyInvite() {
     })
     .catch((error) => {
       props.messenger.state.lastError = error?.message || t("thread.copyTokenError");
+      props.messenger.showToast(props.messenger.state.lastError);
     });
 }
 

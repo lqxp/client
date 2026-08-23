@@ -2916,6 +2916,7 @@ export function useMessenger() {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
+      showToast(validation);
       return false;
     }
     const cleanUsername = sanitizeUsername(username);
@@ -2982,6 +2983,7 @@ export function useMessenger() {
       return true;
     } catch (error: any) {
       state.lastError = error?.message || "Registration failed.";
+      showToast(state.lastError);
       return false;
     } finally {
       state.authLoading = false;
@@ -2992,6 +2994,7 @@ export function useMessenger() {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
+      showToast(validation);
       return false;
     }
     const cleanUsername = sanitizeUsername(username);
@@ -3026,6 +3029,7 @@ export function useMessenger() {
       return true;
     } catch (error: any) {
       state.lastError = error?.message || "Login failed.";
+      showToast(state.lastError);
       return false;
     } finally {
       state.authLoading = false;
@@ -3036,6 +3040,7 @@ export function useMessenger() {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
+      showToast(validation);
       return false;
     }
     state.authLoading = true;
@@ -3060,6 +3065,7 @@ export function useMessenger() {
       return true;
     } catch (error: any) {
       state.lastError = error?.message || "Recovery failed.";
+      showToast(state.lastError);
       return false;
     } finally {
       state.authLoading = false;
@@ -3444,10 +3450,12 @@ export function useMessenger() {
     if (!file) return false;
     if (!String(file.type || "").startsWith("image/")) {
       state.lastError = "Room icon must be an image.";
+      showToast(state.lastError);
       return false;
     }
     if (Number(file.size) > 5 * 1024 * 1024) {
       state.lastError = "Room icon must be under 5 MB.";
+      showToast(state.lastError);
       return false;
     }
 
@@ -3463,6 +3471,7 @@ export function useMessenger() {
       );
       if (!iconUrl) {
         state.lastError = "Invalid room icon URL returned by server.";
+        showToast(state.lastError);
         return false;
       }
       touchRoom(id);
@@ -3942,6 +3951,7 @@ export function useMessenger() {
   async function unlockAudioDevices() {
     if (!navigator.mediaDevices?.getUserMedia) {
       state.lastError = "Audio devices are not available in this browser.";
+      showToast(state.lastError);
       return false;
     }
 
@@ -3961,6 +3971,7 @@ export function useMessenger() {
         "Microphone permission is required to list audio devices",
         error,
       );
+      showToast(state.lastError);
       await refreshAudioDevices();
       return false;
     } finally {
@@ -4266,6 +4277,7 @@ export function useMessenger() {
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       state.lastError = "Audio devices are not available in this browser.";
+      showToast(state.lastError);
       return;
     }
 
@@ -4314,6 +4326,7 @@ export function useMessenger() {
     } catch {
       state.audioDevicesPermission = "denied";
       state.lastError = "Microphone permission is required to test audio.";
+      showToast(state.lastError);
       stopMicTest();
     } finally {
       state.micTestLoading = false;
@@ -4570,6 +4583,7 @@ export function useMessenger() {
     const validation = validateRoomId(id);
     if (validation) {
       state.lastError = validation;
+      showToast(validation);
       return;
     }
     if (!state.identified) return;
@@ -4787,6 +4801,7 @@ export function useMessenger() {
     const username = sanitizeUsername(state.username);
     if (!state.authToken || !username) {
       state.lastError = t("lock.loginRequired");
+      showToast(state.lastError);
       return;
     }
     state.lastError = "";
@@ -4796,6 +4811,7 @@ export function useMessenger() {
       state.ws = new WebSocket(inferWebSocketUrl());
     } catch (error) {
       state.lastError = `Connection failed: ${error.message}`;
+      showToast(state.lastError);
       state.ws = null;
       scheduleReconnect();
       return;
@@ -4826,6 +4842,7 @@ export function useMessenger() {
       } catch {
         const raw = typeof data === "string" ? data.trim() : "";
         state.lastError = raw || "Malformed payload.";
+        showToast(state.lastError);
       }
     });
     state.ws.addEventListener("close", () => {
@@ -4835,6 +4852,7 @@ export function useMessenger() {
     });
     state.ws.addEventListener("error", () => {
       state.lastError = "WebSocket error.";
+      showToast(state.lastError);
     });
   }
 
@@ -4921,6 +4939,7 @@ export function useMessenger() {
         });
     } else {
       state.lastError = "Not joined to this room yet.";
+      showToast(state.lastError);
     }
   }
 
@@ -4929,10 +4948,12 @@ export function useMessenger() {
     if (!file || !roomId) return;
     if (!state.connected || !state.identified) {
       state.lastError = "Not connected.";
+      showToast(state.lastError);
       return;
     }
     if (!state.joinedRooms.includes(roomId)) {
       state.lastError = "Not joined to this room yet.";
+      showToast(state.lastError);
       return;
     }
     const type = String(file.type || "").toLowerCase();
@@ -4993,6 +5014,7 @@ export function useMessenger() {
       persist();
     } catch (err) {
       state.lastError = `Upload failed: ${err.message || err}`;
+      showToast(state.lastError);
     }
   }
 
@@ -5004,6 +5026,7 @@ export function useMessenger() {
     const roomId = state.activeRoom;
     if (!roomId || !state.joinedRooms.includes(roomId)) {
       state.lastError = "Join a room first.";
+      showToast(state.lastError);
       return;
     }
     try {
@@ -5024,6 +5047,7 @@ export function useMessenger() {
       };
       recorder.onerror = () => {
         state.lastError = "Recording error.";
+        showToast(state.lastError);
       };
       recorder.start(100);
 
@@ -5076,6 +5100,7 @@ export function useMessenger() {
       tickRecording();
     } catch (err) {
       state.lastError = "Mic access denied.";
+      showToast(state.lastError);
     }
   }
 
@@ -5394,6 +5419,7 @@ export function useMessenger() {
     const roomId = state.activeRoom;
     if (!roomId || !state.joinedRooms.includes(roomId)) {
       state.lastError = "Join a room first.";
+      showToast(state.lastError);
       return;
     }
     try {
@@ -5401,6 +5427,7 @@ export function useMessenger() {
       if (!webRtcSupported()) {
         stopStreamTracks(stream);
         state.lastError = relayCallsRequirementMessage();
+        showToast(state.lastError);
         return;
       }
       const outboundStream = setupCallAudioPipeline(stream);
@@ -5452,6 +5479,7 @@ export function useMessenger() {
       playJoinSound();
     } catch (error) {
       state.lastError = mediaErrorMessage("Mic access denied", error);
+      showToast(state.lastError);
       endCall();
     }
   }
@@ -5590,6 +5618,7 @@ export function useMessenger() {
       publishCallState(true);
     } catch {
       state.lastError = "Camera access denied.";
+      showToast(state.lastError);
     }
   }
 
@@ -5639,6 +5668,7 @@ export function useMessenger() {
       publishCallState(true);
     } catch {
       state.lastError = "Screen sharing was cancelled.";
+      showToast(state.lastError);
     }
   }
 
@@ -5909,6 +5939,7 @@ export function useMessenger() {
     const validation = validateUsername(clean);
     if (validation) {
       state.lastError = validation;
+      showToast(validation);
       return false;
     }
 
@@ -6172,6 +6203,7 @@ export function useMessenger() {
     const username = sanitizeUsername(state.username);
     if (!username) {
       state.lastError = "Missing username.";
+      showToast(state.lastError);
       return false;
     }
     state.authLoading = true;
@@ -6191,6 +6223,7 @@ export function useMessenger() {
       return true;
     } catch (error) {
       state.lastError = error?.message || "Session renewal failed.";
+      showToast(state.lastError);
       return false;
     } finally {
       state.authLoading = false;
@@ -6422,6 +6455,7 @@ export function useMessenger() {
       case 0:
         if (d?.error) {
           state.lastError = d.error;
+          showToast(d.error);
           if (/account deleted/i.test(String(d.error))) {
             handleAccountDeleted();
           }
@@ -6433,6 +6467,7 @@ export function useMessenger() {
       case 2:
         if (d?.error) {
           state.lastError = d.error;
+          showToast(d.error);
           if (String(d.error) === "Invalid account session") {
             state.sessionExpired = true;
             persist();
@@ -6512,6 +6547,7 @@ export function useMessenger() {
           // Full broadcast frame ({messageId, text, username, timestamp, ...}).
           upsertMessage(d).catch(() => {
             state.lastError = "Could not process encrypted message.";
+            showToast(state.lastError);
           });
         }
         // else: {messageId, ok: true} sender-ack — ignored, we already got the broadcast.
@@ -6525,6 +6561,7 @@ export function useMessenger() {
       case 18:
         handleHistoryOp(d).catch(() => {
           state.lastError = "Could not decrypt room history.";
+          showToast(state.lastError);
         });
         break;
       case 20:
@@ -6540,6 +6577,7 @@ export function useMessenger() {
         state.lastError = d?.reason
           ? `Blacklisted: ${d.reason}`
           : "Blacklisted.";
+        showToast(state.lastError);
         disconnect();
         break;
       case 25:
@@ -6552,7 +6590,10 @@ export function useMessenger() {
         applyPresenceStatus(d);
         break;
       case 28:
-        if (d?.error) state.lastError = d.error;
+        if (d?.error) {
+          state.lastError = d.error;
+          showToast(d.error);
+        }
         break;
       case 29:
         if (d?.error) {
@@ -6564,6 +6605,7 @@ export function useMessenger() {
         if (d?.messageId && typeof d?.timestamp === "number") {
           upsertMessage(d).catch(() => {
             state.lastError = "Could not process edited message.";
+            showToast(state.lastError);
           });
         }
         break;
@@ -6575,6 +6617,7 @@ export function useMessenger() {
       case 32:
         if (d?.error) {
           state.lastError = d.error;
+          showToast(d.error);
         } else {
           applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
         }
@@ -6582,6 +6625,7 @@ export function useMessenger() {
       case 33:
         if (d?.error) {
           state.lastError = d.error;
+          showToast(d.error);
         } else {
           applyRoomSnapshot(d, d?.gameId);
         }
@@ -6701,6 +6745,7 @@ export function useMessenger() {
   function applyPublicProfileLookup(d) {
     if (d?.error) {
       state.lastError = d.error;
+      showToast(d.error);
       return;
     }
     const now = Date.now();
@@ -7165,6 +7210,7 @@ export function useMessenger() {
     const reader = new FileReader();
     reader.onerror = () => {
       state.lastError = "Couldn't read file.";
+      showToast(state.lastError);
     };
     reader.onload = (e) => {
       try {
@@ -7277,6 +7323,7 @@ export function useMessenger() {
         window.location.reload();
       } catch (err) {
         state.lastError = `Import failed: ${err.message}`;
+        showToast(state.lastError);
       }
     };
     reader.readAsText(file);

@@ -75,6 +75,7 @@ function hideSessionThemeSwitch() {
 async function submitSessionRenewal() {
   if (!renewCapToken.value) {
     messenger.state.lastError = "Please complete the CAPTCHA.";
+    messenger.showToast(messenger.state.lastError);
     return;
   }
   const ok = await messenger.renewSession(renewPassword.value, renewCapToken.value);
