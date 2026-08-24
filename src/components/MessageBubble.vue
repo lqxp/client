@@ -1911,6 +1911,14 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
+/* Voice messages: never surface the hover quick-actions bar — it would cover
+   the waveform/play controls. All actions stay available via the context menu. */
+:global(.msg:has(.voice-player) .bubble:hover > .bubble-actions),
+:global(.msg:has(.voice-player) .bubble-actions:hover) {
+  opacity: 0;
+  pointer-events: none;
+}
+
 :global(:root[data-message-style="discord"] .reactions) {
   position: static;
   width: fit-content;

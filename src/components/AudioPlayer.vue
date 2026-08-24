@@ -444,6 +444,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .voice-player {
+  /* Color tokens — default (incoming bubble / discord): accent-based */
+  --vp-play-bg: var(--accent, #3b82f6);
+  --vp-play-fg: #ffffff;
+  --vp-bar-idle: color-mix(in srgb, var(--accent, #3b82f6) 30%, transparent);
+  --vp-bar-played: var(--accent, #3b82f6);
+  --vp-bar-hover: color-mix(in srgb, var(--accent, #3b82f6) 65%, transparent);
+  --vp-speed-border: color-mix(in srgb, var(--accent, #3b82f6) 35%, transparent);
+  --vp-speed-bg: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
+  --vp-speed-hover: color-mix(in srgb, var(--accent, #3b82f6) 24%, transparent);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -453,6 +462,19 @@ onBeforeUnmount(() => {
   padding: 0 4px;
   user-select: none;
   box-sizing: border-box;
+}
+
+/* Own bubble (bubble style only): the bubble is accent-tinted, so the player
+   flips to translucent white so its controls stand out. */
+:global(:root:not([data-message-style="discord"]) .msg.is-own) .voice-player {
+  --vp-play-bg: rgba(255, 255, 255, 0.92);
+  --vp-play-fg: var(--accent, #3b82f6);
+  --vp-bar-idle: color-mix(in srgb, #ffffff 34%, transparent);
+  --vp-bar-played: #ffffff;
+  --vp-bar-hover: color-mix(in srgb, #ffffff 72%, transparent);
+  --vp-speed-border: color-mix(in srgb, #ffffff 38%, transparent);
+  --vp-speed-bg: color-mix(in srgb, #ffffff 14%, transparent);
+  --vp-speed-hover: color-mix(in srgb, #ffffff 28%, transparent);
 }
 
 .voice-player audio {
@@ -467,8 +489,8 @@ onBeforeUnmount(() => {
   padding: 0;
   margin: 0;
   border-radius: 10px;
-  background: var(--accent, #3b82f6);
-  color: #ffffff;
+  background: var(--vp-play-bg);
+  color: var(--vp-play-fg);
   border: none;
   outline: none;
   cursor: pointer;
@@ -544,7 +566,7 @@ onBeforeUnmount(() => {
   min-width: 2px;
   max-width: 3.5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, #3b82f6) 30%, transparent);
+  background: var(--vp-bar-idle);
   transition:
     height 220ms cubic-bezier(0.25, 1, 0.5, 1),
     background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
@@ -556,12 +578,12 @@ onBeforeUnmount(() => {
 
 /* Played State - Solid Vibrant Accent Color */
 .voice-player__bar.is-played {
-  background: var(--accent, #3b82f6);
+  background: var(--vp-bar-played);
 }
 
 /* Hover State - Slightly brighter and subtely scaled unplayed bars */
 .voice-player__bar.is-hovered:not(.is-played) {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 65%, transparent);
+  background: var(--vp-bar-hover);
   transform: scaleY(1.1);
 }
 
@@ -589,8 +611,8 @@ onBeforeUnmount(() => {
 .voice-player__speed {
   padding: 1px 6px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 35%, transparent);
-  background: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
+  border: 1px solid var(--vp-speed-border);
+  background: var(--vp-speed-bg);
   color: inherit;
   font-size: 10.5px;
   font-weight: 700;
@@ -603,7 +625,7 @@ onBeforeUnmount(() => {
 }
 
 .voice-player__speed:hover {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 24%, transparent);
+  background: var(--vp-speed-hover);
   transform: scale(1.08);
 }
 

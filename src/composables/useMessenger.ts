@@ -6075,10 +6075,17 @@ export function useMessenger() {
     if (!gameId) return;
     if (state.editingMessage?.messageId === message.messageId)
       cancelEditMessage();
-    // Optimistic local delete first, so messages forgotten by the server
-    // (no longer in server history) are still removed from the UI immediately.
-    applyDeletedMessageIds(gameId, [message.messageId]);
-    persist();
+    // Optimistic local delete: mark the message as deleted right away so the
+    // bubble shows the "Message Deleted" placeholder immediately, matching
+    // what the server history returns after a reload.
+    applyDeletion({ messageId: message.messageId, gameId });
+    const room = state.rooms.find((entry) => entry.roomId === gameId);
+    if (room) {
+      const latest = latestSidebarRoomMessage(state.messagesByRoom[gameId] || []);
+      room.lastPreview = messagePreviewLabel(latest) || "";
+      room.lastSender = latest?.username || "";
+      room.lastTimestamp = Number(latest?.timestamp || 0);
+    }
     if (state.connected && state.identified) {
       send({ op: 21, d: { messageId: message.messageId, gameId } });
     }
