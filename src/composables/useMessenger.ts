@@ -1978,6 +1978,9 @@ export function useMessenger() {
 
     adminLoading: false,
     adminOverview: null,
+    adminSearchResults: [],
+    adminSearchLoading: false,
+    adminSearchSearched: false,
   });
 
   // Sync call sounds flag from persisted state
@@ -3099,6 +3102,36 @@ export function useMessenger() {
       return null;
     } finally {
       state.adminLoading = false;
+    }
+  }
+
+  // Server-side admin username search: the server ranks the top matches
+  // (exact, prefix, then fuzzy) so the client never loads the whole user
+  // table — essential once there are hundreds of thousands of accounts.
+  async function searchAdminUsers(query) {
+    const needle = String(query || "").trim();
+    if (!state.admin || !needle) {
+      state.adminSearchResults = [];
+      state.adminSearchSearched = false;
+      state.adminSearchLoading = false;
+      return [];
+    }
+    state.adminSearchLoading = true;
+    try {
+      const data = await apiRequest(
+        `/api/admin/users/search?q=${encodeURIComponent(needle)}`,
+      );
+      state.adminSearchResults = Array.isArray(data?.users) ? data.users : [];
+      state.adminSearchSearched = true;
+      return state.adminSearchResults;
+    } catch (error) {
+      state.lastError = error?.message || "Admin user search failed.";
+      showToast(state.lastError);
+      state.adminSearchResults = [];
+      state.adminSearchSearched = true;
+      return [];
+    } finally {
+      state.adminSearchLoading = false;
     }
   }
 
@@ -7424,6 +7457,7 @@ export function useMessenger() {
     startOpsecDecoySetup,
     setOpsecRamOnlyEnabled,
     loadAdminOverview,
+    searchAdminUsers,
     setAdminFeature,
     setAdminUserDisabled,
     setAdminUserBanned,

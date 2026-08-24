@@ -187,11 +187,26 @@ const filteredSections = computed(() => {
   return sections.value.filter((section) => section.label.toLowerCase().includes(query));
 });
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
-const adminUsers = computed(() => props.messenger.state.adminOverview?.users || []);
-const filteredAdminUsers = computed(() => {
-  const query = adminUserSearch.value.trim().toLowerCase();
-  if (!query) return [];
-  return adminUsers.value.filter((user: any) => String(user?.username || "").toLowerCase().includes(query));
+const adminSearchResults = computed(() => props.messenger.state.adminSearchResults || []);
+const adminSearchLoading = computed(() => Boolean(props.messenger.state.adminSearchLoading));
+const adminSearchSearched = computed(() => Boolean(props.messenger.state.adminSearchSearched));
+
+// Debounced server-side search: the client never holds the full user list,
+// each keystroke batch sends one request and the server returns the top 30
+// most similar usernames.
+let adminSearchTimer: number | null = null;
+watch(adminUserSearch, (value) => {
+  if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
+  const needle = String(value || "").trim();
+  if (!needle) {
+    props.messenger.state.adminSearchResults = [];
+    props.messenger.state.adminSearchSearched = false;
+    props.messenger.state.adminSearchLoading = false;
+    return;
+  }
+  adminSearchTimer = window.setTimeout(() => {
+    props.messenger.searchAdminUsers(needle);
+  }, 300);
 });
 
 const systemBadgeIds = new Set(["staff", "system"]);
@@ -593,6 +608,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
   document.removeEventListener("keydown", onKey);
   stopCameraPreview();
+  if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
 });
 </script>
 
@@ -1524,7 +1540,7 @@ onBeforeUnmount(() => {
             </div>
             <div>
               <dt>{{ t('settings.admin.users') }}</dt>
-              <dd>{{ messenger.state.adminOverview.users?.length || 0 }}</dd>
+              <dd>{{ messenger.state.adminOverview.totalUsers ?? 0 }}</dd>
             </div>
             <div>
               <dt>{{ t('settings.admin.rooms') }}</dt>
@@ -1549,14 +1565,15 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
-        <div class="settings-group" v-if="messenger.state.adminOverview?.users?.length">
+        <div class="settings-group" v-if="messenger.state.adminOverview">
           <h4>{{ t('settings.admin.users') }}</h4>
           <input v-model="adminUserSearch" class="settings-input admin-user-search" type="search" autocomplete="off"
             spellcheck="false" :placeholder="t('settings.admin.searchUsers')" />
           <p v-if="!adminUserSearch.trim()" class="settings-note">{{ t('settings.admin.searchUsersNote') }}</p>
-          <p v-else-if="!filteredAdminUsers.length" class="settings-note">{{ t('settings.admin.noUsersFound') }}</p>
-          <div v-if="filteredAdminUsers.length" class="admin-list">
-            <div v-for="user in filteredAdminUsers" :key="user.id" class="admin-row admin-row--user">
+          <p v-else-if="adminSearchLoading" class="settings-note">{{ t('settings.admin.loading') }}</p>
+          <p v-else-if="adminSearchSearched && !adminSearchResults.length" class="settings-note">{{ t('settings.admin.noUsersFound') }}</p>
+          <div v-if="adminSearchResults.length" class="admin-list">
+            <div v-for="user in adminSearchResults" :key="user.id" class="admin-row admin-row--user">
               <div class="admin-row__identity">
                 <strong>{{ user.username }}</strong>
                 <small>
