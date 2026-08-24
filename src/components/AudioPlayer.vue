@@ -444,15 +444,17 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .voice-player {
-  /* Color tokens — default (incoming bubble / discord): accent-based */
+  /* Color tokens — default (incoming bubble / discord): accent-based.
+     Alpha is handled with opacity on the bars (no color-mix, which some
+     WebKitGTK builds do not support). */
   --vp-play-bg: var(--accent, #3b82f6);
   --vp-play-fg: #ffffff;
-  --vp-bar-idle: color-mix(in srgb, var(--accent, #3b82f6) 30%, transparent);
-  --vp-bar-played: var(--accent, #3b82f6);
-  --vp-bar-hover: color-mix(in srgb, var(--accent, #3b82f6) 65%, transparent);
-  --vp-speed-border: color-mix(in srgb, var(--accent, #3b82f6) 35%, transparent);
-  --vp-speed-bg: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
-  --vp-speed-hover: color-mix(in srgb, var(--accent, #3b82f6) 24%, transparent);
+  --vp-bar-color: var(--accent, #3b82f6);
+  --vp-bar-idle-opacity: 0.32;
+  --vp-bar-hover-opacity: 0.68;
+  --vp-speed-border: var(--accent, #3b82f6);
+  --vp-speed-bg: var(--accent, #3b82f6);
+  --vp-speed-hover-fg: #ffffff;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -465,16 +467,17 @@ onBeforeUnmount(() => {
 }
 
 /* Own bubble (bubble style only): the bubble is accent-tinted, so the player
-   flips to translucent white so its controls stand out. */
-:global(:root:not([data-message-style="discord"]) .msg.is-own) .voice-player {
+   flips to white so its controls stand out. The full selector lives inside
+   :global() — with `:global(A) B`, the scoped compiler drops the B part. */
+:global(:root:not([data-message-style="discord"]) .msg.is-own .voice-player) {
   --vp-play-bg: rgba(255, 255, 255, 0.92);
   --vp-play-fg: var(--accent, #3b82f6);
-  --vp-bar-idle: color-mix(in srgb, #ffffff 34%, transparent);
-  --vp-bar-played: #ffffff;
-  --vp-bar-hover: color-mix(in srgb, #ffffff 72%, transparent);
-  --vp-speed-border: color-mix(in srgb, #ffffff 38%, transparent);
-  --vp-speed-bg: color-mix(in srgb, #ffffff 14%, transparent);
-  --vp-speed-hover: color-mix(in srgb, #ffffff 28%, transparent);
+  --vp-bar-color: #ffffff;
+  --vp-bar-idle-opacity: 0.38;
+  --vp-bar-hover-opacity: 0.75;
+  --vp-speed-border: rgba(255, 255, 255, 0.5);
+  --vp-speed-bg: rgba(255, 255, 255, 0.92);
+  --vp-speed-hover-fg: var(--accent, #3b82f6);
 }
 
 .voice-player audio {
@@ -566,24 +569,25 @@ onBeforeUnmount(() => {
   min-width: 2px;
   max-width: 3.5px;
   border-radius: 999px;
-  background: var(--vp-bar-idle);
+  background: var(--vp-bar-color);
+  opacity: var(--vp-bar-idle-opacity);
   transition:
     height 220ms cubic-bezier(0.25, 1, 0.5, 1),
-    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 160ms cubic-bezier(0.25, 1, 0.5, 1),
     transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
   align-self: center;
   transform-origin: center bottom;
-  will-change: height, transform, background-color;
+  will-change: height, opacity, transform;
 }
 
 /* Played State - Solid Vibrant Accent Color */
 .voice-player__bar.is-played {
-  background: var(--vp-bar-played);
+  opacity: 1;
 }
 
 /* Hover State - Slightly brighter and subtely scaled unplayed bars */
 .voice-player__bar.is-hovered:not(.is-played) {
-  background: var(--vp-bar-hover);
+  opacity: var(--vp-bar-hover-opacity);
   transform: scaleY(1.1);
 }
 
@@ -612,7 +616,7 @@ onBeforeUnmount(() => {
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--vp-speed-border);
-  background: var(--vp-speed-bg);
+  background: transparent;
   color: inherit;
   font-size: 10.5px;
   font-weight: 700;
@@ -620,12 +624,15 @@ onBeforeUnmount(() => {
   transition:
     transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
     background-color 160ms ease,
-    border-color 160ms ease;
+    border-color 160ms ease,
+    color 160ms ease;
   will-change: transform;
 }
 
 .voice-player__speed:hover {
-  background: var(--vp-speed-hover);
+  background: var(--vp-speed-bg);
+  color: var(--vp-speed-hover-fg);
+  border-color: transparent;
   transform: scale(1.08);
 }
 
