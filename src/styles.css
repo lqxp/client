@@ -6886,15 +6886,13 @@ textarea {
 }
 
 .calltile.is-fullscreen .calltile__overlay {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 140ms ease;
+  opacity: 1;
+  transition: opacity 180ms ease;
 }
 
-.calltile.is-fullscreen:hover .calltile__overlay,
-.calltile.is-fullscreen:focus-within .calltile__overlay {
-  opacity: 1;
-  pointer-events: auto;
+.calltile.is-fullscreen.is-cursor-idle .calltile__overlay {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .calltile__tools button,

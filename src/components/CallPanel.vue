@@ -17,6 +17,7 @@ const mobileExpanded = ref(false);
 const mobileActiveIndex = ref(0);
 const memberMenu = ref({ open: false, x: 0, y: 0, username: "" });
 const shareSettingsOpen = ref(false);
+const cursorIdle = ref(false);
 const isTauri =
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
@@ -28,6 +29,29 @@ const showNativeTitlebar = isTauri && !isAndroidRuntime;
 let tickId = null;
 let panelWindow = null;
 let panelWindowSyncId = null;
+let idleTimer = null;
+
+// In fullscreen, hide the tile chrome after a short period of no real mouse
+// movement; bring it back as soon as the cursor actually moves again. This
+// avoids the aggressive `:hover` pop-in when the cursor merely rests over the
+// tile.
+function wakeCursor() {
+  cursorIdle.value = false;
+  if (idleTimer) clearTimeout(idleTimer);
+  if (fullscreenTileId.value) {
+    idleTimer = setTimeout(() => {
+      cursorIdle.value = true;
+    }, 2500);
+  }
+}
+
+function handleFullscreenChange(next) {
+  if (idleTimer) clearTimeout(idleTimer);
+  cursorIdle.value = false;
+  if (next) {
+    wakeCursor();
+  }
+}
 
 function syncMobile() {
   isMobile.value = window.matchMedia("(max-width: 760px)").matches;
@@ -105,18 +129,34 @@ onMounted(() => {
   window.addEventListener("click", closeShareSettings, { passive: true });
   window.addEventListener("contextmenu", closeMemberMenu, { passive: true });
   window.addEventListener("keydown", handleWindowKeydown);
+  window.addEventListener("mousemove", wakeCursor, { passive: true });
+  window.addEventListener("mousedown", wakeCursor, { passive: true });
+  window.addEventListener("wheel", wakeCursor, { passive: true });
+  window.addEventListener("touchstart", wakeCursor, { passive: true });
+  window.addEventListener("keydown", wakeCursor, { passive: true });
   tickId = setInterval(() => {
     now.value = Date.now();
   }, 500);
 });
+
+watch(fullscreenTileId, (next) => {
+  handleFullscreenChange(next);
+});
+
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobile);
   window.removeEventListener("click", closeMemberMenu);
   window.removeEventListener("click", closeShareSettings);
   window.removeEventListener("contextmenu", closeMemberMenu);
   window.removeEventListener("keydown", handleWindowKeydown);
+  window.removeEventListener("mousemove", wakeCursor);
+  window.removeEventListener("mousedown", wakeCursor);
+  window.removeEventListener("wheel", wakeCursor);
+  window.removeEventListener("touchstart", wakeCursor);
+  window.removeEventListener("keydown", wakeCursor);
   if (tickId) clearInterval(tickId);
   if (panelWindowSyncId) clearInterval(panelWindowSyncId);
+  if (idleTimer) clearTimeout(idleTimer);
 });
 
 const callRoom = computed(() => props.messenger.state.callRoom);
@@ -808,6 +848,7 @@ function toggleLocalMute(username) {
           'has-video': tile.video,
           'is-screen': tile.kind === 'screen',
           'is-fullscreen': fullscreenTileId === tile.id,
+          'is-cursor-idle': fullscreenTileId === tile.id && cursorIdle,
           'is-local-muted': isLocallyMuted(tile.username),
           'is-remote-muted': isRemotelyMuted(tile.username),
           'is-speaking': isSpeaking(tile.username),
