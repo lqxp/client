@@ -1605,10 +1605,11 @@ function toggleLocalMute(username) {
   border-radius: 8px 0 0 8px;
 }
 .screen-share__chevron {
+  width: 24px;
   border-radius: 0 8px 8px 0;
   border-left: 1px solid var(--line);
-  padding-left: 2px;
-  padding-right: 2px;
+  padding-left: 0;
+  padding-right: 0;
   color: var(--muted);
 }
 .screen-share__chevron:hover {
