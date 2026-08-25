@@ -797,6 +797,9 @@ function addPendingFiles(files: File[]) {
   }
 }
 
+// Exposed so the conversation view can feed files dropped anywhere over it.
+defineExpose({ addFiles: addPendingFiles });
+
 function removePendingFile(id: string) {
   const item = pendingFiles.value.find((f) => f.id === id);
   if (item) URL.revokeObjectURL(item.preview);

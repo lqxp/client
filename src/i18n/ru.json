@@ -179,7 +179,8 @@
         "editing": "Редактирование",
         "recording": "Запись…",
         "recordSend": "отправить",
-        "recordCancel": "отмена"
+        "recordCancel": "отмена",
+        "dropToSend": "Перетащите файлы, чтобы отправить"
     },
     "message": {
         "deleted": "Сообщение удалено",

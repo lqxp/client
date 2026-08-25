@@ -124,6 +124,39 @@ const isMobile = computed(() =>
   typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches
 );
 
+// Drag & drop files over the open conversation.
+const composerBarRef = ref<{ addFiles: (files: File[]) => void } | null>(null);
+const fileDragDepth = ref(0);
+const isFileDrag = computed(() => fileDragDepth.value > 0);
+
+function dragEventHasFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types || []).includes("Files");
+}
+
+function onThreadDragEnter(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+  fileDragDepth.value += 1;
+}
+
+function onThreadDragOver(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+}
+
+function onThreadDragLeave(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  fileDragDepth.value = Math.max(0, fileDragDepth.value - 1);
+}
+
+function onThreadDrop(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+  fileDragDepth.value = 0;
+  const files = Array.from(event.dataTransfer?.files || []);
+  if (files.length) composerBarRef.value?.addFiles(files);
+}
+
 // Swipe-to-members on mobile
 let touchStartX = 0;
 let touchStartY = 0;
@@ -763,7 +796,9 @@ async function lockClientNow() {
     </Teleport>
 
     <main v-if="hasActive" class="thread" :class="{ 'thread--members-open': showMobileMembers }"
-      @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd">
+      @touchstart="onThreadTouchStart" @touchend="onThreadTouchEnd"
+      @dragenter="onThreadDragEnter" @dragover="onThreadDragOver"
+      @dragleave="onThreadDragLeave" @drop="onThreadDrop">
       <div class="thread__shell">
         <section class="thread__main">
           <ThreadHeader :messenger="messenger" @back="showConversationList" />
@@ -776,11 +811,22 @@ async function lockClientNow() {
           </div>
           <CallPanel :messenger="messenger" />
           <MessageList :messenger="messenger" />
-          <ComposerBar :messenger="messenger" />
+          <ComposerBar ref="composerBarRef" :messenger="messenger" />
         </section>
 
         <MemberSidebar :messenger="messenger" v-if="!isMobile" />
       </div>
+
+      <Transition name="drop-fade">
+        <div v-if="isFileDrag" class="thread__drop-overlay" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>{{ t('composer.dropToSend') }}</span>
+        </div>
+      </Transition>
     </main>
 
     <div v-else class="no-thread">
@@ -812,6 +858,42 @@ async function lockClientNow() {
 .desktop-titlebar__logo {
   fill: rgb(243, 245, 248);
   flex: none;
+}
+
+.thread {
+  position: relative;
+}
+
+.thread__drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 700;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.thread__drop-overlay svg {
+  color: var(--accent);
+}
+
+.drop-fade-enter-active,
+.drop-fade-leave-active {
+  transition: opacity 120ms ease;
+}
+
+.drop-fade-enter-from,
+.drop-fade-leave-to {
+  opacity: 0;
 }
 </style>
 

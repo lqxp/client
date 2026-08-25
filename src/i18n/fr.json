@@ -154,7 +154,8 @@
         "editing": "Modification",
         "recording": "Enregistrement…",
         "recordSend": "envoyer",
-        "recordCancel": "annuler"
+        "recordCancel": "annuler",
+        "dropToSend": "Dépose tes fichiers pour envoyer"
     },
     "message": {
         "deleted": "Message supprimé",
