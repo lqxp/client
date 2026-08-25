@@ -6885,6 +6885,18 @@ textarea {
   top: calc(30px + 8px);
 }
 
+.calltile.is-fullscreen .calltile__overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.calltile.is-fullscreen:hover .calltile__overlay,
+.calltile.is-fullscreen:focus-within .calltile__overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .calltile__tools button,
 .callpanel__focus-close {
   display: grid;
