@@ -14,7 +14,7 @@ interface PeerState {
   signalChain: Promise<void>;
 }
 
-type LocalTrackRole = "audio" | "camera" | "screen";
+type LocalTrackRole = "audio" | "camera" | "screen" | "screenAudio";
 
 interface LocalTrackSlot {
   track: MediaStreamTrack;
@@ -178,6 +178,11 @@ export class WebRtcCallManager {
           : "camera";
       this.setLocalTrack(role, track, stream);
     }
+  }
+
+  addLocalScreenAudioTrack(track: MediaStreamTrack, stream: MediaStream) {
+    if (track.kind !== "audio") return;
+    this.setLocalTrack("screenAudio", track, stream);
   }
 
   removeLocalTracks(predicate: (track: MediaStreamTrack) => boolean) {

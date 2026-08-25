@@ -17,6 +17,11 @@ import {
   relayCallsRequirementMessage,
   webRtcSupported,
 } from "@/calls/WebRtcCallManager";
+import {
+  isTauriDesktopRuntime,
+  startSystemAudioCapture,
+  stopSystemAudioCapture,
+} from "@/calls/screenAudio";
 import { apiUrl, appRuntimeConfig, turnServerList, selectedTurnServerId as runtimeDefaultTurnServerId } from "@/config/runtime";
 import {
   canonicalDeviceSigningKey,
@@ -4000,6 +4005,40 @@ export function useMessenger() {
     };
   }
 
+  // Acquires a display-capture stream (video, plus a browser-provided audio
+  // track when the WebView exposes one). Returns null when the user cancels
+  // the picker. Native system audio is deliberately NOT started here — it is a
+  // separate, system-wide capture managed independently by `startSystemAudioCapture`.
+  async function acquireScreenShareStream() {
+    const wantsAudio = Boolean(state.shareScreenAudio);
+
+    const tryDisplay = (withAudio: boolean) =>
+      navigator.mediaDevices.getDisplayMedia({
+        video: screenShareVideoConstraints(),
+        audio: withAudio,
+      });
+
+    let stream: MediaStream | null = null;
+    if (wantsAudio) {
+      try {
+        stream = await tryDisplay(true);
+      } catch {
+        // Some WebViews reject the whole call when audio is requested. Retry
+        // video-only so sharing still works.
+        stream = await tryDisplay(false);
+      }
+    } else {
+      stream = await tryDisplay(false);
+    }
+
+    if (!stream) return null;
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) throw new Error("Screen share has no video track.");
+
+    return stream;
+  }
+
   function applyScreenShareConstraints() {
     const stream = state.screenStream;
     if (!stream || !state.callScreenEnabled) return;
@@ -5013,6 +5052,7 @@ export function useMessenger() {
         for (const t of state.screenStream.getTracks()) t.stop();
         state.screenStream = null;
       }
+      void stopSystemAudioCapture();
       const rawCallStream = state.callStream;
       const outboundStream = callOutboundStream;
       if (outboundStream && outboundStream !== rawCallStream) stopStreamTracks(outboundStream);
@@ -6121,9 +6161,11 @@ export function useMessenger() {
     if (!state.inCall || !callManager) return;
     if (state.callScreenEnabled) {
       callManager.removeLocalTrack("screen");
+      callManager.removeLocalTrack("screenAudio");
       stopStreamTracks(state.screenStream);
       state.screenStream = null;
       state.callScreenEnabled = false;
+      void stopSystemAudioCapture();
       publishCallState(true);
       playScreenOffSound();
       return;
@@ -6141,22 +6183,38 @@ export function useMessenger() {
         showToast(message);
         return;
       }
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: screenShareVideoConstraints(),
-        audio: state.shareScreenAudio,
-      });
+      const stream = await acquireScreenShareStream();
+      if (!stream) throw new Error("cancelled");
       stopStreamTracks(state.screenStream);
       state.screenStream = stream;
       state.callScreenEnabled = true;
       const [track] = stream.getVideoTracks();
       if (!track) throw new Error("Screen share has no video track.");
       callManager.setLocalTrack("screen", track, stream);
+      // Attach a browser-provided audio track if the WebView produced one.
+      for (const audioTrack of stream.getAudioTracks()) {
+        callManager.addLocalScreenAudioTrack(audioTrack, stream);
+      }
+      // Otherwise start the native system capture when the user opted in.
+      if (
+        stream.getAudioTracks().length === 0
+        && state.shareScreenAudio
+        && isTauriDesktopRuntime()
+      ) {
+        const nativeTrack = await startSystemAudioCapture();
+        if (nativeTrack && nativeTrack.readyState === "live") {
+          const nativeStream = new MediaStream([nativeTrack]);
+          callManager.addLocalScreenAudioTrack(nativeTrack, nativeStream);
+        }
+      }
       playScreenOnSound();
       track.onended = () => {
         callManager?.removeLocalTrack("screen");
+        callManager?.removeLocalTrack("screenAudio");
         state.callScreenEnabled = false;
         stopStreamTracks(stream);
         if (state.screenStream === stream) state.screenStream = null;
+        void stopSystemAudioCapture();
         publishCallState(true);
         playScreenOffSound();
       };
@@ -6175,14 +6233,21 @@ export function useMessenger() {
     }
     if (!navigator.mediaDevices?.getDisplayMedia) return;
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: screenShareVideoConstraints(),
-        audio: state.shareScreenAudio,
-      });
+      const stream = await acquireScreenShareStream();
+      if (!stream) return; // picker dismissed
       const [track] = stream.getVideoTracks();
       if (!track) throw new Error("Screen share has no video track.");
       const previousStream = state.screenStream;
       callManager.setLocalTrack("screen", track, stream);
+      // Replace the system-audio sender, or tear it down when the new source
+      // carries no audio track.
+      const nextAudioTrack = stream.getAudioTracks()[0];
+      const previousAudioTrack = previousStream?.getAudioTracks()[0];
+      if (nextAudioTrack) {
+        callManager.addLocalScreenAudioTrack(nextAudioTrack, stream);
+      } else if (previousAudioTrack) {
+        callManager.removeLocalTrack("screenAudio");
+      }
       state.screenStream = stream;
       if (previousStream && previousStream !== stream) {
         for (const previousTrack of previousStream.getVideoTracks()) {
@@ -6192,9 +6257,11 @@ export function useMessenger() {
       }
       track.onended = () => {
         callManager?.removeLocalTrack("screen");
+        callManager?.removeLocalTrack("screenAudio");
         state.callScreenEnabled = false;
         stopStreamTracks(stream);
         if (state.screenStream === stream) state.screenStream = null;
+        void stopSystemAudioCapture();
         publishCallState(true);
         playScreenOffSound();
       };
@@ -6233,6 +6300,7 @@ export function useMessenger() {
       for (const t of state.screenStream.getTracks()) t.stop();
       state.screenStream = null;
     }
+    void stopSystemAudioCapture();
     const rawCallStream = state.callStream;
     const outboundStream = callOutboundStream;
     const memoStream =
