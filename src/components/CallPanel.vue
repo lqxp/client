@@ -41,7 +41,7 @@ function wakeCursor() {
   if (fullscreenTileId.value) {
     idleTimer = setTimeout(() => {
       cursorIdle.value = true;
-    }, 2500);
+    }, 1200);
   }
 }
 
