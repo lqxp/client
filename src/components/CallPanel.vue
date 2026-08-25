@@ -457,6 +457,11 @@ function closeShareSettings() {
   shareSettingsOpen.value = false;
 }
 
+async function changeSourceAndClose() {
+  shareSettingsOpen.value = false;
+  await props.messenger.changeScreenShareSource();
+}
+
 function handleWindowKeydown(event) {
   if (event.key === "Escape") {
     closeMemberMenu();
@@ -627,76 +632,88 @@ function toggleLocalMute(username) {
             />
           </svg>
         </button>
-        <button
-          v-if="!isMobile"
-          class="icon-btn"
-          :class="{ 'icon-btn--active': messenger.state.callScreenEnabled }"
-          type="button"
-          :aria-label="
-            messenger.state.callScreenEnabled
-              ? t('call.stopScreen')
-              : t('call.shareScreen')
-          "
-          :title="screenShareTitle"
-          @click="messenger.toggleScreenShare"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="3" y="4" width="18" height="13" rx="2" />
-            <path d="M8 21h8" />
-            <path d="M12 17v4" />
-            <path d="m9 10 3-3 3 3" />
-            <path d="M12 7v7" />
-          </svg>
-        </button>
-        <button
-          v-if="isTauri && !isMobile && messenger.state.callScreenEnabled"
-          class="icon-btn"
-          type="button"
-          :aria-label="t('call.changeScreenSource')"
-          :title="t('call.changeScreenSource')"
-          @click="messenger.changeScreenShareSource"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16" />
-            <path d="M3 21v-5h5" />
-            <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8" />
-            <path d="M21 3v5h-5" />
-          </svg>
-        </button>
-        <div v-if="isTauri && !isMobile" class="share-settings">
+        <div v-if="!isMobile" class="screen-share">
           <button
-            class="share-settings__toggle"
+            class="icon-btn screen-share__main"
+            :class="{ 'icon-btn--active': messenger.state.callScreenEnabled }"
+            type="button"
+            :aria-label="
+              messenger.state.callScreenEnabled
+                ? t('call.stopScreen')
+                : t('call.shareScreen')
+            "
+            :title="screenShareTitle"
+            @click="messenger.toggleScreenShare"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="13" rx="2" />
+              <path d="M8 21h8" />
+              <path d="M12 17v4" />
+              <path d="m9 10 3-3 3 3" />
+              <path d="M12 7v7" />
+            </svg>
+          </button>
+          <button
+            v-if="messenger.state.callScreenEnabled"
+            class="icon-btn screen-share__chevron"
+            :class="{ 'icon-btn--active': shareSettingsOpen }"
             type="button"
             :aria-label="t('call.screenSettings')"
             :title="t('call.screenSettings')"
             @click.stop="shareSettingsOpen = !shareSettingsOpen"
           >
-            {{ messenger.state.screenShareFps }} FPS ·
-            {{ messenger.state.screenShareQuality }}
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              :class="{ 'screen-share__chevron-flip': shareSettingsOpen }"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </button>
+
           <div
             v-if="shareSettingsOpen"
-            class="share-settings__popover"
+            class="screen-share__menu"
             @click.stop
           >
+            <button
+              class="screen-share__source"
+              type="button"
+              @click="changeSourceAndClose"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16" />
+                <path d="M3 21v-5h5" />
+                <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8" />
+                <path d="M21 3v5h-5" />
+              </svg>
+              {{ t("call.changeScreenSource") }}
+            </button>
+            <div class="screen-share__divider"></div>
             <span class="share-settings__label">{{ t("call.screenFps") }}</span>
             <div class="share-settings__segmented">
               <button
@@ -709,9 +726,7 @@ function toggleLocalMute(username) {
                 {{ fps }}
               </button>
             </div>
-            <span class="share-settings__label">{{
-              t("call.screenQuality")
-            }}</span>
+            <span class="share-settings__label">{{ t("call.screenQuality") }}</span>
             <div class="share-settings__segmented">
               <button
                 v-for="quality in messenger.screenShareQualities"
@@ -1574,39 +1589,39 @@ function toggleLocalMute(username) {
   color: #fff;
 }
 
-.share-settings {
+.screen-share {
   position: relative;
   display: inline-flex;
   flex: none;
+  align-items: stretch;
 }
-.share-settings__toggle {
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--surface-2);
+.screen-share__main {
+  border-radius: 8px 0 0 8px;
+}
+.screen-share__chevron {
+  border-radius: 0 8px 8px 0;
+  border-left: 1px solid var(--line);
+  padding-left: 2px;
+  padding-right: 2px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
 }
-.share-settings__toggle:hover {
-  background: var(--surface-hover);
+.screen-share__chevron:hover {
   color: var(--text);
 }
-.share-settings__popover {
+.screen-share__chevron-flip {
+  transform: rotate(180deg);
+  transition: transform 140ms ease;
+}
+.screen-share__chevron svg {
+  transition: transform 140ms ease;
+}
+.screen-share__menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 72;
-  width: 228px;
-  padding: 12px;
+  width: 238px;
+  padding: 10px;
   border-radius: 10px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -1614,6 +1629,30 @@ function toggleLocalMute(username) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.screen-share__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.screen-share__source:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+.screen-share__divider {
+  height: 1px;
+  background: var(--line);
+  margin: 2px 0;
 }
 .share-settings__label {
   font-size: 11px;

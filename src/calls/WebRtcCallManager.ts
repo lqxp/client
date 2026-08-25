@@ -197,9 +197,12 @@ export class WebRtcCallManager {
     if (previous) this.localStream.removeTrack(previous.track);
 
     this.localTracks.set(role, { track, stream });
-    if (stream !== this.localStream && !this.localStream.getTracks().some((item) => item.id === track.id)) {
-      this.localStream.addTrack(track);
-    }
+    // The microphone track (role "audio") is the only track that belongs in
+    // `this.localStream` (the outbound mic stream, which is also gated by the
+    // mute/deafen logic). Screen/camera/system-audio tracks live in their own
+    // `stream` and are sent to peers independently — adding them here would
+    // make `callOutboundStream.getAudioTracks()` pick up system audio and the
+    // mic-mute gate would silence the shared screen sound for everyone.
 
     for (const peer of this.peers.values()) {
       const sender = peer.senders[role];
