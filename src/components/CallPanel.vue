@@ -635,7 +635,10 @@ function toggleLocalMute(username) {
         <div v-if="!isMobile" class="screen-share">
           <button
             class="icon-btn screen-share__main"
-            :class="{ 'icon-btn--active': messenger.state.callScreenEnabled }"
+            :class="{
+              'icon-btn--active': messenger.state.callScreenEnabled,
+              'screen-share__main--split': messenger.state.callScreenEnabled,
+            }"
             type="button"
             :aria-label="
               messenger.state.callScreenEnabled
@@ -1596,6 +1599,9 @@ function toggleLocalMute(username) {
   align-items: stretch;
 }
 .screen-share__main {
+  border-radius: 8px;
+}
+.screen-share__main--split {
   border-radius: 8px 0 0 8px;
 }
 .screen-share__chevron {
