@@ -740,6 +740,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     screenShareFps: SCREEN_SHARE_DEFAULT_FPS,
     screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
     autoArchiveUploads: false,
+    renameUploadsRandomly: false,
     streamerMode: false,
     typingIndicatorsEnabled: true,
     messageSoundEnabled: true,
@@ -1037,6 +1038,7 @@ function loadPersisted() {
         ? String(raw.screenShareQuality)
         : SCREEN_SHARE_DEFAULT_QUALITY,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
+      renameUploadsRandomly: Boolean(raw.renameUploadsRandomly),
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
       messageSoundEnabled:
@@ -1365,6 +1367,7 @@ function buildPersistedPayload(state) {
     screenShareFps: state.screenShareFps,
     screenShareQuality: state.screenShareQuality,
     autoArchiveUploads: state.autoArchiveUploads,
+    renameUploadsRandomly: state.renameUploadsRandomly,
     streamerMode: state.streamerMode,
     typingIndicatorsEnabled: state.typingIndicatorsEnabled,
     messageSoundEnabled: state.messageSoundEnabled,
@@ -1560,6 +1563,23 @@ function formatSize(bytes) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const RANDOM_UPLOAD_NAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+// Renames an uploaded file to an 8-char `a-z0-9` token, keeping the original
+// extension so the recipient's client can still infer the file type.
+function randomUploadFilename(originalName) {
+  const name = String(originalName || "file");
+  const dot = name.lastIndexOf(".");
+  const extension =
+    dot > 0 && dot < name.length - 1 ? name.slice(dot) : "";
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  let base = "";
+  for (const byte of bytes) {
+    base += RANDOM_UPLOAD_NAME_ALPHABET[byte % RANDOM_UPLOAD_NAME_ALPHABET.length];
+  }
+  return (base + extension).slice(0, 128);
 }
 
 function messagePreviewLabel(message) {
@@ -1923,6 +1943,7 @@ export function useMessenger() {
     screenShareFps: persisted.screenShareFps,
     screenShareQuality: persisted.screenShareQuality,
     autoArchiveUploads: persisted.autoArchiveUploads,
+    renameUploadsRandomly: persisted.renameUploadsRandomly,
     streamerMode: persisted.streamerMode,
     typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
     messageSoundEnabled: persisted.messageSoundEnabled,
@@ -2210,6 +2231,7 @@ export function useMessenger() {
     state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
     state.shareScreenAudio = normalized.shareScreenAudio;
     state.autoArchiveUploads = normalized.autoArchiveUploads;
+    state.renameUploadsRandomly = normalized.renameUploadsRandomly;
     state.streamerMode = normalized.streamerMode;
     state.typingIndicatorsEnabled = normalized.typingIndicatorsEnabled;
     state.messageSoundEnabled = normalized.messageSoundEnabled;
@@ -2844,6 +2866,7 @@ export function useMessenger() {
       serverClearsLocalMessages: state.serverClearsLocalMessages,
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       autoArchiveUploads: state.autoArchiveUploads,
+      renameUploadsRandomly: state.renameUploadsRandomly,
       autoReconnectEnabled: state.autoReconnectEnabled,
       reconnectMinDelayMs: state.reconnectMinDelayMs,
       reconnectMaxDelayMs: state.reconnectMaxDelayMs,
@@ -3715,6 +3738,11 @@ export function useMessenger() {
 
   function setAutoArchiveUploads(value) {
     state.autoArchiveUploads = Boolean(value);
+    persist();
+  }
+
+  function setRenameUploadsRandomly(value) {
+    state.renameUploadsRandomly = Boolean(value);
     persist();
   }
 
@@ -5004,13 +5032,16 @@ export function useMessenger() {
     try {
       const clientNonce = crypto.randomUUID();
       const uploadFile = file;
+      // Files added through the composer are already renamed (when the
+      // setting is on); voice memos and other direct sends keep their name.
+      const filename = String(uploadFile.name || "file").slice(0, 128);
       const previewUrl = URL.createObjectURL(uploadFile);
       const dataB64 = await blobToBase64(uploadFile, onProgress);
       const encrypted = await buildEncryptedOutgoingMessage(roomId, {
         clientNonce,
         text: caption ? String(caption).trim().slice(0, MESSAGE_LIMIT) : "",
         attachment: {
-          filename: String(uploadFile.name || "file").slice(0, 128),
+          filename,
           mimeType: uploadFile.type || "application/octet-stream",
           size: uploadFile.size,
           dataB64,
@@ -5030,7 +5061,7 @@ export function useMessenger() {
           attachment: {
             id: "",
             url: previewUrl,
-            filename: String(uploadFile.name || "file").slice(0, 128),
+            filename,
             mimeType: uploadFile.type || "application/octet-stream",
             size: uploadFile.size,
             dataB64: "",
@@ -7212,6 +7243,7 @@ export function useMessenger() {
       roomKeysByRoom: sanitizeRoomKeys(state.roomKeysByRoom),
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       autoArchiveUploads: state.autoArchiveUploads,
+      renameUploadsRandomly: state.renameUploadsRandomly,
       streamerMode: state.streamerMode,
       typingIndicatorsEnabled: state.typingIndicatorsEnabled,
       messageSoundEnabled: state.messageSoundEnabled,
@@ -7348,6 +7380,8 @@ export function useMessenger() {
           state.androidNotificationsEnabled = data.androidNotificationsEnabled;
         if (typeof data.autoArchiveUploads === "boolean")
           state.autoArchiveUploads = data.autoArchiveUploads;
+        if (typeof data.renameUploadsRandomly === "boolean")
+          state.renameUploadsRandomly = data.renameUploadsRandomly;
         if (typeof data.autoReconnectEnabled === "boolean")
           state.autoReconnectEnabled = data.autoReconnectEnabled;
         if (typeof data.serverClearsLocalMessages === "boolean")
@@ -7493,6 +7527,7 @@ export function useMessenger() {
     setAutoReconnectEnabled,
     setServerClearsLocalMessages,
     setAutoArchiveUploads,
+    setRenameUploadsRandomly,
     setReconnectDelays,
     requestNotificationPermission,
     notificationPermission,
@@ -7511,6 +7546,7 @@ export function useMessenger() {
     sendChat,
     setTyping,
     sendAttachment,
+    randomUploadFilename,
     startRecordingVoiceMemo,
     stopRecordingVoiceMemo,
     startCall,

@@ -786,12 +786,26 @@ function pickFile() {
   fileInputRef.value?.click();
 }
 
+function renameUploadFile(file: File): File {
+  try {
+    return new File([file], props.messenger.randomUploadFilename(file.name), {
+      type: file.type || "application/octet-stream",
+      lastModified: file.lastModified || Date.now(),
+    });
+  } catch {
+    return file;
+  }
+}
+
 function addPendingFiles(files: File[]) {
   for (const file of files) {
+    const finalFile = props.messenger.state.renameUploadsRandomly
+      ? renameUploadFile(file)
+      : file;
     pendingFiles.value.push({
       id: crypto.randomUUID(),
-      file,
-      preview: URL.createObjectURL(file),
+      file: finalFile,
+      preview: URL.createObjectURL(finalFile),
       progress: 0,
     });
   }

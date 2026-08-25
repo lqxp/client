@@ -431,7 +431,9 @@
             "serverClearsNote": "Activé par défaut. Quand c’est désactivé, la reconnexion conserve les messages du salon en cache sur Android/le navigateur même si l’historique serveur est vide après une actualisation du protocole.",
             "uploads": "Envois",
             "autoArchive": "Archiver automatiquement les fichiers en .zip à l’envoi",
-            "autoArchiveNote": "Désactivé par défaut. Quand c’est activé, les pièces jointes sont emballées dans un ZIP avant l’envoi. Limite d’envoi : 25 Mo."
+            "autoArchiveNote": "Désactivé par défaut. Quand c’est activé, les pièces jointes sont emballées dans un ZIP avant l’envoi. Limite d’envoi : 25 Mo.",
+            "renameUploads": "Renommer chaque fichier envoyé aléatoirement",
+            "renameUploadsNote": "Quand c’est activé, les fichiers envoyés sont renommés en un jeton aléatoire de 8 caractères a-z/0-9 (l’extension est conservée)."
         },
         "admin": {
             "title": "Admin",

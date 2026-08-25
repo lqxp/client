@@ -1498,6 +1498,15 @@ onBeforeUnmount(() => {
           <p class="settings-note">
             {{ t('settings.advanced.autoArchiveNote') }}
           </p>
+          <label class="settings-check">
+            <span>{{ t('settings.advanced.renameUploads') }}</span>
+            <input type="checkbox" :checked="messenger.state.renameUploadsRandomly"
+              @change="messenger.setRenameUploadsRandomly(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">
+            {{ t('settings.advanced.renameUploadsNote') }}
+          </p>
         </div>
 
         <div class="settings-group">

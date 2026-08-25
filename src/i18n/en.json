@@ -431,7 +431,9 @@
             "serverClearsNote": "Enabled by default. When disabled, reconnecting keeps Android/browser cached room messages even if the server history is empty after a protocol refresh.",
             "uploads": "Uploads",
             "autoArchive": "Automatically archive files in .zip when upload",
-            "autoArchiveNote": "Disabled by default. When enabled, uploaded attachments are wrapped in a ZIP file before sending. Upload limit: 25 MB."
+            "autoArchiveNote": "Disabled by default. When enabled, uploaded attachments are wrapped in a ZIP file before sending. Upload limit: 25 MB.",
+            "renameUploads": "Rename each uploaded file randomly",
+            "renameUploadsNote": "When enabled, uploaded files are renamed to a random 8-character a-z/0-9 token (the extension is kept)."
         },
         "admin": {
             "title": "Admin",

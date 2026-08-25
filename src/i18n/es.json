@@ -428,7 +428,9 @@
             "serverClearsNote": "Activado por defecto. Cuando está desactivado, la reconexión conserva los mensajes en caché aunque el historial del servidor esté vacío.",
             "uploads": "Envíos",
             "autoArchive": "Archivar automáticamente los archivos en .zip al enviar",
-            "autoArchiveNote": "Desactivado por defecto. Cuando está activado, los archivos adjuntos se comprimen en ZIP antes de enviar. Límite: 25 MB."
+            "autoArchiveNote": "Desactivado por defecto. Cuando está activado, los archivos adjuntos se comprimen en ZIP antes de enviar. Límite: 25 MB.",
+            "renameUploads": "Renombrar cada archivo enviado aleatoriamente",
+            "renameUploadsNote": "Cuando está activado, los archivos enviados se renombran a un token aleatorio de 8 caracteres a-z/0-9 (se conserva la extensión)."
         },
         "admin": {
             "title": "Admin",
