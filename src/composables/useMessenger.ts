@@ -741,6 +741,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
     autoArchiveUploads: false,
     renameUploadsRandomly: false,
+    stripImageExif: true,
     streamerMode: false,
     typingIndicatorsEnabled: true,
     messageSoundEnabled: true,
@@ -1039,6 +1040,7 @@ function loadPersisted() {
         : SCREEN_SHARE_DEFAULT_QUALITY,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       renameUploadsRandomly: Boolean(raw.renameUploadsRandomly),
+      stripImageExif: raw.stripImageExif !== false,
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
       messageSoundEnabled:
@@ -1368,6 +1370,7 @@ function buildPersistedPayload(state) {
     screenShareQuality: state.screenShareQuality,
     autoArchiveUploads: state.autoArchiveUploads,
     renameUploadsRandomly: state.renameUploadsRandomly,
+    stripImageExif: state.stripImageExif,
     streamerMode: state.streamerMode,
     typingIndicatorsEnabled: state.typingIndicatorsEnabled,
     messageSoundEnabled: state.messageSoundEnabled,
@@ -1580,6 +1583,133 @@ function randomUploadFilename(originalName) {
     base += RANDOM_UPLOAD_NAME_ALPHABET[byte % RANDOM_UPLOAD_NAME_ALPHABET.length];
   }
   return (base + extension).slice(0, 128);
+}
+
+// Losslessly removes the EXIF APP1 segment from a JPEG without re-encoding
+// (pixel data is untouched). Returns null when the input isn't a JPEG or has
+// no EXIF, so callers keep the original file untouched.
+function stripJpegExif(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  const parts = [bytes.slice(0, 2)]; // SOI (FF D8)
+  let found = false;
+  let offset = 2;
+
+  while (offset + 1 < bytes.length) {
+    if (bytes[offset] !== 0xff) return null;
+    const marker = bytes[offset + 1];
+
+    // SOS (start of scan): entropy-coded data runs until EOI — copy it as-is.
+    if (marker === 0xda) {
+      parts.push(bytes.slice(offset));
+      break;
+    }
+    // EOI (end of image).
+    if (marker === 0xd9) {
+      parts.push(bytes.slice(offset));
+      break;
+    }
+
+    if (offset + 3 >= bytes.length) return null;
+    const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
+    if (length < 2) return null;
+
+    // APP1 + "Exif" signature (skip only this segment).
+    const isExifApp1 =
+      marker === 0xe1 &&
+      length >= 8 &&
+      bytes[offset + 4] === 0x45 &&
+      bytes[offset + 5] === 0x78 &&
+      bytes[offset + 6] === 0x69 &&
+      bytes[offset + 7] === 0x66;
+
+    if (isExifApp1) {
+      found = true;
+    } else {
+      parts.push(bytes.slice(offset, offset + 2 + length));
+    }
+    offset += 2 + length;
+  }
+
+  if (!found) return null;
+
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const part of parts) {
+    out.set(part, pos);
+    pos += part.length;
+  }
+  return out;
+}
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+// Losslessly removes the `eXIf` ancillary chunk from a PNG (keeps every other
+// chunk, so the image is byte-identical except for the dropped metadata).
+// Returns null when the input isn't a PNG or has no `eXIf` chunk.
+function stripPngExif(bytes) {
+  if (bytes.length < 8) return null;
+  for (let i = 0; i < 8; i += 1) {
+    if (bytes[i] !== PNG_SIGNATURE[i]) return null;
+  }
+
+  const parts = [bytes.slice(0, 8)];
+  let found = false;
+  let offset = 8;
+
+  while (offset + 8 <= bytes.length) {
+    const length =
+      (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+    const type = String.fromCharCode(
+      bytes[offset + 4],
+      bytes[offset + 5],
+      bytes[offset + 6],
+      bytes[offset + 7],
+    );
+    const chunkTotal = 8 + length + 4; // length(4) + type(4) + data + crc(4)
+    if (chunkTotal < 12 || offset + chunkTotal > bytes.length) return null;
+
+    if (type === "eXIf") {
+      found = true;
+    } else {
+      parts.push(bytes.slice(offset, offset + chunkTotal));
+    }
+    offset += chunkTotal;
+  }
+
+  if (!found) return null;
+
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const part of parts) {
+    out.set(part, pos);
+    pos += part.length;
+  }
+  return out;
+}
+
+async function stripImageExif(file) {
+  if (!file) return file;
+  const type = String(file.type || "");
+  const isJpeg = /image\/jpe?g/i.test(type);
+  const isPng = /image\/png/i.test(type);
+  if (!isJpeg && !isPng) return file;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const stripped = isPng ? stripPngExif(bytes) : stripJpegExif(bytes);
+    if (!stripped) return file;
+    return new File([stripped], file.name, {
+      type: file.type || (isPng ? "image/png" : "image/jpeg"),
+      lastModified: file.lastModified || Date.now(),
+    });
+  } catch {
+    return file;
+  }
 }
 
 function messagePreviewLabel(message) {
@@ -1944,6 +2074,7 @@ export function useMessenger() {
     screenShareQuality: persisted.screenShareQuality,
     autoArchiveUploads: persisted.autoArchiveUploads,
     renameUploadsRandomly: persisted.renameUploadsRandomly,
+    stripImageExif: persisted.stripImageExif,
     streamerMode: persisted.streamerMode,
     typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
     messageSoundEnabled: persisted.messageSoundEnabled,
@@ -2232,6 +2363,7 @@ export function useMessenger() {
     state.shareScreenAudio = normalized.shareScreenAudio;
     state.autoArchiveUploads = normalized.autoArchiveUploads;
     state.renameUploadsRandomly = normalized.renameUploadsRandomly;
+    state.stripImageExif = normalized.stripImageExif;
     state.streamerMode = normalized.streamerMode;
     state.typingIndicatorsEnabled = normalized.typingIndicatorsEnabled;
     state.messageSoundEnabled = normalized.messageSoundEnabled;
@@ -2867,6 +2999,7 @@ export function useMessenger() {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       autoArchiveUploads: state.autoArchiveUploads,
       renameUploadsRandomly: state.renameUploadsRandomly,
+      stripImageExif: state.stripImageExif,
       autoReconnectEnabled: state.autoReconnectEnabled,
       reconnectMinDelayMs: state.reconnectMinDelayMs,
       reconnectMaxDelayMs: state.reconnectMaxDelayMs,
@@ -3743,6 +3876,11 @@ export function useMessenger() {
 
   function setRenameUploadsRandomly(value) {
     state.renameUploadsRandomly = Boolean(value);
+    persist();
+  }
+
+  function setStripImageExif(value) {
+    state.stripImageExif = Boolean(value);
     persist();
   }
 
@@ -5031,7 +5169,10 @@ export function useMessenger() {
 
     try {
       const clientNonce = crypto.randomUUID();
-      const uploadFile = file;
+      let uploadFile = file;
+      if (state.stripImageExif) {
+        uploadFile = await stripImageExif(file);
+      }
       // Files added through the composer are already renamed (when the
       // setting is on); voice memos and other direct sends keep their name.
       const filename = String(uploadFile.name || "file").slice(0, 128);
@@ -7244,6 +7385,7 @@ export function useMessenger() {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       autoArchiveUploads: state.autoArchiveUploads,
       renameUploadsRandomly: state.renameUploadsRandomly,
+      stripImageExif: state.stripImageExif,
       streamerMode: state.streamerMode,
       typingIndicatorsEnabled: state.typingIndicatorsEnabled,
       messageSoundEnabled: state.messageSoundEnabled,
@@ -7382,6 +7524,8 @@ export function useMessenger() {
           state.autoArchiveUploads = data.autoArchiveUploads;
         if (typeof data.renameUploadsRandomly === "boolean")
           state.renameUploadsRandomly = data.renameUploadsRandomly;
+        if (typeof data.stripImageExif === "boolean")
+          state.stripImageExif = data.stripImageExif;
         if (typeof data.autoReconnectEnabled === "boolean")
           state.autoReconnectEnabled = data.autoReconnectEnabled;
         if (typeof data.serverClearsLocalMessages === "boolean")
@@ -7528,6 +7672,7 @@ export function useMessenger() {
     setServerClearsLocalMessages,
     setAutoArchiveUploads,
     setRenameUploadsRandomly,
+    setStripImageExif,
     setReconnectDelays,
     requestNotificationPermission,
     notificationPermission,

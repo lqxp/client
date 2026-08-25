@@ -1507,6 +1507,15 @@ onBeforeUnmount(() => {
           <p class="settings-note">
             {{ t('settings.advanced.renameUploadsNote') }}
           </p>
+          <label class="settings-check">
+            <span>{{ t('settings.advanced.stripExif') }}</span>
+            <input type="checkbox" :checked="messenger.state.stripImageExif"
+              @change="messenger.setStripImageExif(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <p class="settings-note">
+            {{ t('settings.advanced.stripExifNote') }}
+          </p>
         </div>
 
         <div class="settings-group">

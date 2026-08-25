@@ -430,7 +430,9 @@
             "autoArchive": "Archivar automáticamente los archivos en .zip al enviar",
             "autoArchiveNote": "Desactivado por defecto. Cuando está activado, los archivos adjuntos se comprimen en ZIP antes de enviar. Límite: 25 MB.",
             "renameUploads": "Renombrar cada archivo enviado aleatoriamente",
-            "renameUploadsNote": "Cuando está activado, los archivos enviados se renombran a un token aleatorio de 8 caracteres a-z/0-9 (se conserva la extensión)."
+            "renameUploadsNote": "Cuando está activado, los archivos enviados se renombran a un token aleatorio de 8 caracteres a-z/0-9 (se conserva la extensión).",
+            "stripExif": "Eliminar metadatos EXIF de las imágenes",
+            "stripExifNote": "Cuando está activado, los metadatos (GPS, cámara, fechas) se eliminan localmente antes de enviar — EXIF JPEG y chunk eXIf PNG — sin recodificar la imagen."
         },
         "admin": {
             "title": "Admin",

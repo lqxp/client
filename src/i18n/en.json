@@ -433,7 +433,9 @@
             "autoArchive": "Automatically archive files in .zip when upload",
             "autoArchiveNote": "Disabled by default. When enabled, uploaded attachments are wrapped in a ZIP file before sending. Upload limit: 25 MB.",
             "renameUploads": "Rename each uploaded file randomly",
-            "renameUploadsNote": "When enabled, uploaded files are renamed to a random 8-character a-z/0-9 token (the extension is kept)."
+            "renameUploadsNote": "When enabled, uploaded files are renamed to a random 8-character a-z/0-9 token (the extension is kept).",
+            "stripExif": "Strip EXIF metadata from images",
+            "stripExifNote": "When enabled, image metadata (GPS, camera, timestamps) is removed locally before sending — JPEG EXIF and PNG eXIf chunks — without re-encoding the image."
         },
         "admin": {
             "title": "Admin",

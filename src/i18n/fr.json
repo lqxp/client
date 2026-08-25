@@ -433,7 +433,9 @@
             "autoArchive": "Archiver automatiquement les fichiers en .zip à l’envoi",
             "autoArchiveNote": "Désactivé par défaut. Quand c’est activé, les pièces jointes sont emballées dans un ZIP avant l’envoi. Limite d’envoi : 25 Mo.",
             "renameUploads": "Renommer chaque fichier envoyé aléatoirement",
-            "renameUploadsNote": "Quand c’est activé, les fichiers envoyés sont renommés en un jeton aléatoire de 8 caractères a-z/0-9 (l’extension est conservée)."
+            "renameUploadsNote": "Quand c’est activé, les fichiers envoyés sont renommés en un jeton aléatoire de 8 caractères a-z/0-9 (l’extension est conservée).",
+            "stripExif": "Supprimer les métadonnées EXIF des images",
+            "stripExifNote": "Quand c’est activé, les métadonnées (GPS, appareil, horodatage) sont supprimées localement avant l’envoi — EXIF JPEG et chunk eXIf PNG — sans ré-encoder l’image."
         },
         "admin": {
             "title": "Admin",
