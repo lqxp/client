@@ -1645,9 +1645,23 @@ function stripJpegExif(bytes) {
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
+// Returns the null-terminated keyword of a PNG textual chunk (tEXt/zTXt/iTXt)
+// as a lowercased ASCII string.
+function pngChunkKeyword(data) {
+  let end = data.indexOf(0);
+  if (end < 0) end = data.length;
+  let keyword = "";
+  for (let i = 0; i < end; i += 1) {
+    keyword += String.fromCharCode(data[i]);
+  }
+  return keyword.toLowerCase().trim();
+}
+
 // Losslessly removes the `eXIf` ancillary chunk from a PNG (keeps every other
 // chunk, so the image is byte-identical except for the dropped metadata).
-// Returns null when the input isn't a PNG or has no `eXIf` chunk.
+// Also removes textual chunks (`tEXt`/`zTXt`/`iTXt`) that carry an embedded
+// EXIF profile (the legacy "Raw profile type exif/app1" format). Returns null
+// when the input isn't a PNG or has no strip-able metadata.
 function stripPngExif(bytes) {
   if (bytes.length < 8) return null;
   for (let i = 0; i < 8; i += 1) {
@@ -1673,7 +1687,16 @@ function stripPngExif(bytes) {
     const chunkTotal = 8 + length + 4; // length(4) + type(4) + data + crc(4)
     if (chunkTotal < 12 || offset + chunkTotal > bytes.length) return null;
 
-    if (type === "eXIf") {
+    let strip = type === "eXIf";
+    if (!strip && (type === "tEXt" || type === "zTXt" || type === "iTXt")) {
+      const data = bytes.subarray(offset + 8, offset + 8 + length);
+      const keyword = pngChunkKeyword(data);
+      strip =
+        keyword === "raw profile type exif" ||
+        keyword === "raw profile type app1";
+    }
+
+    if (strip) {
       found = true;
     } else {
       parts.push(bytes.slice(offset, offset + chunkTotal));
@@ -1693,18 +1716,285 @@ function stripPngExif(bytes) {
   return out;
 }
 
+// ---- HEIC / HEIF (ISO-BMFF container) EXIF stripping ---------------------
+// HEIF stores EXIF as an "Exif" item referenced from the `meta` box (iinf +
+// iloc). Physically removing the item would require rewriting iloc/iinf/iref
+// offsets, so we zero the Exif item bytes in place: the file keeps its exact
+// size and stays structurally valid, only the metadata is gone.
+
+const HEIC_MAJOR_BRANDS = new Set([
+  "heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs",
+  "mif1", "msf1", "heif",
+]);
+
+function readU16(bytes, off) {
+  return (bytes[off] << 8) | bytes[off + 1];
+}
+
+function readU32(bytes, off) {
+  return ((bytes[off] << 24) | (bytes[off + 1] << 16) | (bytes[off + 2] << 8) | bytes[off + 3]) >>> 0;
+}
+
+function readUInt(bytes, off, size) {
+  let value = 0;
+  for (let i = 0; i < size; i += 1) {
+    value = value * 256 + bytes[off + i];
+  }
+  return value;
+}
+
+function fourcc(bytes, off) {
+  return String.fromCharCode(bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]);
+}
+
+function readIsoBox(bytes, off, limit) {
+  if (off + 8 > limit) return null;
+  let size = readU32(bytes, off);
+  let headerSize = 8;
+  if (size === 1) {
+    if (off + 16 > limit) return null;
+    const high = readU32(bytes, off + 8);
+    const low = readU32(bytes, off + 12);
+    size = high * 4294967296 + low;
+    headerSize = 16;
+  } else if (size === 0) {
+    size = limit - off;
+  }
+  if (size < headerSize || off + size > limit) return null;
+  return {
+    type: fourcc(bytes, off + 4),
+    headerSize,
+    contentStart: off + headerSize,
+    end: off + size,
+  };
+}
+
+function isHeicFile(bytes) {
+  if (bytes.length < 12) return false;
+  if (readU32(bytes, 0) < 12) return false;
+  if (fourcc(bytes, 4) !== "ftyp") return false;
+  return HEIC_MAJOR_BRANDS.has(fourcc(bytes, 8).toLowerCase());
+}
+
+function parseInfeItemType(bytes, infe) {
+  const start = infe.contentStart;
+  const end = infe.end;
+  if (start + 4 > end) return null;
+  const version = bytes[start];
+  let p = start + 4;
+  let id;
+  if (version === 2) {
+    if (p + 8 > end) return null;
+    id = readU16(bytes, p);
+    p += 2 + 2; // item_ID (16) + item_protection_index (16)
+  } else if (version === 3) {
+    if (p + 10 > end) return null;
+    id = readU32(bytes, p);
+    p += 4 + 2; // item_ID (32) + item_protection_index (16)
+  } else {
+    return null;
+  }
+  if (p + 4 > end) return null;
+  return { id, type: fourcc(bytes, p) };
+}
+
+function collectExifItemIds(bytes, iinf) {
+  const start = iinf.contentStart;
+  const end = iinf.end;
+  if (start + 4 > end) return null;
+  const version = bytes[start];
+  let p = start + 4;
+  let count;
+  if (version === 0) {
+    if (p + 2 > end) return null;
+    count = readU16(bytes, p);
+    p += 2;
+  } else {
+    if (p + 4 > end) return null;
+    count = readU32(bytes, p);
+    p += 4;
+  }
+  const ids = [];
+  for (let i = 0; i < count; i += 1) {
+    const infe = readIsoBox(bytes, p, end);
+    if (!infe) return null;
+    const item = parseInfeItemType(bytes, infe);
+    if (item && item.type === "Exif") ids.push(item.id);
+    p = infe.end;
+  }
+  return ids;
+}
+
+function collectExifRanges(bytes, iloc, exifIds, idatDataStart) {
+  const start = iloc.contentStart;
+  const end = iloc.end;
+  if (start + 4 > end) return null;
+  const version = bytes[start];
+  let p = start + 4;
+
+  if (p + 2 > end) return null;
+  const offsetSize = (bytes[p] >> 4) & 0xf;
+  const lengthSize = bytes[p] & 0xf;
+  p += 1;
+  const baseOffsetSize = (bytes[p] >> 4) & 0xf;
+  const indexSize = bytes[p] & 0xf;
+  p += 1;
+  if (version === 0) {
+    // 12-bit reserved after base_offset_size: 4 bits already read, 8 remain.
+    if (p + 1 > end) return null;
+    p += 1;
+  }
+
+  let itemCount;
+  if (version < 2) {
+    if (p + 2 > end) return null;
+    itemCount = readU16(bytes, p);
+    p += 2;
+  } else {
+    if (p + 4 > end) return null;
+    itemCount = readU32(bytes, p);
+    p += 4;
+  }
+
+  const ranges = [];
+  for (let i = 0; i < itemCount; i += 1) {
+    let itemId;
+    if (version < 2) {
+      if (p + 2 > end) return null;
+      itemId = readU16(bytes, p);
+      p += 2;
+    } else {
+      if (p + 4 > end) return null;
+      itemId = readU32(bytes, p);
+      p += 4;
+    }
+
+    let constructionMethod = 0;
+    if (version === 1 || version === 2) {
+      if (p + 2 > end) return null;
+      constructionMethod = readU16(bytes, p) & 0xf;
+      p += 2;
+    }
+
+    if (p + 2 > end) return null;
+    p += 2; // data_reference_index
+
+    let baseOffset = 0;
+    if (baseOffsetSize > 0) {
+      if (p + baseOffsetSize > end) return null;
+      baseOffset = readUInt(bytes, p, baseOffsetSize);
+      p += baseOffsetSize;
+    }
+
+    if (p + 2 > end) return null;
+    const extentCount = readU16(bytes, p);
+    p += 2;
+
+    const isExif = exifIds.includes(itemId);
+
+    for (let j = 0; j < extentCount; j += 1) {
+      if ((version === 1 || version === 2) && indexSize > 0) {
+        if (p + indexSize > end) return null;
+        p += indexSize;
+      }
+      let extentOffset = 0;
+      if (offsetSize > 0) {
+        if (p + offsetSize > end) return null;
+        extentOffset = readUInt(bytes, p, offsetSize);
+        p += offsetSize;
+      }
+      let extentLength = 0;
+      if (lengthSize > 0) {
+        if (p + lengthSize > end) return null;
+        extentLength = readUInt(bytes, p, lengthSize);
+        p += lengthSize;
+      }
+
+      if (!isExif || extentLength < 8) continue;
+
+      let absolute;
+      if (constructionMethod === 0) {
+        absolute = baseOffset + extentOffset;
+      } else if (constructionMethod === 1) {
+        if (idatDataStart < 0) continue;
+        absolute = idatDataStart + baseOffset + extentOffset;
+      } else {
+        continue; // item in a referenced file — never touch
+      }
+
+      // Only zero ranges that look like a TIFF/EXIF stream ("II" or "MM" byte
+      // order) — this guards against any parser misread corrupting image data.
+      if (absolute < 0 || absolute + 2 > bytes.length) continue;
+      const b0 = bytes[absolute];
+      const b1 = bytes[absolute + 1];
+      if (!((b0 === 0x49 && b1 === 0x49) || (b0 === 0x4d && b1 === 0x4d))) {
+        continue;
+      }
+      ranges.push([absolute, Math.min(absolute + extentLength, bytes.length)]);
+    }
+  }
+  return ranges;
+}
+
+function stripHeicExif(bytes) {
+  if (!isHeicFile(bytes)) return null;
+
+  let meta = null;
+  for (let off = 0; off + 8 <= bytes.length; ) {
+    const box = readIsoBox(bytes, off, bytes.length);
+    if (!box) break;
+    if (box.type === "meta") {
+      meta = box;
+      break;
+    }
+    off = box.end;
+  }
+  if (!meta || meta.contentStart + 4 > meta.end) return null;
+
+  const childrenStart = meta.contentStart + 4; // skip FullBox version/flags
+  let iinf = null;
+  let iloc = null;
+  let idatDataStart = -1;
+  for (let off = childrenStart; off + 8 <= meta.end; ) {
+    const box = readIsoBox(bytes, off, meta.end);
+    if (!box) break;
+    if (box.type === "iinf") iinf = box;
+    else if (box.type === "iloc") iloc = box;
+    else if (box.type === "idat") idatDataStart = box.contentStart;
+    off = box.end;
+  }
+  if (!iinf || !iloc) return null;
+
+  const exifIds = collectExifItemIds(bytes, iinf);
+  if (!exifIds || exifIds.length === 0) return null;
+
+  const ranges = collectExifRanges(bytes, iloc, exifIds, idatDataStart);
+  if (!ranges || ranges.length === 0) return null;
+
+  const out = new Uint8Array(bytes);
+  for (const [start, end] of ranges) {
+    for (let i = start; i < end; i += 1) out[i] = 0;
+  }
+  return out;
+}
+
 async function stripImageExif(file) {
   if (!file) return file;
   const type = String(file.type || "");
   const isJpeg = /image\/jpe?g/i.test(type);
   const isPng = /image\/png/i.test(type);
-  if (!isJpeg && !isPng) return file;
+  const isHeic = /image\/hei[cf]/i.test(type);
+  if (!isJpeg && !isPng && !isHeic) return file;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const stripped = isPng ? stripPngExif(bytes) : stripJpegExif(bytes);
+    const stripped = isPng
+      ? stripPngExif(bytes)
+      : isHeic
+        ? stripHeicExif(bytes)
+        : stripJpegExif(bytes);
     if (!stripped) return file;
     return new File([stripped], file.name, {
-      type: file.type || (isPng ? "image/png" : "image/jpeg"),
+      type: file.type || (isPng ? "image/png" : isHeic ? "image/heic" : "image/jpeg"),
       lastModified: file.lastModified || Date.now(),
     });
   } catch {
