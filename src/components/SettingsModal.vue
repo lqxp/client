@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { startTor, stopTor, onTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, getCircuit, isTauriDesktopRuntime as isTorRuntime, type CircuitPath } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import TorRelayMap from "@/components/TorRelayMap.vue";
 
@@ -90,10 +90,42 @@ function countryFlag(code: string): string {
   return String.fromCodePoint(...[...c].map((ch) => offset + ch.charCodeAt(0) - 65));
 }
 
+/**
+ * Returns the full human-readable country name for an ISO 3166-1 alpha-2 code,
+ * always in English (independent of the current UI locale, as requested). Uses
+ * the native `Intl.DisplayNames` API so there's no bundle-heavy lookup table.
+ */
+function countryNameEnglish(code: string | null | undefined): string {
+  const c = String(code || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return "";
+  try {
+    const dn = new Intl.DisplayNames(["en"], { type: "region" });
+    return dn.of(c) ?? "";
+  } catch {
+    return c;
+  }
+}
+
 // Tor relay directory.
 const relays = ref<TorRelay[]>([]);
 const relaysLoading = ref(false);
 const relaysError = ref("");
+
+// Live circuit (guard → middle → exit) shown like Tor Browser.
+const circuit = ref<CircuitPath | null>(null);
+const circuitLoading = ref(false);
+
+async function loadCircuit() {
+  if (!isTorRuntime()) return;
+  circuitLoading.value = true;
+  try {
+    circuit.value = await getCircuit();
+  } catch {
+    circuit.value = null;
+  } finally {
+    circuitLoading.value = false;
+  }
+}
 
 async function loadRelays() {
   relaysLoading.value = true;
@@ -126,8 +158,9 @@ watch(activeSection, (section) => {
 // When Tor finishes bootstrapping and becomes ready, load the relay directory
 // automatically (only if the user is currently viewing the tor section).
 watch(torReady, (ready) => {
-  if (ready && activeSection.value === "tor" && relays.value.length === 0 && !relaysLoading.value) {
-    loadRelays();
+  if (ready && activeSection.value === "tor") {
+    if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
+    loadCircuit();
   }
 });
 
@@ -1614,6 +1647,24 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
+          <div v-if="circuit?.hops?.length" class="settings-group">
+            <h4>{{ t('settings.tor.circuit') }}</h4>
+            <p class="settings-note">{{ t('settings.tor.circuitNote') }}</p>
+            <div class="tor-circuit">
+              <template v-for="(hop, i) in circuit.hops" :key="i">
+                <div class="tor-circuit__hop">
+                  <div class="tor-circuit__role">{{ t(`settings.tor.role.${hop.role}`) }}</div>
+                  <div class="tor-circuit__ident">
+                    <span v-if="hop.country" class="tor-circuit__flag" :title="countryNameEnglish(hop.country)">{{ countryFlag(hop.country) }}</span>
+                    <span v-if="hop.nickname && hop.nickname !== 'Unnamed'" class="tor-circuit__nick">{{ hop.nickname }}</span>
+                    <span class="tor-circuit__ip">{{ hop.ip || '—' }}</span>
+                  </div>
+                </div>
+                <div v-if="i < circuit.hops.length - 1" class="tor-circuit__arrow">→</div>
+              </template>
+            </div>
+          </div>
+
           <div class="settings-group">
             <h4>{{ t('settings.tor.relays') }}</h4>
             <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
@@ -2260,6 +2311,58 @@ onBeforeUnmount(() => {
   gap: 8px;
   max-height: 46vh;
   overflow-y: auto;
+}
+
+.tor-circuit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tor-circuit__hop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface, #2c2c2e) 70%, transparent);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
+  min-width: 0;
+}
+.tor-circuit__role {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent, #2090ea);
+}
+.tor-circuit__ip {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text, #f4f4f5);
+}
+.tor-circuit__ident {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tor-circuit__flag {
+  font-size: 14px;
+  line-height: 1;
+}
+.tor-circuit__nick {
+  font-size: 11px;
+  color: var(--muted, #8a8a90);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tor-circuit__arrow {
+  color: var(--muted, #8a8a90);
+  flex: none;
 }
 
 .tor-relay {

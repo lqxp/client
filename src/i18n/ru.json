@@ -457,6 +457,13 @@
             "stopped": "Tor остановлен.",
             "notRunning": "Запустите Tor, прежде чем загружать каталог релеев.",
             "bootstrapping": "Tor загружается…",
+            "circuit": "Текущая цепочка",
+            "circuitNote": "Маршрут вашего трафика через сеть Tor (guard → middle → exit).",
+            "role": {
+              "guard": "Guard",
+              "middle": "Middle",
+              "exit": "Exit"
+            },
             "error": "Ошибка Tor: {error}",
             "relays": "Каталог релеев",
             "relaysNote": "Актуальные релеи из официального каталога Tor Metrics, отсортированные по весу консенсуса.",

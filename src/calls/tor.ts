@@ -17,6 +17,20 @@ export interface TorStatus {
   error?: string;
 }
 
+export interface CircuitHop {
+  role: "guard" | "middle" | "exit";
+  ip: string | null;
+  nickname: string;
+  /** ISO 3166-1 alpha-2 country code, if known. */
+  country: string | null;
+  ed25519: string | null;
+  rsa: string | null;
+}
+
+export interface CircuitPath {
+  hops: CircuitHop[];
+}
+
 export function isTauriDesktopRuntime() {
   if (typeof window === "undefined") return false;
   const w = window as any;
@@ -64,4 +78,9 @@ export async function stopTor(): Promise<TorStatus> {
 /** Probes whether the local SOCKS5 port is actually accepting connections. */
 export async function isTorReady(): Promise<boolean> {
   return invoke<boolean>("plugin:tor|is_ready");
+}
+
+/** Returns the most recently established Tor circuit (guard → middle → exit). */
+export async function getCircuit(): Promise<CircuitPath | null> {
+  return invoke<CircuitPath | null>("plugin:tor|circuit");
 }
