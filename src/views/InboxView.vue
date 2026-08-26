@@ -6,7 +6,7 @@ import { useMessenger } from "@/composables/useMessenger";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
-import { startTor, stopTor, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -281,6 +281,25 @@ watch(
   },
   { immediate: true },
 );
+
+// Keep the persisted `torEnabled` flag in sync with the backend's real state,
+// so that toggling Tor from the tray (which drives the backend directly) also
+// persists — otherwise the next boot would not auto-restart a tray-enabled Tor,
+// or would restart one the user disabled from the tray.
+let unsubTorSync: (() => void) | null = null;
+function syncTorEnabledFromBackend() {
+  if (!isTorRuntime()) return;
+  unsubTorSync = onTorStatus((s) => {
+    if (s.phase === "ready" && !messenger.state.torEnabled) {
+      messenger.setTorEnabled(true);
+    } else if (s.phase === "idle" && messenger.state.torEnabled) {
+      messenger.setTorEnabled(false);
+    }
+  });
+}
+
+onMounted(syncTorEnabledFromBackend);
+onBeforeUnmount(() => unsubTorSync?.());
 
 watch(
   () => messenger.state.activeRoom,

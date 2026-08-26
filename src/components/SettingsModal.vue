@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { startTor, stopTor, onTorStatus, getCircuit, isTauriDesktopRuntime as isTorRuntime, type CircuitPath } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, getCircuit, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import TorRelayMap from "@/components/TorRelayMap.vue";
 
@@ -131,14 +131,8 @@ async function loadRelays() {
   relaysLoading.value = true;
   relaysError.value = "";
   try {
-    if (!torStatus.value?.running) {
-      relaysError.value = t('settings.tor.notRunning');
-      return;
-    }
-    if (torStatus.value.phase === "bootstrapping") {
-      relaysError.value = t('settings.tor.bootstrapping');
-      return;
-    }
+    // fetchTorRelays falls back to a direct Onionoo fetch when Tor isn't
+    // running, so the directory is always browseable.
     relays.value = await fetchTorRelays(100);
   } catch (err: any) {
     relaysError.value = err?.message || String(err);
@@ -150,7 +144,7 @@ async function loadRelays() {
 const torReady = computed(() => torStatus.value?.phase === "ready");
 
 watch(activeSection, (section) => {
-  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value && torReady.value) {
+  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value) {
     loadRelays();
   }
 });
@@ -723,11 +717,16 @@ onMounted(() => {
   window.addEventListener("resize", syncMobileSettings, { passive: true });
   document.addEventListener("keydown", onKey);
 
-  // Keep the Tor status in sync with the backend (bootstrap → ready | stopped).
+  // Keep the Tor status in sync with the backend (bootstrap → ready | stopped),
+  // and seed it immediately so a Tor that was already auto-started at boot is
+  // reflected without waiting for the next event.
   if (isTorRuntime()) {
     unsubTorStatus = onTorStatus((s) => {
       torStatus.value = s;
     });
+    fetchTorStatus().then((s) => {
+      torStatus.value = s;
+    }).catch(() => {});
   }
 });
 onBeforeUnmount(() => {
@@ -1665,44 +1664,45 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="settings-group">
-            <h4>{{ t('settings.tor.relays') }}</h4>
-            <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
-
-            <div class="tor-relay-actions">
-              <button type="button" class="btn settings-btn" :disabled="relaysLoading || !torReady"
-                @click="loadRelays">
-                {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
-              </button>
-            </div>
-
-            <p v-if="relaysError" class="settings-note" style="color: var(--red)">
-              {{ t('settings.tor.relaysError', { error: relaysError }) }}
-            </p>
-
-            <TorRelayMap v-if="relays.length" :relays="relays" />
-
-            <ul v-if="relays.length" class="tor-relay-list">
-              <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
-                <div class="tor-relay__head">
-                  <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
-                  <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
-                  <span class="tor-relay__flags">
-                    <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ flag }}</span>
-                  </span>
-                </div>
-                <div class="tor-relay__meta">
-                  <span class="tor-relay__address">{{ relay.address || '—' }}</span>
-                  <span v-if="relay.asName" class="tor-relay__as">{{ relay.asName }}</span>
-                </div>
-                <a class="tor-relay__link" :href="relayDetailUrl(relay.fingerprint)"
-                  target="_blank" rel="noopener noreferrer">
-                  {{ t('settings.tor.details') }}
-                </a>
-              </li>
-            </ul>
-          </div>
         </template>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.tor.relays') }}</h4>
+          <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
+
+          <div class="tor-relay-actions">
+            <button type="button" class="btn settings-btn" :disabled="relaysLoading"
+              @click="loadRelays">
+              {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
+            </button>
+          </div>
+
+          <p v-if="relaysError" class="settings-note" style="color: var(--red)">
+            {{ t('settings.tor.relaysError', { error: relaysError }) }}
+          </p>
+
+          <TorRelayMap v-if="relays.length" :relays="relays" />
+
+          <ul v-if="relays.length" class="tor-relay-list">
+            <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
+              <div class="tor-relay__head">
+                <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
+                <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
+                <span class="tor-relay__flags">
+                  <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ flag }}</span>
+                </span>
+              </div>
+              <div class="tor-relay__meta">
+                <span class="tor-relay__address">{{ relay.address || '—' }}</span>
+                <span v-if="relay.asName" class="tor-relay__as">{{ relay.asName }}</span>
+              </div>
+              <a class="tor-relay__link" :href="relayDetailUrl(relay.fingerprint)"
+                target="_blank" rel="noopener noreferrer">
+                {{ t('settings.tor.details') }}
+              </a>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'advanced'" class="settings-page">

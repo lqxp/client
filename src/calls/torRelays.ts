@@ -106,10 +106,11 @@ function isTauriRuntime(): boolean {
 /**
  * Loads currently-running relays.
  *
- * On the desktop Tauri build this goes through the Rust plugin
+ * On the desktop Tauri build this prefers the Rust plugin
  * (`plugin:tor|relays`), which tunnels the Onionoo request through the local
- * Tor SOCKS5 proxy (no DNS leak). On the web it falls back to a direct fetch of
- * the public Onionoo API.
+ * Tor SOCKS5 proxy (no DNS leak). If Tor isn't running it falls back to a
+ * direct fetch of the public Onionoo API, so the relay directory is still
+ * browseable regardless of Tor state.
  */
 export async function fetchTorRelays(
   limit = 100,
@@ -117,10 +118,21 @@ export async function fetchTorRelays(
 ): Promise<TorRelay[]> {
   if (isTauriRuntime()) {
     const { invoke } = await import("@tauri-apps/api/core");
-    const relays = await invoke<BackendRelay[]>("plugin:tor|relays", { limit });
-    return relays.map(normalizeBackendRelay).filter((r) => r.fingerprint);
+    try {
+      const relays = await invoke<BackendRelay[]>("plugin:tor|relays", { limit });
+      return relays.map(normalizeBackendRelay).filter((r) => r.fingerprint);
+    } catch {
+      // Tor not running (or relay fetch unavailable) → direct Onionoo fetch.
+    }
   }
 
+  return fetchTorRelaysDirect(limit, signal);
+}
+
+async function fetchTorRelaysDirect(
+  limit: number,
+  signal?: AbortSignal,
+): Promise<TorRelay[]> {
   const url = `${ONIONOO_DETAILS}?fields=fingerprint,nickname,or_addresses,country,country_name,as,as_name,flags,running,contact,consensus_weight_fraction&running=true&order=-consensus_weight&limit=${limit}`;
 
   const controller = new AbortController();
