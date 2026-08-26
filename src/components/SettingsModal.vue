@@ -2199,6 +2199,7 @@ onBeforeUnmount(() => {
 
 .tor-only-desktop__cta {
   margin-top: 8px;
+  text-decoration: none;
 }
 
 .tor-relay-actions {

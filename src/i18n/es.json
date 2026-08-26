@@ -232,6 +232,7 @@
             "privacy": "Privacidad",
             "notifications": "Notificaciones",
             "calls": "Llamadas",
+            "tor": "Conectividad Tor",
             "advanced": "Avanzado",
             "admin": "Admin",
             "backups": "Copias de seguridad",
@@ -419,6 +420,23 @@
                 "qxp-turn": "Relay propio en nuestra infraestructura — puede ser inestable según la carga. Sin IP expuesta, todo pasa por nuestro relay.",
                 "google-stun": "STUN público de Google — muy estable y rápido, pero ⚠️ tus IPs quedan expuestas (sin relay anónimo). Solo útil en red local o para pruebas."
             }
+        },
+        "tor": {
+            "title": "Conectividad Tor",
+            "enabled": "Conectar a través de Tor",
+            "enabledNote": "Enruta el tráfico de la aplicación a través de la red Tor. El primer arranque puede tardar varios segundos mientras Tor descarga su consenso.",
+            "port": "Puerto SOCKS5 de Tor",
+            "running": "Tor está en ejecución en el puerto {port}.",
+            "stopped": "Tor está detenido.",
+            "error": "Error de Tor: {error}",
+            "relays": "Directorio de relays",
+            "relaysNote": "Relays en vivo del directorio oficial de Tor Metrics, ordenados por peso de consenso.",
+            "refresh": "Actualizar relays",
+            "loading": "Cargando…",
+            "relaysError": "No se pudieron cargar los relays: {error}",
+            "details": "Detalles",
+            "desktopOnly": "El enrutamiento por Tor solo está disponible en la aplicación de escritorio de QxChat, que incorpora el cliente Tor y enruta tu tráfico localmente. En la versión web, tu conexión depende de tu navegador y no puede enrutarse a través de Tor.",
+            "downloadDesktop": "Descargar la aplicación de escritorio"
         },
         "advanced": {
             "connection": "Conexión",
