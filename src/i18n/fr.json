@@ -431,6 +431,7 @@
             "port": "Port SOCKS5 de Tor",
             "running": "Tor est en cours d’exécution sur le port {port}.",
             "stopped": "Tor est arrêté.",
+            "notRunning": "Démarrez Tor avant de charger l’annuaire des relais.",
             "error": "Erreur Tor : {error}",
             "relays": "Annuaire des relais",
             "relaysNote": "Relais en direct de l’annuaire officiel Tor Metrics, triés par poids de consensus.",

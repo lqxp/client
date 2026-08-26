@@ -428,6 +428,7 @@
             "port": "Puerto SOCKS5 de Tor",
             "running": "Tor está en ejecución en el puerto {port}.",
             "stopped": "Tor está detenido.",
+            "notRunning": "Inicia Tor antes de cargar el directorio de relays.",
             "error": "Error de Tor: {error}",
             "relays": "Directorio de relays",
             "relaysNote": "Relays en vivo del directorio oficial de Tor Metrics, ordenados por peso de consenso.",

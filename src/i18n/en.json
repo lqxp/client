@@ -431,6 +431,7 @@
             "port": "Tor SOCKS5 port",
             "running": "Tor is running on port {port}.",
             "stopped": "Tor is stopped.",
+            "notRunning": "Start Tor before loading the relay directory.",
             "error": "Tor error: {error}",
             "relays": "Relay directory",
             "relaysNote": "Live relays from the official Tor Metrics directory, sorted by consensus weight.",

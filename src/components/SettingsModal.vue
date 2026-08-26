@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { startTor, stopTor, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -54,6 +54,7 @@ const turnServerError = ref("");
 // Tor connectivity (desktop only).
 const torStatus = ref<Awaited<ReturnType<typeof startTor>> | null>(null);
 const torError = ref("");
+let unsubTorStatus: (() => void) | null = null;
 
 async function toggleTor(enabled: boolean) {
   torError.value = "";
@@ -68,6 +69,8 @@ async function toggleTor(enabled: boolean) {
       torStatus.value = await startTor(props.messenger.state.torPort);
     } else {
       torStatus.value = await stopTor();
+      relays.value = [];
+      relaysError.value = "";
     }
   } catch (err: any) {
     torError.value = err?.message || String(err);
@@ -95,6 +98,10 @@ async function loadRelays() {
   relaysLoading.value = true;
   relaysError.value = "";
   try {
+    if (!torStatus.value?.running) {
+      relaysError.value = t('settings.tor.notRunning');
+      return;
+    }
     relays.value = await fetchTorRelays(100);
   } catch (err: any) {
     relaysError.value = err?.message || String(err);
@@ -104,10 +111,21 @@ async function loadRelays() {
 }
 
 watch(activeSection, (section) => {
-  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value) {
+  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value && torStatus.value?.running) {
     loadRelays();
   }
 });
+
+// When Tor finishes bootstrapping and becomes ready, load the relay directory
+// automatically (only if the user is currently viewing the tor section).
+watch(
+  () => torStatus.value?.running,
+  (running) => {
+    if (running && activeSection.value === "tor" && relays.value.length === 0 && !relaysLoading.value) {
+      loadRelays();
+    }
+  },
+);
 
 function addCustomTurnServer() {
   turnServerError.value = "";
@@ -667,12 +685,20 @@ onMounted(() => {
   syncMobileSettings();
   window.addEventListener("resize", syncMobileSettings, { passive: true });
   document.addEventListener("keydown", onKey);
+
+  // Keep the Tor status in sync with the backend (bootstrap → ready | stopped).
+  if (isTorRuntime()) {
+    unsubTorStatus = onTorStatus((s) => {
+      torStatus.value = s;
+    });
+  }
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
   document.removeEventListener("keydown", onKey);
   stopCameraPreview();
   if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
+  unsubTorStatus?.();
 });
 </script>
 
@@ -1578,7 +1604,7 @@ onBeforeUnmount(() => {
             <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
 
             <div class="tor-relay-actions">
-              <button type="button" class="btn settings-btn" :disabled="relaysLoading"
+              <button type="button" class="btn settings-btn" :disabled="relaysLoading || !torStatus?.running"
                 @click="loadRelays">
                 {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
               </button>
