@@ -83,24 +83,21 @@ function countryNameEnglish(code: string | null | undefined): string {
 }
 
 /**
- * Masks the last two address blocks of an IP for the "You" circuit entry, so
- * the client's own address is never shown in readable form. The backend already
- * redacts the last octet/hextet, so this only makes it stronger. IPv4 keeps the
- * first two octets (e.g. "203.0.113.xxx" → "203.0.x.x"); IPv6 keeps the first
- * hextet and masks the rest.
+ * Masks an IP address down to only its first number/block for the "You" circuit
+ * entry, so the client's own address is effectively unreadable. IPv4 keeps only
+ * the first octet (e.g. "203.0.113.xxx" → "203.x.x.x"); IPv6 keeps only the
+ * first hextet group (e.g. "2606:x:x:x:x:x:x:x").
  */
-function maskIpTwoBlocks(ip: string | null | undefined): string {
+function maskIpFirstBlock(ip: string | null | undefined): string {
   const s = String(ip || "").trim();
   if (!s) return "";
   if (s.includes(":")) {
-    // IPv6 (already partially redacted). Keep up to the first hextet group.
     const first = s.split(":").find((p) => p.length > 0);
     return first ? `${first}:x:x:x:x:x:x:x` : "x:x:x:x:x:x:x:x";
   }
-  const parts = s.split(".").filter(Boolean);
-  if (parts.length <= 2) return s; // already short; leave as-is
-  const head = parts.slice(0, parts.length - 2);
-  return `${head.join(".")}.x.x`;
+  const firstOctet = s.split(".").find((p) => /^[0-9a-fA-FxX]+$/.test(p) && p !== "xxx");
+  const head = firstOctet || "x";
+  return `${head}.x.x.x`;
 }
 
 // Tor relay directory.
@@ -1728,7 +1725,7 @@ onBeforeUnmount(() => {
                 <div class="tor-circuit__role">{{ t('settings.tor.role.you') }}</div>
                 <div class="tor-circuit__ident">
                   <span v-if="geo.client.countryCode" class="tor-circuit__flag" :title="countryNameEnglish(geo.client.countryCode)">{{ countryFlag(geo.client.countryCode) }}</span>
-                  <span class="tor-circuit__ip">{{ maskIpTwoBlocks(geo.client.ip) || '—' }}</span>
+                  <span class="tor-circuit__ip">{{ maskIpFirstBlock(geo.client.ip) || '—' }}</span>
                 </div>
               </div>
               <div v-if="geo?.client" class="tor-circuit__arrow">→</div>

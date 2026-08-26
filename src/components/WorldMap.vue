@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// A real world map rendered from embedded country boundaries (world-atlas
-// TopoJSON → GeoJSON), so no network tiles are ever requested — the entire map
-// is bundled. Shows the live Tor circuit (guard → middle → exit) as markers
-// connected by a line.
 import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -20,13 +16,16 @@ export interface MapPoint {
 
 const props = defineProps<{
   points: MapPoint[];
-  /** Draw a line connecting the points in order (for the circuit path). */
   connect?: boolean;
 }>();
 
 const container = ref<HTMLElement | null>(null);
+
 let map: L.Map | null = null;
 let resizeObserver: ResizeObserver | null = null;
+
+let worldLayer: L.LayerGroup | null = null;
+let circuitLayer: L.LayerGroup | null = null;
 
 const ROLE_COLOR: Record<string, string> = {
   guard: "#2090ea",
@@ -34,13 +33,18 @@ const ROLE_COLOR: Record<string, string> = {
   exit: "#f43f5e",
 };
 
-/** Reads the app theme's accent + background colors from the CSS variables. */
-function themeColors(): { accent: string; bg: string; surface: string } {
+function themeColors(): {
+  accent: string;
+  bg: string;
+  surface: string;
+} {
   const style = getComputedStyle(document.documentElement);
+
   const read = (name: string, fallback: string) => {
-    const v = style.getPropertyValue(name).trim();
-    return v || fallback;
+    const value = style.getPropertyValue(name).trim();
+    return value || fallback;
   };
+
   return {
     accent: read("--accent", "#2090ea"),
     bg: read("--bg", "#1b1b1d"),
@@ -48,121 +52,276 @@ function themeColors(): { accent: string; bg: string; surface: string } {
   };
 }
 
-function render() {
+/**
+ * Initialise Leaflet ONCE.
+ *
+ * Important:
+ * - Canvas renderer avoids the SVG transform artifacts.
+ * - We don't destroy/recreate the map when the circuit changes.
+ */
+function initMap() {
   const el = container.value;
-  if (!el) return;
+  if (!el || map) return;
 
-  if (map) {
-    map.remove();
-    map = null;
-  }
-  // Défensif : évite tout pane/svg résiduel d'un rendu précédent
-  el.innerHTML = "";
+  const { accent, bg, surface } = themeColors();
+
+  el.style.background = bg;
 
   map = L.map(el, {
     zoomControl: false,
     attributionControl: false,
+
     minZoom: 1,
     maxZoom: 6,
+
     worldCopyJump: false,
-    maxBounds: [[-85, -200], [85, 200]],
-    // Désactive les animations : elles laissaient un "proxy" d'image
-    // mal positionné à l'écran (les bandes horizontales décalées).
+
+    maxBounds: [
+      [-85, -180],
+      [85, 180],
+    ],
+
+    maxBoundsViscosity: 1,
+
+    // Important: use Canvas globally.
+    preferCanvas: true,
+
+    // Avoid Leaflet transition/compositing artifacts.
     zoomAnimation: false,
     fadeAnimation: false,
     markerZoomAnimation: false,
   });
 
-  // Match the app theme: dark ocean, accent-colored borders.
-  const { accent, bg, surface } = themeColors();
-  el.style.background = bg;
+  worldLayer = L.layerGroup().addTo(map);
+  circuitLayer = L.layerGroup().addTo(map);
 
-  // Embedded country borders (no network). Use `land` as the filled base and
-  // `countries` mesh for the internal borders; this avoids the stray polygon
-  // seam lines that `feature(countries)` produces across the antimeridian/poles.
+  const renderer = L.canvas({
+    padding: 0.5,
+  });
+
   try {
     const topo = worldTopo as unknown as Topology;
     const objects = topo.objects as Record<string, any>;
 
+    /**
+     * Country fill.
+     */
     const land = feature(topo, objects.land);
+
     L.geoJSON(land as any, {
+      renderer,
+
       style: {
         color: "transparent",
         weight: 0,
         fillColor: surface,
         fillOpacity: 0.9,
       },
-    }).addTo(map);
+    }).addTo(worldLayer);
 
-    const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
+    /**
+     * Country borders.
+     *
+     * mesh() is kept here because it produces clean internal borders
+     * without the problematic polygon seams from feature(countries).
+     */
+    const borders = mesh(
+      topo,
+      objects.countries,
+      (a: any, b: any) => a !== b,
+    );
+
     L.geoJSON(borders as any, {
+      renderer,
+
       style: {
         color: accent,
         weight: 0.7,
+        opacity: 0.8,
         fill: false,
       },
-    }).addTo(map);
-  } catch {
+    }).addTo(worldLayer);
+  } catch (error) {
+    console.error("Failed to render world map:", error);
+
     el.style.background = surface;
   }
 
-  const lats = props.points.map((p) => p.lat);
-  const lngs = props.points.map((p) => p.lng);
+  map.setView([20, 0], 2, {
+    animate: false,
+  });
+}
 
-  if (props.points.length === 1) {
-    map.setView([props.points[0].lat, props.points[0].lng], 3, { animate: false });
-  } else if (props.points.length > 1) {
-    map.fitBounds(
-      [
-        [Math.min(...lats), Math.min(...lngs)],
-        [Math.max(...lats), Math.max(...lngs)],
-      ],
-      { padding: [40, 40], maxZoom: 5, animate: false },
-    );
-  } else {
-    map.setView([20, 0], 2, { animate: false });
+/**
+ * Update only the circuit.
+ *
+ * The actual Leaflet map and world geometry stay alive.
+ */
+function updateCircuit() {
+  if (!map || !circuitLayer) return;
+
+  circuitLayer.clearLayers();
+
+  const points = props.points;
+
+  if (points.length === 0) {
+    map.setView([20, 0], 2, {
+      animate: false,
+    });
+
     return;
   }
 
-  for (const p of props.points) {
-    const color = p.color || ROLE_COLOR[p.role || ""] || "#2090ea";
+  const { accent } = themeColors();
+
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+
+  /**
+   * Fit the map to the circuit.
+   *
+   * Do this AFTER Leaflet knows the container dimensions.
+   */
+  if (points.length === 1) {
+    map.setView([points[0].lat, points[0].lng], 3, {
+      animate: false,
+    });
+  } else {
+    const bounds = L.latLngBounds(
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)],
+    );
+
+    map.fitBounds(bounds, {
+      padding: [40, 40],
+      maxZoom: 5,
+      animate: false,
+    });
+  }
+
+  /**
+   * Circuit line.
+   */
+  if (props.connect && points.length > 1) {
+    L.polyline(
+      points.map(
+        (p) => [p.lat, p.lng] as [number, number],
+      ),
+      {
+        color: accent,
+        weight: 1.5,
+        dashArray: "4 3",
+        opacity: 0.6,
+        renderer: L.canvas(),
+      },
+    ).addTo(circuitLayer);
+  }
+
+  /**
+   * Circuit markers.
+   */
+  for (const point of points) {
+    const color =
+      point.color ||
+      ROLE_COLOR[point.role || ""] ||
+      accent;
+
     const icon = L.divIcon({
       className: "",
-      html: `<span style="width:12px;height:12px;border-radius:50%;background:${color};display:block;border:2px solid #fff;box-shadow:0 0 0 2px ${color}55;"></span>`,
+      html: `
+        <span
+          style="
+            width:12px;
+            height:12px;
+            border-radius:50%;
+            background:${color};
+            display:block;
+            border:2px solid #fff;
+            box-shadow:0 0 0 2px ${color}55;
+          "
+        ></span>
+      `,
       iconSize: [12, 12],
       iconAnchor: [6, 6],
     });
-    const marker = L.marker([p.lat, p.lng], { icon, title: p.label });
-    marker.addTo(map);
-    if (p.label) marker.bindTooltip(p.label, { direction: "top", offset: [0, -6] });
-  }
 
-  if (props.connect && props.points.length > 1) {
-    L.polyline(
-      props.points.map((p) => [p.lat, p.lng] as [number, number]),
-      { color: accent, weight: 1.5, dashArray: "4 3", opacity: 0.6 },
-    ).addTo(map);
+    const marker = L.marker(
+      [point.lat, point.lng],
+      {
+        icon,
+        title: point.label,
+      },
+    );
+
+    marker.addTo(circuitLayer);
+
+    if (point.label) {
+      marker.bindTooltip(point.label, {
+        direction: "top",
+        offset: [0, -6],
+      });
+    }
   }
 }
 
 onMounted(async () => {
-  // Attend que le conteneur ait sa taille finale avant d'initialiser Leaflet
   await nextTick();
-  render();
+
+  initMap();
+
+  /**
+   * Leaflet must receive the real container size before fitting bounds.
+   */
+  requestAnimationFrame(() => {
+    if (!map) return;
+
+    map.invalidateSize({
+      animate: false,
+      pan: false,
+    });
+
+    updateCircuit();
+  });
 
   if (container.value) {
     resizeObserver = new ResizeObserver(() => {
-      map?.invalidateSize({ animate: false });
+      if (!map) return;
+
+      requestAnimationFrame(() => {
+        map?.invalidateSize({
+          animate: false,
+          pan: false,
+        });
+      });
     });
+
     resizeObserver.observe(container.value);
   }
 });
 
-watch(() => props.points, () => render(), { deep: true });
+watch(
+  () => [props.points, props.connect],
+  () => {
+    if (!map) return;
+
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        updateCircuit();
+      });
+    });
+  },
+  {
+    deep: true,
+  },
+);
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+
+  worldLayer = null;
+  circuitLayer = null;
+
   if (map) {
     map.remove();
     map = null;
@@ -178,9 +337,17 @@ onBeforeUnmount(() => {
 .world-map {
   width: 100%;
   height: 260px;
+
   border-radius: 10px;
   overflow: hidden;
+
   background: var(--bg, #1b1b1d);
   border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
+
+  /*
+   * Prevent browsers from trying to do weird subpixel compositing
+   * on the Leaflet pane.
+   */
+  contain: layout paint;
 }
 </style>
