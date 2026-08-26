@@ -80,8 +80,8 @@ export async function stopTor(): Promise<TorStatus> {
  * proxy takes effect. This is the user-facing toggle; the boot-time auto-start
  * continues to use `startTor`/`stopTor` directly (no restart).
  */
-export async function toggleTor(enabled: boolean, port?: number): Promise<TorStatus> {
-  return invoke<TorStatus>("plugin:tor|toggle", { enabled, port });
+export async function toggleTor(enabled: boolean): Promise<TorStatus> {
+  return invoke<TorStatus>("plugin:tor|toggle", { enabled });
 }
 
 /** Probes whether the local SOCKS5 port is actually accepting connections. */

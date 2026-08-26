@@ -744,7 +744,6 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     shareScreenAudio: true,
     screenShareFps: SCREEN_SHARE_DEFAULT_FPS,
     screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
-    torPort: 9050,
     autoArchiveUploads: false,
     renameUploadsRandomly: false,
     stripImageExif: true,
@@ -1044,11 +1043,6 @@ function loadPersisted() {
       )
         ? String(raw.screenShareQuality)
         : SCREEN_SHARE_DEFAULT_QUALITY,
-      torPort: Number.isInteger(Number(raw.torPort)) &&
-        Number(raw.torPort) >= 1 &&
-        Number(raw.torPort) <= 65535
-        ? Number(raw.torPort)
-        : 9050,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       renameUploadsRandomly: Boolean(raw.renameUploadsRandomly),
       stripImageExif: raw.stripImageExif !== false,
@@ -1379,7 +1373,6 @@ function buildPersistedPayload(state) {
     shareScreenAudio: state.shareScreenAudio,
     screenShareFps: state.screenShareFps,
     screenShareQuality: state.screenShareQuality,
-    torPort: state.torPort,
     autoArchiveUploads: state.autoArchiveUploads,
     renameUploadsRandomly: state.renameUploadsRandomly,
     stripImageExif: state.stripImageExif,
@@ -2375,7 +2368,6 @@ export function useMessenger() {
     screenShareFps: persisted.screenShareFps,
     screenShareQuality: persisted.screenShareQuality,
     torEnabled: false,
-    torPort: persisted.torPort,
     autoArchiveUploads: persisted.autoArchiveUploads,
     renameUploadsRandomly: persisted.renameUploadsRandomly,
     stripImageExif: persisted.stripImageExif,
@@ -2665,7 +2657,6 @@ export function useMessenger() {
     state.microphoneThreshold = normalized.microphoneThreshold;
     state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
     state.shareScreenAudio = normalized.shareScreenAudio;
-    state.torPort = normalized.torPort;
     state.autoArchiveUploads = normalized.autoArchiveUploads;
     state.renameUploadsRandomly = normalized.renameUploadsRandomly;
     state.stripImageExif = normalized.stripImageExif;
@@ -3998,13 +3989,6 @@ export function useMessenger() {
     // marker is the single source of truth, and this is only a UI mirror. The
     // real on/off change happens via `toggleTor` → backend → app restart.
     state.torEnabled = Boolean(value);
-  }
-
-  function setTorPort(value) {
-    const port = Number(value);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) return;
-    state.torPort = port;
-    persist();
   }
 
   function setShareScreenAudio(value) {
@@ -8034,7 +8018,6 @@ export function useMessenger() {
     setDeleteMessagesOnLeave,
     setStreamerMode,
     setTorEnabled,
-    setTorPort,
     setShareScreenAudio,
     screenShareFpsOptions: SCREEN_SHARE_FPS_OPTIONS,
     screenShareQualities: SCREEN_SHARE_QUALITIES,

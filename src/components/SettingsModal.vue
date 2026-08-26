@@ -73,7 +73,7 @@ async function toggleTor(enabled: boolean) {
     // will re-seed state after relaunch.
     if (enabled) {
       try {
-        torStatus.value = await toggleTorBackend(true, props.messenger.state.torPort);
+        torStatus.value = await toggleTorBackend(true);
       } catch {
         // Restart may race the promise; ignore — the app is relaunching.
       }
@@ -89,10 +89,6 @@ async function toggleTor(enabled: boolean) {
   } catch (err: any) {
     torError.value = err?.message || String(err);
   }
-}
-
-function updateTorPort(port: number) {
-  props.messenger.setTorPort(port);
 }
 
 /** Converts an ISO 3166-1 alpha-2 code to a regional-indicator flag emoji. */
@@ -1689,15 +1685,6 @@ onBeforeUnmount(() => {
             </label>
             <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
             <p class="settings-note settings-note--warn">{{ t('settings.tor.restartNote') }}</p>
-
-            <div v-if="messenger.state.torEnabled">
-              <label class="settings-field">
-                <span class="settings-field__label">{{ t('settings.tor.port') }}</span>
-                <input class="settings-input" type="number" min="1" max="65535"
-                  :value="messenger.state.torPort"
-                  @change="updateTorPort(Number(($event.target as HTMLInputElement).value))" />
-              </label>
-            </div>
 
             <p v-if="torStatus" class="settings-note">
               <template v-if="torStatus.phase === 'bootstrapping'">
