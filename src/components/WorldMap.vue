@@ -33,6 +33,20 @@ const ROLE_COLOR: Record<string, string> = {
   exit: "#f43f5e",
 };
 
+/** Reads the app theme's accent + background colors from the CSS variables. */
+function themeColors(): { accent: string; bg: string; surface: string } {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => {
+    const v = style.getPropertyValue(name).trim();
+    return v || fallback;
+  };
+  return {
+    accent: read("--accent", "#2090ea"),
+    bg: read("--bg", "#1b1b1d"),
+    surface: read("--surface", "#2c2c2e"),
+  };
+}
+
 function render() {
   const el = container.value;
   if (!el) return;
@@ -50,6 +64,10 @@ function render() {
     worldCopyJump: true,
   });
 
+  // Match the app theme: dark ocean, accent-colored borders.
+  const { accent, bg, surface } = themeColors();
+  el.style.background = bg;
+
   // Embedded country borders (no network).
   try {
     const geo = feature(
@@ -58,15 +76,14 @@ function render() {
     );
     L.geoJSON(geo as any, {
       style: {
-        color: "#b7c0cc",
-        weight: 0.6,
-        fillColor: "#d9dfe6",
-        fillOpacity: 0.6,
+        color: accent,
+        weight: 0.7,
+        fillColor: surface,
+        fillOpacity: 0.9,
       },
     }).addTo(map);
   } catch {
-    // Fall back to a plain gray background if the geometry fails to load.
-    el.style.background = "#d9dfe6";
+    el.style.background = surface;
   }
 
   const lats = props.points.map((p) => p.lat);
@@ -103,7 +120,7 @@ function render() {
   if (props.connect && props.points.length > 1) {
     L.polyline(
       props.points.map((p) => [p.lat, p.lng] as [number, number]),
-      { color: "#607080", weight: 1.5, dashArray: "4 3" },
+      { color: accent, weight: 1.5, dashArray: "4 3", opacity: 0.6 },
     ).addTo(map);
   }
 }
@@ -128,7 +145,7 @@ onBeforeUnmount(() => {
   height: 260px;
   border-radius: 10px;
   overflow: hidden;
-  background: #d9dfe6;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg, #1b1b1d);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
 }
 </style>
