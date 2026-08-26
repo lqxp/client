@@ -426,6 +426,7 @@
             "enabled": "Conectar a través de Tor",
             "enabledNote": "Enruta el tráfico de la aplicación a través de la red Tor. El primer arranque puede tardar varios segundos mientras Tor descarga su consenso.",
             "restartNote": "Cambiar este ajuste reiniciará QxChat por completo.",
+            "externalNote": "Un Tor externo ya está usando el puerto. El tráfico se enruta por él, pero la vista del circuito en vivo no está disponible.",
             "port": "Puerto SOCKS5 de Tor",
             "running": "Tor está en ejecución en el puerto {port}.",
             "stopped": "Tor está detenido.",

@@ -13,6 +13,9 @@ export interface TorStatus {
   running: boolean;
   port: number;
   phase: "idle" | "bootstrapping" | "ready" | "error";
+  /** Where traffic actually routes: `embedded` (our Arti + circuit), `external`
+   * (a foreign Tor on the port — no circuit view), or `none`. */
+  mode: "embedded" | "external" | "none";
   /** Present only during the `error` phase. */
   error?: string;
 }

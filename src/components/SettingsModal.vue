@@ -203,11 +203,14 @@ async function loadRelays() {
   }
 }
 
-const torReady = computed(() => torStatus.value?.phase === "ready");
+/** Tor is ready AND it's our embedded client (circuit view available). */
+const torReady = computed(() => torStatus.value?.phase === "ready" && torStatus.value?.mode === "embedded");
+
+/** True when a foreign Tor is being reused (transport works, no circuit view). */
+const isExternalTor = computed(() => torStatus.value?.mode === "external");
 
 watch(activeSection, (section) => {
   if (section === "tor") {
-    if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
     if (torReady.value) {
       loadCircuit();
       loadGeo();
@@ -219,7 +222,6 @@ watch(activeSection, (section) => {
 // and the circuit automatically (only if the user is currently viewing tor).
 watch(torReady, (ready) => {
   if (ready && activeSection.value === "tor") {
-    if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
     loadCircuit();
     loadGeo();
   }
@@ -1677,14 +1679,13 @@ onBeforeUnmount(() => {
         <template v-else>
           <div class="settings-group">
             <h4>{{ t('settings.tor.title') }}</h4>
-            <label class="settings-check">
+            <label class="settings-check settings-check--readonly" :aria-disabled="true">
               <span>{{ t('settings.tor.enabled') }}</span>
-              <input type="checkbox" :checked="messenger.state.torEnabled"
-                @change="toggleTor(targetChecked($event))" />
+              <input type="checkbox" :checked="messenger.state.torEnabled" disabled />
               <span class="toggle__track"><span class="toggle__thumb"></span></span>
             </label>
             <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
-            <p class="settings-note settings-note--warn">{{ t('settings.tor.restartNote') }}</p>
+            <p class="settings-note settings-note--pro">{{ t('settings.tor.trayNote') }}</p>
 
             <p v-if="torStatus" class="settings-note">
               <template v-if="torStatus.phase === 'bootstrapping'">
@@ -1699,6 +1700,9 @@ onBeforeUnmount(() => {
               <template v-else>
                 {{ t('settings.tor.stopped') }}
               </template>
+            </p>
+            <p v-if="isExternalTor" class="settings-note settings-note--warn">
+              {{ t('settings.tor.externalNote') }}
             </p>
             <p v-if="torError && torStatus?.phase !== 'error'" class="settings-note" style="color: var(--red)">
               {{ t('settings.tor.error', { error: torError }) }}
