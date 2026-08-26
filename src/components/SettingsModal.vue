@@ -86,6 +86,26 @@ function countryNameEnglish(code: string | null | undefined): string {
 const relays = ref<TorRelay[]>([]);
 const relaysLoading = ref(false);
 const relaysError = ref("");
+const relaySearch = ref("");
+
+// Live-filter the relay directory by nickname, address, AS name/number, or
+// country (name or code).
+const filteredRelays = computed(() => {
+  const q = relaySearch.value.trim().toLowerCase();
+  if (!q) return relays.value;
+  return relays.value.filter((r) =>
+    [
+      r.nickname,
+      r.address,
+      r.asName,
+      r.asNumber,
+      r.countryName,
+      r.country,
+    ]
+      .map((s) => String(s || "").toLowerCase())
+      .some((s) => s.includes(q)),
+  );
+});
 
 // Live circuit (guard → middle → exit) shown like Tor Browser.
 const circuit = ref<CircuitPath | null>(null);
@@ -1703,19 +1723,29 @@ onBeforeUnmount(() => {
           <h4>{{ t('settings.tor.relays') }}</h4>
           <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
 
-          <div class="tor-relay-actions">
+          <div class="tor-relay-toolbar">
+            <input
+              v-model="relaySearch"
+              class="settings-input tor-relay-search"
+              type="search"
+              :placeholder="t('settings.tor.searchPlaceholder')"
+              :aria-label="t('settings.tor.searchPlaceholder')"
+            />
             <button type="button" class="btn settings-btn" :disabled="relaysLoading"
               @click="loadRelays">
               {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
             </button>
           </div>
+          <p v-if="relays.length" class="settings-note tor-relay-count">
+            {{ t('settings.tor.resultsCount', { shown: String(filteredRelays.length), total: String(relays.length) }) }}
+          </p>
 
           <p v-if="relaysError" class="settings-note" style="color: var(--red)">
             {{ t('settings.tor.relaysError', { error: relaysError }) }}
           </p>
 
-          <ul v-if="relays.length" class="tor-relay-list">
-            <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
+          <ul v-if="filteredRelays.length" class="tor-relay-list">
+            <li v-for="relay in filteredRelays" :key="relay.fingerprint" class="tor-relay">
               <div class="tor-relay__head">
                 <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
                 <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
@@ -1733,6 +1763,9 @@ onBeforeUnmount(() => {
               </a>
             </li>
           </ul>
+          <p v-else-if="!relaysLoading && relays.length" class="settings-note">
+            {{ t('settings.tor.noSearchResults') }}
+          </p>
         </div>
       </section>
 
@@ -2327,15 +2360,24 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.tor-relay-actions {
+.tor-relay-toolbar {
   display: flex;
   gap: 8px;
-  margin: 12px 0 4px;
+  margin: 16px 0 0;
+}
+
+.tor-relay-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.tor-relay-count {
+  margin-top: 8px;
 }
 
 .tor-relay-list {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
