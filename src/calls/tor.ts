@@ -13,6 +13,8 @@ export interface TorStatus {
   running: boolean;
   port: number;
   phase: "idle" | "bootstrapping" | "ready" | "error";
+  /** Present only during the `error` phase. */
+  error?: string;
 }
 
 export function isTauriDesktopRuntime() {
