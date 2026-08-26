@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { toggleTor as toggleTorBackend, onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo } from "@/calls/tor";
+import { onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -54,42 +54,9 @@ const newTurnCredential = ref("");
 const turnServerError = ref("");
 
 // Tor connectivity (desktop only).
-const torStatus = ref<Awaited<ReturnType<typeof toggleTorBackend>> | null>(null);
+const torStatus = ref<TorStatus | null>(null);
 const torError = ref("");
 let unsubTorStatus: (() => void) | null = null;
-
-async function toggleTor(enabled: boolean) {
-  torError.value = "";
-  props.messenger.setTorEnabled(enabled);
-
-  if (!isTorRuntime()) {
-    return;
-  }
-
-  try {
-    // Toggling Tor now restarts the app so the WebView proxy takes effect.
-    // The promise may not resolve before the process exits, so don't rely on
-    // the returned status for UI updates — the `tor:status` event / boot fetch
-    // will re-seed state after relaunch.
-    if (enabled) {
-      try {
-        torStatus.value = await toggleTorBackend(true);
-      } catch {
-        // Restart may race the promise; ignore — the app is relaunching.
-      }
-    } else {
-      relays.value = [];
-      relaysError.value = "";
-      try {
-        torStatus.value = await toggleTorBackend(false);
-      } catch {
-        // Restart may race the promise; ignore.
-      }
-    }
-  } catch (err: any) {
-    torError.value = err?.message || String(err);
-  }
-}
 
 /** Converts an ISO 3166-1 alpha-2 code to a regional-indicator flag emoji. */
 function countryFlag(code: string): string {

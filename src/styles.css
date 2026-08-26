@@ -4835,6 +4835,18 @@ textarea {
   line-height: 1.55;
 }
 
+.settings-note--warn {
+  color: var(--accent, #2090ea);
+}
+
+.settings-note--pro {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #2090ea) 10%, transparent);
+  border-left: 3px solid var(--accent, #2090ea);
+  color: var(--text);
+}
+
 .settings-check + .settings-note {
   margin-top: 4px;
 }
@@ -4851,6 +4863,12 @@ textarea {
   gap: 16px;
   min-height: 46px;
   color: var(--text);
+}
+
+.settings-check--readonly {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .settings-field__icon {
