@@ -7,7 +7,8 @@ import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
 import { startTor, stopTor, onTorStatus, getCircuit, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
-import TorRelayMap from "@/components/TorRelayMap.vue";
+import { countryCoord } from "@/calls/geo";
+import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -114,6 +115,27 @@ const relaysError = ref("");
 // Live circuit (guard → middle → exit) shown like Tor Browser.
 const circuit = ref<CircuitPath | null>(null);
 const circuitLoading = ref(false);
+
+// Circuit hops geolocated by country for the OSM map.
+const circuitPoints = computed<MapPoint[]>(() =>
+  (circuit.value?.hops ?? []).flatMap((hop) => {
+    const coord = countryCoord(hop.country);
+    if (!coord) return [];
+    const [lat, lng] = coord;
+    const parts = [
+      hop.nickname && hop.nickname !== "Unnamed" ? hop.nickname : hop.role,
+      hop.ip,
+    ].filter(Boolean);
+    return [
+      {
+        lat,
+        lng,
+        role: hop.role,
+        label: parts.join(" — "),
+      } satisfies MapPoint,
+    ];
+  }),
+);
 
 async function loadCircuit() {
   if (!isTorRuntime()) return;
@@ -1650,6 +1672,9 @@ onBeforeUnmount(() => {
           <div v-if="circuit?.hops?.length" class="settings-group">
             <h4>{{ t('settings.tor.circuit') }}</h4>
             <p class="settings-note">{{ t('settings.tor.circuitNote') }}</p>
+
+            <WorldMap v-if="circuitPoints.length" :points="circuitPoints" connect />
+
             <div class="tor-circuit">
               <template v-for="(hop, i) in circuit.hops" :key="i">
                 <div class="tor-circuit__hop">
@@ -1681,8 +1706,6 @@ onBeforeUnmount(() => {
           <p v-if="relaysError" class="settings-note" style="color: var(--red)">
             {{ t('settings.tor.relaysError', { error: relaysError }) }}
           </p>
-
-          <TorRelayMap v-if="relays.length" :relays="relays" />
 
           <ul v-if="relays.length" class="tor-relay-list">
             <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
