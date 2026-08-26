@@ -6,8 +6,8 @@
 import { onMounted, onBeforeUnmount, ref, watch } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { feature } from "topojson-client";
-import type { Topology, GeometryCollection } from "topojson-specification";
+import { feature, mesh } from "topojson-client";
+import type { Topology } from "topojson-specification";
 import worldTopo from "world-atlas/countries-110m.json";
 
 export interface MapPoint {
@@ -69,23 +69,29 @@ function render() {
   const { accent, bg, surface } = themeColors();
   el.style.background = bg;
 
-  // Embedded country borders (no network).
+  // Embedded country borders (no network). Use `land` as the filled base and
+  // `countries` mesh for the internal borders; this avoids the stray polygon
+  // seam lines that `feature(countries)` produces across the antimeridian/poles.
   try {
-    const geo = feature(
-      worldTopo as unknown as Topology,
-      (worldTopo as unknown as Topology).objects.countries as GeometryCollection,
-    ) as { type: string; features: Array<{ id?: string | number; properties?: Record<string, unknown> }> };
+    const topo = worldTopo as unknown as Topology;
+    const objects = topo.objects as Record<string, any>;
 
-    // Drop Antarctica (numeric code 010) so its pole-spanning geometry does not
-    // draw seam lines across the bottom of the Web-Mercator projection.
-    geo.features = geo.features.filter((f) => String(f.id) !== "010");
+    const land = feature(topo, objects.land);
+    L.geoJSON(land as any, {
+      style: {
+        color: "transparent",
+        weight: 0,
+        fillColor: surface,
+        fillOpacity: 0.9,
+      },
+    }).addTo(map);
 
-    L.geoJSON(geo as any, {
+    const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
+    L.geoJSON(borders as any, {
       style: {
         color: accent,
         weight: 0.7,
-        fillColor: surface,
-        fillOpacity: 0.9,
+        fill: false,
       },
     }).addTo(map);
   } catch {
