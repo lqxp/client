@@ -45,12 +45,24 @@ export function isTauriDesktopRuntime() {
 let statusListeners = new Set<(s: TorStatus) => void>();
 let unlisten: (() => void) | null = null;
 
+// Module-level mirror of whether Tor is currently routing traffic. The backend
+// is the source of truth; this is kept up to date by `onTorStatus` so it can be
+// read synchronously anywhere (e.g. to keep WebRTC calls disabled while Tor is
+// active, since P2P media would otherwise bypass the proxy and leak the IP).
+let torActive = false;
+
+/** Returns whether Tor is currently active (embedded or external). */
+export function isTorActive(): boolean {
+  return torActive;
+}
+
 /** Subscribes to live `tor:status` events; returns an unsubscribe function. */
 export function onTorStatus(cb: (s: TorStatus) => void): () => void {
   statusListeners.add(cb);
   if (!unlisten && isTauriDesktopRuntime()) {
     listen<TorStatus>("tor:status", (event) => {
       const s = event.payload;
+      torActive = Boolean(s.running);
       for (const l of statusListeners) l(s);
     })
       .then((fn) => {
@@ -63,9 +75,11 @@ export function onTorStatus(cb: (s: TorStatus) => void): () => void {
   return () => statusListeners.delete(cb);
 }
 
-/** Queries the current Tor status. */
+/** Queries the current Tor status (and refreshes the active flag). */
 export async function torStatus(): Promise<TorStatus> {
-  return invoke<TorStatus>("plugin:tor|status");
+  const s = await invoke<TorStatus>("plugin:tor|status");
+  torActive = Boolean(s.running);
+  return s;
 }
 
 /** Starts embedded Tor, optionally on a specific SOCKS5 port. */

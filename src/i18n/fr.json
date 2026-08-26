@@ -117,6 +117,7 @@
     "thread": {
         "back": "Retour aux conversations",
         "startCall": "Démarrer l’appel",
+        "callsTorDisabled": "Les appels sont désactivés tant que Tor est activé",
         "leaveRoom": "Quitter le salon",
         "copyToken": "Copier le token du salon",
         "shareToken": "Partager le token E2EE",

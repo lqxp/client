@@ -2,6 +2,7 @@ import { callPeerClientId, callPeerId, callPeerUsername } from "./callTypes";
 import type { CallMediaState, CallSignalPayload, RemoteCallMedia } from "./callTypes";
 import { rtcRuntimeConfig, turnServerById, turnServerList } from "@/config/runtime";
 import type { TurnServerConfig } from "@/config/runtime";
+import { isTorActive } from "./tor";
 
 interface PeerState {
   pc: RTCPeerConnection;
@@ -70,6 +71,10 @@ function resolveTurnServer(turnServerId?: string) {
 }
 
 export function relayCallsConfigured(turnServerId?: string, turnServer?: TurnServerConfig) {
+  // Never allow WebRTC calls while Tor is active: P2P media would otherwise
+  // bypass the SOCKS proxy (UDP/host candidates) and leak the client's real IP.
+  if (isTorActive()) return false;
+
   const server = turnServer || resolveTurnServer(turnServerId);
   if (!server || !Array.isArray(server.urls) || server.urls.length === 0) return false;
   // STUN-only servers don't need credentials.
@@ -80,6 +85,10 @@ export function relayCallsConfigured(turnServerId?: string, turnServer?: TurnSer
 }
 
 export function relayCallsRequirementMessage() {
+  if (isTorActive()) {
+    return "Calls are disabled while connected through Tor.";
+  }
+
   if (!webRtcSupported()) {
     return "Calls are not available in this runtime because WebRTC is not supported.";
   }

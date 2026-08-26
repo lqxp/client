@@ -35,6 +35,12 @@ const roomHasKey = computed(() => props.messenger.hasRoomKey(props.messenger.sta
 const securityLabel = computed(() => roomHasKey.value ? t("thread.e2eeReady") : t("thread.noRoomKeyYet"));
 const callsAvailable = computed(() => props.messenger.callsAvailable.value);
 const callsUnavailableReason = computed(() => props.messenger.callsUnavailableReason.value);
+const callsDisabledByTor = computed(() => Boolean(props.messenger.callsDisabledByTor?.value));
+const callsTooltip = computed(() => {
+  if (callsAvailable.value) return t('thread.startCall');
+  if (callsDisabledByTor.value) return t('thread.callsTorDisabled');
+  return callsUnavailableReason.value;
+});
 
 function startCall() {
   props.messenger.startCall();
@@ -110,7 +116,7 @@ async function removeHere() {
         class="icon-btn"
         type="button"
         :aria-label="t('thread.startCall')"
-        :title="callsAvailable ? t('thread.startCall') : callsUnavailableReason"
+        :title="callsTooltip"
         :disabled="!callsAvailable"
         @click="startCall"
       >

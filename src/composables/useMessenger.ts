@@ -2501,6 +2501,10 @@ export function useMessenger() {
   const callsUnavailableReason = computed(() =>
     callsAvailable.value ? "" : relayCallsRequirementMessage(),
   );
+  // Whether calls are currently blocked *specifically* because Tor is active.
+  // `state.torEnabled` mirrors the backend `running` flag (embedded or external),
+  // so this drives a localized tooltip on the call button.
+  const callsDisabledByTor = computed(() => Boolean(state.torEnabled));
   const screenShareUnavailableReason = computed(() => {
     if (isAndroidWebViewRuntime())
       return "Screen sharing is not supported by Android WebView.";
@@ -7933,6 +7937,7 @@ export function useMessenger() {
     connectionLabel,
     callsAvailable,
     callsUnavailableReason,
+    callsDisabledByTor,
     turnServers: computed(() => [
       ...turnServerList(),
       ...(state.customTurnServers || []),

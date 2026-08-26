@@ -117,6 +117,7 @@
     "thread": {
         "back": "Back to conversations",
         "startCall": "Start call",
+        "callsTorDisabled": "Calls are disabled while Tor is enabled",
         "leaveRoom": "Leave room",
         "copyToken": "Copy room token",
         "shareToken": "Share E2EE room token",
