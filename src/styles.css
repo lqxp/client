@@ -4869,6 +4869,8 @@ textarea {
 
 .settings-field__label {
   font-size: 15.5px;
+  white-space: nowrap;
+  flex: none;
 }
 
 .settings-field__hint {
