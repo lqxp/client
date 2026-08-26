@@ -464,6 +464,7 @@
             "circuit": "Текущая цепочка",
             "circuitNote": "Маршрут вашего трафика через сеть Tor (guard → middle → exit).",
             "role": {
+              "you": "Вы",
               "guard": "Guard",
               "middle": "Middle",
               "exit": "Exit"

@@ -82,6 +82,27 @@ function countryNameEnglish(code: string | null | undefined): string {
   }
 }
 
+/**
+ * Masks the last two address blocks of an IP for the "You" circuit entry, so
+ * the client's own address is never shown in readable form. The backend already
+ * redacts the last octet/hextet, so this only makes it stronger. IPv4 keeps the
+ * first two octets (e.g. "203.0.113.xxx" → "203.0.x.x"); IPv6 keeps the first
+ * hextet and masks the rest.
+ */
+function maskIpTwoBlocks(ip: string | null | undefined): string {
+  const s = String(ip || "").trim();
+  if (!s) return "";
+  if (s.includes(":")) {
+    // IPv6 (already partially redacted). Keep up to the first hextet group.
+    const first = s.split(":").find((p) => p.length > 0);
+    return first ? `${first}:x:x:x:x:x:x:x` : "x:x:x:x:x:x:x:x";
+  }
+  const parts = s.split(".").filter(Boolean);
+  if (parts.length <= 2) return s; // already short; leave as-is
+  const head = parts.slice(0, parts.length - 2);
+  return `${head.join(".")}.x.x`;
+}
+
 // Tor relay directory.
 const relays = ref<TorRelay[]>([]);
 const relaysLoading = ref(false);
@@ -1703,6 +1724,15 @@ onBeforeUnmount(() => {
             <WorldMap v-if="circuitPoints.length" :points="circuitPoints" connect />
 
             <div class="tor-circuit">
+              <div v-if="geo?.client" class="tor-circuit__hop tor-circuit__hop--you">
+                <div class="tor-circuit__role">{{ t('settings.tor.role.you') }}</div>
+                <div class="tor-circuit__ident">
+                  <span v-if="geo.client.countryCode" class="tor-circuit__flag" :title="countryNameEnglish(geo.client.countryCode)">{{ countryFlag(geo.client.countryCode) }}</span>
+                  <span class="tor-circuit__ip">{{ maskIpTwoBlocks(geo.client.ip) || '—' }}</span>
+                </div>
+              </div>
+              <div v-if="geo?.client" class="tor-circuit__arrow">→</div>
+
               <template v-for="(hop, i) in circuit.hops" :key="i">
                 <div class="tor-circuit__hop">
                   <div class="tor-circuit__role">{{ t(`settings.tor.role.${hop.role}`) }}</div>
@@ -2389,9 +2419,11 @@ onBeforeUnmount(() => {
 .tor-circuit {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-top: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 .tor-circuit__hop {
   display: flex;
@@ -2402,6 +2434,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--surface, #2c2c2e) 70%, transparent);
   border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
   min-width: 0;
+  flex: none;
 }
 .tor-circuit__role {
   font-size: 10px;

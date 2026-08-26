@@ -437,6 +437,7 @@
             "circuit": "Circuito actual",
             "circuitNote": "La ruta que recorre tu tráfico por la red Tor (guard → middle → exit).",
             "role": {
+              "you": "Tú",
               "guard": "Guard",
               "middle": "Middle",
               "exit": "Exit"

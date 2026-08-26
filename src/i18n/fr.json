@@ -440,6 +440,7 @@
             "circuit": "Circuit actuel",
             "circuitNote": "Le chemin emprunté par votre trafic à travers le réseau Tor (guard → middle → exit).",
             "role": {
+              "you": "Vous",
               "guard": "Guard",
               "middle": "Middle",
               "exit": "Exit"
