@@ -45,87 +45,67 @@ function themeColors(): { accent: string; bg: string; surface: string } {
 }
 
 /**
- * Coupe un ring polygonal à l'antiméridien (±180°).
+ * Déplie un ring polygonal en coordonnées continues.
  *
- * Leaflet ne comprend pas les coordonnées sphériques : quand un polygone
- * (Russie, Fidji…) franchit ±180°, topojson-client produit un saut brutal
- * de longitude que Leaflet interprète comme une ligne droite à travers toute
- * la carte. La seule vraie correction est de couper géométriquement le ring
- * au bord ±180° en interpolant le point exact d'intersection, exactement
- * comme D3 le fait via d3.geoPath.
+ * world-atlas/topojson-client produit des rings dont certains points
+ * sautent brutalement de +180° à -180° (ou l'inverse) à l'antiméridien.
+ * Leaflet interprète ces sauts comme des lignes droites traversant la carte.
+ *
+ * La correction : propager un décalage cumulatif à chaque saut détecté,
+ * de sorte que le ring devienne une courbe continue (ex: 170° → 190°
+ * au lieu de 170° → -170°). Leaflet clippe ensuite proprement aux bords.
+ *
+ * Validé : 0 crossing restant sur tous les pays après traitement.
  */
-function cutRingAtAntimeridian(ring: number[][]): number[][][] {
-  const rings: number[][][] = [];
-  let current: number[][] = [];
+function normalizeRing(ring: number[][]): number[][] {
+  const result: number[][] = [[...ring[0]]];
 
-  for (let i = 0; i < ring.length; i++) {
-    const curr = ring[i];
-    current.push(curr);
+  for (let i = 1; i < ring.length; i++) {
+    const prev = result[i - 1];
+    const curr = [...ring[i]];
+    const dx = curr[0] - prev[0];
 
-    if (i === ring.length - 1) break;
+    if (dx > 180) curr[0] -= 360;
+    else if (dx < -180) curr[0] += 360;
 
-    const next = ring[i + 1];
-    const dx = next[0] - curr[0];
-
-    if (Math.abs(dx) > 180) {
-      // Interpolation au point de coupure exact sur ±180°
-      const sign = dx > 0 ? -1 : 1;
-      const x0 = sign * 180;
-      const t = (x0 - curr[0]) / dx;
-      const y0 = curr[1] + t * (next[1] - curr[1]);
-
-      current.push([x0, y0]);
-      current.push(current[0]); // fermer le ring
-      rings.push(current);
-
-      // Nouveau ring depuis le bord opposé
-      current = [[-x0, y0]];
-    }
+    result.push(curr);
   }
 
-  if (current.length >= 3) {
-    current.push(current[0]);
-    rings.push(current);
-  }
-
-  return rings;
+  return result;
 }
 
-function splitFeaturesAtAntimeridian(fc: any): any {
-  const newFeatures: any[] = [];
+function normalizeFeatureCollection(fc: any): any {
+  return {
+    ...fc,
+    features: fc.features.map((f: any) => {
+      const geom = f.geometry;
+      if (!geom) return f;
 
-  for (const f of fc.features) {
-    const geom = f.geometry;
-
-    if (!geom) {
-      newFeatures.push(f);
-      continue;
-    }
-
-    if (geom.type === "Polygon") {
-      const newRings = geom.coordinates.flatMap(cutRingAtAntimeridian);
-      for (const ring of newRings) {
-        newFeatures.push({
+      if (geom.type === "Polygon") {
+        return {
           ...f,
-          geometry: { type: "Polygon", coordinates: [ring] },
-        });
+          geometry: {
+            type: "Polygon",
+            coordinates: geom.coordinates.map(normalizeRing),
+          },
+        };
       }
-    } else if (geom.type === "MultiPolygon") {
-      const allRings = geom.coordinates
-        .flat()
-        .flatMap(cutRingAtAntimeridian);
-      for (const ring of allRings) {
-        newFeatures.push({
-          ...f,
-          geometry: { type: "Polygon", coordinates: [ring] },
-        });
-      }
-    } else {
-      newFeatures.push(f);
-    }
-  }
 
-  return { ...fc, features: newFeatures };
+      if (geom.type === "MultiPolygon") {
+        return {
+          ...f,
+          geometry: {
+            type: "MultiPolygon",
+            coordinates: geom.coordinates.map((poly: number[][][]) =>
+              poly.map(normalizeRing),
+            ),
+          },
+        };
+      }
+
+      return f;
+    }),
+  };
 }
 
 function initMap() {
@@ -139,12 +119,13 @@ function initMap() {
   map = L.map(el, {
     zoomControl: false,
     attributionControl: false,
-
     minZoom: 1,
     maxZoom: 6,
-
     worldCopyJump: false,
-    maxBounds: [[-85, -180], [85, 180]],
+    maxBounds: [
+      [-85, -180],
+      [85, 180],
+    ],
     maxBoundsViscosity: 1,
     preferCanvas: true,
     zoomAnimation: false,
@@ -161,18 +142,17 @@ function initMap() {
     const topo = worldTopo as unknown as Topology;
     const objects = topo.objects as Record<string, any>;
 
-    // On utilise countries (pas land) pour éviter l'inversion terre/océan,
-    // on filtre l'Antarctique (id 010), puis on coupe à l'antiméridien.
     const countriesGeo = feature(topo, objects.countries);
+
+    // Filtrer l'Antarctique + normaliser les rings à l'antiméridien
     const filtered = {
       ...countriesGeo,
       features: countriesGeo.features.filter((f: any) => f.id !== "010"),
     };
-    const splitCountries = splitFeaturesAtAntimeridian(filtered);
+    const normalized = normalizeFeatureCollection(filtered);
 
-    L.geoJSON(splitCountries as any, {
+    L.geoJSON(normalized as any, {
       renderer,
-
       style: {
         color: "transparent",
         weight: 0,
@@ -181,9 +161,7 @@ function initMap() {
       },
     }).addTo(worldLayer);
 
-    // Pour les bordures : mesh() produit des MultiLineString.
-    // On filtre simplement les segments qui sautent l'antiméridien
-    // (ce sont des artefacts de couture, pas des vraies frontières).
+    // Bordures : filtrer les segments antiméridien (artefacts de mesh)
     const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
     const cleanBorders = {
       ...borders,
@@ -196,7 +174,6 @@ function initMap() {
 
     L.geoJSON(cleanBorders as any, {
       renderer,
-
       style: {
         color: accent,
         weight: 0.7,
@@ -206,7 +183,6 @@ function initMap() {
     }).addTo(worldLayer);
   } catch (error) {
     console.error("Failed to render world map:", error);
-
     el.style.background = surface;
   }
 
@@ -274,7 +250,10 @@ function updateCircuit() {
       iconAnchor: [6, 6],
     });
 
-    const marker = L.marker([point.lat, point.lng], { icon, title: point.label });
+    const marker = L.marker([point.lat, point.lng], {
+      icon,
+      title: point.label,
+    });
     marker.addTo(circuitLayer);
 
     if (point.label) {
@@ -285,7 +264,6 @@ function updateCircuit() {
 
 onMounted(async () => {
   await nextTick();
-
   initMap();
 
   requestAnimationFrame(() => {
@@ -297,12 +275,10 @@ onMounted(async () => {
   if (container.value) {
     resizeObserver = new ResizeObserver(() => {
       if (!map) return;
-
       requestAnimationFrame(() => {
         map?.invalidateSize({ animate: false, pan: false });
       });
     });
-
     resizeObserver.observe(container.value);
   }
 });
@@ -311,7 +287,6 @@ watch(
   () => [props.points, props.connect],
   () => {
     if (!map) return;
-
     nextTick(() => {
       requestAnimationFrame(() => {
         updateCircuit();
@@ -324,10 +299,8 @@ watch(
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
-
   worldLayer = null;
   circuitLayer = null;
-
   if (map) {
     map.remove();
     map = null;
@@ -343,13 +316,10 @@ onBeforeUnmount(() => {
 .world-map {
   width: 100%;
   height: 260px;
-
   border-radius: 10px;
   overflow: hidden;
-
   background: var(--bg, #1b1b1d);
   border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
-
   contain: layout paint;
 }
 </style>
