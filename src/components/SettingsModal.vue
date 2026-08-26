@@ -144,13 +144,14 @@ async function loadRelays() {
 const torReady = computed(() => torStatus.value?.phase === "ready");
 
 watch(activeSection, (section) => {
-  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value) {
-    loadRelays();
+  if (section === "tor") {
+    if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
+    if (torReady.value) loadCircuit();
   }
 });
 
 // When Tor finishes bootstrapping and becomes ready, load the relay directory
-// automatically (only if the user is currently viewing the tor section).
+// and the circuit automatically (only if the user is currently viewing tor).
 watch(torReady, (ready) => {
   if (ready && activeSection.value === "tor") {
     if (relays.value.length === 0 && !relaysLoading.value) loadRelays();

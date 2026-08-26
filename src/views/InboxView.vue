@@ -6,7 +6,7 @@ import { useMessenger } from "@/composables/useMessenger";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
-import { startTor, stopTor, onTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -289,6 +289,18 @@ watch(
 let unsubTorSync: (() => void) | null = null;
 function syncTorEnabledFromBackend() {
   if (!isTorRuntime()) return;
+
+  // Seed from the backend's real state immediately, so a Tor that was started
+  // at boot (before the frontend loaded) is reflected in `torEnabled` without
+  // waiting for a fresh event (the boot event is emitted before we listen).
+  fetchTorStatus().then((s) => {
+    if (s.phase === "ready" && !messenger.state.torEnabled) {
+      messenger.setTorEnabled(true);
+    } else if (s.phase === "idle" && messenger.state.torEnabled) {
+      messenger.setTorEnabled(false);
+    }
+  }).catch(() => {});
+
   unsubTorSync = onTorStatus((s) => {
     if (s.phase === "ready" && !messenger.state.torEnabled) {
       messenger.setTorEnabled(true);
