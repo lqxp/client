@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { startTor, stopTor, onTorStatus, getCircuit, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath } from "@/calls/tor";
+import { startTor, stopTor, onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -116,26 +116,58 @@ const relaysError = ref("");
 const circuit = ref<CircuitPath | null>(null);
 const circuitLoading = ref(false);
 
-// Circuit hops geolocated by country for the OSM map.
-const circuitPoints = computed<MapPoint[]>(() =>
-  (circuit.value?.hops ?? []).flatMap((hop) => {
+// Client + server geolocation for the map endpoints (IP masked backend-side).
+const geo = ref<GeoInfo | null>(null);
+
+// Circuit hops geolocated by country, plus client (origin) and server (target).
+const circuitPoints = computed<MapPoint[]>(() => {
+  const pts: MapPoint[] = [];
+
+  if (geo.value?.client?.latitude != null && geo.value?.client?.longitude != null) {
+    pts.push({
+      lat: geo.value.client.latitude,
+      lng: geo.value.client.longitude,
+      color: "#3fcf6f",
+      label: ["You", geo.value.client.ip].filter(Boolean).join(" — "),
+    });
+  }
+
+  for (const hop of circuit.value?.hops ?? []) {
     const coord = countryCoord(hop.country);
-    if (!coord) return [];
+    if (!coord) continue;
     const [lat, lng] = coord;
     const parts = [
       hop.nickname && hop.nickname !== "Unnamed" ? hop.nickname : hop.role,
       hop.ip,
     ].filter(Boolean);
-    return [
-      {
-        lat,
-        lng,
-        role: hop.role,
-        label: parts.join(" — "),
-      } satisfies MapPoint,
-    ];
-  }),
-);
+    pts.push({
+      lat,
+      lng,
+      role: hop.role,
+      label: parts.join(" — "),
+    });
+  }
+
+  if (geo.value?.server?.latitude != null && geo.value?.server?.longitude != null) {
+    pts.push({
+      lat: geo.value.server.latitude,
+      lng: geo.value.server.longitude,
+      color: "#f43f5e",
+      label: ["qxch.at", geo.value.server.ip].filter(Boolean).join(" — "),
+    });
+  }
+
+  return pts;
+});
+
+async function loadGeo() {
+  if (!isTorRuntime()) return;
+  try {
+    geo.value = await getGeo();
+  } catch {
+    geo.value = null;
+  }
+}
 
 async function loadCircuit() {
   if (!isTorRuntime()) return;
@@ -168,7 +200,10 @@ const torReady = computed(() => torStatus.value?.phase === "ready");
 watch(activeSection, (section) => {
   if (section === "tor") {
     if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
-    if (torReady.value) loadCircuit();
+    if (torReady.value) {
+      loadCircuit();
+      loadGeo();
+    }
   }
 });
 
@@ -178,6 +213,7 @@ watch(torReady, (ready) => {
   if (ready && activeSection.value === "tor") {
     if (relays.value.length === 0 && !relaysLoading.value) loadRelays();
     loadCircuit();
+    loadGeo();
   }
 });
 

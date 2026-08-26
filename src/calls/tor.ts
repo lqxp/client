@@ -84,3 +84,21 @@ export async function isTorReady(): Promise<boolean> {
 export async function getCircuit(): Promise<CircuitPath | null> {
   return invoke<CircuitPath | null>("plugin:tor|circuit");
 }
+
+export interface GeoPoint {
+  ip: string;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  org: string | null;
+}
+
+export interface GeoInfo {
+  client: GeoPoint | null;
+  server: GeoPoint | null;
+}
+
+/** Fetches client + server coarse geolocation (IP masked) for the map. */
+export async function getGeo(): Promise<GeoInfo> {
+  return invoke<GeoInfo>("plugin:tor|geo");
+}
