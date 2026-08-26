@@ -744,7 +744,6 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     shareScreenAudio: true,
     screenShareFps: SCREEN_SHARE_DEFAULT_FPS,
     screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
-    torEnabled: false,
     torPort: 9050,
     autoArchiveUploads: false,
     renameUploadsRandomly: false,
@@ -1045,7 +1044,6 @@ function loadPersisted() {
       )
         ? String(raw.screenShareQuality)
         : SCREEN_SHARE_DEFAULT_QUALITY,
-      torEnabled: Boolean(raw.torEnabled),
       torPort: Number.isInteger(Number(raw.torPort)) &&
         Number(raw.torPort) >= 1 &&
         Number(raw.torPort) <= 65535
@@ -1381,7 +1379,6 @@ function buildPersistedPayload(state) {
     shareScreenAudio: state.shareScreenAudio,
     screenShareFps: state.screenShareFps,
     screenShareQuality: state.screenShareQuality,
-    torEnabled: state.torEnabled,
     torPort: state.torPort,
     autoArchiveUploads: state.autoArchiveUploads,
     renameUploadsRandomly: state.renameUploadsRandomly,
@@ -2377,7 +2374,7 @@ export function useMessenger() {
     shareScreenAudio: persisted.shareScreenAudio,
     screenShareFps: persisted.screenShareFps,
     screenShareQuality: persisted.screenShareQuality,
-    torEnabled: persisted.torEnabled,
+    torEnabled: false,
     torPort: persisted.torPort,
     autoArchiveUploads: persisted.autoArchiveUploads,
     renameUploadsRandomly: persisted.renameUploadsRandomly,
@@ -2668,7 +2665,6 @@ export function useMessenger() {
     state.microphoneThreshold = normalized.microphoneThreshold;
     state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
     state.shareScreenAudio = normalized.shareScreenAudio;
-    state.torEnabled = normalized.torEnabled;
     state.torPort = normalized.torPort;
     state.autoArchiveUploads = normalized.autoArchiveUploads;
     state.renameUploadsRandomly = normalized.renameUploadsRandomly;
@@ -3998,8 +3994,10 @@ export function useMessenger() {
   }
 
   function setTorEnabled(value) {
+    // `torEnabled` is no longer persisted client-side: the backend's `tor-enabled`
+    // marker is the single source of truth, and this is only a UI mirror. The
+    // real on/off change happens via `toggleTor` → backend → app restart.
     state.torEnabled = Boolean(value);
-    persist();
   }
 
   function setTorPort(value) {
