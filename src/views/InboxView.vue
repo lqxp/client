@@ -33,10 +33,12 @@ const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock", "theme", "logout"] as const;
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
+const isMacOS = typeof navigator !== "undefined" && /Macintosh/i.test(navigator.userAgent) && !/iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
 const showAuthTitlebar = showNativeTitlebar;
 const showDesktopTitlebar = showNativeTitlebar || isWebDesktopRuntime;
+const showWindowControls = showNativeTitlebar && !isMacOS;
 const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 
 type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
@@ -476,11 +478,11 @@ async function lockClientNow() {
   />
 
   <div v-if="isLocked" class="app app--auth"
-    :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar }">
+    :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar, 'is-macos': isMacOS }">
     <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
           @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
@@ -509,11 +511,11 @@ async function lockClientNow() {
     <LockScreen :messenger="messenger" />
   </div>
   <div v-else-if="sessionExpired" class="app app--auth"
-    :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar }">
+    :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar, 'is-macos': isMacOS }">
     <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
           @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8.5h8" /></svg>
@@ -573,11 +575,11 @@ async function lockClientNow() {
     </section>
   </div>
   <div v-else-if="needsOnboarding" class="app app--auth"
-    :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar }">
+    :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar, 'is-macos': isMacOS }">
     <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
         <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
           @click="minimizeNativeWindow">
           <svg viewBox="0 0 12 12" aria-hidden="true">
@@ -737,7 +739,7 @@ async function lockClientNow() {
           </div>
         </div>
 
-        <div v-if="showNativeTitlebar" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
+        <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
           <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
             @click="minimizeNativeWindow">
             <svg viewBox="0 0 12 12" aria-hidden="true">
@@ -1626,6 +1628,16 @@ async function lockClientNow() {
 
   :deep(.thread__main > .thread-header) {
     display: none;
+  }
+
+  /* macOS native traffic lights (overlay): reserve left space so the title
+     bar brand/room content never sits under the red/yellow/green controls. */
+  .app.is-macos .desktop-titlebar {
+    padding-left: 76px;
+  }
+
+  .app.is-macos .desktop-titlebar__room {
+    left: calc(50% + 38px);
   }
 
 }
