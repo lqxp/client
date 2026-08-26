@@ -61,7 +61,8 @@ function render() {
     attributionControl: false,
     minZoom: 1,
     maxZoom: 6,
-    worldCopyJump: true,
+    worldCopyJump: false,
+    maxBounds: [[-85, -200], [85, 200]],
   });
 
   // Match the app theme: dark ocean, accent-colored borders.
@@ -73,7 +74,12 @@ function render() {
     const geo = feature(
       worldTopo as unknown as Topology,
       (worldTopo as unknown as Topology).objects.countries as GeometryCollection,
-    );
+    ) as { type: string; features: Array<{ id?: string | number; properties?: Record<string, unknown> }> };
+
+    // Drop Antarctica (numeric code 010) so its pole-spanning geometry does not
+    // draw seam lines across the bottom of the Web-Mercator projection.
+    geo.features = geo.features.filter((f) => String(f.id) !== "010");
+
     L.geoJSON(geo as any, {
       style: {
         color: accent,
