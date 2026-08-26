@@ -432,6 +432,7 @@
             "running": "Tor is running on port {port}.",
             "stopped": "Tor is stopped.",
             "notRunning": "Start Tor before loading the relay directory.",
+            "bootstrapping": "Tor is bootstrapping…",
             "error": "Tor error: {error}",
             "relays": "Relay directory",
             "relaysNote": "Live relays from the official Tor Metrics directory, sorted by consensus weight.",

@@ -432,6 +432,7 @@
             "running": "Tor est en cours d’exécution sur le port {port}.",
             "stopped": "Tor est arrêté.",
             "notRunning": "Démarrez Tor avant de charger l’annuaire des relais.",
+            "bootstrapping": "Tor est en cours de démarrage…",
             "error": "Erreur Tor : {error}",
             "relays": "Annuaire des relais",
             "relaysNote": "Relais en direct de l’annuaire officiel Tor Metrics, triés par poids de consensus.",

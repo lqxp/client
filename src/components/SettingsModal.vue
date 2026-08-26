@@ -7,6 +7,7 @@ import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
 import { startTor, stopTor, onTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
+import TorRelayMap from "@/components/TorRelayMap.vue";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -102,6 +103,10 @@ async function loadRelays() {
       relaysError.value = t('settings.tor.notRunning');
       return;
     }
+    if (torStatus.value.phase === "bootstrapping") {
+      relaysError.value = t('settings.tor.bootstrapping');
+      return;
+    }
     relays.value = await fetchTorRelays(100);
   } catch (err: any) {
     relaysError.value = err?.message || String(err);
@@ -110,22 +115,21 @@ async function loadRelays() {
   }
 }
 
+const torReady = computed(() => torStatus.value?.phase === "ready");
+
 watch(activeSection, (section) => {
-  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value && torStatus.value?.running) {
+  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value && torReady.value) {
     loadRelays();
   }
 });
 
 // When Tor finishes bootstrapping and becomes ready, load the relay directory
 // automatically (only if the user is currently viewing the tor section).
-watch(
-  () => torStatus.value?.running,
-  (running) => {
-    if (running && activeSection.value === "tor" && relays.value.length === 0 && !relaysLoading.value) {
-      loadRelays();
-    }
-  },
-);
+watch(torReady, (ready) => {
+  if (ready && activeSection.value === "tor" && relays.value.length === 0 && !relaysLoading.value) {
+    loadRelays();
+  }
+});
 
 function addCustomTurnServer() {
   turnServerError.value = "";
@@ -1592,9 +1596,20 @@ onBeforeUnmount(() => {
             </div>
 
             <p v-if="torStatus" class="settings-note">
-              {{ torStatus.running ? t('settings.tor.running', { port: String(torStatus.port) }) : t('settings.tor.stopped') }}
+              <template v-if="torStatus.phase === 'bootstrapping'">
+                {{ t('settings.tor.bootstrapping') }}
+              </template>
+              <template v-else-if="torStatus.phase === 'error'">
+                {{ t('settings.tor.error', { error: torStatus.error || torError }) }}
+              </template>
+              <template v-else-if="torStatus.running">
+                {{ t('settings.tor.running', { port: String(torStatus.port) }) }}
+              </template>
+              <template v-else>
+                {{ t('settings.tor.stopped') }}
+              </template>
             </p>
-            <p v-if="torError" class="settings-note" style="color: var(--red)">
+            <p v-if="torError && torStatus?.phase !== 'error'" class="settings-note" style="color: var(--red)">
               {{ t('settings.tor.error', { error: torError }) }}
             </p>
           </div>
@@ -1604,7 +1619,7 @@ onBeforeUnmount(() => {
             <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
 
             <div class="tor-relay-actions">
-              <button type="button" class="btn settings-btn" :disabled="relaysLoading || !torStatus?.running"
+              <button type="button" class="btn settings-btn" :disabled="relaysLoading || !torReady"
                 @click="loadRelays">
                 {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
               </button>
@@ -1613,6 +1628,8 @@ onBeforeUnmount(() => {
             <p v-if="relaysError" class="settings-note" style="color: var(--red)">
               {{ t('settings.tor.relaysError', { error: relaysError }) }}
             </p>
+
+            <TorRelayMap v-if="relays.length" :relays="relays" />
 
             <ul v-if="relays.length" class="tor-relay-list">
               <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
