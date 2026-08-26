@@ -235,6 +235,7 @@
             "privacy": "Privacy",
             "notifications": "Notifications",
             "calls": "Calls",
+            "tor": "Tor connectivity",
             "advanced": "Advanced",
             "admin": "Admin",
             "backups": "Backups",
@@ -422,6 +423,23 @@
                 "qxp-turn": "Self-hosted relay on our infrastructure — may be unstable under load. No IP exposed, everything goes through our relay.",
                 "google-stun": "Google public STUN — very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."
             }
+        },
+        "tor": {
+            "title": "Tor connectivity",
+            "enabled": "Connect through Tor",
+            "enabledNote": "Route the app's traffic through the Tor network. First boot can take several seconds while Tor downloads its consensus.",
+            "port": "Tor SOCKS5 port",
+            "running": "Tor is running on port {port}.",
+            "stopped": "Tor is stopped.",
+            "error": "Tor error: {error}",
+            "relays": "Relay directory",
+            "relaysNote": "Live relays from the official Tor Metrics directory, sorted by consensus weight.",
+            "refresh": "Refresh relays",
+            "loading": "Loading…",
+            "relaysError": "Could not load relays: {error}",
+            "details": "Details",
+            "desktopOnly": "Tor routing is only available in the QxChat desktop app, which embeds the Tor client and routes your traffic locally. On the web version, your connection depends on your browser and cannot be routed through Tor.",
+            "downloadDesktop": "Download the desktop app"
         },
         "advanced": {
             "connection": "Connection",

@@ -235,6 +235,7 @@
             "privacy": "Confidentialité",
             "notifications": "Notifications",
             "calls": "Appels",
+            "tor": "Connectivité Tor",
             "advanced": "Avancé",
             "admin": "Admin",
             "backups": "Sauvegardes",
@@ -422,6 +423,23 @@
                 "qxp-turn": "Relais auto-hébergé sur notre infrastructure — peut être instable selon la charge. Aucune IP exposée, tout passe par notre relais.",
                 "google-stun": "STUN public de Google — très stable et rapide, mais ⚠️ vos IPs sont exposées (pas de relay anonyme). Utile uniquement en réseau local ou pour du test."
             }
+        },
+        "tor": {
+            "title": "Connectivité Tor",
+            "enabled": "Se connecter via Tor",
+            "enabledNote": "Achemine le trafic de l’application via le réseau Tor. Le premier démarrage peut prendre plusieurs secondes pendant que Tor télécharge son consensus.",
+            "port": "Port SOCKS5 de Tor",
+            "running": "Tor est en cours d’exécution sur le port {port}.",
+            "stopped": "Tor est arrêté.",
+            "error": "Erreur Tor : {error}",
+            "relays": "Annuaire des relais",
+            "relaysNote": "Relais en direct de l’annuaire officiel Tor Metrics, triés par poids de consensus.",
+            "refresh": "Actualiser les relais",
+            "loading": "Chargement…",
+            "relaysError": "Impossible de charger les relais : {error}",
+            "details": "Détails",
+            "desktopOnly": "Le routage via Tor n’est disponible que dans l’application de bureau QxChat, qui embarque le client Tor et achemine votre trafic localement. Sur la version web, votre connexion dépend de votre navigateur et ne peut pas être routée via Tor.",
+            "downloadDesktop": "Télécharger l’application de bureau"
         },
         "advanced": {
             "connection": "Connexion",

@@ -5,6 +5,8 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
+import { startTor, stopTor, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -48,6 +50,64 @@ const newTurnUrls = ref("");
 const newTurnUsername = ref("");
 const newTurnCredential = ref("");
 const turnServerError = ref("");
+
+// Tor connectivity (desktop only).
+const torStatus = ref<Awaited<ReturnType<typeof startTor>> | null>(null);
+const torError = ref("");
+
+async function toggleTor(enabled: boolean) {
+  torError.value = "";
+  props.messenger.setTorEnabled(enabled);
+
+  if (!isTorRuntime()) {
+    return;
+  }
+
+  try {
+    if (enabled) {
+      torStatus.value = await startTor(props.messenger.state.torPort);
+    } else {
+      torStatus.value = await stopTor();
+    }
+  } catch (err: any) {
+    torError.value = err?.message || String(err);
+  }
+}
+
+function updateTorPort(port: number) {
+  props.messenger.setTorPort(port);
+}
+
+/** Converts an ISO 3166-1 alpha-2 code to a regional-indicator flag emoji. */
+function countryFlag(code: string): string {
+  const c = String(code || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return "🏳️";
+  const offset = 0x1f1e6;
+  return String.fromCodePoint(...[...c].map((ch) => offset + ch.charCodeAt(0) - 65));
+}
+
+// Tor relay directory.
+const relays = ref<TorRelay[]>([]);
+const relaysLoading = ref(false);
+const relaysError = ref("");
+
+async function loadRelays() {
+  relaysLoading.value = true;
+  relaysError.value = "";
+  try {
+    relays.value = await fetchTorRelays(100);
+  } catch (err: any) {
+    relaysError.value = err?.message || String(err);
+  } finally {
+    relaysLoading.value = false;
+  }
+}
+
+watch(activeSection, (section) => {
+  if (section === "tor" && relays.value.length === 0 && !relaysLoading.value) {
+    loadRelays();
+  }
+});
 
 function addCustomTurnServer() {
   turnServerError.value = "";
@@ -175,12 +235,16 @@ const allSections = computed(() => [
   { id: "opsec", label: t("settings.sections.opsec") },
   { id: "notifications", label: t("settings.sections.notifications") },
   { id: "calls", label: t("settings.sections.calls") },
+  { id: "tor", label: t("settings.sections.tor") },
   { id: "advanced", label: t("settings.sections.advanced") },
   { id: "admin", label: t("settings.sections.admin") },
   { id: "backups", label: t("settings.sections.backups") },
   { id: "about", label: t("settings.sections.about") }
 ]);
-const sections = computed(() => allSections.value.filter((section) => section.id !== "admin" || props.messenger.state.admin));
+const sections = computed(() => allSections.value.filter((section) => {
+  if (section.id === "admin") return props.messenger.state.admin;
+  return true;
+}));
 const filteredSections = computed(() => {
   const query = settingsSearch.value.trim().toLowerCase();
   if (!query) return sections.value;
@@ -686,6 +750,8 @@ onBeforeUnmount(() => {
             <circle cx="15" cy="17" r="3" />
             <path d="M12 10v4" />
           </svg>
+          <img v-else-if="section.id === 'tor'" class="settings__nav-icon-img"
+            src="/icons/tor.svg" alt="" aria-hidden="true" />
           <svg v-else-if="section.id === 'admin'" viewBox="0 0 24 24">
             <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
             <path
@@ -1467,6 +1533,84 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <section v-else-if="activeSection === 'tor'" class="settings-page">
+        <!-- Desktop Web: the option only works on the Tauri desktop build. -->
+        <div v-if="!isTorRuntime()" class="tor-only-desktop">
+          <img class="tor-only-desktop__icon" src="/icons/tor.svg" alt="" aria-hidden="true" />
+          <h4 class="tor-only-desktop__title">{{ t('settings.tor.title') }}</h4>
+          <p class="tor-only-desktop__copy">{{ t('settings.tor.desktopOnly') }}</p>
+          <a class="btn btn--primary tor-only-desktop__cta"
+            href="https://qxch.at/download" target="_blank" rel="noopener noreferrer">
+            {{ t('settings.tor.downloadDesktop') }}
+          </a>
+        </div>
+
+        <template v-else>
+          <div class="settings-group">
+            <h4>{{ t('settings.tor.title') }}</h4>
+            <label class="settings-check">
+              <span>{{ t('settings.tor.enabled') }}</span>
+              <input type="checkbox" :checked="messenger.state.torEnabled"
+                @change="toggleTor(targetChecked($event))" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </label>
+            <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
+
+            <div v-if="messenger.state.torEnabled" class="settings-inline">
+              <label class="settings-field">
+                <span class="settings-field__label">{{ t('settings.tor.port') }}</span>
+                <input class="settings-input" type="number" min="1" max="65535"
+                  :value="messenger.state.torPort"
+                  @change="updateTorPort(Number(($event.target as HTMLInputElement).value))" />
+              </label>
+            </div>
+
+            <p v-if="torStatus" class="settings-note">
+              {{ torStatus.running ? t('settings.tor.running', { port: String(torStatus.port) }) : t('settings.tor.stopped') }}
+            </p>
+            <p v-if="torError" class="settings-note" style="color: var(--red)">
+              {{ t('settings.tor.error', { error: torError }) }}
+            </p>
+          </div>
+
+          <div class="settings-group">
+            <h4>{{ t('settings.tor.relays') }}</h4>
+            <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
+
+            <div class="tor-relay-actions">
+              <button type="button" class="btn settings-btn" :disabled="relaysLoading"
+                @click="loadRelays">
+                {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
+              </button>
+            </div>
+
+            <p v-if="relaysError" class="settings-note" style="color: var(--red)">
+              {{ t('settings.tor.relaysError', { error: relaysError }) }}
+            </p>
+
+            <ul v-if="relays.length" class="tor-relay-list">
+              <li v-for="relay in relays" :key="relay.fingerprint" class="tor-relay">
+                <div class="tor-relay__head">
+                  <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
+                  <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
+                  <span class="tor-relay__flags">
+                    <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ flag }}</span>
+                  </span>
+                </div>
+                <div class="tor-relay__meta">
+                  <span class="tor-relay__address">{{ relay.address || '—' }}</span>
+                  <span v-if="relay.asName" class="tor-relay__as">{{ relay.asName }}</span>
+                </div>
+                <a class="tor-relay__link" :href="relayDetailUrl(relay.fingerprint)"
+                  target="_blank" rel="noopener noreferrer">
+                  {{ t('settings.tor.details') }}
+                </a>
+              </li>
+            </ul>
+          </div>
+        </template>
+      </section>
+
       <section v-else-if="activeSection === 'advanced'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.advanced.connection') }}</h4>
@@ -2020,5 +2164,136 @@ onBeforeUnmount(() => {
 
 .settings-note--error {
   color: var(--red, #ff6b70);
+}
+
+/* ---- Tor connectivity ---- */
+.tor-only-desktop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.tor-only-desktop__icon {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.tor-only-desktop__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text, #f4f4f5);
+}
+
+.tor-only-desktop__copy {
+  max-width: 420px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted, #8a8a90);
+}
+
+.tor-only-desktop__cta {
+  margin-top: 8px;
+}
+
+.tor-relay-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.tor-relay-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.tor-relay {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
+  border-radius: 12px;
+  background: var(--surface-2, #3a3a3d);
+}
+
+.tor-relay__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tor-relay__flag {
+  font-size: 16px;
+  line-height: 1;
+  flex: none;
+}
+
+.tor-relay__nickname {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #f4f4f5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tor-relay__flags {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  margin-left: auto;
+}
+
+.tor-relay__flag-tag {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #2090ea) 16%, transparent);
+  color: var(--accent, #2090ea);
+}
+
+.tor-relay__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--muted, #8a8a90);
+}
+
+.tor-relay__address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tor-relay__as {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tor-relay__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #2090ea);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.tor-relay__link:hover {
+  text-decoration: underline;
 }
 </style>

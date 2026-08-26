@@ -744,6 +744,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     shareScreenAudio: true,
     screenShareFps: SCREEN_SHARE_DEFAULT_FPS,
     screenShareQuality: SCREEN_SHARE_DEFAULT_QUALITY,
+    torEnabled: false,
+    torPort: 9050,
     autoArchiveUploads: false,
     renameUploadsRandomly: false,
     stripImageExif: true,
@@ -1043,6 +1045,12 @@ function loadPersisted() {
       )
         ? String(raw.screenShareQuality)
         : SCREEN_SHARE_DEFAULT_QUALITY,
+      torEnabled: Boolean(raw.torEnabled),
+      torPort: Number.isInteger(Number(raw.torPort)) &&
+        Number(raw.torPort) >= 1 &&
+        Number(raw.torPort) <= 65535
+        ? Number(raw.torPort)
+        : 9050,
       autoArchiveUploads: Boolean(raw.autoArchiveUploads),
       renameUploadsRandomly: Boolean(raw.renameUploadsRandomly),
       stripImageExif: raw.stripImageExif !== false,
@@ -1373,6 +1381,8 @@ function buildPersistedPayload(state) {
     shareScreenAudio: state.shareScreenAudio,
     screenShareFps: state.screenShareFps,
     screenShareQuality: state.screenShareQuality,
+    torEnabled: state.torEnabled,
+    torPort: state.torPort,
     autoArchiveUploads: state.autoArchiveUploads,
     renameUploadsRandomly: state.renameUploadsRandomly,
     stripImageExif: state.stripImageExif,
@@ -2367,6 +2377,8 @@ export function useMessenger() {
     shareScreenAudio: persisted.shareScreenAudio,
     screenShareFps: persisted.screenShareFps,
     screenShareQuality: persisted.screenShareQuality,
+    torEnabled: persisted.torEnabled,
+    torPort: persisted.torPort,
     autoArchiveUploads: persisted.autoArchiveUploads,
     renameUploadsRandomly: persisted.renameUploadsRandomly,
     stripImageExif: persisted.stripImageExif,
@@ -2656,6 +2668,8 @@ export function useMessenger() {
     state.microphoneThreshold = normalized.microphoneThreshold;
     state.deleteMessagesOnLeave = normalized.deleteMessagesOnLeave;
     state.shareScreenAudio = normalized.shareScreenAudio;
+    state.torEnabled = normalized.torEnabled;
+    state.torPort = normalized.torPort;
     state.autoArchiveUploads = normalized.autoArchiveUploads;
     state.renameUploadsRandomly = normalized.renameUploadsRandomly;
     state.stripImageExif = normalized.stripImageExif;
@@ -3980,6 +3994,18 @@ export function useMessenger() {
 
   function setStreamerMode(value) {
     state.streamerMode = Boolean(value);
+    persist();
+  }
+
+  function setTorEnabled(value) {
+    state.torEnabled = Boolean(value);
+    persist();
+  }
+
+  function setTorPort(value) {
+    const port = Number(value);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return;
+    state.torPort = port;
     persist();
   }
 
@@ -8009,6 +8035,8 @@ export function useMessenger() {
     setMicrophoneThreshold,
     setDeleteMessagesOnLeave,
     setStreamerMode,
+    setTorEnabled,
+    setTorPort,
     setShareScreenAudio,
     screenShareFpsOptions: SCREEN_SHARE_FPS_OPTIONS,
     screenShareQualities: SCREEN_SHARE_QUALITIES,
