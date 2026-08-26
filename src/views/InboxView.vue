@@ -6,6 +6,7 @@ import { useMessenger } from "@/composables/useMessenger";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
+import { startTor, stopTor, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -247,6 +248,35 @@ watch(
     } else if (backgroundStarted) {
       backgroundStarted = false;
       background.stop();
+    }
+  },
+  { immediate: true },
+);
+
+// Auto-start / stop embedded Tor to match the persisted "torEnabled" setting.
+// This mirrors the background keep-alive: Tor follows authentication, so users
+// who enabled it previously get it back after a restart without opening Settings.
+let torStartedForEnabled = false;
+watch(
+  () =>
+    isTorRuntime()
+    && Boolean(messenger.state.torEnabled)
+    && !isLocked.value
+    && !sessionExpired.value
+    && !needsOnboarding.value
+    && Boolean(String(messenger.state.authToken || "").trim()),
+  (ready) => {
+    if (ready) {
+      if (!torStartedForEnabled) {
+        torStartedForEnabled = true;
+        startTor(messenger.state.torPort).catch(() => {
+          // Tor may fail to start (e.g. port in use); the user can retry from Settings.
+          torStartedForEnabled = false;
+        });
+      }
+    } else if (torStartedForEnabled) {
+      torStartedForEnabled = false;
+      stopTor().catch(() => {});
     }
   },
   { immediate: true },
