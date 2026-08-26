@@ -6,7 +6,7 @@ import { useMessenger } from "@/composables/useMessenger";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
-import { startTor, stopTor, onTorStatus, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
+import { onTorStatus, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
@@ -253,59 +253,32 @@ watch(
   { immediate: true },
 );
 
-// Auto-start / stop embedded Tor to match the persisted "torEnabled" setting.
-// This mirrors the background keep-alive: Tor follows authentication, so users
-// who enabled it previously get it back after a restart without opening Settings.
-let torStartedForEnabled = false;
-watch(
-  () =>
-    isTorRuntime()
-    && Boolean(messenger.state.torEnabled)
-    && !isLocked.value
-    && !sessionExpired.value
-    && !needsOnboarding.value
-    && Boolean(String(messenger.state.authToken || "").trim()),
-  (ready) => {
-    if (ready) {
-      if (!torStartedForEnabled) {
-        torStartedForEnabled = true;
-        startTor(messenger.state.torPort).catch(() => {
-          // Tor may fail to start (e.g. port in use); the user can retry from Settings.
-          torStartedForEnabled = false;
-        });
-      }
-    } else if (torStartedForEnabled) {
-      torStartedForEnabled = false;
-      stopTor().catch(() => {});
-    }
-  },
-  { immediate: true },
-);
+// (Tor auto-start/stop previously lived here; removed — the backend now owns
+// bootstrap on boot via the persisted marker, and the frontend only mirrors
+// state, see `syncTorEnabledFromBackend` above.)
 
 // Keep the persisted `torEnabled` flag in sync with the backend's real state,
-// so that toggling Tor from the tray (which drives the backend directly) also
-// persists — otherwise the next boot would not auto-restart a tray-enabled Tor,
-// or would restart one the user disabled from the tray.
+// The backend is now the single source of truth for Tor's on/off state: a
+// user toggle persists the setting server-side (backend marker) and restarts
+// the app, and the backend bootstraps Tor itself on boot when the marker is
+// set. So we no longer drive bootstrap from the frontend (which previously
+// raced the backend and left a stale `torEnabled` flag); we only mirror the
+// backend's real state into `torEnabled` for the UI.
 let unsubTorSync: (() => void) | null = null;
 function syncTorEnabledFromBackend() {
   if (!isTorRuntime()) return;
 
-  // Seed from the backend's real state immediately, so a Tor that was started
-  // at boot (before the frontend loaded) is reflected in `torEnabled` without
-  // waiting for a fresh event (the boot event is emitted before we listen).
+  // Seed from the backend's real state immediately (the backend may have
+  // bootstrapped before the frontend loaded).
   fetchTorStatus().then((s) => {
-    if (s.phase === "ready" && !messenger.state.torEnabled) {
-      messenger.setTorEnabled(true);
-    } else if (s.phase === "idle" && messenger.state.torEnabled) {
-      messenger.setTorEnabled(false);
+    if (Boolean(s.running) !== Boolean(messenger.state.torEnabled)) {
+      messenger.setTorEnabled(Boolean(s.running));
     }
   }).catch(() => {});
 
   unsubTorSync = onTorStatus((s) => {
-    if (s.phase === "ready" && !messenger.state.torEnabled) {
-      messenger.setTorEnabled(true);
-    } else if (s.phase === "idle" && messenger.state.torEnabled) {
-      messenger.setTorEnabled(false);
+    if (Boolean(s.running) !== Boolean(messenger.state.torEnabled)) {
+      messenger.setTorEnabled(Boolean(s.running));
     }
   });
 }

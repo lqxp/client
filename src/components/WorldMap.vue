@@ -28,17 +28,6 @@ const container = ref<HTMLElement | null>(null);
 let map: L.Map | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-/** Recomputes Leaflet's internal pixel origin from the container's real size. */
-function invalidateMapSize() {
-  if (map) {
-    // Defer one frame so layout/styles have settled (e.g. when the settings
-    // panel is still animating open or the tab just became visible).
-    requestAnimationFrame(() => {
-      map?.invalidateSize();
-    });
-  }
-}
-
 const ROLE_COLOR: Record<string, string> = {
   guard: "#2090ea",
   middle: "#8b5cf6",
@@ -67,6 +56,8 @@ function render() {
     map.remove();
     map = null;
   }
+  // Défensif : évite tout pane/svg résiduel d'un rendu précédent
+  el.innerHTML = "";
 
   map = L.map(el, {
     zoomControl: false,
@@ -75,6 +66,11 @@ function render() {
     maxZoom: 6,
     worldCopyJump: false,
     maxBounds: [[-85, -200], [85, 200]],
+    // Désactive les animations : elles laissaient un "proxy" d'image
+    // mal positionné à l'écran (les bandes horizontales décalées).
+    zoomAnimation: false,
+    fadeAnimation: false,
+    markerZoomAnimation: false,
   });
 
   // Match the app theme: dark ocean, accent-colored borders.
@@ -114,17 +110,17 @@ function render() {
   const lngs = props.points.map((p) => p.lng);
 
   if (props.points.length === 1) {
-    map.setView([props.points[0].lat, props.points[0].lng], 3);
+    map.setView([props.points[0].lat, props.points[0].lng], 3, { animate: false });
   } else if (props.points.length > 1) {
     map.fitBounds(
       [
         [Math.min(...lats), Math.min(...lngs)],
         [Math.max(...lats), Math.max(...lngs)],
       ],
-      { padding: [40, 40], maxZoom: 5 },
+      { padding: [40, 40], maxZoom: 5, animate: false },
     );
   } else {
-    map.setView([20, 0], 2);
+    map.setView([20, 0], 2, { animate: false });
     return;
   }
 
@@ -147,36 +143,26 @@ function render() {
       { color: accent, weight: 1.5, dashArray: "4 3", opacity: 0.6 },
     ).addTo(map);
   }
-
-  // Recompute Leaflet's pixel origin once layout has settled. Without this, a
-  // map created while its container still has a provisional/zero size keeps a
-  // stale projection and everything drawn afterwards appears offset (most
-  // visibly at the top edge).
-  invalidateMapSize();
 }
 
 onMounted(async () => {
+  // Attend que le conteneur ait sa taille finale avant d'initialiser Leaflet
+  await nextTick();
   render();
 
-  // After the initial paint, force Leaflet to recalculate its size. This handles
-  // the common case where the map's container is inside a panel/tab that only
-  // reaches its final size after mount (flex/animation settling).
-  await nextTick();
-  invalidateMapSize();
-
-  // Keep Leaflet's projection in sync with any real container resize (panel
-  // toggling, window resize, responsive breakpoints).
-  if (container.value && typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(() => invalidateMapSize());
+  if (container.value) {
+    resizeObserver = new ResizeObserver(() => {
+      map?.invalidateSize({ animate: false });
+    });
     resizeObserver.observe(container.value);
   }
 });
+
 watch(() => props.points, () => render(), { deep: true });
+
 onBeforeUnmount(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
+  resizeObserver?.disconnect();
+  resizeObserver = null;
   if (map) {
     map.remove();
     map = null;
