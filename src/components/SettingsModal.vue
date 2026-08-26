@@ -2398,6 +2398,17 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+/* On phone, the global mobile styles force every `.settings-btn` to `width:
+   100%`, which makes the refresh button hijack the whole toolbar row. Keep it
+   compact so it sits beside the search input instead. */
+@media (max-width: 640px) {
+  .tor-relay-toolbar .settings-btn {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
 .tor-relay-count {
   margin-top: 8px;
 }
