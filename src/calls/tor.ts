@@ -75,6 +75,15 @@ export async function stopTor(): Promise<TorStatus> {
   return invoke<TorStatus>("plugin:tor|stop");
 }
 
+/**
+ * Toggles Tor (start or stop) and triggers a clean app restart so the WebView
+ * proxy takes effect. This is the user-facing toggle; the boot-time auto-start
+ * continues to use `startTor`/`stopTor` directly (no restart).
+ */
+export async function toggleTor(enabled: boolean, port?: number): Promise<TorStatus> {
+  return invoke<TorStatus>("plugin:tor|toggle", { enabled, port });
+}
+
 /** Probes whether the local SOCKS5 port is actually accepting connections. */
 export async function isTorReady(): Promise<boolean> {
   return invoke<boolean>("plugin:tor|is_ready");

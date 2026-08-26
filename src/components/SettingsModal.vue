@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { startTor, stopTor, onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo } from "@/calls/tor";
+import { toggleTor as toggleTorBackend, onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -54,7 +54,7 @@ const newTurnCredential = ref("");
 const turnServerError = ref("");
 
 // Tor connectivity (desktop only).
-const torStatus = ref<Awaited<ReturnType<typeof startTor>> | null>(null);
+const torStatus = ref<Awaited<ReturnType<typeof toggleTorBackend>> | null>(null);
 const torError = ref("");
 let unsubTorStatus: (() => void) | null = null;
 
@@ -67,12 +67,24 @@ async function toggleTor(enabled: boolean) {
   }
 
   try {
+    // Toggling Tor now restarts the app so the WebView proxy takes effect.
+    // The promise may not resolve before the process exits, so don't rely on
+    // the returned status for UI updates — the `tor:status` event / boot fetch
+    // will re-seed state after relaunch.
     if (enabled) {
-      torStatus.value = await startTor(props.messenger.state.torPort);
+      try {
+        torStatus.value = await toggleTorBackend(true, props.messenger.state.torPort);
+      } catch {
+        // Restart may race the promise; ignore — the app is relaunching.
+      }
     } else {
-      torStatus.value = await stopTor();
       relays.value = [];
       relaysError.value = "";
+      try {
+        torStatus.value = await toggleTorBackend(false);
+      } catch {
+        // Restart may race the promise; ignore.
+      }
     }
   } catch (err: any) {
     torError.value = err?.message || String(err);
@@ -1676,6 +1688,7 @@ onBeforeUnmount(() => {
               <span class="toggle__track"><span class="toggle__thumb"></span></span>
             </label>
             <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
+            <p class="settings-note settings-note--warn">{{ t('settings.tor.restartNote') }}</p>
 
             <div v-if="messenger.state.torEnabled">
               <label class="settings-field">

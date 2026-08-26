@@ -3,7 +3,7 @@
 // TopoJSON → GeoJSON), so no network tiles are ever requested — the entire map
 // is bundled. Shows the live Tor circuit (guard → middle → exit) as markers
 // connected by a line.
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { feature, mesh } from "topojson-client";
@@ -26,6 +26,18 @@ const props = defineProps<{
 
 const container = ref<HTMLElement | null>(null);
 let map: L.Map | null = null;
+let resizeObserver: ResizeObserver | null = null;
+
+/** Recomputes Leaflet's internal pixel origin from the container's real size. */
+function invalidateMapSize() {
+  if (map) {
+    // Defer one frame so layout/styles have settled (e.g. when the settings
+    // panel is still animating open or the tab just became visible).
+    requestAnimationFrame(() => {
+      map?.invalidateSize();
+    });
+  }
+}
 
 const ROLE_COLOR: Record<string, string> = {
   guard: "#2090ea",
@@ -135,11 +147,36 @@ function render() {
       { color: accent, weight: 1.5, dashArray: "4 3", opacity: 0.6 },
     ).addTo(map);
   }
+
+  // Recompute Leaflet's pixel origin once layout has settled. Without this, a
+  // map created while its container still has a provisional/zero size keeps a
+  // stale projection and everything drawn afterwards appears offset (most
+  // visibly at the top edge).
+  invalidateMapSize();
 }
 
-onMounted(() => render());
+onMounted(async () => {
+  render();
+
+  // After the initial paint, force Leaflet to recalculate its size. This handles
+  // the common case where the map's container is inside a panel/tab that only
+  // reaches its final size after mount (flex/animation settling).
+  await nextTick();
+  invalidateMapSize();
+
+  // Keep Leaflet's projection in sync with any real container resize (panel
+  // toggling, window resize, responsive breakpoints).
+  if (container.value && typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(() => invalidateMapSize());
+    resizeObserver.observe(container.value);
+  }
+});
 watch(() => props.points, () => render(), { deep: true });
 onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (map) {
     map.remove();
     map = null;

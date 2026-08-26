@@ -428,6 +428,7 @@
             "title": "Tor connectivity",
             "enabled": "Connect through Tor",
             "enabledNote": "Route the app's traffic through the Tor network. First boot can take several seconds while Tor downloads its consensus.",
+            "restartNote": "Changing this setting will restart QxChat completely.",
             "port": "Tor SOCKS5 port",
             "running": "Tor is running on port {port}.",
             "stopped": "Tor is stopped.",
