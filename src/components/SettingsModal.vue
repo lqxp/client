@@ -1716,7 +1716,7 @@ onBeforeUnmount(() => {
 
           <div v-if="circuit?.hops?.length" class="settings-group">
             <h4>{{ t('settings.tor.circuit') }}</h4>
-            <p class="settings-note">{{ t('settings.tor.circuitNote') }}</p>
+            <p class="settings-note tor-circuit-note">{{ t('settings.tor.circuitNote') }}</p>
 
             <WorldMap v-if="circuitPoints.length" :points="circuitPoints" connect />
 
@@ -2421,6 +2421,10 @@ onBeforeUnmount(() => {
   margin-top: 12px;
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+.tor-circuit-note {
+  margin-bottom: 14px;
 }
 .tor-circuit__hop {
   display: flex;
