@@ -1677,7 +1677,7 @@ onBeforeUnmount(() => {
             </label>
             <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
 
-            <div v-if="messenger.state.torEnabled" class="settings-inline">
+            <div v-if="messenger.state.torEnabled">
               <label class="settings-field">
                 <span class="settings-field__label">{{ t('settings.tor.port') }}</span>
                 <input class="settings-input" type="number" min="1" max="65535"
