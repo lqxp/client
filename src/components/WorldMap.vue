@@ -105,10 +105,17 @@ function initMap() {
 
     /**
      * Country fill.
+     * On utilise objects.countries (et non objects.land) pour éviter
+     * les artefacts de polygone inversé / ruban autour de l'antiméridien
+     * et du tropique du Capricorne.
      */
-    const land = feature(topo, objects.land);
+    const countriesGeo = feature(topo, objects.countries);
+    const filteredCountries = {
+      ...countriesGeo,
+      features: countriesGeo.features.filter((f: any) => f.id !== "010"),
+    };
 
-    L.geoJSON(land as any, {
+    L.geoJSON(filteredCountries as any, {
       renderer,
 
       style: {
@@ -125,11 +132,7 @@ function initMap() {
      * mesh() is kept here because it produces clean internal borders
      * without the problematic polygon seams from feature(countries).
      */
-    const borders = mesh(
-      topo,
-      objects.countries,
-      (a: any, b: any) => a !== b,
-    );
+    const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
 
     L.geoJSON(borders as any, {
       renderer,
@@ -204,15 +207,12 @@ function updateCircuit() {
    */
   if (props.connect && points.length > 1) {
     L.polyline(
-      points.map(
-        (p) => [p.lat, p.lng] as [number, number],
-      ),
+      points.map((p) => [p.lat, p.lng] as [number, number]),
       {
         color: accent,
         weight: 1.5,
         dashArray: "4 3",
         opacity: 0.6,
-        renderer: L.canvas(),
       },
     ).addTo(circuitLayer);
   }
@@ -221,10 +221,7 @@ function updateCircuit() {
    * Circuit markers.
    */
   for (const point of points) {
-    const color =
-      point.color ||
-      ROLE_COLOR[point.role || ""] ||
-      accent;
+    const color = point.color || ROLE_COLOR[point.role || ""] || accent;
 
     const icon = L.divIcon({
       className: "",
@@ -245,13 +242,10 @@ function updateCircuit() {
       iconAnchor: [6, 6],
     });
 
-    const marker = L.marker(
-      [point.lat, point.lng],
-      {
-        icon,
-        title: point.label,
-      },
-    );
+    const marker = L.marker([point.lat, point.lng], {
+      icon,
+      title: point.label,
+    });
 
     marker.addTo(circuitLayer);
 
