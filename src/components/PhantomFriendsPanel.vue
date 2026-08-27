@@ -117,7 +117,7 @@ function friendMenuAction(action: string) {
         v-for="friend in friends"
         :key="friend.peerFp"
         class="phantom-friend"
-        @contextmenu.prevent="openFriendMenu($event, friend)"
+        @contextmenu.prevent.stop="openFriendMenu($event, friend)"
       >
         <button type="button" @click="openFriend(friend.roomId)">
           <span class="phantom-friend__avatar">
@@ -141,6 +141,8 @@ function friendMenuAction(action: string) {
       v-if="friendMenu"
       class="phantom-friend-menu"
       :style="{ top: `${friendMenu.y}px`, left: `${friendMenu.x}px` }"
+      @click.stop
+      @contextmenu.prevent.stop
     >
       <button type="button" @click="friendMenuAction('block')">{{ t("phantom.block") }}</button>
       <button type="button" @click="friendMenuAction('remove')">{{ t("phantom.removeFriend") }}</button>
