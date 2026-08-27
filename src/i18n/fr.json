@@ -690,8 +690,6 @@
         "introMessage": "Message",
         "byContext": "Salon commun",
         "byUsername": "Pseudo",
-        "ghostLink": "Lien fantôme",
-        "createGhostLink": "Créer un lien à usage unique",
         "acceptUnknown": "Accepter les demandes d'inconnus",
         "acceptUnknownOff": "Désactivé",
         "acceptUnknownFilter": "Filtré",

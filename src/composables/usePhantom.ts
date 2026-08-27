@@ -102,7 +102,6 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     friendsByUser: {} as Record<string, any>,
     pendingIncoming: [] as any[],
     pendingOutgoing: [] as any[],
-    ghostCodes: [] as { url: string; createdAt: number }[],
     acceptUnknown: "off" as "off" | "filter" | "all",
     blockList: [] as string[],
     friendsCollapsed: false,
@@ -546,16 +545,6 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (index >= 0) state.pendingIncoming.splice(index, 1);
   }
 
-  // ── Ghost codes ─────────────────────────────────────────────────────────────
-  async function createGhostLink(): Promise<void> {
-    const prekey = await ensurePrekey();
-    if (!prekey) {
-      setError("Publish a prekey first.");
-      return;
-    }
-    ctx.send({ op: 38, d: { requestId: globalThis.crypto.randomUUID() } });
-  }
-
   // ── Blocage opaque (barrière locale, garantie §6.2) ────────────────────────
   // La liste stocke des `prekeyFp` (empreinte ML-KEM de l'émetteur), vérifiés à
   // l'ouverture de chaque enveloppe.
@@ -699,9 +688,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       setError(String(d.error));
       return;
     }
-    if (op === 38 && d?.url) {
-      state.ghostCodes.push({ url: d.url, createdAt: Date.now() });
-    } else if (op === 39 && Array.isArray(d?.filter)) {
+    if (op === 39 && Array.isArray(d?.filter)) {
       state.blockList = d.filter;
     }
   });
@@ -718,7 +705,6 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     sendIntroByUsername,
     acceptIncoming,
     ignoreIncoming,
-    createGhostLink,
     blockUser,
     unblockUser,
     removeFriend,

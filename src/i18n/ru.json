@@ -713,8 +713,6 @@
         "introMessage": "Сообщение",
         "byContext": "Общая комната",
         "byUsername": "Имя пользователя",
-        "ghostLink": "Фантомная ссылка",
-        "createGhostLink": "Создать одноразовую ссылку",
         "acceptUnknown": "Принимать запросы от незнакомцев",
         "acceptUnknownOff": "Выкл",
         "acceptUnknownFilter": "Фильтр",

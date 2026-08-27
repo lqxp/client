@@ -702,8 +702,6 @@
         "introMessage": "Mensaje",
         "byContext": "Sala compartida",
         "byUsername": "Nombre de usuario",
-        "ghostLink": "Enlace fantasma",
-        "createGhostLink": "Crear un enlace de un solo uso",
         "acceptUnknown": "Aceptar solicitudes de desconocidos",
         "acceptUnknownOff": "Apagado",
         "acceptUnknownFilter": "Filtrado",

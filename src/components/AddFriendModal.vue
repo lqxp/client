@@ -7,7 +7,7 @@ const emit = defineEmits(["close"]);
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
-const tab = ref<"context" | "username" | "ghost">("context");
+const tab = ref<"context" | "username">("context");
 const username = ref("");
 const roomId = ref("");
 const intro = ref("");
@@ -68,17 +68,6 @@ async function send() {
   }
 }
 
-async function createLink() {
-  await props.phantom.createGhostLink();
-}
-
-async function copyGhostUrl(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-  } catch {
-    /* ignore */
-  }
-}
 </script>
 
 <template>
@@ -97,9 +86,6 @@ async function copyGhostUrl(url: string) {
           <button type="button" :class="{ 'is-active': tab === 'username' }" @click="tab = 'username'">
             {{ t("phantom.byUsername") }}
           </button>
-          <button type="button" :class="{ 'is-active': tab === 'ghost' }" @click="tab = 'ghost'">
-            {{ t("phantom.ghostLink") }}
-          </button>
         </nav>
 
         <div class="phantom-modal__body">
@@ -112,7 +98,6 @@ async function copyGhostUrl(url: string) {
           </div>
 
           <template v-else>
-          <template v-if="tab !== 'ghost'">
             <label class="phantom-field">
               <span>{{ t("phantom.byUsername") }}</span>
               <input v-model="username" type="text" :placeholder="t('phantom.byUsername')" />
@@ -137,20 +122,6 @@ async function copyGhostUrl(url: string) {
             <button class="btn--primary phantom-submit" type="button" :disabled="busy" @click="send">
               {{ busy ? "…" : t("phantom.send") }}
             </button>
-          </template>
-
-          <template v-else>
-            <button class="btn--primary phantom-submit" type="button" @click="createLink">
-              {{ t("phantom.createGhostLink") }}
-            </button>
-            <ul v-if="props.phantom.state.ghostCodes.length" class="phantom-ghost-list">
-              <li v-for="(code, i) in props.phantom.state.ghostCodes" :key="i">
-                <code>{{ code.url }}</code>
-                <button type="button" @click="copyGhostUrl(code.url)">⧉</button>
-              </li>
-            </ul>
-          </template>
-
           <p v-if="error" class="phantom-error">{{ error }}</p>
           </template>
         </div>
@@ -305,37 +276,6 @@ async function copyGhostUrl(url: string) {
   margin: 0;
   font-size: 12.5px;
   color: var(--red);
-}
-.phantom-ghost-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.phantom-ghost-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.phantom-ghost-list code {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--muted);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-}
-.phantom-ghost-list button {
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
 }
 
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {

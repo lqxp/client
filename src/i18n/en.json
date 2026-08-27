@@ -690,8 +690,6 @@
         "introMessage": "Message",
         "byContext": "Shared room",
         "byUsername": "Username",
-        "ghostLink": "Ghost link",
-        "createGhostLink": "Create a single-use link",
         "acceptUnknown": "Accept requests from strangers",
         "acceptUnknownOff": "Off",
         "acceptUnknownFilter": "Filtered",

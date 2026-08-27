@@ -17,7 +17,6 @@ function toggleCollapsed() {
 
 const friends = computed<any[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as any[]);
 const requests = computed(() => props.phantom.state.pendingIncoming || []);
-const ghostCodes = computed(() => props.phantom.state.ghostCodes || []);
 const recoveryReady = computed(
   () =>
     Array.isArray(props.messenger.state.recoveryWords) &&
@@ -56,14 +55,6 @@ function openFriend(roomId: string) {
 function friendAvatar(friend: any) {
   const profile = props.messenger.profileFor?.(friend.peerDisplayName);
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
-}
-
-async function copyGhostUrl(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-  } catch {
-    /* ignore */
-  }
 }
 
 function blockRequest(request: any) {
@@ -139,13 +130,6 @@ function friendMenuAction(action: string) {
       </li>
     </ul>
     <p v-else-if="!requests.length && recoveryReady" class="phantom-friends__empty">{{ t("phantom.noFriends") }}</p>
-
-    <div v-if="ghostCodes.length" class="phantom-ghosts">
-      <span>{{ t("phantom.ghostLink") }}</span>
-      <button v-for="(code, i) in ghostCodes" :key="i" type="button" @click="copyGhostUrl(code.url)">
-        ⧉ {{ code.url.slice(0, 24) }}…
-      </button>
-    </div>
 
     <div
       v-if="friendMenu"
@@ -346,22 +330,6 @@ function friendMenuAction(action: string) {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-}
-.phantom-ghosts {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.phantom-ghosts button {
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  font-size: 11px;
 }
 .phantom-recovery-note {
   margin: 0;
