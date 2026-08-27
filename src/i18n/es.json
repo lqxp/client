@@ -652,5 +652,26 @@
         "retry": "Reintentar",
         "checkUpdates": "Buscar actualizaciones",
         "availableTitle": "Actualización disponible"
+    },
+    "phantom": {
+        "title": "Amigos",
+        "requests": "Solicitudes de amistad",
+        "send": "Añadir amigo",
+        "accept": "Aceptar",
+        "ignore": "Ignorar",
+        "friends": "Amigos",
+        "noFriends": "Aún no hay amigos",
+        "noRequests": "Sin solicitudes pendientes",
+        "byContext": "Sala compartida",
+        "byUsername": "Nombre de usuario",
+        "ghostLink": "Enlace fantasma",
+        "createGhostLink": "Crear un enlace de un solo uso",
+        "acceptUnknown": "Aceptar solicitudes de desconocidos",
+        "acceptUnknownOff": "Apagado",
+        "acceptUnknownFilter": "Filtrado",
+        "acceptUnknownAll": "Todos",
+        "block": "Bloquear",
+        "unblock": "Desbloquear",
+        "usernameWarning": "El servidor sabrá que buscaste este nombre de usuario."
     }
 }

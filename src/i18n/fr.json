@@ -640,5 +640,26 @@
         "retry": "Réessayer",
         "checkUpdates": "Vérifier les mises à jour",
         "availableTitle": "Mise à jour disponible"
+    },
+    "phantom": {
+        "title": "Amis",
+        "requests": "Demandes d'ami",
+        "send": "Ajouter en ami",
+        "accept": "Accepter",
+        "ignore": "Ignorer",
+        "friends": "Amis",
+        "noFriends": "Aucun ami pour l'instant",
+        "noRequests": "Aucune demande en attente",
+        "byContext": "Salon commun",
+        "byUsername": "Pseudo",
+        "ghostLink": "Lien fantôme",
+        "createGhostLink": "Créer un lien à usage unique",
+        "acceptUnknown": "Accepter les demandes d'inconnus",
+        "acceptUnknownOff": "Désactivé",
+        "acceptUnknownFilter": "Filtré",
+        "acceptUnknownAll": "Tous",
+        "block": "Bloquer",
+        "unblock": "Débloquer",
+        "usernameWarning": "Le serveur saura que vous cherchez ce pseudo."
     }
 }

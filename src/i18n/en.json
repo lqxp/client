@@ -640,5 +640,26 @@
         "retry": "Retry Update",
         "checkUpdates": "Check for updates",
         "availableTitle": "Update available"
+    },
+    "phantom": {
+        "title": "Friends",
+        "requests": "Friend requests",
+        "send": "Add friend",
+        "accept": "Accept",
+        "ignore": "Ignore",
+        "friends": "Friends",
+        "noFriends": "No friends yet",
+        "noRequests": "No pending requests",
+        "byContext": "Shared room",
+        "byUsername": "Username",
+        "ghostLink": "Ghost link",
+        "createGhostLink": "Create a single-use link",
+        "acceptUnknown": "Accept requests from strangers",
+        "acceptUnknownOff": "Off",
+        "acceptUnknownFilter": "Filtered",
+        "acceptUnknownAll": "All",
+        "block": "Block",
+        "unblock": "Unblock",
+        "usernameWarning": "The server will know you searched for this username."
     }
 }

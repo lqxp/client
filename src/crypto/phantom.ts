@@ -104,7 +104,7 @@ export async function sha256Hex(data: Uint8Array): Promise<string> {
   return bytesToHex(digest);
 }
 
-async function hkdfSha256(
+export async function hkdfSha256(
   ikm: Uint8Array,
   salt: Uint8Array,
   info: string,

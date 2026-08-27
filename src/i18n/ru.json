@@ -663,5 +663,26 @@
         "retry": "Повторить",
         "checkUpdates": "Проверить обновления",
         "availableTitle": "Доступно обновление"
+    },
+    "phantom": {
+        "title": "Друзья",
+        "requests": "Запросы в друзья",
+        "send": "Добавить друга",
+        "accept": "Принять",
+        "ignore": "Игнорировать",
+        "friends": "Друзья",
+        "noFriends": "Пока нет друзей",
+        "noRequests": "Нет ожидающих запросов",
+        "byContext": "Общая комната",
+        "byUsername": "Имя пользователя",
+        "ghostLink": "Фантомная ссылка",
+        "createGhostLink": "Создать одноразовую ссылку",
+        "acceptUnknown": "Принимать запросы от незнакомцев",
+        "acceptUnknownOff": "Выкл",
+        "acceptUnknownFilter": "Фильтр",
+        "acceptUnknownAll": "Все",
+        "block": "Заблокировать",
+        "unblock": "Разблокировать",
+        "usernameWarning": "Сервер узнает, что вы искали это имя пользователя."
     }
 }

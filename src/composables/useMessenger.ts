@@ -53,6 +53,7 @@ import {
   setSoundFlag,
 } from "@/calls/callSounds";
 import { useI18n } from "./useI18n";
+import { dispatchPhantomMessage } from "./phantomBridge";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -7778,6 +7779,12 @@ export function useMessenger() {
       case 35:
         applyPublicProfileLookup(d);
         break;
+      case 36:
+      case 37:
+      case 38:
+      case 39:
+        dispatchPhantomMessage(op, d);
+        break;
       case 13:
         break;
       case 87:
@@ -8598,6 +8605,13 @@ export function useMessenger() {
     platformsForUser,
     userIdForUsername,
     mutualRoomsWith,
+    apiRequest,
+    send,
+    roomKeyFor,
+    ensureRoomKey,
+    importRoomKey,
+    generateRoomAccessToken,
+    requestJoin,
     platformLabel,
     platformIcon,
     showToast,
