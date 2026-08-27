@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AddFriendModal from "@/components/AddFriendModal.vue";
 
@@ -17,6 +17,18 @@ const recoveryReady = computed(
   () =>
     Array.isArray(props.messenger.state.recoveryWords) &&
     props.messenger.state.recoveryWords.length === 12,
+);
+
+watch(
+  friends,
+  (list) => {
+    if (list.length) {
+      props.messenger.requestPublicProfilesForUsers?.(
+        list.map((friend) => friend.peerDisplayName),
+      );
+    }
+  },
+  { immediate: true },
 );
 
 onMounted(() => {
