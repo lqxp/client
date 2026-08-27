@@ -737,6 +737,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     deviceSigningPublicKey: null,
     deviceSigningPrivateKey: null,
     trustedSenderKeysByRoom: {},
+    bannedRooms: {},
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
     selectedVideoInputId: "",
@@ -1025,6 +1026,7 @@ function loadPersisted() {
       deviceSigningPublicKey: raw.deviceSigningPublicKey || null,
       deviceSigningPrivateKey: raw.deviceSigningPrivateKey || null,
       trustedSenderKeysByRoom: raw.trustedSenderKeysByRoom && typeof raw.trustedSenderKeysByRoom === "object" ? raw.trustedSenderKeysByRoom : {},
+      bannedRooms: sanitizeBannedRooms(raw.bannedRooms),
       selectedAudioInputId: String(raw.selectedAudioInputId || ""),
       selectedAudioOutputId: String(raw.selectedAudioOutputId || ""),
       selectedVideoInputId: String(raw.selectedVideoInputId || ""),
@@ -1163,6 +1165,17 @@ function sanitizeRoomNotes(raw) {
     next[id] = String(note || "")
       .trim()
       .slice(0, MAX_ROOM_NOTE_LENGTH);
+  }
+  return next;
+}
+
+function sanitizeBannedRooms(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const next = {};
+  for (const roomId of Object.keys(raw)) {
+    const id = sanitizeRoomId(roomId);
+    if (!isValidRoomId(id)) continue;
+    next[id] = true;
   }
   return next;
 }
@@ -1395,6 +1408,7 @@ function buildPersistedPayload(state) {
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
+    bannedRooms: sanitizeBannedRooms(state.bannedRooms),
     selectedTurnServerId: state.selectedTurnServerId,
     customTurnServers: sanitizeCustomTurnServers(state.customTurnServers),
     profile: normalizeProfile(state.profile),
@@ -2340,6 +2354,7 @@ export function useMessenger() {
     roomMetaByRoom: {},
     myRoleByRoom: {},
     callAccessOpenByRoom: {},
+    bannedRooms: persisted.bannedRooms,
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
@@ -2691,6 +2706,7 @@ export function useMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
+    state.bannedRooms = sanitizeBannedRooms((normalized as any).bannedRooms);
     state.selectedTurnServerId = normalized.selectedTurnServerId;
     state.customTurnServers = normalized.customTurnServers;
     state.clientLockPinLength = normalized.clientLockPinLength;
@@ -4026,6 +4042,29 @@ export function useMessenger() {
   }
 
   function isCommunityRoom(roomId) { return roomKind(roomId) === "community"; }
+  function isBannedFromRoom(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return Boolean(id && state.bannedRooms[id]);
+  }
+  function markRoomBanned(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    const wasActive = state.activeRoom === id;
+    if (state.inCall && state.callRoom === id) endCall();
+    state.bannedRooms[id] = true;
+    // Clear the room's local data (messages, members, call state) and drop it
+    // from the sidebar so no stale content remains after the ban.
+    removeRoom(id);
+    if (wasActive) state.activeRoom = id;
+    state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
+    persist();
+  }
+  function unmarkRoomBanned(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    delete state.bannedRooms[id];
+    persist();
+  }
   function isRoomOwner(roomId) {
     const id = sanitizeRoomId(roomId);
     return Boolean(state.userId) && roomOwnerId(id) === state.userId;
@@ -5481,6 +5520,12 @@ export function useMessenger() {
       return;
     }
     if (!state.identified) return;
+    if (isBannedFromRoom(id)) {
+      state.activeRoom = id;
+      state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
+      persist();
+      return;
+    }
     if (state.joinedRooms.includes(id)) return;
     if (state.pendingJoinRooms.includes(id)) {
       if (!options?.force) return;
@@ -7684,6 +7729,11 @@ export function useMessenger() {
 
 
   function handleJoinOp(d) {
+    if (d?.error && /banned/i.test(String(d.error))) {
+      const bannedRoomId = sanitizeRoomId(d?.gameId || state.activeRoom || "");
+      if (bannedRoomId) markRoomBanned(bannedRoomId);
+      return;
+    }
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
 
@@ -7980,6 +8030,11 @@ export function useMessenger() {
   }
 
   function handleLeaveOp(d) {
+    if (d?.removed && d?.reason === "banned") {
+      const bannedRoomId = sanitizeRoomId(d?.gameId || state.activeRoom || "");
+      if (bannedRoomId) markRoomBanned(bannedRoomId);
+      return;
+    }
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
 
@@ -8529,6 +8584,9 @@ export function useMessenger() {
     roleLabel,
     roleForUsername,
     isCommunityRoom,
+    isBannedFromRoom,
+    markRoomBanned,
+    unmarkRoomBanned,
     isRoomOwner,
     isRoomAdministrator,
     canManageRoom,

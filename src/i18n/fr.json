@@ -544,7 +544,9 @@
     },
     "ban": {
         "title": "Compte banni",
-        "message": "Hop hop hop! Ton compte a été banni."
+        "message": "Hop hop hop! Ton compte a été banni.",
+        "roomTitle": "Tu es banni",
+        "roomMessage": "Tu as été banni de {channel}."
     },
     "rooms": {
         "roleAdmin": "Administrateur",

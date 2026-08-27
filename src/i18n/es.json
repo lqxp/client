@@ -556,7 +556,9 @@
     },
     "ban": {
         "title": "Cuenta expulsada",
-        "message": "Uy… tu cuenta acaba de ser expulsada."
+        "message": "Uy… tu cuenta acaba de ser expulsada.",
+        "roomTitle": "Estás expulsado",
+        "roomMessage": "Has sido expulsado de {channel}."
     },
     "rooms": {
         "roleAdmin": "Administrador",
