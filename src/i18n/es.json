@@ -184,6 +184,7 @@
         "attachmentExpired": "Adjunto caducado",
         "originalNotLoaded": "El mensaje original no está cargado.",
         "messageDeleted": "Mensaje eliminado",
+        "deletedByModerator": "Mensaje eliminado por un moderador",
         "cancel": "Cancelar",
         "ok": "OK",
         "replyTo": "Responder a {user}",

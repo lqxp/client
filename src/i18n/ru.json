@@ -209,6 +209,7 @@
         "attachmentExpired": "Вложение истекло",
         "originalNotLoaded": "Исходное сообщение ещё не загружено.",
         "messageDeleted": "Сообщение удалено",
+        "deletedByModerator": "Сообщение удалено модератором",
         "cancel": "Отмена",
         "ok": "OK",
         "replyTo": "Ответить {user}",

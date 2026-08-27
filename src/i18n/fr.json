@@ -184,6 +184,7 @@
         "attachmentExpired": "Pièce jointe expirée",
         "originalNotLoaded": "Le message original n’est pas chargé.",
         "messageDeleted": "Message supprimé",
+        "deletedByModerator": "Message supprimé par un modérateur",
         "cancel": "Annuler",
         "ok": "OK",
         "replyTo": "Répondre à {user}",

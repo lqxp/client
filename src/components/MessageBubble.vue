@@ -33,7 +33,7 @@ function messageDomId(messageId) {
 
 function previewTextFor(target, fallbackId = "") {
   if (!target) return fallbackId ? t("message.originalNotLoaded") : "";
-  if (target.deleted) return t("message.messageDeleted");
+  if (target.deleted) return target.deletedByModerator ? t("message.deletedByModerator") : t("message.messageDeleted");
   if (target.kind === "image") return t("message.photo");
   if (target.kind === "video") return t("message.video");
   if (target.kind === "audio" || target.kind === "voice") return t("message.voiceMessage");
@@ -91,6 +91,10 @@ const isTextAttachment = computed(() => {
 });
 const jumbo = computed(() => props.message.jumboEmoji && !props.message.deleted);
 const deleted = computed(() => props.message.deleted);
+const deletedByModerator = computed(() => Boolean(props.message.deletedByModerator));
+const deletedLabel = computed(() =>
+  deleted.value ? (deletedByModerator.value ? t("message.deletedByModerator") : t("message.deleted")) : ""
+);
 const preview = computed(() => props.message.preview);
 const edited = computed(() => Number(props.message.editedAt || 0) > 0 && !props.message.deleted);
 const canEdit = computed(() => props.messenger.canEditMessage?.(props.message));
@@ -812,7 +816,7 @@ onBeforeUnmount(() => {
 
       <template v-if="deleted">
         <div class="bubble__body">
-          <div class="bubble__text bubble__text--deleted">{{ t('message.deleted') }}</div>
+          <div class="bubble__text bubble__text--deleted">{{ deletedLabel }}</div>
         </div>
       </template>
 
@@ -964,7 +968,7 @@ onBeforeUnmount(() => {
           <div class="msg__context-header-text">
             <strong class="msg__context-header-name">@{{ message.username }}</strong>
             <span v-if="!deleted" class="msg__context-header-preview">{{ previewTextFor(message, message.messageId) }}</span>
-            <span v-else class="msg__context-header-preview msg__context-header-preview--deleted">{{ t('message.messageDeleted') }}</span>
+            <span v-else class="msg__context-header-preview msg__context-header-preview--deleted">{{ previewTextFor(message, message.messageId) }}</span>
           </div>
         </div>
         <!-- Quick reactions row -->

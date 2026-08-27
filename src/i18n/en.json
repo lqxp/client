@@ -184,6 +184,7 @@
         "attachmentExpired": "Attachment expired",
         "originalNotLoaded": "Original message is not loaded.",
         "messageDeleted": "Message deleted",
+        "deletedByModerator": "Message deleted by a moderator",
         "cancel": "Cancel",
         "ok": "OK",
         "replyTo": "Reply to {user}",

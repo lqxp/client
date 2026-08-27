@@ -1241,6 +1241,8 @@ function stripAttachmentDataForStorage(arr) {
       timestamp: message.timestamp,
       system: message.system,
       deleted: message.deleted,
+      deletedBy: message.deletedBy,
+      deletedByModerator: message.deletedByModerator,
       reactions: message.reactions,
       replyToMessageId: message.replyToMessageId,
       attachment,
@@ -2126,6 +2128,8 @@ function normalizeMessage(message, fallbackRoomId) {
     system: Boolean(message.system),
     systemKind: String(message.systemKind || ""),
     deleted: Boolean(message.deleted),
+    deletedBy: String(message.deletedBy || ""),
+    deletedByModerator: Boolean(message.deletedByModerator),
     reactions: Array.isArray(message.reactions) ? message.reactions : [],
     replyToMessageId: String(message.replyToMessageId || ""),
     attachment,
@@ -7291,6 +7295,8 @@ export function useMessenger() {
           reactions: [],
           editedAt: 0,
           deleted: true,
+          deletedBy: payload?.deletedBy || "",
+          deletedByModerator: payload?.deletedByModerator === true,
         },
         id,
       );
@@ -7681,7 +7687,7 @@ export function useMessenger() {
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
 
-    if (d?.system && d?.joined) {
+    if (d?.system && d?.joined && !isCommunityRoom(roomId)) {
       showTransientSystemRoomEvent(roomId, d.joined, "join");
     }
 
