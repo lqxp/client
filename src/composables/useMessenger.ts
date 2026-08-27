@@ -788,6 +788,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     autoReconnectEnabled: RECONNECT_DEFAULTS.enabled,
     reconnectMinDelayMs: RECONNECT_DEFAULTS.minDelayMs,
     reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
+    allowServerDefaultRoom: true,
+    defaultRoomLeavedRoomId: "",
     callUserVolumes: {},
     roomNotes: {},
     pinnedRooms: [],
@@ -1106,6 +1108,8 @@ function loadPersisted() {
           ? raw.serverClearsLocalMessages
           : false,
       autoReconnectEnabled: raw.autoReconnectEnabled !== false,
+      allowServerDefaultRoom: raw.allowServerDefaultRoom !== false,
+      defaultRoomLeavedRoomId: String(raw.defaultRoomLeavedRoomId || ""),
       reconnectMinDelayMs: Math.max(
         250,
         Math.min(
@@ -1454,6 +1458,8 @@ function buildPersistedPayload(state) {
     autoReconnectEnabled: state.autoReconnectEnabled,
     reconnectMinDelayMs: state.reconnectMinDelayMs,
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
+    allowServerDefaultRoom: state.allowServerDefaultRoom,
+    defaultRoomLeavedRoomId: state.defaultRoomLeavedRoomId,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     bannedRooms: sanitizeBannedRooms(state.bannedRooms),
@@ -2457,6 +2463,9 @@ export function useMessenger() {
     androidNotificationsEnabled: persisted.androidNotificationsEnabled,
     serverClearsLocalMessages: persisted.serverClearsLocalMessages,
     autoReconnectEnabled: persisted.autoReconnectEnabled,
+    allowServerDefaultRoom: persisted.allowServerDefaultRoom,
+    defaultRoomLeavedRoomId: persisted.defaultRoomLeavedRoomId,
+    defaultRoomId: "",
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
     reconnectMaxDelayMs: Math.max(
       persisted.reconnectMinDelayMs,
@@ -2766,6 +2775,8 @@ export function useMessenger() {
     state.androidNotificationsEnabled = normalized.androidNotificationsEnabled;
     state.serverClearsLocalMessages = normalized.serverClearsLocalMessages;
     state.autoReconnectEnabled = normalized.autoReconnectEnabled;
+    state.allowServerDefaultRoom = normalized.allowServerDefaultRoom;
+    state.defaultRoomLeavedRoomId = normalized.defaultRoomLeavedRoomId;
     state.reconnectMinDelayMs = normalized.reconnectMinDelayMs;
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
@@ -3418,6 +3429,8 @@ export function useMessenger() {
       autoReconnectEnabled: state.autoReconnectEnabled,
       reconnectMinDelayMs: state.reconnectMinDelayMs,
       reconnectMaxDelayMs: state.reconnectMaxDelayMs,
+      allowServerDefaultRoom: state.allowServerDefaultRoom,
+      defaultRoomLeavedRoomId: state.defaultRoomLeavedRoomId,
       typingIndicatorsEnabled: state.typingIndicatorsEnabled,
       messageSoundEnabled: state.messageSoundEnabled,
       callSoundsEnabled: state.callSoundsEnabled,
@@ -3737,6 +3750,48 @@ export function useMessenger() {
       return true;
     } catch (error) {
       state.lastError = error?.message || "Feature update failed.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
+  async function setServerDefaultRoom(roomId) {
+    if (!state.admin) return false;
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return false;
+    const roomKey = roomKeyFor(id);
+    if (!roomKey) {
+      state.lastError = "This room has no local key.";
+      showToast(state.lastError);
+      return false;
+    }
+    const room = state.rooms.find((entry) => entry.roomId === id);
+    const title = room?.title || id;
+    try {
+      const data = await apiRequest("/api/admin/default-room", {
+        method: "POST",
+        body: JSON.stringify({ roomId: id, roomKey, title }),
+      });
+      if (state.adminOverview) state.adminOverview.defaultRoom = data.defaultRoom;
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Default room update failed.";
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
+  async function clearServerDefaultRoom() {
+    if (!state.admin) return false;
+    try {
+      const data = await apiRequest("/api/admin/default-room", {
+        method: "POST",
+        body: JSON.stringify({ clear: true }),
+      });
+      if (state.adminOverview) state.adminOverview.defaultRoom = data.defaultRoom;
+      return true;
+    } catch (error) {
+      state.lastError = error?.message || "Default room clear failed.";
       showToast(state.lastError);
       return false;
     }
@@ -4732,6 +4787,11 @@ export function useMessenger() {
   function setServerClearsLocalMessages(value) {
     state.serverClearsLocalMessages = Boolean(value);
     syncClientSettings();
+    persist();
+  }
+
+  function setAllowServerDefaultRoom(value) {
+    state.allowServerDefaultRoom = Boolean(value);
     persist();
   }
 
@@ -5732,6 +5792,10 @@ export function useMessenger() {
       delete state.typingByRoom[id];
       delete state.unreadByRoom[id];
       if (state.activeRoom === id) state.activeRoom = "";
+      persist();
+    }
+    if (state.defaultRoomId && state.defaultRoomId === id) {
+      state.defaultRoomLeavedRoomId = id;
       persist();
     }
     send({ op: 4, d: { gameId: id } });
@@ -7659,6 +7723,35 @@ export function useMessenger() {
           if (index === 0) requestJoin(roomId);
           else setTimeout(() => requestJoin(roomId), index * 30);
         });
+
+        if (d?.defaultRoom) {
+          const defaultRoomId = sanitizeRoomId(d.defaultRoom.roomId);
+          const defaultRoomKey = String(d.defaultRoom.roomKey || "");
+          state.defaultRoomId = defaultRoomId;
+          if (
+            state.allowServerDefaultRoom &&
+            isValidRoomId(defaultRoomId) &&
+            defaultRoomKey &&
+            state.defaultRoomLeavedRoomId !== defaultRoomId
+          ) {
+            try {
+              importRoomKey(defaultRoomId, defaultRoomKey);
+              const defaultTitle = String(d.defaultRoom.title || "");
+              if (defaultTitle) {
+                const existing = state.rooms.find((room) => room.roomId === defaultRoomId);
+                if (existing) existing.title = defaultTitle;
+              }
+              if (
+                !state.joinedRooms.includes(defaultRoomId) &&
+                !state.pendingJoinRooms.includes(defaultRoomId)
+              ) {
+                requestJoin(defaultRoomId);
+              }
+            } catch {
+              /* roomKey par défaut invalide — ignoré silencieusement */
+            }
+          }
+        }
         break;
       case 3:
         handleJoinOp(d);
@@ -8668,6 +8761,8 @@ export function useMessenger() {
     loadAdminOverview,
     searchAdminUsers,
     setAdminFeature,
+    setServerDefaultRoom,
+    clearServerDefaultRoom,
     setAdminUserDisabled,
     setAdminUserBanned,
     deleteAdminUser,
@@ -8702,6 +8797,7 @@ export function useMessenger() {
     setSpotlightSearchEnabled,
     setAutoReconnectEnabled,
     setServerClearsLocalMessages,
+    setAllowServerDefaultRoom,
     setAutoArchiveUploads,
     setRenameUploadsRandomly,
     setStripImageExif,

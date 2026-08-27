@@ -37,6 +37,7 @@ const adminUserSearch = ref("");
 const adminBadgeDrafts = ref<Record<string, string>>({});
 const adminBadgeMenus = ref<Record<string, boolean>>({});
 const adminCustomBadgeDrafts = ref<Record<string, string>>({});
+const adminDefaultRoomId = ref("");
 const isMobileSettings = ref(false);
 const lockPin = ref("");
 const lockPinConfirm = ref("");
@@ -46,6 +47,11 @@ const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinL
 const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
 const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
+const adminRoomOptions = computed(() =>
+  (props.messenger.state.rooms || [])
+    .filter((room) => room?.roomId && props.messenger.roomKeyFor?.(room.roomId))
+    .map((room) => ({ roomId: room.roomId, title: room.title || room.roomId })),
+);
 
 // Phantom : signature du client via les recovery words.
 const recoveryWordsInput = ref("");
@@ -1888,6 +1894,12 @@ onBeforeUnmount(() => {
           <p class="settings-note">
             {{ t('settings.advanced.serverClearsNote') }}
           </p>
+          <label class="settings-check">
+            <span>{{ t('settings.advanced.serverDefaultRoom') }}</span>
+            <input type="checkbox" :checked="messenger.state.allowServerDefaultRoom"
+              @change="messenger.setAllowServerDefaultRoom(targetChecked($event))" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
         </div>
 
         <div class="settings-group">
@@ -1984,6 +1996,35 @@ onBeforeUnmount(() => {
               @change="messenger.setAdminFeature('callsEnabled', targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
+        </div>
+
+        <div class="settings-group" v-if="messenger.state.adminOverview">
+          <h4>{{ t('settings.admin.defaultRoom') }}</h4>
+          <p class="settings-note">{{ t('settings.admin.defaultRoomNote') }}</p>
+          <p v-if="messenger.state.adminOverview.defaultRoom" class="settings-note">
+            {{ t('settings.admin.defaultRoomCurrent') }}:
+            <code>{{ messenger.state.adminOverview.defaultRoom.roomId }}</code>
+          </p>
+          <p v-else class="settings-note">{{ t('settings.admin.defaultRoomNone') }}</p>
+          <label class="settings-select">
+            <span>{{ t('settings.admin.defaultRoomSelect') }}</span>
+            <select v-model="adminDefaultRoomId">
+              <option value="" disabled>{{ t('settings.admin.defaultRoomSelect') }}</option>
+              <option v-for="room in adminRoomOptions" :key="room.roomId" :value="room.roomId">
+                {{ room.title }} ({{ room.roomId }})
+              </option>
+            </select>
+          </label>
+          <div class="settings-actions">
+            <button type="button" class="btn settings-btn" :disabled="!adminDefaultRoomId"
+              @click="messenger.setServerDefaultRoom(adminDefaultRoomId)">
+              {{ t('settings.admin.defaultRoomSet') }}
+            </button>
+            <button type="button" class="btn settings-btn settings-btn--danger"
+              @click="messenger.clearServerDefaultRoom()">
+              {{ t('settings.admin.defaultRoomClear') }}
+            </button>
+          </div>
         </div>
 
         <div class="settings-group" v-if="messenger.state.adminOverview">
