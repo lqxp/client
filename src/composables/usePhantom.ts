@@ -311,7 +311,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       const challenge = await anonymousFetch("/api/auth/challenge?target=phantom");
       const quotaToken = challenge?.quotaToken;
       if (!quotaToken?.ticket || typeof quotaToken?.epoch !== "number") {
-        state.lastError = "Anonymous quota token unavailable.";
+        setError("Anonymous quota token unavailable.");
         return null;
       }
       const action = `phantom_deposit:${epochDay(Date.now())}`;
