@@ -123,6 +123,7 @@
     "members": {
         "presence": "Присутствие",
         "online": "в сети",
+        "muted": "Заглушен",
         "you": "Вы",
         "openProfile": "Открыть профиль {username}",
         "seeAvatar": "Посмотреть аватар",

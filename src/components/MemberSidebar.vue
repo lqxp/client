@@ -96,6 +96,13 @@ function targetUserId(username: string) {
   return props.messenger.userIdForUsername?.(username) || "";
 }
 
+function isMuted(username: string) {
+  if (!isCommunity.value || !canModerate.value) return false;
+  const id = targetUserId(username);
+  if (!id) return false;
+  return props.messenger.isMemberMuted?.(props.messenger.state.activeRoom, id) === true;
+}
+
 const contextIsSelf = computed(() =>
   memberContextUser.value === props.messenger.state.username
 );
@@ -368,6 +375,7 @@ onBeforeUnmount(() => {
                 ></span>
                 {{ voiceMembers.has(username) ? t('call.live') : statusLabel(username) }}
                 <span v-if="roleBadge(username)" class="members__role">{{ roleBadge(username) }}</span>
+                <span v-if="isMuted(username)" class="members__muted">{{ t('members.muted') }}</span>
               </div>
             </div>
           </div>
@@ -500,6 +508,19 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: var(--accent-soft, rgba(99, 102, 241, 0.16));
   color: var(--accent, #6366f1);
+  white-space: nowrap;
+}
+
+.members__muted {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+  color: var(--red);
   white-space: nowrap;
 }
 

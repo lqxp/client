@@ -98,6 +98,7 @@
     "members": {
         "presence": "Présence",
         "online": "en ligne",
+        "muted": "Muet",
         "you": "Vous",
         "openProfile": "Ouvrir le profil de {username}",
         "seeAvatar": "Voir l’avatar",
