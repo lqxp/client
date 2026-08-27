@@ -120,7 +120,7 @@ function friendMenuAction(action: string) {
         @contextmenu.prevent.stop="openFriendMenu($event, friend)"
       >
         <button type="button" @click="openFriend(friend.roomId)">
-          <span class="phantom-friend__avatar">
+          <span class="phantom-friend__avatar" :class="{ 'phantom-friend__avatar--image': friendAvatar(friend) }">
             <img v-if="friendAvatar(friend)" :src="friendAvatar(friend)" alt="" />
             <template v-else>{{ (friend.peerDisplayName || "?").slice(0, 1).toUpperCase() }}</template>
           </span>
@@ -236,6 +236,9 @@ function friendMenuAction(action: string) {
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+}
+.phantom-friend__avatar--image {
+  background: transparent;
 }
 .phantom-friend__name {
   overflow: hidden;
