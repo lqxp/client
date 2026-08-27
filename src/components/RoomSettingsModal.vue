@@ -121,79 +121,85 @@ function unban(userId: string) {
         </header>
 
         <div class="room-settings__body">
-          <div class="room-settings__field">
-            <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
-            <div class="room-settings__row">
-              <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
-              <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
+          <div class="room-settings__columns">
+            <div class="room-settings__col">
+              <div class="room-settings__field">
+                <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
+                <div class="room-settings__row">
+                  <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
+                  <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
+                </div>
+              </div>
+
+              <div class="room-settings__field">
+                <span class="room-settings__label">{{ t('rooms.avatar') }}</span>
+                <div class="room-settings__avatar-row">
+                  <span class="avatar avatar--lg room-settings__avatar">
+                    <img v-if="avatarPreview" :src="avatarPreview" alt="" />
+                    <template v-else>+</template>
+                  </span>
+                  <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ t('rooms.chooseAvatar') }}</button>
+                </div>
+                <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="room-settings__file-input" @change="onAvatarChange" />
+              </div>
+
+              <div class="room-settings__field">
+                <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
+                <textarea id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
+                <div class="room-settings__actions">
+                  <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="room-settings__col">
+              <div class="room-settings__field">
+                <span class="room-settings__label">{{ t('rooms.chat') }}</span>
+                <label class="room-settings__switch">
+                  <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
+                  <span class="room-settings__switch-track"></span>
+                  <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
+                </label>
+              </div>
+
+              <div class="room-settings__field">
+                <span class="room-settings__label">{{ t('rooms.calls') }}</span>
+                <label class="room-settings__switch">
+                  <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
+                  <span class="room-settings__switch-track"></span>
+                  <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
+                </label>
+              </div>
+
+              <div v-if="canConfigurePermissions" class="room-settings__field">
+                <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
+                <div class="room-settings__perms">
+                  <label class="room-settings__switch">
+                    <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
+                    <span class="room-settings__switch-track"></span>
+                    <span class="room-settings__switch-label">{{ t('rooms.permCanBan') }}</span>
+                  </label>
+                  <label class="room-settings__switch">
+                    <input type="checkbox" :checked="permissions.canKick" @change="setPermission('canKick', ($event.target as HTMLInputElement).checked)" />
+                    <span class="room-settings__switch-track"></span>
+                    <span class="room-settings__switch-label">{{ t('rooms.permCanKick') }}</span>
+                  </label>
+                  <label class="room-settings__switch">
+                    <input type="checkbox" :checked="permissions.canMute" @change="setPermission('canMute', ($event.target as HTMLInputElement).checked)" />
+                    <span class="room-settings__switch-track"></span>
+                    <span class="room-settings__switch-label">{{ t('rooms.permCanMute') }}</span>
+                  </label>
+                  <label class="room-settings__switch">
+                    <input type="checkbox" :checked="permissions.canDelete" @change="setPermission('canDelete', ($event.target as HTMLInputElement).checked)" />
+                    <span class="room-settings__switch-track"></span>
+                    <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="room-settings__field">
-            <span class="room-settings__label">{{ t('rooms.avatar') }}</span>
-            <div class="room-settings__avatar-row">
-              <span class="avatar avatar--lg room-settings__avatar">
-                <img v-if="avatarPreview" :src="avatarPreview" alt="" />
-                <template v-else>+</template>
-              </span>
-              <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ t('rooms.chooseAvatar') }}</button>
-            </div>
-            <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="room-settings__file-input" @change="onAvatarChange" />
-          </div>
-
-          <div class="room-settings__field">
-            <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
-            <textarea id="room-settings-description" v-model="description" rows="3" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
-            <div class="room-settings__actions">
-              <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
-            </div>
-          </div>
-
-          <div class="room-settings__field">
-            <span class="room-settings__label">{{ t('rooms.chat') }}</span>
-            <label class="room-settings__switch">
-              <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
-              <span class="room-settings__switch-track"></span>
-              <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
-            </label>
-          </div>
-
-          <div class="room-settings__field">
-            <span class="room-settings__label">{{ t('rooms.calls') }}</span>
-            <label class="room-settings__switch">
-              <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
-              <span class="room-settings__switch-track"></span>
-              <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
-            </label>
-          </div>
-
-          <div v-if="canConfigurePermissions" class="room-settings__field">
-            <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
-            <div class="room-settings__perms">
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.permCanBan') }}</span>
-              </label>
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="permissions.canKick" @change="setPermission('canKick', ($event.target as HTMLInputElement).checked)" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.permCanKick') }}</span>
-              </label>
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="permissions.canMute" @change="setPermission('canMute', ($event.target as HTMLInputElement).checked)" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.permCanMute') }}</span>
-              </label>
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="permissions.canDelete" @change="setPermission('canDelete', ($event.target as HTMLInputElement).checked)" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="room-settings__field">
+          <div class="room-settings__field room-settings__field--banned">
             <span class="room-settings__label">{{ t('rooms.bannedMembers') }}</span>
             <div v-if="banned.length" class="room-settings__banned">
               <div v-for="entry in banned" :key="entry.userId" class="room-settings__banned-row">
@@ -227,7 +233,7 @@ function unban(userId: string) {
 
 .room-settings {
   width: 100%;
-  max-width: 460px;
+  max-width: 760px;
   max-height: calc(100vh - 48px);
   font-family: var(--font);
   overflow-y: auto;
@@ -252,6 +258,25 @@ function unban(userId: string) {
 
 .room-settings__body {
   padding: 4px 20px 20px;
+}
+
+.room-settings__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.room-settings__col {
+  min-width: 0;
+}
+
+.room-settings__col .room-settings__field:first-child {
+  margin-top: 0;
+}
+
+.room-settings__field--banned {
+  margin-top: 24px;
 }
 
 .room-settings__field {
@@ -498,6 +523,19 @@ function unban(userId: string) {
     flex: none;
     height: 48px;
     padding: 0 16px;
+  }
+
+  .room-settings__columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .room-settings__col .room-settings__field:first-child {
+    margin-top: 0;
+  }
+
+  .room-settings__field--banned {
+    margin-top: 18px;
   }
 }
 </style>
