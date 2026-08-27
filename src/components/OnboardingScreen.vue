@@ -98,6 +98,12 @@ function initialsOf(name: string) {
   return (trimmed.slice(0, 2) || "?").toUpperCase();
 }
 
+const savedAccounts = computed(() => props.messenger.localAccounts || []);
+
+function switchTo(userId: string) {
+  void props.messenger.switchAccount?.(userId);
+}
+
 function setMode(next: string) {
   mode.value = next;
   props.messenger.state.lastError = "";
@@ -207,6 +213,22 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
             {{ messenger.state.authLoading ? "Please wait..." : title }}
           </button>
         </form>
+
+        <div v-if="savedAccounts.length" class="onboarding__accounts">
+          <span class="onboarding__accounts-label">{{ t("sidebar.switchAccount") }}</span>
+          <div class="onboarding__accounts-list">
+            <button
+              v-for="account in savedAccounts"
+              :key="account.userId"
+              type="button"
+              class="onboarding__account"
+              @click="switchTo(account.userId)"
+            >
+              <span class="onboarding__account-avatar">{{ initialsOf(account.username) }}</span>
+              <span class="onboarding__account-name">{{ account.username }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -608,5 +630,69 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
     min-height: 40px;
     font-size: 0.79rem;
   }
+}
+
+.onboarding__accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+.onboarding__accounts-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.72);
+}
+.onboarding__accounts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.onboarding__account {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 120ms ease;
+}
+.onboarding__account:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.onboarding__account-avatar {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+.onboarding__account-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(:root[data-theme="light"] .onboarding__accounts-label) {
+  color: var(--muted);
+}
+:global(:root[data-theme="light"] .onboarding__account) {
+  background: rgba(12, 22, 34, 0.06);
+  border-color: rgba(12, 22, 34, 0.14);
+  color: var(--text);
+}
+:global(:root[data-theme="light"] .onboarding__account:hover) {
+  background: rgba(12, 22, 34, 0.1);
 }
 </style>
