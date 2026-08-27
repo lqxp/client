@@ -105,6 +105,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     ghostCodes: [] as { url: string; createdAt: number }[],
     acceptUnknown: "off" as "off" | "filter" | "all",
     blockList: [] as string[],
+    friendsCollapsed: false,
     schedulerRunning: false,
     lastError: "",
   });
@@ -117,6 +118,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       const parsed = JSON.parse(raw);
       if (parsed.acceptUnknown) state.acceptUnknown = parsed.acceptUnknown;
       if (Array.isArray(parsed.blockList)) state.blockList = parsed.blockList;
+      if (typeof parsed.friendsCollapsed === "boolean") state.friendsCollapsed = parsed.friendsCollapsed;
     } catch {
       /* ignore */
     }
@@ -126,7 +128,11 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     try {
       localStorage.setItem(
         SETTINGS_STORAGE_KEY,
-        JSON.stringify({ acceptUnknown: state.acceptUnknown, blockList: state.blockList }),
+        JSON.stringify({
+          acceptUnknown: state.acceptUnknown,
+          blockList: state.blockList,
+          friendsCollapsed: state.friendsCollapsed,
+        }),
       );
     } catch {
       /* ignore */
@@ -585,6 +591,11 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     syncRoster();
   }
 
+  function setFriendsCollapsed(value: boolean): void {
+    state.friendsCollapsed = Boolean(value);
+    saveSettings();
+  }
+
   // ── Roster blob (multi-device, chiffré côté client) ─────────────────────────
   async function rosterKey(): Promise<CryptoKey | null> {
     const master = await deriveMasterSecret();
@@ -712,6 +723,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     unblockUser,
     removeFriend,
     setAcceptUnknown,
+    setFriendsCollapsed,
     syncRoster,
     loadRoster,
   };

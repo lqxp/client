@@ -10,20 +10,9 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const addOpen = ref(false);
 const friendMenu = ref<null | { friend: any; x: number; y: number }>(null);
 
-const COLLAPSED_STORAGE_KEY = "qxphantom-friends-collapsed";
-const collapsed = ref(false);
-try {
-  collapsed.value = localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
-} catch {
-  /* ignore */
-}
+const collapsed = computed(() => !!props.phantom.state.friendsCollapsed);
 function toggleCollapsed() {
-  collapsed.value = !collapsed.value;
-  try {
-    localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed.value ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  props.phantom.setFriendsCollapsed(!collapsed.value);
 }
 
 const friends = computed<any[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as any[]);
