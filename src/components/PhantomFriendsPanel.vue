@@ -76,7 +76,7 @@ async function copyGhostUrl(url: string) {
 
 <style scoped>
 .phantom-friends {
-  border-top: 1px solid var(--border, #2a2d33);
+  border-top: 1px solid var(--line);
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
@@ -90,7 +90,7 @@ async function copyGhostUrl(url: string) {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
 }
 .phantom-friends__list {
   list-style: none;
@@ -109,11 +109,11 @@ async function copyGhostUrl(url: string) {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-primary, #e6e8ec);
+  color: var(--text);
   cursor: pointer;
 }
 .phantom-friend button:hover {
-  background: var(--hover, #26292f);
+  background: var(--surface-hover);
 }
 .phantom-friend__avatar {
   display: grid;
@@ -121,7 +121,7 @@ async function copyGhostUrl(url: string) {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
   color: #fff;
   font-weight: 700;
 }
@@ -133,7 +133,7 @@ async function copyGhostUrl(url: string) {
 .phantom-friends__empty {
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
   padding: 0 4px;
 }
 .phantom-requests {
@@ -146,7 +146,7 @@ async function copyGhostUrl(url: string) {
   position: absolute;
   top: -4px;
   right: 0;
-  background: var(--danger, #e5534b);
+  background: var(--red);
   color: #fff;
   font-size: 11px;
   min-width: 18px;
@@ -162,16 +162,18 @@ async function copyGhostUrl(url: string) {
   gap: 4px;
   padding: 8px;
   border-radius: 8px;
-  background: var(--surface, #1c1f24);
-  border: 1px solid var(--border, #2a2d33);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
 }
 .phantom-request__name {
   font-weight: 600;
   font-size: 13px;
+  color: var(--text);
 }
 .phantom-request__intro {
   font-size: 12px;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
 }
 .phantom-request__actions {
   display: flex;
@@ -184,25 +186,25 @@ async function copyGhostUrl(url: string) {
   cursor: pointer;
   font-size: 12px;
   color: #fff;
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
 }
 .phantom-request__actions button:last-child {
   background: transparent;
-  border: 1px solid var(--border, #2a2d33);
-  color: var(--text-secondary, #a7abb3);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
 }
 .phantom-ghosts {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
 }
 .phantom-ghosts button {
   text-align: left;
   border: 0;
   background: transparent;
-  color: var(--accent, #4f7cff);
+  color: var(--accent);
   cursor: pointer;
   padding: 0;
   font-size: 11px;
