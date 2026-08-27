@@ -255,6 +255,7 @@
             "calls": "Appels",
             "tor": "Connectivité Tor",
             "advanced": "Avancé",
+            "phantom": "Amis",
             "admin": "Admin",
             "backups": "Sauvegardes",
             "about": "À propos"
@@ -661,6 +662,8 @@
         "acceptUnknownAll": "Tous",
         "block": "Bloquer",
         "unblock": "Débloquer",
+        "blocked": "Bloqués",
+        "noBlocked": "Aucun utilisateur bloqué",
         "usernameWarning": "Le serveur saura que vous cherchez ce pseudo."
     }
 }

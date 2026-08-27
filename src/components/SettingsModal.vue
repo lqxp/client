@@ -13,6 +13,7 @@ import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
+const phantom = inject<any>("phantom");
 const { isTauri, triggerCheckUpdatesEvent } = useUpdater();
 
 const props = defineProps({
@@ -360,6 +361,7 @@ const allSections = computed(() => [
   { id: "calls", label: t("settings.sections.calls") },
   { id: "tor", label: t("settings.sections.tor") },
   { id: "advanced", label: t("settings.sections.advanced") },
+  { id: "phantom", label: t("settings.sections.phantom") },
   { id: "admin", label: t("settings.sections.admin") },
   { id: "backups", label: t("settings.sections.backups") },
   { id: "about", label: t("settings.sections.about") }
@@ -897,6 +899,11 @@ onBeforeUnmount(() => {
             <path d="M12 3v12" />
             <path d="m6 9 6-6 6 6" />
             <path d="M5 21h14" />
+          </svg>
+          <svg v-else-if="section.id === 'phantom'" viewBox="0 0 24 24">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M19 8v6M16 11h6" />
           </svg>
           <svg v-else viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
@@ -2078,6 +2085,30 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <section v-else-if="activeSection === 'phantom'" class="settings-page">
+        <div class="settings-group">
+          <h4>{{ t("phantom.requests") }}</h4>
+          <label class="settings-select">
+            <span>{{ t("phantom.acceptUnknown") }}</span>
+            <select :value="phantom.state.acceptUnknown" @change="phantom.setAcceptUnknown(targetValue($event))">
+              <option value="off">{{ t("phantom.acceptUnknownOff") }}</option>
+              <option value="filter">{{ t("phantom.acceptUnknownFilter") }}</option>
+              <option value="all">{{ t("phantom.acceptUnknownAll") }}</option>
+            </select>
+          </label>
+          <p class="settings-note">{{ t("phantom.usernameWarning") }}</p>
+        </div>
+        <div class="settings-group">
+          <h4>{{ t("phantom.blocked") }}</h4>
+          <p v-if="!phantom.state.blockList.length" class="settings-note">{{ t("phantom.noBlocked") }}</p>
+          <div v-else class="phantom-blocked-list">
+            <div v-for="fp in phantom.state.blockList" :key="fp" class="phantom-blocked-row">
+              <code>{{ fp }}</code>
+              <button type="button" class="btn settings-btn" @click="phantom.unblockUser(fp)">{{ t("phantom.unblock") }}</button>
+            </div>
+          </div>
+        </div>
+      </section>
       <section v-else-if="activeSection === 'backups'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.backups.title') }}</h4>
@@ -2560,5 +2591,27 @@ onBeforeUnmount(() => {
 
 .tor-relay__link:hover {
   text-decoration: underline;
+}
+
+.phantom-blocked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phantom-blocked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.phantom-blocked-row code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

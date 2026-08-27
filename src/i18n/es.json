@@ -252,6 +252,7 @@
             "calls": "Llamadas",
             "tor": "Conectividad Tor",
             "advanced": "Avanzado",
+            "phantom": "Amigos",
             "admin": "Admin",
             "backups": "Copias de seguridad",
             "about": "Acerca de"
@@ -673,6 +674,8 @@
         "acceptUnknownAll": "Todos",
         "block": "Bloquear",
         "unblock": "Desbloquear",
+        "blocked": "Bloqueados",
+        "noBlocked": "Sin usuarios bloqueados",
         "usernameWarning": "El servidor sabrá que buscaste este nombre de usuario."
     }
 }

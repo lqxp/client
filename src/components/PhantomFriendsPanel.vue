@@ -32,6 +32,11 @@ async function copyGhostUrl(url: string) {
     /* ignore */
   }
 }
+
+function blockRequest(request: any) {
+  props.phantom.blockUser(request.sender?.prekeyFp);
+  props.phantom.ignoreIncoming(request.id);
+}
 </script>
 
 <template>
@@ -49,8 +54,9 @@ async function copyGhostUrl(url: string) {
         <span class="phantom-request__name">{{ request.sender?.displayName || "…" }}</span>
         <span class="phantom-request__intro">{{ request.intro || "" }}</span>
         <div class="phantom-request__actions">
-          <button type="button" @click="props.phantom.acceptIncoming(request.id)">{{ t("phantom.accept") }}</button>
+          <button type="button" class="is-primary" @click="props.phantom.acceptIncoming(request.id)">{{ t("phantom.accept") }}</button>
           <button type="button" @click="props.phantom.ignoreIncoming(request.id)">{{ t("phantom.ignore") }}</button>
+          <button type="button" @click="blockRequest(request)">{{ t("phantom.block") }}</button>
         </div>
       </div>
     </div>
@@ -210,16 +216,16 @@ async function copyGhostUrl(url: string) {
 .phantom-request__actions button {
   padding: 4px 8px;
   border-radius: 6px;
-  border: 0;
+  border: 1px solid var(--line-strong);
   cursor: pointer;
   font-size: 12px;
-  color: #fff;
-  background: var(--accent);
-}
-.phantom-request__actions button:last-child {
-  background: transparent;
-  border: 1px solid var(--line-strong);
   color: var(--muted);
+  background: transparent;
+}
+.phantom-request__actions button.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 .phantom-ghosts {
   display: flex;

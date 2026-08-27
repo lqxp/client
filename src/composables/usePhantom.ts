@@ -30,6 +30,7 @@ import { setPhantomMessageHandler } from "./phantomBridge";
 const te = new TextEncoder();
 
 const PREKEY_STORAGE_KEY = "qxphantom-prekey-v1";
+const SETTINGS_STORAGE_KEY = "qxphantom-settings-v1";
 const ROSTER_POLL_MIN_MS = 5 * 60 * 1000;
 const ROSTER_POLL_MAX_MS = 12 * 60 * 1000;
 
@@ -105,6 +106,32 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     schedulerRunning: false,
     lastError: "",
   });
+
+  // Persistance locale immédiate (indépendante du blob roster / réseau).
+  function loadSettings(): void {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed.acceptUnknown) state.acceptUnknown = parsed.acceptUnknown;
+      if (Array.isArray(parsed.blockList)) state.blockList = parsed.blockList;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function saveSettings(): void {
+    try {
+      localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify({ acceptUnknown: state.acceptUnknown, blockList: state.blockList }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  loadSettings();
 
   // ── Fetch anonyme (aucun header d'authentification — S6/INV13) ──────────────
   async function anonymousFetch(path: string, options: any = {}) {
@@ -211,9 +238,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     try {
       const inner = await openEnvelope(outer, prekey.mlkemSecretKeyHex);
       if (inner.epochBucket !== epochDay(Date.now())) return; // rejet silencieux (anti-replay)
-      const blocked =
-        state.blockList.includes(inner.sender.prekeyFp) ||
-        state.blockList.includes(JSON.stringify(inner.sender.contextualPub));
+      const blocked = state.blockList.includes(inner.sender.prekeyFp);
       if (blocked) return; // destruction silencieuse avant tout rendu UI
 
       if (inner.kind === "intro") {
@@ -381,7 +406,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (!prekey) return false;
     const target = await fetchPrekey(username);
     if (!target) {
-      state.lastError = "Prekey not found.";
+      state.lastError = "This user hasn't published a prekey yet (are they using the app?).";
       return false;
     }
     const sealed = await sealIntro(target, roomId, introText);
@@ -462,25 +487,36 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   }
 
   // ── Ghost codes ─────────────────────────────────────────────────────────────
-  function createGhostLink(): void {
+  async function createGhostLink(): Promise<void> {
+    const prekey = await ensurePrekey();
+    if (!prekey) {
+      state.lastError = "Publish a prekey first.";
+      if (ctx.showToast) ctx.showToast(state.lastError, { error: true });
+      return;
+    }
     ctx.send({ op: 38, d: { requestId: globalThis.crypto.randomUUID() } });
   }
 
-  // ── Blocage opaque ──────────────────────────────────────────────────────────
-  async function blockUser(hint: string): Promise<void> {
-    if (!state.blockList.includes(hint)) {
-      state.blockList.push(hint);
-      ctx.send({ op: 39, d: { add: [hint], remove: [], requestId: globalThis.crypto.randomUUID() } });
+  // ── Blocage opaque (barrière locale, garantie §6.2) ────────────────────────
+  // La liste stocke des `prekeyFp` (empreinte ML-KEM de l'émetteur), vérifiés à
+  // l'ouverture de chaque enveloppe.
+  async function blockUser(prekeyFp: string): Promise<void> {
+    if (prekeyFp && !state.blockList.includes(prekeyFp)) {
+      state.blockList.push(prekeyFp);
+      saveSettings();
+      await syncRoster();
     }
   }
 
-  async function unblockUser(hint: string): Promise<void> {
-    state.blockList = state.blockList.filter((h) => h !== hint);
-    ctx.send({ op: 39, d: { add: [], remove: [hint], requestId: globalThis.crypto.randomUUID() } });
+  async function unblockUser(prekeyFp: string): Promise<void> {
+    state.blockList = state.blockList.filter((entry) => entry !== prekeyFp);
+    saveSettings();
+    await syncRoster();
   }
 
   function setAcceptUnknown(mode: "off" | "filter" | "all"): void {
     state.acceptUnknown = mode;
+    saveSettings();
     syncRoster();
   }
 

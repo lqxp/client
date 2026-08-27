@@ -255,6 +255,7 @@
             "calls": "Calls",
             "tor": "Tor connectivity",
             "advanced": "Advanced",
+            "phantom": "Friends",
             "admin": "Admin",
             "backups": "Backups",
             "about": "About"
@@ -661,6 +662,8 @@
         "acceptUnknownAll": "All",
         "block": "Block",
         "unblock": "Unblock",
+        "blocked": "Blocked",
+        "noBlocked": "No blocked users",
         "usernameWarning": "The server will know you searched for this username."
     }
 }

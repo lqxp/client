@@ -53,7 +53,7 @@ async function send() {
 }
 
 async function createLink() {
-  props.phantom.createGhostLink();
+  await props.phantom.createGhostLink();
 }
 
 async function copyGhostUrl(url: string) {
