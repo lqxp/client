@@ -79,7 +79,8 @@ async function copyGhostUrl(url: string) {
 <style scoped>
 .phantom-friends {
   border-top: 1px solid var(--line);
-  padding: 18px 8px 12px;
+  margin-top: 16px;
+  padding: 12px 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
