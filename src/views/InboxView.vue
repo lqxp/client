@@ -73,10 +73,11 @@ const titlebarTrayItems = ref<TitlebarAction[]>([]);
 const isWindowMaximized = ref(false);
 const titlebarCompact = ref(false);
 const TITLEBAR_COMPACT_MAX_WIDTH = 480;
-const hideTitlebarTray = computed(() => showNativeTitlebar && titlebarCompact.value);
+const hideTitlebarActions = computed(() => showNativeTitlebar && titlebarCompact.value);
 
 function syncTitlebarCompact() {
   titlebarCompact.value = window.innerWidth <= TITLEBAR_COMPACT_MAX_WIDTH;
+  if (titlebarCompact.value) titlebarTrayOpen.value = false;
 }
 
 const isLocked = computed(() => messenger.state.clientLockLocked);
@@ -694,7 +695,7 @@ async function lockClientNow() {
         </span>
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
-      <div ref="titlebarTrayRef" class="desktop-titlebar__actions">
+      <div v-if="!hideTitlebarActions" ref="titlebarTrayRef" class="desktop-titlebar__actions">
         <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap"
           @contextmenu.prevent="moveTitlebarActionToTray(action)">
           <button class="icon-btn"
@@ -737,7 +738,7 @@ async function lockClientNow() {
           </button>
         </div>
 
-        <div v-if="!hideTitlebarTray" class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
+        <div class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
           <button class="icon-btn desktop-titlebar__tray-toggle" type="button" :aria-expanded="titlebarTrayOpen"
             :aria-label="t('titlebar.openTray')" :title="t('titlebar.tray')" @click="toggleTitlebarTray">
             <svg viewBox="0 0 24 24" aria-hidden="true">
