@@ -70,6 +70,46 @@ function importRecoveryWords() {
   }
 }
 
+const donationAddresses = [
+  { id: "usdc", network: "USDC (Solana)", address: "0x6D71F6134b2F338f66B603D4F92e2D22628892Dd" },
+  { id: "sol", network: "SOL", address: "EkcWgkFjUhCL37UWtG1PAhb7opA4yFXV9q5GQ8HjzVW2" },
+  { id: "btc", network: "BTC", address: "bc1qqfce3vm6rdsdlmxcqp5xm2ktga3dr73m5wa8de" },
+  { id: "eth", network: "ETH", address: "0x6D71F6134b2F338f66B603D4F92e2D22628892Dd" },
+  { id: "ltc", network: "LTC", address: "LWNmM8YVQzTZKNmHZsK7Fr3eYUyXrntrJw" }
+];
+
+async function copyDonationAddress(address: string) {
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(address);
+      copied = true;
+    }
+  } catch {
+    copied = false;
+  }
+
+  if (!copied) {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = address;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      copied = document.execCommand("copy");
+      textarea.remove();
+    } catch {
+      copied = false;
+    }
+  }
+
+  if (copied) {
+    props.messenger.showToast?.(t("settings.donation.copied"));
+  }
+}
+
 // Custom TURN server form state
 const showAddTurn = ref(false);
 const newTurnLabel = ref("");
@@ -394,6 +434,7 @@ const allSections = computed(() => [
   { id: "phantom", label: t("settings.sections.phantom") },
   { id: "admin", label: t("settings.sections.admin") },
   { id: "backups", label: t("settings.sections.backups") },
+  { id: "donation", label: t("settings.sections.donation") },
   { id: "about", label: t("settings.sections.about") }
 ]);
 const sections = computed(() => allSections.value.filter((section) => {
@@ -943,6 +984,9 @@ onBeforeUnmount(() => {
             <path d="M12 3v12" />
             <path d="m6 9 6-6 6 6" />
             <path d="M5 21h14" />
+          </svg>
+          <svg v-else-if="section.id === 'donation'" viewBox="0 0 24 24" style="fill: currentColor; stroke: none;">
+            <path d="M12 21s-7.5-4.7-9.8-9.2C.4 8.6 2.7 5 6.5 5c2.2 0 3.9 1.2 5.5 3.2C13.6 6.2 15.3 5 17.5 5c3.8 0 6.1 3.6 4.3 6.8C19.5 16.3 12 21 12 21Z" />
           </svg>
           <svg v-else-if="section.id === 'phantom'" viewBox="0 0 24 24">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -2265,6 +2309,32 @@ onBeforeUnmount(() => {
           @change="onFilePicked" />
       </section>
 
+      <section v-else-if="activeSection === 'donation'" class="settings-page">
+        <div class="settings-group">
+          <div class="donation-hero">
+            <svg class="donation-hero__heart" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21s-7.5-4.7-9.8-9.2C.4 8.6 2.7 5 6.5 5c2.2 0 3.9 1.2 5.5 3.2C13.6 6.2 15.3 5 17.5 5c3.8 0 6.1 3.6 4.3 6.8C19.5 16.3 12 21 12 21Z" />
+            </svg>
+            <h4>{{ t('settings.donation.title') }}</h4>
+            <p class="settings-note">{{ t('settings.donation.subtitle') }}</p>
+          </div>
+        </div>
+        <div class="settings-group">
+          <ul class="donation-list">
+            <li v-for="item in donationAddresses" :key="item.id" class="donation-row">
+              <div class="donation-row__meta">
+                <strong class="donation-row__network">{{ item.network }}</strong>
+                <code class="donation-row__address">{{ item.address }}</code>
+              </div>
+              <button type="button" class="btn settings-btn donation-row__copy" @click="copyDonationAddress(item.address)">
+                {{ t('settings.donation.copy') }}
+              </button>
+            </li>
+          </ul>
+          <p class="settings-note">{{ t('settings.donation.note') }}</p>
+        </div>
+      </section>
+
       <section v-else class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.about.title') }}</h4>
@@ -2731,6 +2801,80 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.donation-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+
+.donation-hero__heart {
+  width: 46px;
+  height: 46px;
+  fill: var(--accent, #2090ea);
+  flex: none;
+}
+
+.donation-hero h4 {
+  margin: 0;
+}
+
+.donation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.donation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  background: var(--surface-2, #2c2c2e);
+}
+
+.donation-row__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.donation-row__network {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #f4f4f5);
+}
+
+.donation-row__address {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted, #8a8a90);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.donation-row__copy {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .donation-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .recovery-signed {

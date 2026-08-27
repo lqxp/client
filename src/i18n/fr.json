@@ -258,6 +258,7 @@
             "phantom": "Amis",
             "admin": "Admin",
             "backups": "Sauvegardes",
+            "donation": "Dons",
             "about": "À propos"
         },
         "profile": {
@@ -555,6 +556,13 @@
             "import": "Importer JSON",
             "clear": "Tout effacer",
             "clearConfirm": "Effacer toutes les données locales ? Cela supprime toutes les conversations, les messages et les réactions de ce navigateur. Le serveur distant n’est pas affecté."
+        },
+        "donation": {
+            "title": "Faire un don",
+            "subtitle": "QxChat est gratuit et privé. Soutenez le développement en envoyant de la crypto à l’une des adresses ci-dessous.",
+            "copy": "Copier",
+            "copied": "Adresse copiée.",
+            "note": "Les dons sont reçus directement sur les portefeuilles listés. Vérifiez toujours le réseau avant d’envoyer."
         },
         "about": {
             "title": "À propos",
