@@ -5520,12 +5520,6 @@ export function useMessenger() {
       return;
     }
     if (!state.identified) return;
-    if (isBannedFromRoom(id)) {
-      state.activeRoom = id;
-      state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
-      persist();
-      return;
-    }
     if (state.joinedRooms.includes(id)) return;
     if (state.pendingJoinRooms.includes(id)) {
       if (!options?.force) return;
@@ -7025,6 +7019,7 @@ export function useMessenger() {
     state.roomKeysByRoom = {};
     state.roomRatchetsByRoom = {};
     state.trustedSenderKeysByRoom = {};
+    state.bannedRooms = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.badgesByUser = {};
@@ -7720,6 +7715,7 @@ export function useMessenger() {
     state.roomKeysByRoom = {};
     state.roomRatchetsByRoom = {};
     state.trustedSenderKeysByRoom = {};
+    state.bannedRooms = {};
     state.unreadByRoom = {};
     state.activeRoom = "";
     state.settingsOpen = false;
@@ -7759,6 +7755,7 @@ export function useMessenger() {
     }
 
     if (d?.ok && !d?.system) {
+      unmarkRoomBanned(roomId);
       if (!state.joinedRooms.includes(roomId)) state.joinedRooms.push(roomId);
       touchRoom(roomId);
       fetchHistory(roomId);
