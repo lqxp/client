@@ -492,7 +492,11 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       return false;
     }
     const day = epochDay(Date.now());
-    // Réponse scellée dans LE MÊME slot (contextuel ou global) que la demande.
+    const recipientFp = incoming.sender.prekeyFp;
+    // Le destinataire (émetteur de l'intro) poll toujours son slot global ; on y
+    // dépose donc la réponse welcome quel que soit le chemin d'origine (contexte
+    // ou pseudo).
+    const slotId = await slotGlobal(recipientFp, day);
     const contextual = await deriveContextualKeypair(master, roomId);
     const inner = await signInner(
       {
@@ -510,8 +514,8 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       hexToBytes(prekey.mldsaSecretKeyHex),
     );
     const outer = await sealEnvelope(inner, incoming.sender.mlkem768Pk, {
-      slotId: "",
-      recipientFp: incoming.sender.prekeyFp,
+      slotId,
+      recipientFp,
       senderHint: randomHex64(),
       bucket: pickBucket(JSON.stringify(inner).length),
     });
