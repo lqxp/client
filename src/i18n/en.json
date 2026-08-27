@@ -326,6 +326,8 @@
             "downloadRecovery": "Download recovery words",
             "logout": "Log out",
             "recoveryNote": "Recovery words are shown only after account creation or recovery on this browser.",
+            "recoveryWordsImported": "Recovery words imported.",
+            "invalidRecoveryWords": "Invalid recovery words. Paste exactly 12 words.",
             "clientLock": "Client lock",
             "clientLockEnabled": "Lock QxChat with a PIN",
             "pinLength": "PIN length",
@@ -664,6 +666,12 @@
         "unblock": "Unblock",
         "blocked": "Blocked",
         "noBlocked": "No blocked users",
+        "recoveryTitle": "Recovery words (client signing)",
+        "recoverySigned": "Client signed with your recovery words.",
+        "recoveryNotSigned": "Client not signed — friend requests require your recovery words.",
+        "recoveryHint": "Paste your 12 recovery words to sign this client. They stay local and only derive your signing keys.",
+        "recoveryImport": "Import words",
+        "recoveryPlaceholder": "word1 word2 … word12",
         "usernameWarning": "The server will know you searched for this username."
     }
 }

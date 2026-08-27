@@ -325,7 +325,9 @@
             "username": "Nom d'utilisateur",
             "downloadRecovery": "Télécharger les mots de récupération",
             "logout": "Se déconnecter",
-            "recoveryNote": "Les mots de récupération ne sont affichés qu’après la création ou la récupération du compte sur ce navigateur.",
+            "recoveryNote": "Les mots de récupération ne s'affichent qu'après la création ou la récupération du compte sur ce navigateur.",
+            "recoveryWordsImported": "Mots de récupération importés.",
+            "invalidRecoveryWords": "Mots de récupération invalides. Collez exactement 12 mots.",
             "clientLock": "Verrouillage client",
             "clientLockEnabled": "Verrouiller QxChat avec un PIN",
             "pinLength": "Longueur du PIN",
@@ -664,6 +666,12 @@
         "unblock": "Débloquer",
         "blocked": "Bloqués",
         "noBlocked": "Aucun utilisateur bloqué",
+        "recoveryTitle": "Mots de récupération (signature du client)",
+        "recoverySigned": "Client signé avec vos mots de récupération.",
+        "recoveryNotSigned": "Client non signé — les demandes d'ami nécessitent vos mots de récupération.",
+        "recoveryHint": "Collez vos 12 mots de récupération pour signer ce client. Ils restent locaux et servent uniquement à dériver vos clés de signature.",
+        "recoveryImport": "Importer les mots",
+        "recoveryPlaceholder": "mot1 mot2 … mot12",
         "usernameWarning": "Le serveur saura que vous cherchez ce pseudo."
     }
 }

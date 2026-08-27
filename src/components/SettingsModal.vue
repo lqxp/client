@@ -46,6 +46,19 @@ const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
 const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
 
+// Phantom : signature du client via les recovery words.
+const recoveryWordsInput = ref("");
+const phantomRecoverySigned = computed(
+  () =>
+    Array.isArray(props.messenger.state.recoveryWords) &&
+    props.messenger.state.recoveryWords.length === 12,
+);
+function importRecoveryWords() {
+  if (props.messenger.setRecoveryWords?.(recoveryWordsInput.value)) {
+    recoveryWordsInput.value = "";
+  }
+}
+
 // Custom TURN server form state
 const showAddTurn = ref(false);
 const newTurnLabel = ref("");
@@ -2087,6 +2100,34 @@ onBeforeUnmount(() => {
 
       <section v-else-if="activeSection === 'phantom'" class="settings-page">
         <div class="settings-group">
+          <h4>{{ t("phantom.recoveryTitle") }}</h4>
+          <p v-if="phantomRecoverySigned" class="settings-note phantom-signed">
+            {{ t("phantom.recoverySigned") }}
+          </p>
+          <p v-else class="settings-note phantom-unsigned">
+            {{ t("phantom.recoveryNotSigned") }}
+          </p>
+          <p class="settings-note">{{ t("phantom.recoveryHint") }}</p>
+          <textarea
+            v-model="recoveryWordsInput"
+            class="settings-input settings-textarea"
+            rows="3"
+            :placeholder="t('phantom.recoveryPlaceholder')"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+          <div class="settings-actions">
+            <button
+              type="button"
+              class="btn settings-btn"
+              :disabled="!recoveryWordsInput.trim()"
+              @click="importRecoveryWords"
+            >
+              {{ t("phantom.recoveryImport") }}
+            </button>
+          </div>
+        </div>
+        <div class="settings-group">
           <h4>{{ t("phantom.requests") }}</h4>
           <label class="settings-select">
             <span>{{ t("phantom.acceptUnknown") }}</span>
@@ -2613,5 +2654,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.phantom-signed {
+  color: var(--green) !important;
+}
+
+.phantom-unsigned {
+  color: var(--red) !important;
+  font-weight: 600;
 }
 </style>

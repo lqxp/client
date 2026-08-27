@@ -3487,6 +3487,25 @@ export function useMessenger() {
     return true;
   }
 
+  // Importe (ré-injecte) les 12 mots de récupération dans cette session pour
+  // permettre la dérivation du secret maître (utilisé par PHANTOM pour signer
+  // les enveloppes). Accepte aussi le contenu complet du fichier `.txt` exporté.
+  function setRecoveryWords(raw) {
+    const cleaned = String(raw || "")
+      .replace(/qxprotocol\s+account\s+recovery\s+words/gi, " ")
+      .replace(/username\s*:\s*\S+/gi, " ");
+    const words = normalizeRecoveryWords(cleaned);
+    if (words.length !== 12) {
+      state.lastError = t("settings.security.invalidRecoveryWords");
+      showToast(state.lastError, { error: true });
+      return false;
+    }
+    state.recoveryWords = words;
+    persist();
+    showToast(t("settings.security.recoveryWordsImported"));
+    return true;
+  }
+
   async function registerAccount(username, password, capToken = null) {
     const validation = validateRegistrationUsername(username);
     if (validation) {
@@ -8631,6 +8650,7 @@ export function useMessenger() {
     MAX_ACCOUNTS,
     deleteAccount,
     downloadRecoveryWords,
+    setRecoveryWords,
     enableClientLock,
     unlockClientLock,
     verifyClientLockPin,
