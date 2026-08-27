@@ -589,10 +589,6 @@ onBeforeUnmount(() => {
           </span>
           <span>{{ t('sidebar.addAccount') }}</span>
         </button>
-        <div class="account-menu__separator" aria-hidden="true"></div>
-        <button type="button" class="account-menu__cancel" role="menuitem" @click="accountMenuOpen = false">
-          <span>{{ t('message.cancel') }}</span>
-        </button>
       </div>
 
       <div class="side-status">
