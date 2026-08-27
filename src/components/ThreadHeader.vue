@@ -41,12 +41,6 @@ const callsUnavailableReason = computed(() => props.messenger.callsUnavailableRe
 const callsDisabledByTor = computed(() => Boolean(props.messenger.callsDisabledByTor?.value));
 const description = computed(() => props.messenger.roomDescription?.(props.messenger.state.activeRoom) || "");
 const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.messenger.state.activeRoom) === true);
-const canManageRoom = computed(() => props.messenger.canManageRoom?.(props.messenger.state.activeRoom) === true);
-const chatLocked = computed(() => props.messenger.roomChatLocked?.(props.messenger.state.activeRoom) === true);
-
-function toggleChatLock() {
-  props.messenger.setChatLocked?.(props.messenger.state.activeRoom, !chatLocked.value);
-}
 const roomCallsAllowed = computed(() => props.messenger.canCallInRoom?.(props.messenger.state.activeRoom) !== false);
 const callsTooltip = computed(() => {
   if (!roomCallsAllowed.value) return t('rooms.callsDisabled');
@@ -131,17 +125,6 @@ async function removeHere() {
         @click="copyInvite"
       >
         <svg viewBox="0 0 24 24"><path d="M14 5h5v5"/><path d="M10 14 19 5"/><path d="M19 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
-      </button>
-      <button
-        v-if="isCommunity && canManageRoom"
-        class="icon-btn"
-        type="button"
-        :aria-label="chatLocked ? t('rooms.unlockChat') : t('rooms.lockChat')"
-        :title="chatLocked ? t('rooms.unlockChat') : t('rooms.lockChat')"
-        @click="toggleChatLock"
-      >
-        <svg v-if="chatLocked" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-        <svg v-else viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.9-.9"/><path d="M15 11V8a3 3 0 0 0-6 0v3"/></svg>
       </button>
       <button
         v-if="!callActiveHere"
