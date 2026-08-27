@@ -7417,20 +7417,22 @@ export function useMessenger() {
     }
     state.authLoading = true;
     try {
+      const payload: Record<string, any> = {
+        username,
+        password,
+      };
+      if (capToken) {
+        payload.capToken = capToken;
+      }
       const data = await apiRequest("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({
-          username,
-          password,
-          capToken: capToken || undefined,
-          cap_token: capToken || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
       state.sessionExpired = false;
       connect();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       state.lastError = error?.message || "Session renewal failed.";
       showToast(state.lastError);
       return false;
