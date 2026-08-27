@@ -673,6 +673,9 @@
         "unblock": "Débloquer",
         "blocked": "Bloqués",
         "noBlocked": "Aucun utilisateur bloqué",
-        "usernameWarning": "Le serveur saura que vous cherchez ce pseudo."
+        "usernameWarning": "Le serveur saura que vous cherchez ce pseudo.",
+        "removeFriend": "Retirer des amis",
+        "clearMessages": "Nettoyer les messages",
+        "recoveryNeeded": "Ressaisis tes mots de récupération (Réglages → Sécurité) pour voir tes amis."
     }
 }

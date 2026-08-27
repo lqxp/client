@@ -44,6 +44,7 @@ watch(
     if (!identified) return;
     phantom.ensurePrekey().catch(() => {});
     phantom.loadRoster().catch(() => {});
+    phantom.startScheduler();
   },
   { immediate: true },
 );

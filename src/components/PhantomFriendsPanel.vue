@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AddFriendModal from "@/components/AddFriendModal.vue";
 
@@ -8,21 +8,37 @@ const props = defineProps<{ messenger: any; phantom: any }>();
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const addOpen = ref(false);
+const friendMenu = ref<null | { friend: any; x: number; y: number }>(null);
 
 const friends = computed<any[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as any[]);
 const requests = computed(() => props.phantom.state.pendingIncoming || []);
 const ghostCodes = computed(() => props.phantom.state.ghostCodes || []);
+const recoveryReady = computed(
+  () =>
+    Array.isArray(props.messenger.state.recoveryWords) &&
+    props.messenger.state.recoveryWords.length === 12,
+);
 
 onMounted(() => {
   props.phantom.ensurePrekey().catch(() => {});
   props.phantom.loadRoster().catch(() => {});
   props.phantom.startScheduler();
+  document.addEventListener("click", closeFriendMenu);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", closeFriendMenu);
 });
 
 function openFriend(roomId: string) {
   if (roomId && props.messenger?.selectConversation) {
     props.messenger.selectConversation(roomId);
   }
+}
+
+function friendAvatar(friend: any) {
+  const profile = props.messenger.profileFor?.(friend.peerDisplayName);
+  return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 }
 
 async function copyGhostUrl(url: string) {
@@ -36,6 +52,27 @@ async function copyGhostUrl(url: string) {
 function blockRequest(request: any) {
   props.phantom.blockUser(request.sender?.prekeyFp);
   props.phantom.ignoreIncoming(request.id);
+}
+
+function openFriendMenu(event: MouseEvent, friend: any) {
+  friendMenu.value = { friend, x: event.clientX, y: event.clientY };
+}
+
+function closeFriendMenu() {
+  friendMenu.value = null;
+}
+
+function friendMenuAction(action: string) {
+  const friend = friendMenu.value?.friend;
+  closeFriendMenu();
+  if (!friend) return;
+  if (action === "block") {
+    props.phantom.blockUser(friend.peerFp);
+  } else if (action === "remove") {
+    props.phantom.removeFriend(friend.peerFp);
+  } else if (action === "clear") {
+    props.messenger.clearLocalRoomMessages?.(friend.roomId);
+  }
 }
 </script>
 
@@ -61,21 +98,41 @@ function blockRequest(request: any) {
       </div>
     </div>
 
+    <p v-if="!recoveryReady" class="phantom-recovery-note">{{ t("phantom.recoveryNeeded") }}</p>
+
     <ul v-if="friends.length" class="phantom-friends__list">
-      <li v-for="friend in friends" :key="friend.peerFp" class="phantom-friend">
+      <li
+        v-for="friend in friends"
+        :key="friend.peerFp"
+        class="phantom-friend"
+        @contextmenu.prevent="openFriendMenu($event, friend)"
+      >
         <button type="button" @click="openFriend(friend.roomId)">
-          <span class="phantom-friend__avatar">{{ (friend.peerDisplayName || "?").slice(0, 1).toUpperCase() }}</span>
+          <span class="phantom-friend__avatar">
+            <img v-if="friendAvatar(friend)" :src="friendAvatar(friend)" alt="" />
+            <template v-else>{{ (friend.peerDisplayName || "?").slice(0, 1).toUpperCase() }}</template>
+          </span>
           <span class="phantom-friend__name">{{ friend.peerDisplayName }}</span>
         </button>
       </li>
     </ul>
-    <p v-else-if="!requests.length" class="phantom-friends__empty">{{ t("phantom.noFriends") }}</p>
+    <p v-else-if="!requests.length && recoveryReady" class="phantom-friends__empty">{{ t("phantom.noFriends") }}</p>
 
     <div v-if="ghostCodes.length" class="phantom-ghosts">
       <span>{{ t("phantom.ghostLink") }}</span>
       <button v-for="(code, i) in ghostCodes" :key="i" type="button" @click="copyGhostUrl(code.url)">
         ⧉ {{ code.url.slice(0, 24) }}…
       </button>
+    </div>
+
+    <div
+      v-if="friendMenu"
+      class="phantom-friend-menu"
+      :style="{ top: `${friendMenu.y}px`, left: `${friendMenu.x}px` }"
+    >
+      <button type="button" @click="friendMenuAction('block')">{{ t("phantom.block") }}</button>
+      <button type="button" @click="friendMenuAction('remove')">{{ t("phantom.removeFriend") }}</button>
+      <button type="button" @click="friendMenuAction('clear')">{{ t("phantom.clearMessages") }}</button>
     </div>
 
     <AddFriendModal :messenger="messenger" :phantom="phantom" :open="addOpen" @close="addOpen = false" />
@@ -158,6 +215,13 @@ function blockRequest(request: any) {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
+  overflow: hidden;
+}
+.phantom-friend__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .phantom-friend__name {
   overflow: hidden;
@@ -242,5 +306,42 @@ function blockRequest(request: any) {
   cursor: pointer;
   padding: 0;
   font-size: 11px;
+}
+.phantom-recovery-note {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.phantom-friend-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 170px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--bg) 50%, transparent);
+}
+.phantom-friend-menu button {
+  display: block;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.phantom-friend-menu button:hover {
+  background: var(--surface-hover);
+}
+.phantom-friend-menu button:last-child {
+  color: var(--muted);
 }
 </style>

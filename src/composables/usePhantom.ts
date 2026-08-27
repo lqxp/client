@@ -31,8 +31,10 @@ const te = new TextEncoder();
 
 const PREKEY_STORAGE_KEY = "qxphantom-prekey-v1";
 const SETTINGS_STORAGE_KEY = "qxphantom-settings-v1";
-const ROSTER_POLL_MIN_MS = 5 * 60 * 1000;
-const ROSTER_POLL_MAX_MS = 12 * 60 * 1000;
+// Cadence de poll des enveloppes (dead-drops). HTTP anonyme volontaire : un
+// push WS trahirait la corrélation compte↔slot (S6/INV13).
+const PHANTOM_POLL_MIN_MS = 15 * 1000;
+const PHANTOM_POLL_MAX_MS = 30 * 1000;
 
 export interface PhantomMessengerCtx {
   state: any;
@@ -555,8 +557,20 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (prekeyFp && !state.blockList.includes(prekeyFp)) {
       state.blockList.push(prekeyFp);
       saveSettings();
-      await syncRoster();
     }
+    removeFriendLocal(prekeyFp);
+    await syncRoster();
+  }
+
+  function removeFriendLocal(prekeyFp: string): void {
+    for (const [name, friend] of Object.entries(state.friendsByUser)) {
+      if ((friend as any)?.peerFp === prekeyFp) delete state.friendsByUser[name];
+    }
+  }
+
+  async function removeFriend(prekeyFp: string): Promise<void> {
+    removeFriendLocal(prekeyFp);
+    await syncRoster();
   }
 
   async function unblockUser(prekeyFp: string): Promise<void> {
@@ -654,7 +668,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     state.schedulerRunning = true;
     const tick = () => {
       pollNow();
-      const jitter = ROSTER_POLL_MIN_MS + Math.random() * (ROSTER_POLL_MAX_MS - ROSTER_POLL_MIN_MS);
+      const jitter = PHANTOM_POLL_MIN_MS + Math.random() * (PHANTOM_POLL_MAX_MS - PHANTOM_POLL_MIN_MS);
       schedulerTimer = setTimeout(tick, jitter);
     };
     tick();
@@ -696,6 +710,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     createGhostLink,
     blockUser,
     unblockUser,
+    removeFriend,
     setAcceptUnknown,
     syncRoster,
     loadRoster,
