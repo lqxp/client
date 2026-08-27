@@ -10,6 +10,22 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const addOpen = ref(false);
 const friendMenu = ref<null | { friend: any; x: number; y: number }>(null);
 
+const COLLAPSED_STORAGE_KEY = "qxphantom-friends-collapsed";
+const collapsed = ref(false);
+try {
+  collapsed.value = localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
+} catch {
+  /* ignore */
+}
+function toggleCollapsed() {
+  collapsed.value = !collapsed.value;
+  try {
+    localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed.value ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
 const friends = computed<any[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as any[]);
 const requests = computed(() => props.phantom.state.pendingIncoming || []);
 const ghostCodes = computed(() => props.phantom.state.ghostCodes || []);
@@ -91,11 +107,16 @@ function friendMenuAction(action: string) {
 <template>
   <section class="phantom-friends">
     <header class="phantom-friends__head">
-      <strong>{{ t("phantom.title") }}</strong>
+      <button class="phantom-toggle" type="button" :aria-expanded="!collapsed" @click="toggleCollapsed">
+        <svg class="phantom-toggle__chevron" :class="{ 'is-collapsed': collapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+        <strong>{{ t("phantom.title") }}</strong>
+      </button>
       <button class="phantom-add-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
       </button>
     </header>
+
+    <template v-if="!collapsed">
 
     <div v-if="requests.length" class="phantom-requests">
       <span class="phantom-requests__badge">{{ requests.length }}</span>
@@ -149,6 +170,8 @@ function friendMenuAction(action: string) {
       <button type="button" @click="friendMenuAction('clear')">{{ t("phantom.clearMessages") }}</button>
     </div>
 
+    </template>
+
     <AddFriendModal :messenger="messenger" :phantom="phantom" :open="addOpen" @close="addOpen = false" />
   </section>
 </template>
@@ -171,6 +194,33 @@ function friendMenuAction(action: string) {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
+}
+.phantom-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.phantom-toggle__chevron {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 140ms ease;
+}
+.phantom-toggle__chevron.is-collapsed {
+  transform: rotate(-90deg);
 }
 .phantom-add-btn {
   width: 28px;
