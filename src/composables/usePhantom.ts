@@ -102,7 +102,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     friendsByUser: {} as Record<string, any>,
     pendingIncoming: [] as any[],
     pendingOutgoing: [] as any[],
-    acceptUnknown: "off" as "off" | "filter" | "all",
+    acceptUnknown: "all" as "off" | "filter" | "all",
     blockList: [] as string[],
     friendsCollapsed: false,
     schedulerRunning: false,
