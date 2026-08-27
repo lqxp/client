@@ -681,6 +681,9 @@
         "unblock": "Unblock",
         "blocked": "Blocked",
         "noBlocked": "No blocked users",
-        "usernameWarning": "The server will know you searched for this username."
+        "usernameWarning": "The server will know you searched for this username.",
+        "removeFriend": "Remove friend",
+        "clearMessages": "Clear messages",
+        "recoveryNeeded": "Re-enter your recovery words (Settings → Security) to load your friends."
     }
 }

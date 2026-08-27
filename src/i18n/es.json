@@ -693,6 +693,9 @@
         "unblock": "Desbloquear",
         "blocked": "Bloqueados",
         "noBlocked": "Sin usuarios bloqueados",
-        "usernameWarning": "El servidor sabrá que buscaste este nombre de usuario."
+        "usernameWarning": "El servidor sabrá que buscaste este nombre de usuario.",
+        "removeFriend": "Eliminar amigo",
+        "clearMessages": "Limpiar mensajes",
+        "recoveryNeeded": "Vuelve a introducir tus palabras de recuperación (Ajustes → Seguridad) para ver a tus amigos."
     }
 }

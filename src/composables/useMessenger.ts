@@ -8714,6 +8714,7 @@ export function useMessenger() {
     statusFor,
     presenceStatusLabel,
     profileImageSrc,
+    requestPublicProfilesForUsers,
     platformsForUser,
     userIdForUsername,
     mutualRoomsWith,

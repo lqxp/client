@@ -63,6 +63,10 @@ const recoverySigned = computed(
 function importRecoveryWords() {
   if (props.messenger.setRecoveryWords?.(recoveryWordsInput.value)) {
     recoveryWordsInput.value = "";
+    // Les recovery words déchiffrent le roster amis : on le recharge et on
+    // relance un poll pour re-matérialiser amis/pending sans F5.
+    phantom?.loadRoster?.().catch(() => {});
+    phantom?.pollNow?.().catch(() => {});
   }
 }
 
