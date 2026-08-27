@@ -4071,6 +4071,25 @@ export function useMessenger() {
     return "";
   }
 
+  function myTimeoutRemaining(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return 0;
+    const meta = roomMeta(id);
+    const myId = String(state.userId || "");
+    const expiry = Number(meta.timeouts[myId] || 0);
+    if (!expiry) return 0;
+    return Math.max(0, expiry - Date.now());
+  }
+
+  function isMemberMuted(roomId, userId) {
+    const id = sanitizeRoomId(roomId);
+    const targetId = String(userId || "");
+    if (!id || !targetId) return false;
+    const meta = roomMeta(id);
+    const expiry = Number(meta.timeouts[targetId] || 0);
+    return expiry > Date.now();
+  }
+
   function roomCallsEnabled(roomId) { return roomMeta(roomId).callsEnabled; }
 
   function canCallInRoom(roomId) {
@@ -4269,6 +4288,12 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 46, d: { gameId: id, targetUserId, durationSecs: Number(seconds) || 60 } });
+  }
+
+  function unmuteMember(roomId, targetUserId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 52, d: { gameId: id, targetUserId } });
   }
 
   function transferOwnership(roomId, targetUserId) {
@@ -7567,6 +7592,7 @@ export function useMessenger() {
       case 48:
       case 49:
       case 50:
+      case 52:
         if (d?.error) {
           state.lastError = d.error;
           showToast(d.error, { error: true });
@@ -8469,6 +8495,7 @@ export function useMessenger() {
     unbanMember,
     kickMember,
     timeoutMember,
+    unmuteMember,
     transferOwnership,
     setChatLocked,
     setCallsEnabled,
@@ -8503,6 +8530,8 @@ export function useMessenger() {
     canConfigureModeratorPermissions,
     canSpeakInRoom,
     speakBlockReason,
+    myTimeoutRemaining,
+    isMemberMuted,
     canCallInRoom,
     shouldPromptCallAccess,
     roomCallsEnabled,

@@ -30,6 +30,8 @@ let cameraStream: MediaStream | null = null;
 
 const pendingFiles = ref<{ id: string; file: File; preview: string; progress: number }[]>([]);
 const uploading = ref(false);
+const muteNow = ref(Date.now());
+let muteTimer: ReturnType<typeof setInterval> | null = null;
 
 const hasPendingFiles = computed(() => pendingFiles.value.length > 0);
 const speakBlockReason = computed(() => props.messenger.speakBlockReason?.(props.messenger.state.activeRoom) || "");
@@ -51,6 +53,27 @@ const composerPlaceholder = computed(() => {
 });
 const mediaDisabled = computed(() => disabled.value || editing.value);
 const recording = computed(() => !!props.messenger.state.recording);
+
+function formatMuteRemaining(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+const muteCooldownLabel = computed(() => {
+  const roomId = props.messenger.state.activeRoom;
+  if (!roomId) return "";
+  void muteNow.value;
+  const remaining = Number(props.messenger.myTimeoutRemaining?.(roomId) || 0);
+  if (remaining <= 0) return "";
+  return formatMuteRemaining(remaining);
+});
 const typingLabel = computed(() => {
   const users = props.messenger.typingUsers?.value || [];
   if (!users.length) return "";
@@ -1056,6 +1079,9 @@ onMounted(() => {
   document.addEventListener("keydown", onDocKey);
   window.addEventListener("resize", onResize);
   document.addEventListener("paste", onPaste);
+  muteTimer = setInterval(() => {
+    muteNow.value = Date.now();
+  }, 1000);
   nextTick(() => {
     syncComposerHeight();
   });
@@ -1066,6 +1092,8 @@ onBeforeUnmount(() => {
   document.removeEventListener("keydown", onDocKey);
   window.removeEventListener("resize", onResize);
   document.removeEventListener("paste", onPaste);
+  if (muteTimer) clearInterval(muteTimer);
+  muteTimer = null;
   stopCameraStream();
 });
 </script>
@@ -1130,6 +1158,14 @@ onBeforeUnmount(() => {
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
+        </div>
+        <div v-if="muteCooldownLabel" class="composer__mute-cooldown">
+          <svg class="composer__mute-cooldown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2 2" />
+            <path d="M9 2h6" />
+          </svg>
+          <span>{{ muteCooldownLabel }}</span>
         </div>
       </div>
       <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFile" />

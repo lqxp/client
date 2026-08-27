@@ -3110,6 +3110,27 @@ textarea {
   gap: 8px;
 }
 
+.composer__mute-cooldown {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 6px;
+  margin: 0 4px 2px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer__mute-cooldown-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
 .reply-draft {
   display: flex;
   align-items: center;

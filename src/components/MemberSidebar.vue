@@ -3,6 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue
 import { useI18n } from "@/composables/useI18n";
 import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
+import MuteMemberModal from "@/components/MuteMemberModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -99,6 +100,11 @@ const contextIsSelf = computed(() =>
   memberContextUser.value === props.messenger.state.username
 );
 const contextRole = computed(() => roleFor(memberContextUser.value));
+const contextIsMuted = computed(() => {
+  const id = targetUserId(memberContextUser.value);
+  if (!id) return false;
+  return props.messenger.isMemberMuted?.(props.messenger.state.activeRoom, id) === true;
+});
 
 function doBan() {
   const id = targetUserId(memberContextUser.value);
@@ -114,7 +120,15 @@ function doKick() {
 
 function doMute() {
   const id = targetUserId(memberContextUser.value);
-  if (id) props.messenger.timeoutMember?.(props.messenger.state.activeRoom, id, 3600);
+  if (!id) return;
+  muteTargetUserId.value = id;
+  muteModalOpen.value = true;
+  closeMemberContext();
+}
+
+function doUnmute() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.unmuteMember?.(props.messenger.state.activeRoom, id);
   closeMemberContext();
 }
 
@@ -147,6 +161,8 @@ const selectedBannerUser = ref("");
 const memberContextOpen = ref(false);
 const memberContextUser = ref("");
 const memberContextMenuRef = ref<HTMLElement | null>(null);
+const muteModalOpen = ref(false);
+const muteTargetUserId = ref("");
 const memberContextPos = ref({ x: 0, y: 0 });
 
 async function positionMemberContext(clientX: number, clientY: number) {
@@ -405,9 +421,13 @@ onBeforeUnmount(() => {
               <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               <span>{{ t('rooms.kick') }}</span>
             </button>
-            <button v-if="canModerate" type="button" role="menuitem" @click="doMute">
+            <button v-if="canModerate && !contextIsMuted" type="button" role="menuitem" @click="doMute">
               <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               <span>{{ t('rooms.mute') }}</span>
+            </button>
+            <button v-if="canModerate && contextIsMuted" type="button" role="menuitem" @click="doUnmute">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.34v4.32a2 2 0 0 0 4 0V10l4-4"/><path d="m19 5 3 3"/></svg>
+              <span>{{ t('rooms.unmute') }}</span>
             </button>
             <button v-if="canManage" type="button" role="menuitem" @click="doPromoteModerator">
               <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/></svg>
@@ -458,6 +478,14 @@ onBeforeUnmount(() => {
         @close="closeProfile"
       />
     </Teleport>
+
+    <MuteMemberModal
+      :messenger="messenger"
+      :open="muteModalOpen"
+      :room-id="messenger.state.activeRoom"
+      :target-user-id="muteTargetUserId"
+      @close="muteModalOpen = false"
+    />
   </aside>
 </template>
 
