@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const props = defineProps<{ messenger: any; phantom: any; open: boolean }>();
@@ -13,6 +13,7 @@ const roomId = ref("");
 const intro = ref("");
 const busy = ref(false);
 const error = ref("");
+const sent = ref(false);
 
 const mutualRooms = computed(() => {
   if (!username.value.trim()) return [];
@@ -26,7 +27,17 @@ function reset() {
   intro.value = "";
   busy.value = false;
   error.value = "";
+  sent.value = false;
 }
+
+watch(() => props.open, (isOpen) => {
+  if (isOpen) reset();
+});
+
+watch(tab, () => {
+  sent.value = false;
+  error.value = "";
+});
 
 async function send() {
   if (busy.value) return;
@@ -34,6 +45,11 @@ async function send() {
   const name = username.value.trim();
   if (!name) {
     error.value = t("phantom.noRequests");
+    return;
+  }
+  const own = String(props.messenger?.state?.username || "").trim().toLowerCase();
+  if (name.toLowerCase() === own) {
+    error.value = t("phantom.selfRequest");
     return;
   }
   busy.value = true;
@@ -46,7 +62,7 @@ async function send() {
       ok = await props.phantom.sendIntroByContext(name, targetRoom, intro.value.trim() || "Hi!");
     }
     if (!ok) error.value = props.phantom.state.lastError || "Could not send friend request.";
-    else emit("close");
+    else sent.value = true;
   } finally {
     busy.value = false;
   }
@@ -87,6 +103,15 @@ async function copyGhostUrl(url: string) {
         </nav>
 
         <div class="phantom-modal__body">
+          <div v-if="sent" class="phantom-sent">
+            <div class="phantom-sent__check" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <strong class="phantom-sent__title">{{ t("phantom.sent") }}</strong>
+            <button class="btn--primary phantom-submit" type="button" @click="emit('close')">{{ t("phantom.close") }}</button>
+          </div>
+
+          <template v-else>
           <template v-if="tab !== 'ghost'">
             <label class="phantom-field">
               <span>{{ t("phantom.byUsername") }}</span>
@@ -127,6 +152,7 @@ async function copyGhostUrl(url: string) {
           </template>
 
           <p v-if="error" class="phantom-error">{{ error }}</p>
+          </template>
         </div>
       </div>
     </div>
@@ -249,6 +275,31 @@ async function copyGhostUrl(url: string) {
 .phantom-submit:disabled {
   opacity: 0.6;
   cursor: default;
+}
+.phantom-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+.phantom-sent__check {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+}
+.phantom-sent__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.phantom-sent .phantom-submit {
+  align-self: center;
 }
 .phantom-error {
   margin: 0;
