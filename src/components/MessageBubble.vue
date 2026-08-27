@@ -134,6 +134,8 @@ function isTouchDevice() {
   return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 }
 
+const isDesktopContext = typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches;
+
 function onMessagePointerDown(event: PointerEvent) {
   if (!isTouchDevice()) return;
   longPressStartX = event.clientX;
@@ -978,7 +980,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
         <!-- Reactions submenu entry -->
-        <button v-if="message.reactions.length" type="button" class="msg__context-item" role="menuitem" @click="showReactionsSubmenu = true">
+        <button v-if="message.reactions.length && !isDesktopContext" type="button" class="msg__context-item" role="menuitem" @click="showReactionsSubmenu = true">
           <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
           <span>Reactions</span>
           <svg class="msg__context-item-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
