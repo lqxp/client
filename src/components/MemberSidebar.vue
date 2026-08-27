@@ -76,6 +76,71 @@ const members = computed(() =>
 );
 
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
+const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.messenger.state.activeRoom) === true);
+const canModerate = computed(() => props.messenger.canModerateRoom?.(props.messenger.state.activeRoom) === true);
+const canManage = computed(() => props.messenger.canManageRoom?.(props.messenger.state.activeRoom) === true);
+const isOwner = computed(() => props.messenger.isRoomOwner?.(props.messenger.state.activeRoom) === true);
+
+function roleFor(username: string) {
+  return props.messenger.roleForUsername?.(props.messenger.state.activeRoom, username) || "member";
+}
+
+function roleBadge(username: string) {
+  const role = roleFor(username);
+  if (role === "member" && !isCommunity.value) return "";
+  return props.messenger.roleLabel?.(role) || "";
+}
+
+function targetUserId(username: string) {
+  return props.messenger.userIdForUsername?.(username) || "";
+}
+
+const contextIsSelf = computed(() =>
+  memberContextUser.value === props.messenger.state.username
+);
+const contextRole = computed(() => roleFor(memberContextUser.value));
+
+function doBan() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.banMember?.(props.messenger.state.activeRoom, id);
+  closeMemberContext();
+}
+
+function doKick() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.kickMember?.(props.messenger.state.activeRoom, id);
+  closeMemberContext();
+}
+
+function doMute() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.timeoutMember?.(props.messenger.state.activeRoom, id, 3600);
+  closeMemberContext();
+}
+
+function doPromoteModerator() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.setMemberRole?.(props.messenger.state.activeRoom, id, "moderator");
+  closeMemberContext();
+}
+
+function doPromoteSubAdmin() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.setMemberRole?.(props.messenger.state.activeRoom, id, "subAdmin");
+  closeMemberContext();
+}
+
+function doDemote() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.setMemberRole?.(props.messenger.state.activeRoom, id, "member");
+  closeMemberContext();
+}
+
+function doTransferOwnership() {
+  const id = targetUserId(memberContextUser.value);
+  if (id) props.messenger.transferOwnership?.(props.messenger.state.activeRoom, id);
+  closeMemberContext();
+}
 const selectedProfile = ref("");
 const selectedAvatarUser = ref("");
 const selectedBannerUser = ref("");
@@ -275,6 +340,7 @@ onBeforeUnmount(() => {
                     :title="messenger.platformLabel(platform)"
                   >{{ messenger.platformIcon(platform) }}</span>
                 </span>
+                <span v-if="roleBadge(username)" class="members__role">{{ roleBadge(username) }}</span>
               </div>
               <div class="members__status">
                 <span
@@ -328,6 +394,39 @@ onBeforeUnmount(() => {
             <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             <span>{{ t('members.copyUserId') }}</span>
           </button>
+
+          <template v-if="isCommunity && !contextIsSelf && contextRole !== 'administrator'">
+            <div class="members__context-separator" aria-hidden="true"></div>
+            <button v-if="canModerate" type="button" role="menuitem" class="context-menu-danger" @click="doBan">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              <span>{{ t('rooms.ban') }}</span>
+            </button>
+            <button v-if="canModerate" type="button" role="menuitem" @click="doKick">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>{{ t('rooms.kick') }}</span>
+            </button>
+            <button v-if="canModerate" type="button" role="menuitem" @click="doMute">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              <span>{{ t('rooms.mute') }}</span>
+            </button>
+            <button v-if="canManage" type="button" role="menuitem" @click="doPromoteModerator">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/></svg>
+              <span>{{ t('rooms.promoteModerator') }}</span>
+            </button>
+            <button v-if="canManage" type="button" role="menuitem" @click="doPromoteSubAdmin">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+              <span>{{ t('rooms.promoteSubAdmin') }}</span>
+            </button>
+            <button v-if="canManage && contextRole !== 'member'" type="button" role="menuitem" @click="doDemote">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+              <span>{{ t('rooms.demote') }}</span>
+            </button>
+            <button v-if="isOwner && (contextRole === 'moderator' || contextRole === 'subAdmin')" type="button" role="menuitem" @click="doTransferOwnership">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M12 8v8M8 12h8"/></svg>
+              <span>{{ t('rooms.transferOwnership') }}</span>
+            </button>
+          </template>
+
           <!-- Cancel (mobile only) -->
           <div class="members__context-separator" aria-hidden="true"></div>
           <button type="button" class="members__context-cancel" role="menuitem" @click="closeMemberContext">
@@ -363,6 +462,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.members__role {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(99, 102, 241, 0.16));
+  color: var(--accent, #6366f1);
+  white-space: nowrap;
+}
+
 .members__context-menu {
   z-index: 140;
 }

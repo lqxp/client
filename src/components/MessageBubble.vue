@@ -42,6 +42,7 @@ function previewTextFor(target, fallbackId = "") {
 }
 
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
+const canDelete = computed(() => Boolean(props.messenger.canDeleteMessage?.(props.message)));
 const isSystem = computed(() => Boolean(props.message.system));
 const isSystemPresenceEvent = computed(() =>
   String(props.message.systemKind || "") === "presence" ||
@@ -625,7 +626,7 @@ function onToggleReaction(emoji: string) {
 }
 
 async function onDelete() {
-  if (!isOwn.value || deleted.value) return;
+  if (!canDelete.value || deleted.value) return;
   const confirmed = await dialog.showConfirm(t("message.deleteConfirm"));
   if (!confirmed) return;
   props.messenger.deleteMessage(props.message);
@@ -728,7 +729,7 @@ onBeforeUnmount(() => {
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </button>
-          <button v-if="isOwn && !deleted" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
+          <button v-if="canDelete" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -761,7 +762,7 @@ onBeforeUnmount(() => {
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </button>
-          <button v-if="isOwn && !deleted" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
+          <button v-if="canDelete" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -999,7 +1000,7 @@ onBeforeUnmount(() => {
           <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           <span>{{ t('message.copyUserId') }}</span>
         </button>
-        <button v-if="isOwn && !deleted" type="button" class="msg__context-item is-danger" role="menuitem"
+        <button v-if="canDelete" type="button" class="msg__context-item is-danger" role="menuitem"
           @click="onDelete">
           <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span>{{ t('message.deleteMessage') }}</span>

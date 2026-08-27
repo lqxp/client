@@ -2,6 +2,8 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
+import CreateRoomModal from "@/components/CreateRoomModal.vue";
+import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
@@ -23,6 +25,9 @@ const roomIconUploadRoomId = ref("");
 const sideListContextOpen = ref(false);
 const sideListContextPos = ref({ x: 0, y: 0 });
 const sideListContextMenuRef = ref<HTMLElement | null>(null);
+const createRoomOpen = ref(false);
+const roomSettingsOpen = ref(false);
+const roomSettingsRoomId = ref("");
 
 let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
@@ -92,6 +97,12 @@ const desktopSideListContextStyle = computed(() => ({
 
 const roomContextRoomName = computed(() =>
   roomContextRoomId.value ? props.messenger.displayRoomName(roomContextRoomId.value) : ""
+);
+const roomContextIsCommunity = computed(() =>
+  props.messenger.isCommunityRoom?.(roomContextRoomId.value) === true
+);
+const roomContextCanManage = computed(() =>
+  props.messenger.canManageRoom?.(roomContextRoomId.value) === true
 );
 
 function initialsOf(name) {
@@ -251,6 +262,13 @@ async function renameRoomFromContext() {
   closeRoomContext();
 }
 
+function openRoomSettings() {
+  if (!roomContextRoomId.value) return;
+  roomSettingsRoomId.value = roomContextRoomId.value;
+  roomSettingsOpen.value = true;
+  closeRoomContext();
+}
+
 function pickRoomImageFromContext() {
   if (!roomContextRoomId.value) return;
   roomIconUploadRoomId.value = roomContextRoomId.value;
@@ -279,7 +297,7 @@ function openSettings() {
 }
 
 function createRoom() {
-  props.messenger.createRandomRoom();
+  createRoomOpen.value = true;
 }
 
 function toggleStatusMenu(event) {
@@ -399,13 +417,17 @@ onBeforeUnmount(() => {
           <div class="room-context__header">
             <strong class="room-context__header-name">{{ messenger.displayRoomNameBeautified(roomContextRoomId) }}</strong>
           </div>
-          <button type="button" role="menuitem" @click="pickRoomImageFromContext">
+          <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="pickRoomImageFromContext">
             <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <span>{{ t('sidebar.contextChangeImage') }}</span>
           </button>
-          <button type="button" role="menuitem" @click="renameRoomFromContext">
+          <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="renameRoomFromContext">
             <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             <span>{{ t('sidebar.contextRenameRoom') }}</span>
+          </button>
+          <button v-if="roomContextIsCommunity && roomContextCanManage" type="button" role="menuitem" @click="openRoomSettings">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9c.23.62.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+            <span>{{ t('rooms.settings') }}</span>
           </button>
           <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
             <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -458,6 +480,9 @@ onBeforeUnmount(() => {
 
     <input ref="roomIconInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
       class="sr-only" @change="onRoomIconFileChange" />
+
+    <CreateRoomModal :messenger="messenger" :open="createRoomOpen" @close="createRoomOpen = false" />
+    <RoomSettingsModal :messenger="messenger" :open="roomSettingsOpen" :room-id="roomSettingsRoomId" @close="roomSettingsOpen = false" />
 
     <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
       <button class="side-user" type="button" :title="messenger.state.username">

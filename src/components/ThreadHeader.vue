@@ -36,7 +36,17 @@ const securityLabel = computed(() => roomHasKey.value ? t("thread.e2eeReady") : 
 const callsAvailable = computed(() => props.messenger.callsAvailable.value);
 const callsUnavailableReason = computed(() => props.messenger.callsUnavailableReason.value);
 const callsDisabledByTor = computed(() => Boolean(props.messenger.callsDisabledByTor?.value));
+const description = computed(() => props.messenger.roomDescription?.(props.messenger.state.activeRoom) || "");
+const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.messenger.state.activeRoom) === true);
+const canManageRoom = computed(() => props.messenger.canManageRoom?.(props.messenger.state.activeRoom) === true);
+const chatLocked = computed(() => props.messenger.roomChatLocked?.(props.messenger.state.activeRoom) === true);
+
+function toggleChatLock() {
+  props.messenger.setChatLocked?.(props.messenger.state.activeRoom, !chatLocked.value);
+}
+const roomCallsAllowed = computed(() => props.messenger.canCallInRoom?.(props.messenger.state.activeRoom) !== false);
 const callsTooltip = computed(() => {
+  if (!roomCallsAllowed.value) return t('rooms.callsDisabled');
   if (callsAvailable.value) return t('thread.startCall');
   if (callsDisabledByTor.value) return t('thread.callsTorDisabled');
   return callsUnavailableReason.value;
@@ -92,7 +102,10 @@ async function removeHere() {
       <div>
         <div class="thread__name">{{ name }}</div>
         <div class="thread__sub">
-          <template v-if="callActiveHere">
+          <template v-if="isCommunity && description">
+            {{ description }}
+          </template>
+          <template v-else-if="callActiveHere">
             <span class="call-dot"></span>
             {{ t('call.live') }} · {{ callElapsed }}
           </template>
@@ -113,12 +126,23 @@ async function removeHere() {
         <svg viewBox="0 0 24 24"><path d="M14 5h5v5"/><path d="M10 14 19 5"/><path d="M19 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
       </button>
       <button
+        v-if="isCommunity && canManageRoom"
+        class="icon-btn"
+        type="button"
+        :aria-label="chatLocked ? t('rooms.unlockChat') : t('rooms.lockChat')"
+        :title="chatLocked ? t('rooms.unlockChat') : t('rooms.lockChat')"
+        @click="toggleChatLock"
+      >
+        <svg v-if="chatLocked" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <svg v-else viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.9-.9"/><path d="M15 11V8a3 3 0 0 0-6 0v3"/></svg>
+      </button>
+      <button
         v-if="!callActiveHere"
         class="icon-btn"
         type="button"
         :aria-label="t('thread.startCall')"
         :title="callsTooltip"
-        :disabled="!callsAvailable"
+        :disabled="!callsAvailable || !roomCallsAllowed"
         @click="startCall"
       >
         <svg viewBox="0 0 24 24"><path d="M7.6 10.8a14.5 14.5 0 0 0 5.6 5.6l1.9-1.9a1.5 1.5 0 0 1 1.5-.37c1.03.34 2.1.52 3.2.52.83 0 1.5.67 1.5 1.5v3.05c0 .83-.67 1.5-1.5 1.5C10.45 20.7 3.3 13.55 3.3 4.2c0-.83.67-1.5 1.5-1.5h3.05c.83 0 1.5.67 1.5 1.5 0 1.1.18 2.17.52 3.2.17.53.03 1.1-.37 1.5l-1.9 1.9Z"/></svg>

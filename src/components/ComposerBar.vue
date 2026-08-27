@@ -32,14 +32,23 @@ const pendingFiles = ref<{ id: string; file: File; preview: string; progress: nu
 const uploading = ref(false);
 
 const hasPendingFiles = computed(() => pendingFiles.value.length > 0);
-const canSend = computed(() => !uploading.value && (props.messenger.state.messageInput.trim().length > 0 || hasPendingFiles.value) && !!props.messenger.state.activeRoom);
-const disabled = computed(() => !props.messenger.state.activeRoom);
+const speakBlockReason = computed(() => props.messenger.speakBlockReason?.(props.messenger.state.activeRoom) || "");
+const speakBlocked = computed(() => Boolean(speakBlockReason.value));
+const canSend = computed(() => !uploading.value && !speakBlocked.value && (props.messenger.state.messageInput.trim().length > 0 || hasPendingFiles.value) && !!props.messenger.state.activeRoom);
+const disabled = computed(() => !props.messenger.state.activeRoom || speakBlocked.value);
 const editing = computed(() => !!props.messenger.state.editingMessage);
-const composerPlaceholder = computed(() => disabled.value
-  ? t('composer.placeholder')
-  : editing.value
-    ? t('composer.editing')
-    : t('composer.placeholder'));
+const composerPlaceholder = computed(() => {
+  if (speakBlocked.value) {
+    switch (speakBlockReason.value) {
+      case "banned": return t('rooms.cannotSpeakBanned');
+      case "timeout": return t('rooms.cannotSpeakTimeout');
+      case "locked": return t('composer.cannotSpeakHere', { channel: props.messenger.displayRoomName?.(props.messenger.state.activeRoom) || "" });
+      default: return t('composer.placeholder');
+    }
+  }
+  if (disabled.value) return t('composer.placeholder');
+  return editing.value ? t('composer.editing') : t('composer.placeholder');
+});
 const mediaDisabled = computed(() => disabled.value || editing.value);
 const recording = computed(() => !!props.messenger.state.recording);
 const typingLabel = computed(() => {
@@ -1171,7 +1180,7 @@ onBeforeUnmount(() => {
         </Teleport>
       </div>
 
-      <div class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode }"
+      <div class="composer__input" :class="{ 'composer__input--streamer-blur': messenger.state.streamerMode, 'composer__input--disabled': speakBlocked }"
         @click="onComposerContainerClick">
         <button v-if="!isMobile" class="icon-btn composer__desktop-action composer__attach" type="button" :aria-label="t('composer.attachFile')"
           :disabled="mediaDisabled" @click="pickFile">

@@ -3210,6 +3210,16 @@ textarea {
   opacity: 1;
 }
 
+.composer__input--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.composer__input--disabled textarea {
+  cursor: not-allowed;
+}
+
 .composer__input input::placeholder,
 .composer__input textarea::placeholder {
   color: var(--muted);

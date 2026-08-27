@@ -84,6 +84,7 @@ const ROOM_ID_MIN_LENGTH = 8;
 const ROOM_ID_MAX_LENGTH = 64;
 const MAX_ROOM_NOTE_LENGTH = 512;
 const MAX_LOCAL_ROOM_NAME_LENGTH = 64;
+const MAX_ROOM_DESCRIPTION_LENGTH = 140;
 const MESSAGE_LIMIT = 2000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_BYTES = 10 * 1024 * 1024;
@@ -2117,6 +2118,7 @@ function normalizeMessage(message, fallbackRoomId) {
     clientNonce: String(message.clientNonce || ""),
     user: message.system ? SYSTEM_USERNAME : (message.user || message.username || "Unknown"),
     username: message.system ? SYSTEM_USERNAME : (message.username || extractUsername(message.user)),
+    userId: String(message.userId || ""),
     text: voiceDuration ? "" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
@@ -2331,6 +2333,8 @@ export function useMessenger() {
 
     joinedRooms: persisted.joinedRooms,
     pendingJoinRooms: [],
+    roomMetaByRoom: {},
+    myRoleByRoom: {},
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
@@ -2533,7 +2537,10 @@ export function useMessenger() {
   });
 
   const canSend = computed(
-    () => state.messageInput.trim().length > 0 && !!state.activeRoom,
+    () =>
+      state.messageInput.trim().length > 0 &&
+      !!state.activeRoom &&
+      canSpeakInRoom(state.activeRoom),
   );
 
   const conversations = computed(() => {
@@ -3904,6 +3911,197 @@ export function useMessenger() {
     return sanitizeHttpUrl(room?.iconUrl);
   }
 
+  function normalizeModPermissions(perms) {
+    const source = perms && typeof perms === "object" ? perms : {};
+    return {
+      canBan: source.canBan !== false,
+      canKick: source.canKick !== false,
+      canMute: source.canMute !== false,
+      canDelete: source.canDelete !== false,
+    };
+  }
+
+  function normalizeRoomMeta(meta) {
+    if (!meta || typeof meta !== "object") {
+      return {
+        kind: "classic",
+        description: "",
+        ownerId: "",
+        chatLocked: false,
+        roles: {},
+        banned: {},
+        timeouts: {},
+        modPermissions: normalizeModPermissions(null),
+        callsEnabled: true,
+      };
+    }
+    return {
+      kind: meta.kind === "community" ? "community" : "classic",
+      description: String(meta.description || "").slice(0, MAX_ROOM_DESCRIPTION_LENGTH),
+      ownerId: String(meta.ownerId || ""),
+      chatLocked: Boolean(meta.chatLocked),
+      roles: meta.roles && typeof meta.roles === "object" ? { ...meta.roles } : {},
+      banned: meta.banned && typeof meta.banned === "object" && !Array.isArray(meta.banned) ? { ...meta.banned } : {},
+      timeouts: meta.timeouts && typeof meta.timeouts === "object" ? { ...meta.timeouts } : {},
+      modPermissions: normalizeModPermissions(meta.modPermissions),
+      callsEnabled: meta.callsEnabled !== false,
+    };
+  }
+
+  function roomMeta(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return id ? (state.roomMetaByRoom[id] || normalizeRoomMeta(null)) : normalizeRoomMeta(null);
+  }
+
+  function roomKind(roomId) { return roomMeta(roomId).kind; }
+  function roomDescription(roomId) { return roomMeta(roomId).description; }
+  function roomOwnerId(roomId) { return roomMeta(roomId).ownerId; }
+  function roomChatLocked(roomId) { return roomMeta(roomId).chatLocked; }
+  function roomModPermissions(roomId) { return roomMeta(roomId).modPermissions; }
+
+  function bannedMembers(roomId) {
+    const meta = roomMeta(roomId);
+    return Object.entries(meta.banned || {}).map(([userId, username]) => ({
+      userId,
+      username: String(username || userId),
+    }));
+  }
+
+  function myRoleInRoom(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return String(state.myRoleByRoom[id] || "member");
+  }
+
+  function roleLabel(role) {
+    switch (String(role)) {
+      case "administrator": return t("rooms.roleAdmin");
+      case "subAdmin": return t("rooms.roleSubAdmin");
+      case "moderator": return t("rooms.roleModerator");
+      default: return t("rooms.roleMember");
+    }
+  }
+
+  function roleForUsername(roomId, username) {
+    const id = sanitizeRoomId(roomId);
+    const meta = roomMeta(id);
+    const userId = String(userIdForUsername(username) || "");
+    if (meta.ownerId && userId === meta.ownerId) return "administrator";
+    if (userId && meta.roles[userId]) return String(meta.roles[userId]);
+    return "member";
+  }
+
+  function roleForUserId(roomId, userId) {
+    const id = sanitizeRoomId(roomId);
+    const meta = roomMeta(id);
+    const targetId = String(userId || "");
+    if (meta.ownerId && targetId === meta.ownerId) return "administrator";
+    if (targetId && meta.roles[targetId]) return String(meta.roles[targetId]);
+    return "member";
+  }
+
+  function canDeleteMessage(message) {
+    if (!message || message.deleted || message.system) return false;
+    const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
+    if (!roomId) return false;
+    const meta = roomMeta(roomId);
+    if (meta.kind !== "community") {
+      return isOwnMessage(message) || Boolean(state.admin);
+    }
+    if (isOwnMessage(message)) return true;
+    const actorRole = myRoleInRoom(roomId);
+    const authorRole = message.userId
+      ? roleForUserId(roomId, message.userId)
+      : roleForUsername(roomId, message.username);
+    switch (actorRole) {
+      case "administrator": return true;
+      case "subAdmin": return authorRole === "member" || authorRole === "moderator";
+      case "moderator": return meta.modPermissions.canDelete !== false && authorRole === "member";
+      default: return false;
+    }
+  }
+
+  function isCommunityRoom(roomId) { return roomKind(roomId) === "community"; }
+  function isRoomOwner(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return Boolean(state.userId) && roomOwnerId(id) === state.userId;
+  }
+  function isRoomAdministrator(roomId) {
+    return myRoleInRoom(roomId) === "administrator" || isRoomOwner(roomId);
+  }
+  function canManageRoom(roomId) {
+    const role = myRoleInRoom(roomId);
+    return role === "administrator" || role === "subAdmin";
+  }
+  function canModerateRoom(roomId) {
+    const role = myRoleInRoom(roomId);
+    return role === "administrator" || role === "subAdmin" || role === "moderator";
+  }
+  function canConfigureModeratorPermissions(roomId) {
+    const role = myRoleInRoom(roomId);
+    return role === "administrator" || role === "subAdmin" || isRoomOwner(roomId);
+  }
+  function canSpeakInRoom(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return true;
+    const meta = roomMeta(id);
+    if (meta.kind !== "community") return true;
+    const myId = String(state.userId || "");
+    if (meta.banned[myId]) return false;
+    if (meta.timeouts[myId] && Number(meta.timeouts[myId]) > Date.now()) return false;
+    if (meta.chatLocked) {
+      const role = myRoleInRoom(id);
+      return role === "administrator" || role === "subAdmin";
+    }
+    return true;
+  }
+
+  function speakBlockReason(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return "";
+    const meta = roomMeta(id);
+    if (meta.kind !== "community") return "";
+    const myId = String(state.userId || "");
+    if (meta.banned[myId]) return "banned";
+    if (meta.timeouts[myId] && Number(meta.timeouts[myId]) > Date.now()) return "timeout";
+    if (meta.chatLocked) {
+      const role = myRoleInRoom(id);
+      if (role !== "administrator" && role !== "subAdmin") return "locked";
+    }
+    return "";
+  }
+
+  function roomCallsEnabled(roomId) { return roomMeta(roomId).callsEnabled; }
+
+  function canCallInRoom(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return true;
+    const meta = roomMeta(id);
+    if (meta.kind !== "community") return true;
+    if (meta.callsEnabled === false) {
+      const role = myRoleInRoom(id);
+      return role === "administrator" || role === "subAdmin";
+    }
+    return true;
+  }
+
+  function applyRoomMeta(roomId, d) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    if (d?.room && typeof d.room === "object") {
+      state.roomMetaByRoom[id] = normalizeRoomMeta(d.room);
+    }
+    if (typeof d?.myRole === "string") {
+      state.myRoleByRoom[id] = String(d.myRole);
+    } else if (d?.room && typeof d.room === "object") {
+      const myId = String(state.userId || "");
+      if (myId && d.room.ownerId === myId) {
+        state.myRoleByRoom[id] = "administrator";
+      } else if (myId && d.room.roles && typeof d.room.roles === "object" && d.room.roles[myId]) {
+        state.myRoleByRoom[id] = String(d.room.roles[myId]);
+      }
+    }
+  }
+
   function setRoomNote(roomId, note) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
@@ -3975,6 +4173,115 @@ export function useMessenger() {
       showToast(state.lastError);
       return false;
     }
+  }
+
+  async function createCommunityRoom(options: any = {}) {
+    let id = "";
+    try {
+      const token = generateRoomAccessToken();
+      id = token.roomId;
+      importRoomKey(token.roomId, token.roomKey);
+    } catch (error) {
+      state.lastError = error?.message || "Could not generate a secure room.";
+      showToast(state.lastError);
+      return null;
+    }
+
+    const title = String(options.title || "").trim().slice(0, MAX_LOCAL_ROOM_NAME_LENGTH) || id;
+    const description = String(options.description || "").trim().slice(0, MAX_ROOM_DESCRIPTION_LENGTH);
+    const modPermissions = normalizeModPermissions(options.modPermissions);
+
+    const d: any = {
+      roomId: id,
+      kind: "community",
+      title,
+      description,
+      modPermissions,
+    };
+
+    if (options.file && typeof options.file === "object" && options.file.size != null) {
+      try {
+        const file = options.file;
+        if (Number(file.size) > 5 * 1024 * 1024) {
+          state.lastError = "Room icon must be under 5 MB.";
+          showToast(state.lastError);
+          return null;
+        }
+        const dataB64 = await blobToBase64(file, undefined);
+        d.file = {
+          dataB64,
+          mimeType: String(file.type || "image/png"),
+          filename: String(file.name || "room-icon").slice(0, 128),
+        };
+      } catch (error) {
+        state.lastError = error?.message || "Could not prepare room icon.";
+        showToast(state.lastError);
+        return null;
+      }
+    }
+
+    send({ op: 40, d });
+    return id;
+  }
+
+  function updateRoomDescription(roomId, description) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 41, d: { gameId: id, description: String(description || "").trim().slice(0, MAX_ROOM_DESCRIPTION_LENGTH) } });
+  }
+
+  function setMemberRole(roomId, targetUserId, role) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 42, d: { gameId: id, targetUserId, role } });
+  }
+
+  function banMember(roomId, targetUserId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 43, d: { gameId: id, targetUserId } });
+  }
+
+  function unbanMember(roomId, targetUserId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 44, d: { gameId: id, targetUserId } });
+  }
+
+  function kickMember(roomId, targetUserId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 45, d: { gameId: id, targetUserId } });
+  }
+
+  function timeoutMember(roomId, targetUserId, seconds) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 46, d: { gameId: id, targetUserId, durationSecs: Number(seconds) || 60 } });
+  }
+
+  function transferOwnership(roomId, targetUserId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 47, d: { gameId: id, targetUserId } });
+  }
+
+  function setChatLocked(roomId, locked) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 48, d: { gameId: id, locked: Boolean(locked) } });
+  }
+
+  function setCallsEnabled(roomId, enabled) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 50, d: { gameId: id, enabled: Boolean(enabled) } });
+  }
+
+  function setModeratorPermissions(roomId, permissions) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 49, d: { gameId: id, modPermissions: normalizeModPermissions(permissions) } });
   }
 
   function setDeleteMessagesOnLeave(value) {
@@ -5969,6 +6276,11 @@ export function useMessenger() {
       showToast(state.lastError);
       return;
     }
+    if (!canCallInRoom(roomId)) {
+      state.lastError = t("rooms.callsDisabled");
+      showToast(state.lastError);
+      return;
+    }
     try {
       const stream = await getPreferredAudioStream();
       if (!webRtcSupported()) {
@@ -7212,6 +7524,35 @@ export function useMessenger() {
           applyRoomSnapshot(d, d?.gameId);
         }
         break;
+      case 40:
+        if (d?.error) {
+          state.lastError = d.error;
+          showToast(d.error, { error: true });
+        } else {
+          applyRoomSnapshot(d, d?.gameId);
+          const createdId = sanitizeRoomId(d?.gameId);
+          if (createdId && isValidRoomId(createdId)) {
+            selectConversation(createdId);
+          }
+        }
+        break;
+      case 41:
+      case 42:
+      case 43:
+      case 44:
+      case 45:
+      case 46:
+      case 47:
+      case 48:
+      case 49:
+      case 50:
+        if (d?.error) {
+          state.lastError = d.error;
+          showToast(d.error, { error: true });
+        } else {
+          applyRoomSnapshot(d, d?.gameId);
+        }
+        break;
       case 34:
         applyBadgeUpdate(d);
         break;
@@ -7431,6 +7772,7 @@ export function useMessenger() {
       state.activeRoom,
     );
     if (!roomId) return "";
+    applyRoomMeta(roomId, d);
 
     const roomPayload = d?.room && typeof d.room === "object" ? d.room : null;
     const room = state.rooms.find((entry) => entry.roomId === roomId);
@@ -8081,6 +8423,7 @@ export function useMessenger() {
     remoteVideoStream,
     toggleReaction,
     deleteMessage,
+    canDeleteMessage,
     canEditMessage,
     startEditMessage,
     cancelEditMessage,
@@ -8093,6 +8436,17 @@ export function useMessenger() {
     cancelCompose,
     submitCompose,
     createRandomRoom,
+    createCommunityRoom,
+    updateRoomDescription,
+    setMemberRole,
+    banMember,
+    unbanMember,
+    kickMember,
+    timeoutMember,
+    transferOwnership,
+    setChatLocked,
+    setCallsEnabled,
+    setModeratorPermissions,
     copyRoomInvite,
     clearLocalRoomMessages,
     removeRoom,
@@ -8105,6 +8459,25 @@ export function useMessenger() {
     setLocalRoomName,
     clearLocalRoomName,
     roomIcon,
+    roomKind,
+    roomDescription,
+    roomOwnerId,
+    roomChatLocked,
+    roomModPermissions,
+    bannedMembers,
+    myRoleInRoom,
+    roleLabel,
+    roleForUsername,
+    isCommunityRoom,
+    isRoomOwner,
+    isRoomAdministrator,
+    canManageRoom,
+    canModerateRoom,
+    canConfigureModeratorPermissions,
+    canSpeakInRoom,
+    speakBlockReason,
+    canCallInRoom,
+    roomCallsEnabled,
     setLocalRoomIconFromFile,
     clearAllData,
     logout,
