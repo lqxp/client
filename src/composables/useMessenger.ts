@@ -3430,6 +3430,14 @@ export function useMessenger() {
 
   function applyAuthenticatedPayload(data) {
     if (!data?.user) throw new Error("Malformed account response.");
+    // Re-login into a previously saved account: restore its local state
+    // (rooms, keys, messages) so the fresh auth payload does not wipe the cache.
+    const savedAccount = state.accounts.find(
+      (account) => account && String(account.userId) === String(data.user.id),
+    );
+    if (savedAccount) {
+      applyPersistedPayload(savedAccount);
+    }
     const preservedSettings = {
       serverClearsLocalMessages: state.serverClearsLocalMessages,
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
