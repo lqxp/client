@@ -71,6 +71,13 @@ const titlebarTrayOpen = ref(false);
 const titlebarTrayRef = ref<HTMLElement | null>(null);
 const titlebarTrayItems = ref<TitlebarAction[]>([]);
 const isWindowMaximized = ref(false);
+const titlebarCompact = ref(false);
+const TITLEBAR_COMPACT_MAX_WIDTH = 480;
+const hideTitlebarTray = computed(() => showNativeTitlebar && titlebarCompact.value);
+
+function syncTitlebarCompact() {
+  titlebarCompact.value = window.innerWidth <= TITLEBAR_COMPACT_MAX_WIDTH;
+}
 
 const isLocked = computed(() => messenger.state.clientLockLocked);
 const sessionExpired = computed(() => !isLocked.value && messenger.state.sessionExpired);
@@ -483,6 +490,8 @@ watch(
 
 onMounted(() => {
   titlebarTrayItems.value = loadTitlebarTrayItems();
+  syncTitlebarCompact();
+  window.addEventListener("resize", syncTitlebarCompact);
   void syncWindowMaximizedState();
   if (messenger.state.authToken) messenger.refreshSession();
   document.addEventListener("pointerdown", onDocumentPointerDown);
@@ -492,6 +501,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
   systemThemeMedia?.removeEventListener("change", applyAppearance);
+  window.removeEventListener("resize", syncTitlebarCompact);
   document.removeEventListener("pointerdown", onDocumentPointerDown);
   document.removeEventListener("keydown", onDocumentKeydown);
 });
@@ -727,7 +737,7 @@ async function lockClientNow() {
           </button>
         </div>
 
-        <div class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
+        <div v-if="!hideTitlebarTray" class="desktop-titlebar__tray" :class="{ 'is-open': titlebarTrayOpen }">
           <button class="icon-btn desktop-titlebar__tray-toggle" type="button" :aria-expanded="titlebarTrayOpen"
             :aria-label="t('titlebar.openTray')" :title="t('titlebar.tray')" @click="toggleTitlebarTray">
             <svg viewBox="0 0 24 24" aria-hidden="true">
