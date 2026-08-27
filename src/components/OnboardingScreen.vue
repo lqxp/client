@@ -46,7 +46,12 @@ watch(username, () => {
 });
 
 const cleanUsername = computed(() => username.value.trim().toLowerCase());
-const usernameError = computed(() => props.messenger.validateUsername(cleanUsername.value));
+const usernameError = computed(() => {
+  if (mode.value === "register") {
+    return props.messenger.validateRegistrationUsername(cleanUsername.value);
+  }
+  return props.messenger.validateUsername(cleanUsername.value);
+});
 const passwordValid = computed(() => password.value.length >= 8 && password.value.length <= 128);
 const newPasswordValid = computed(() => newPassword.value.length >= 8 && newPassword.value.length <= 128);
 
@@ -163,7 +168,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
               {{ t('settings.security.username') }}
               <em v-if="usernameError" class="onboarding__field-error">{{ usernameError }}</em>
             </span>
-            <input id="onboarding-username" ref="inputRef" v-model="username" type="text" maxlength="32"
+            <input id="onboarding-username" ref="inputRef" v-model="username" type="text" :maxlength="mode === 'register' ? 24 : 32"
               autocomplete="username" spellcheck="false" :placeholder="t('onboarding.usernamePlaceholder')"
               @focus="onFieldFocus" />
           </label>

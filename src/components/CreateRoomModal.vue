@@ -347,7 +347,7 @@ async function submit() {
   padding: 12px 14px;
   font-size: 14px;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 

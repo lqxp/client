@@ -145,10 +145,11 @@ function systemProfile() {
   });
 }
 
-function validateUsername(value) {
-  const username = sanitizeUsername(value);
-  if (username.length < 2 || username.length > 32)
-    return "Username must be 2 to 32 characters.";
+function validateUsernameWithMax(value, max) {
+  const trimmed = String(value || "").trim();
+  if (trimmed.length < 2 || trimmed.length > max)
+    return `Username must be 2 to ${max} characters.`;
+  const username = sanitizeUsername(trimmed);
   if (!/^[a-z0-9_.]+$/.test(username))
     return "Username can only use a-z, 0-9, underscore and period.";
   if (username.includes(".."))
@@ -156,6 +157,14 @@ function validateUsername(value) {
   if (username === SYSTEM_USERNAME)
     return "Username is reserved.";
   return "";
+}
+
+function validateUsername(value) {
+  return validateUsernameWithMax(value, 32);
+}
+
+function validateRegistrationUsername(value) {
+  return validateUsernameWithMax(value, 24);
 }
 
 function sanitizePresenceStatus(value) {
@@ -3400,7 +3409,7 @@ export function useMessenger() {
   }
 
   async function registerAccount(username, password, capToken = null) {
-    const validation = validateUsername(username);
+    const validation = validateRegistrationUsername(username);
     if (validation) {
       state.lastError = validation;
       showToast(validation);
@@ -8424,6 +8433,7 @@ export function useMessenger() {
     displayRoomNameBeautified,
     beautifyRoomName,
     validateUsername,
+    validateRegistrationUsername,
     isSystemUsername,
     validateRoomId,
     isValidRoomId,
