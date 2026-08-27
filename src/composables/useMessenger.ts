@@ -790,6 +790,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
     allowServerDefaultRoom: true,
     defaultRoomLeavedRoomId: "",
+    pinnedCollapsed: false,
+    channelsCollapsed: false,
     callUserVolumes: {},
     roomNotes: {},
     pinnedRooms: [],
@@ -1110,6 +1112,8 @@ function loadPersisted() {
       autoReconnectEnabled: raw.autoReconnectEnabled !== false,
       allowServerDefaultRoom: raw.allowServerDefaultRoom !== false,
       defaultRoomLeavedRoomId: String(raw.defaultRoomLeavedRoomId || ""),
+      pinnedCollapsed: raw.pinnedCollapsed === true,
+      channelsCollapsed: raw.channelsCollapsed === true,
       reconnectMinDelayMs: Math.max(
         250,
         Math.min(
@@ -1460,6 +1464,8 @@ function buildPersistedPayload(state) {
     reconnectMaxDelayMs: state.reconnectMaxDelayMs,
     allowServerDefaultRoom: state.allowServerDefaultRoom,
     defaultRoomLeavedRoomId: state.defaultRoomLeavedRoomId,
+    pinnedCollapsed: state.pinnedCollapsed,
+    channelsCollapsed: state.channelsCollapsed,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     bannedRooms: sanitizeBannedRooms(state.bannedRooms),
@@ -2466,6 +2472,8 @@ export function useMessenger() {
     allowServerDefaultRoom: persisted.allowServerDefaultRoom,
     defaultRoomLeavedRoomId: persisted.defaultRoomLeavedRoomId,
     defaultRoomId: "",
+    pinnedCollapsed: persisted.pinnedCollapsed,
+    channelsCollapsed: persisted.channelsCollapsed,
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
     reconnectMaxDelayMs: Math.max(
       persisted.reconnectMinDelayMs,
@@ -2777,6 +2785,8 @@ export function useMessenger() {
     state.autoReconnectEnabled = normalized.autoReconnectEnabled;
     state.allowServerDefaultRoom = normalized.allowServerDefaultRoom;
     state.defaultRoomLeavedRoomId = normalized.defaultRoomLeavedRoomId;
+    state.pinnedCollapsed = normalized.pinnedCollapsed;
+    state.channelsCollapsed = normalized.channelsCollapsed;
     state.reconnectMinDelayMs = normalized.reconnectMinDelayMs;
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
@@ -4792,6 +4802,16 @@ export function useMessenger() {
 
   function setAllowServerDefaultRoom(value) {
     state.allowServerDefaultRoom = Boolean(value);
+    persist();
+  }
+
+  function setPinnedCollapsed(value) {
+    state.pinnedCollapsed = Boolean(value);
+    persist();
+  }
+
+  function setChannelsCollapsed(value) {
+    state.channelsCollapsed = Boolean(value);
     persist();
   }
 
@@ -8799,6 +8819,8 @@ export function useMessenger() {
     setAutoReconnectEnabled,
     setServerClearsLocalMessages,
     setAllowServerDefaultRoom,
+    setPinnedCollapsed,
+    setChannelsCollapsed,
     setAutoArchiveUploads,
     setRenameUploadsRandomly,
     setStripImageExif,

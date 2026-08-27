@@ -129,6 +129,14 @@ const pinnedConversations = computed(() =>
 const regularConversations = computed(() =>
   conversations.value.filter((c) => !props.messenger.isRoomPinned?.(c.roomId)),
 );
+const pinnedCollapsed = computed(() => props.messenger.state.pinnedCollapsed === true);
+const channelsCollapsed = computed(() => props.messenger.state.channelsCollapsed === true);
+function togglePinnedCollapsed() {
+  props.messenger.setPinnedCollapsed(!pinnedCollapsed.value);
+}
+function toggleChannelsCollapsed() {
+  props.messenger.setChannelsCollapsed(!channelsCollapsed.value);
+}
 const roomContextIsPinned = computed(() =>
   props.messenger.isRoomPinned?.(roomContextRoomId.value) === true,
 );
@@ -398,7 +406,11 @@ onBeforeUnmount(() => {
     <div ref="sideListRef" class="side__list" @contextmenu="onSideListContext">
       <template v-if="conversations.length">
         <div v-if="pinnedConversations.length" class="side__pinned">
-          <div class="side__pinned-label">{{ t('sidebar.pinnedRooms') }}</div>
+          <button class="side__pinned-label" type="button" :aria-expanded="!pinnedCollapsed" @click="togglePinnedCollapsed">
+            <svg class="side__section-chevron" :class="{ 'is-collapsed': pinnedCollapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+            <span>{{ t('sidebar.pinnedRooms') }}</span>
+          </button>
+          <template v-if="!pinnedCollapsed">
           <div v-for="c in pinnedConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
             role="button" tabindex="0" @click="openConversation(c.roomId)"
             @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
@@ -422,9 +434,14 @@ onBeforeUnmount(() => {
 
             <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
           </div>
+          </template>
         </div>
 
-        <div v-if="pinnedConversations.length && regularConversations.length" class="side__channels-label">{{ t('sidebar.channels') }}</div>
+        <button v-if="pinnedConversations.length && regularConversations.length" class="side__channels-label" type="button" :aria-expanded="!channelsCollapsed" @click="toggleChannelsCollapsed">
+          <svg class="side__section-chevron" :class="{ 'is-collapsed': channelsCollapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          <span>{{ t('sidebar.channels') }}</span>
+        </button>
+        <template v-if="!channelsCollapsed">
 
         <div v-for="c in regularConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
@@ -449,6 +466,7 @@ onBeforeUnmount(() => {
 
           <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
         </div>
+        </template>
       </template>
       <div v-else class="conv--empty">
         <svg class="conv--empty-logo" width="80" height="80" viewBox="-3.68 -3.68 23.36 23.36" xmlns="http://www.w3.org/2000/svg">
@@ -677,23 +695,54 @@ onBeforeUnmount(() => {
 }
 
 .side__pinned-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
   padding: 10px 10px 4px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+  cursor: pointer;
+  text-align: left;
 }
-
 .side__channels-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
   margin-top: 12px;
   padding: 12px 10px 4px;
+  border: 0;
   border-top: 1px solid var(--line);
+  background: transparent;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+.side__section-chevron {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 140ms ease;
+}
+.side__section-chevron.is-collapsed {
+  transform: rotate(-90deg);
 }
 
 .side-user {
