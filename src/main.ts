@@ -1,4 +1,5 @@
 import { createApp } from "vue";
+import type { Plugin } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import { initializeRuntimeConfig } from "./config/runtime";
@@ -112,7 +113,7 @@ initializeRuntimeConfig()
     /* Keep the bundled runtime config when the server runtime cannot be fetched. */
   })
   .finally(() => {
-    createApp(App).use(router).mount("#app");
+    createApp(App).use(router as Plugin).mount("#app");
     const splash = document.getElementById("splash");
     if (splash) {
       // Laisse un tick pour que Vue finisse le premier rendu
