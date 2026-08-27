@@ -5627,29 +5627,27 @@ export function useMessenger() {
     state.composeInput = "";
   }
 
-  function submitCompose() {
-    const raw = String(state.composeInput || "").trim();
-    if (!raw) return;
+  function tryJoinRoom(raw: string) {
+    const input = String(raw || "").trim();
+    if (!input) return false;
 
     // Handle a full 96-char hex E2EE room token (roomId + roomKey)
-    if (/^[0-9a-f]{96}$/i.test(raw)) {
+    if (/^[0-9a-f]{96}$/i.test(input)) {
       try {
-        openImportedRoomToken(raw);
-        state.composing = false;
-        state.composeInput = "";
-        return;
+        openImportedRoomToken(input);
+        return true;
       } catch {
         // Fall through — try to treat it as a plain room ID.
       }
     }
 
     // Handle an invite URL with a unified token param
-    if (/[?&]token=/i.test(raw)) {
+    if (/[?&]token=/i.test(input)) {
       try {
         let tokenFromUrl = "";
-        const hashIndex = raw.lastIndexOf("#");
+        const hashIndex = input.lastIndexOf("#");
         if (hashIndex !== -1) {
-          const fragment = raw.slice(hashIndex + 1);
+          const fragment = input.slice(hashIndex + 1);
           const queryIndex = fragment.indexOf("?");
           if (queryIndex !== -1) {
             const params = new URLSearchParams(fragment.slice(queryIndex + 1));
@@ -5658,15 +5656,13 @@ export function useMessenger() {
         }
         if (!tokenFromUrl) {
           try {
-            const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+            const url = new URL(input.startsWith("http") ? input : `https://${input}`);
             tokenFromUrl = String(url.searchParams.get("token") || "").trim();
           } catch { /* ignore */ }
         }
         if (/^[0-9a-f]{96}$/i.test(tokenFromUrl)) {
           openImportedRoomToken(tokenFromUrl);
-          state.composing = false;
-          state.composeInput = "";
-          return;
+          return true;
         }
       } catch {
         // Fall through.
@@ -5674,16 +5670,28 @@ export function useMessenger() {
     }
 
     // Plain room ID / room name
-    const id = sanitizeRoomId(raw);
+    const id = sanitizeRoomId(input);
     const validation = validateRoomId(id);
     if (validation) {
       state.lastError = validation;
       showToast(validation);
-      return;
+      return false;
     }
-    state.composing = false;
-    state.composeInput = "";
     selectConversation(id);
+    return true;
+  }
+
+  function submitCompose() {
+    const raw = String(state.composeInput || "").trim();
+    if (!raw) return;
+    if (tryJoinRoom(raw)) {
+      state.composing = false;
+      state.composeInput = "";
+    }
+  }
+
+  function joinRoom(raw) {
+    return tryJoinRoom(raw);
   }
 
   function showToast(message, options: { badge?: string; badgeAvatarSrc?: string; error?: boolean } = {}) {
@@ -8545,6 +8553,7 @@ export function useMessenger() {
     startCompose,
     cancelCompose,
     submitCompose,
+    joinRoom,
     createRandomRoom,
     createCommunityRoom,
     updateRoomDescription,

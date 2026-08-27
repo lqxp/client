@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import CreateRoomModal from "@/components/CreateRoomModal.vue";
+import AddServerModal from "@/components/AddServerModal.vue";
+import JoinRoomModal from "@/components/JoinRoomModal.vue";
 import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -13,7 +15,6 @@ const props = defineProps({
 });
 const emit = defineEmits(["conversation-selected", "open-spotlight"]);
 
-const composeRef = ref(null);
 const sideListRef = ref<HTMLElement | null>(null);
 const statusMenuOpen = ref(false);
 const roomContextOpen = ref(false);
@@ -26,6 +27,8 @@ const sideListContextOpen = ref(false);
 const sideListContextPos = ref({ x: 0, y: 0 });
 const sideListContextMenuRef = ref<HTMLElement | null>(null);
 const createRoomOpen = ref(false);
+const addServerOpen = ref(false);
+const joinRoomOpen = ref(false);
 const roomSettingsOpen = ref(false);
 const roomSettingsRoomId = ref("");
 
@@ -111,18 +114,6 @@ function initialsOf(name) {
   const parts = trimmed.split(/[\s\-_]+/).slice(0, 2);
   if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
   return trimmed.slice(0, 2).toUpperCase();
-}
-
-watch(
-  () => props.messenger.state.composing,
-  async (isComposing) => {
-    if (isComposing) { await nextTick(); composeRef.value?.focus(); }
-  }
-);
-
-function onComposeKey(event) {
-  if (event.key === "Escape") props.messenger.cancelCompose();
-  if (event.key.length === 1 && !/[a-z0-9]/i.test(event.key)) event.preventDefault();
 }
 
 async function leaveRoomFromContext() {
@@ -300,6 +291,16 @@ function createRoom() {
   createRoomOpen.value = true;
 }
 
+function createRoomFromAddServer() {
+  addServerOpen.value = false;
+  createRoom();
+}
+
+function joinRoomFromAddServer() {
+  addServerOpen.value = false;
+  joinRoomOpen.value = true;
+}
+
 function toggleStatusMenu(event) {
   event.stopPropagation();
   statusMenuOpen.value = !statusMenuOpen.value;
@@ -326,27 +327,7 @@ onBeforeUnmount(() => {
 
 <template>
   <aside class="side" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
-    <div v-if="messenger.state.composing" class="compose">
-      <label class="compose__field">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
-          <path d="m21 2-9.6 9.6" />
-          <circle cx="7.5" cy="15.5" r="5.5" />
-        </svg>
-        <input ref="composeRef" v-model="messenger.state.composeInput" type="text" maxlength="96" minlength="8"
-          pattern="[A-Za-z0-9]{8,96}" autocomplete="off" spellcheck="false"
-          :placeholder="t('sidebar.pasteRoomToken')" :aria-label="t('sidebar.pasteRoomToken')"
-          @keydown.enter.prevent="messenger.submitCompose" @keydown="onComposeKey"
-          @blur="messenger.state.composeInput ? null : messenger.cancelCompose()" />
-      </label>
-      <button type="button" :aria-label="t('composer.cancelEdit')" @mousedown.prevent @click="messenger.cancelCompose">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-
-    <div class="side__search" v-if="!messenger.state.composing">
+    <div class="side__search">
       <label class="search">
         <svg viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="7" />
@@ -355,16 +336,9 @@ onBeforeUnmount(() => {
         <input v-model="messenger.state.searchTerm" type="search" :placeholder="t('sidebar.searchPlaceholder')"
           :aria-label="t('sidebar.searchPlaceholder')" @focus="emit('open-spotlight')" />
       </label>
-      <button class="icon-btn side__shuffle" type="button" :aria-label="t('sidebar.generateToken')" @click="createRoom">
+      <button class="icon-btn side__compose" type="button" :aria-label="t('sidebar.addServer')" @click="addServerOpen = true">
         <svg viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14" />
-        </svg>
-      </button>
-      <button class="icon-btn side__compose" type="button" :aria-label="t('sidebar.newConversation')"
-        @click="messenger.startCompose">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
         </svg>
       </button>
     </div>
@@ -482,6 +456,8 @@ onBeforeUnmount(() => {
       class="sr-only" @change="onRoomIconFileChange" />
 
     <CreateRoomModal :messenger="messenger" :open="createRoomOpen" @close="createRoomOpen = false" />
+    <AddServerModal :open="addServerOpen" @close="addServerOpen = false" @create="createRoomFromAddServer" @join="joinRoomFromAddServer" />
+    <JoinRoomModal :messenger="messenger" :open="joinRoomOpen" @close="joinRoomOpen = false" />
     <RoomSettingsModal :messenger="messenger" :open="roomSettingsOpen" :room-id="roomSettingsRoomId" @close="roomSettingsOpen = false" />
 
     <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
