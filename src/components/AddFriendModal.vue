@@ -137,82 +137,114 @@ async function copyGhostUrl(url: string) {
 .phantom-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 220;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  padding: 28px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
 }
 .phantom-modal {
-  width: min(420px, calc(100vw - 32px));
-  max-height: 80vh;
-  overflow: auto;
-  border-radius: 12px;
-  background: var(--surface, #1c1f24);
-  color: var(--text-primary, #e6e8ec);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  font-family: var(--font);
+  color: var(--text);
 }
 .phantom-modal__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border, #2a2d33);
+  gap: 16px;
+  padding: 24px 24px 6px;
+}
+.phantom-modal__head strong {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 .phantom-tabs {
   display: flex;
   gap: 4px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border, #2a2d33);
+  padding: 14px 16px 0;
 }
 .phantom-tabs button {
   flex: 1;
-  padding: 7px 6px;
+  padding: 8px 6px;
   border-radius: 8px;
-  border: 0;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
   cursor: pointer;
+  font-size: 13px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.phantom-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 .phantom-tabs button.is-active {
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 .phantom-modal__body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 14px 24px 24px;
 }
 .phantom-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  color: var(--text-secondary, #a7abb3);
+  color: var(--muted);
 }
 .phantom-field input,
 .phantom-field select,
 .phantom-field textarea {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #2a2d33);
-  background: var(--input, #121418);
-  color: var(--text-primary, #e6e8ec);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+}
+.phantom-field input:focus,
+.phantom-field select:focus,
+.phantom-field textarea:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 .phantom-warning {
   margin: 0;
-  font-size: 12px;
-  color: var(--warning, #e6a23c);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 .phantom-submit {
   align-self: flex-start;
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
   border: 0;
   cursor: pointer;
   color: #fff;
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 120ms ease;
+}
+.phantom-submit:hover {
+  background: color-mix(in srgb, var(--accent) 85%, black 15%);
 }
 .phantom-submit:disabled {
   opacity: 0.6;
@@ -220,8 +252,8 @@ async function copyGhostUrl(url: string) {
 }
 .phantom-error {
   margin: 0;
-  font-size: 12px;
-  color: var(--danger, #e5534b);
+  font-size: 12.5px;
+  color: var(--red);
 }
 .phantom-ghost-list {
   margin: 0;
@@ -241,7 +273,29 @@ async function copyGhostUrl(url: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
-  color: var(--text-secondary, #a7abb3);
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+.phantom-ghost-list button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .phantom-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .phantom-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+  }
 }
 </style>
