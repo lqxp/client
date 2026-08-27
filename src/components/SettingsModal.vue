@@ -91,6 +91,12 @@ function countryFlag(code: string): string {
   return String.fromCodePoint(...[...c].map((ch) => offset + ch.charCodeAt(0) - 65));
 }
 
+function relayFlagLabel(flag: string): string {
+  const key = `settings.tor.flags.${flag}`;
+  const label = t(key);
+  return label === key ? flag : label;
+}
+
 /**
  * Returns the full human-readable country name for an ISO 3166-1 alpha-2 code,
  * always in English (independent of the current UI locale, as requested). Uses
@@ -1861,7 +1867,7 @@ onBeforeUnmount(() => {
                 <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
                 <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
                 <span class="tor-relay__flags">
-                  <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ flag }}</span>
+                  <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ relayFlagLabel(flag) }}</span>
                 </span>
               </div>
               <div class="tor-relay__meta">

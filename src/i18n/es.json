@@ -469,6 +469,21 @@
               "middle": "Middle",
               "exit": "Exit"
             },
+            "flags": {
+              "Authority": "Autoridad",
+              "BadExit": "Salida defectuosa",
+              "Exit": "Salida",
+              "Fast": "Rápido",
+              "Guard": "Guardia",
+              "HSDir": "Directorio HS",
+              "MiddleOnly": "Solo intermedio",
+              "NoEdConsensus": "Sin consenso Ed",
+              "Running": "Activo",
+              "Stable": "Estable",
+              "StaleDesc": "Descriptor obsoleto",
+              "V2Dir": "Directorio V2",
+              "Valid": "Válido"
+            },
             "error": "Error de Tor: {error}",
             "relays": "Directorio de relays",
             "relaysNote": "Relays en vivo del directorio oficial de Tor Metrics, ordenados por peso de consenso.",

@@ -472,6 +472,21 @@
               "middle": "Middle",
               "exit": "Exit"
             },
+            "flags": {
+              "Authority": "Authority",
+              "BadExit": "Bad exit",
+              "Exit": "Exit",
+              "Fast": "Fast",
+              "Guard": "Guard",
+              "HSDir": "HS directory",
+              "MiddleOnly": "Middle only",
+              "NoEdConsensus": "No Ed consensus",
+              "Running": "Running",
+              "Stable": "Stable",
+              "StaleDesc": "Stale descriptor",
+              "V2Dir": "V2 directory",
+              "Valid": "Valid"
+            },
             "error": "Tor error: {error}",
             "relays": "Relay directory",
             "relaysNote": "Live relays from the official Tor Metrics directory, sorted by consensus weight.",
