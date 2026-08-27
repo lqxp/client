@@ -325,6 +325,12 @@
             "recoveryNote": "Las palabras de recuperación solo se muestran tras crear o recuperar la cuenta en este navegador.",
             "recoveryWordsImported": "Palabras de recuperación importadas.",
             "invalidRecoveryWords": "Palabras de recuperación no válidas. Pega exactamente 12 palabras.",
+            "recoveryTitle": "Palabras de recuperación (firma del cliente)",
+            "recoverySigned": "Cliente firmado con tus palabras de recuperación.",
+            "recoveryNotSigned": "Cliente no firmado: las solicitudes de amistad requieren tus palabras de recuperación.",
+            "recoveryHint": "Pega tus 12 palabras de recuperación para firmar este cliente. Permanecen locales y solo derivan tus claves de firma.",
+            "recoveryImport": "Importar palabras",
+            "recoveryPlaceholder": "palabra1 palabra2 … palabra12",
             "clientLock": "Bloqueo del cliente",
             "clientLockEnabled": "Bloquear QxChat con un PIN",
             "pinLength": "Longitud del PIN",
@@ -678,12 +684,6 @@
         "unblock": "Desbloquear",
         "blocked": "Bloqueados",
         "noBlocked": "Sin usuarios bloqueados",
-        "recoveryTitle": "Palabras de recuperación (firma del cliente)",
-        "recoverySigned": "Cliente firmado con tus palabras de recuperación.",
-        "recoveryNotSigned": "Cliente no firmado: las solicitudes de amistad requieren tus palabras de recuperación.",
-        "recoveryHint": "Pega tus 12 palabras de recuperación para firmar este cliente. Permanecen locales y solo derivan tus claves de firma.",
-        "recoveryImport": "Importar palabras",
-        "recoveryPlaceholder": "palabra1 palabra2 … palabra12",
         "usernameWarning": "El servidor sabrá que buscaste este nombre de usuario."
     }
 }
