@@ -1077,6 +1077,76 @@ onBeforeUnmount(() => {
     color: var(--text) !important;
     background: var(--surface-hover) !important;
   }
+
+  /* ---- Account menu ---- */
+  .account-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: room-context-backdrop-in 160ms ease-out;
+  }
+
+  .account-menu {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    border-radius: 22px 22px 0 0;
+    border: 0;
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .account-menu::before {
+    content: "";
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .account-menu__header {
+    padding: 8px 18px 14px;
+    font-size: 12px;
+  }
+
+  .account-menu__row {
+    border-radius: 14px;
+  }
+
+  .account-menu__switch {
+    min-height: 52px;
+    padding: 0 16px;
+    font-size: 16px;
+    gap: 12px;
+  }
+
+  .account-menu__remove {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .account-menu__add {
+    min-height: 52px;
+    padding: 0 16px;
+    font-size: 16px;
+    gap: 12px;
+  }
 }
 
 @keyframes room-context-backdrop-in {
