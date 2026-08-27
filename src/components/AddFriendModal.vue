@@ -104,8 +104,8 @@ async function copyGhostUrl(url: string) {
 
             <p v-if="tab === 'username'" class="phantom-warning">{{ t("phantom.usernameWarning") }}</p>
 
-            <label class="phantom-field">
-              <span>{{ t("phantom.requests") }}</span>
+            <label v-if="tab === 'context'" class="phantom-field">
+              <span>{{ t("phantom.introMessage") }}</span>
               <textarea v-model="intro" rows="2" placeholder="…"></textarea>
             </label>
 

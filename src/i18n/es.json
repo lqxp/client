@@ -681,6 +681,7 @@
         "friends": "Amigos",
         "noFriends": "Aún no hay amigos",
         "noRequests": "Sin solicitudes pendientes",
+        "introMessage": "Mensaje",
         "byContext": "Sala compartida",
         "byUsername": "Nombre de usuario",
         "ghostLink": "Enlace fantasma",

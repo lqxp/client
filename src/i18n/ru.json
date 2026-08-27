@@ -692,6 +692,7 @@
         "friends": "Друзья",
         "noFriends": "Пока нет друзей",
         "noRequests": "Нет ожидающих запросов",
+        "introMessage": "Сообщение",
         "byContext": "Общая комната",
         "byUsername": "Имя пользователя",
         "ghostLink": "Фантомная ссылка",

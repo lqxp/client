@@ -669,6 +669,7 @@
         "friends": "Friends",
         "noFriends": "No friends yet",
         "noRequests": "No pending requests",
+        "introMessage": "Message",
         "byContext": "Shared room",
         "byUsername": "Username",
         "ghostLink": "Ghost link",

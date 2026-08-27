@@ -669,6 +669,7 @@
         "friends": "Amis",
         "noFriends": "Aucun ami pour l'instant",
         "noRequests": "Aucune demande en attente",
+        "introMessage": "Message",
         "byContext": "Salon commun",
         "byUsername": "Pseudo",
         "ghostLink": "Lien fantôme",
