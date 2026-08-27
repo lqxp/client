@@ -133,6 +133,12 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
   loadSettings();
 
+  // Affiche l'erreur ET émet un toast (lastError alimente aussi la modale).
+  function setError(message: string): void {
+    state.lastError = message;
+    if (ctx.showToast) ctx.showToast(message, { error: true });
+  }
+
   // ── Fetch anonyme (aucun header d'authentification — S6/INV13) ──────────────
   async function anonymousFetch(path: string, options: any = {}) {
     const headers = {
@@ -171,12 +177,25 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   }
 
   // ── Prékey ──────────────────────────────────────────────────────────────────
+  function publishPrekey(prekey: StoredPrekey): void {
+    if (!prekey.bundle) return;
+    // Publie via op 36 (idempotent — UPSERT serveur). Réémis à chaque
+    // `ensurePrekey` pour réparer les cas où l'op 36 a été lâché faute de WS
+    // prêt lors du premier essai.
+    ctx.send({ op: 36, d: { ...prekey.bundle, requestId: globalThis.crypto.randomUUID() } });
+  }
+
   async function ensurePrekey(): Promise<StoredPrekey | null> {
-    if (state.prekey) return state.prekey;
+    if (state.prekey) {
+      publishPrekey(state.prekey);
+      return state.prekey;
+    }
+
     const stored = loadPrekey();
     if (stored?.mlkemSecretKeyHex && stored?.mldsaSecretKeyHex) {
       state.prekey = stored;
       state.ready = true;
+      publishPrekey(stored);
       return stored;
     }
 
@@ -200,8 +219,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       bundle,
     };
 
-    // Publie via op 36 (l'acquittement arrive via le pont WS).
-    ctx.send({ op: 36, d: { ...bundle, requestId: globalThis.crypto.randomUUID() } });
+    publishPrekey(prekey);
     savePrekey(prekey);
     state.prekey = prekey;
     state.ready = true;
@@ -292,11 +310,15 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     try {
       const challenge = await anonymousFetch("/api/auth/challenge?target=phantom");
       const quotaToken = challenge?.quotaToken;
-      if (!quotaToken?.ticket || typeof quotaToken?.epoch !== "number") return null;
+      if (!quotaToken?.ticket || typeof quotaToken?.epoch !== "number") {
+        state.lastError = "Anonymous quota token unavailable.";
+        return null;
+      }
       const action = `phantom_deposit:${epochDay(Date.now())}`;
       const nullifier = await computeNullifier(quotaToken.ticket, quotaToken.epoch, action);
       return { quotaToken, nullifier };
     } catch {
+      setError("Anonymous quota token failed.");
       return null;
     }
   }
@@ -308,6 +330,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
         `/api/auth/cap/challenge?scope=${encodeURIComponent(scope)}`,
       );
       if (!challenge?.challengeId || !challenge?.vdf?.x || !challenge?.quotaToken?.ticket || !challenge?.pqcKey) {
+        setError("Anti-spam challenge unavailable.");
         return null;
       }
       const vdfProof = await solveVdf(challenge.vdf.x, challenge.vdf.t, challenge.vdf.modulus);
@@ -324,8 +347,13 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
           pqcCiphertext: pqcRes.ciphertext,
         }),
       });
-      return data?.capToken || null;
+      if (!data?.capToken) {
+        setError("Anti-spam challenge rejected.");
+        return null;
+      }
+      return data.capToken;
     } catch {
+      setError("Anti-spam challenge failed.");
       return null;
     }
   }
@@ -355,7 +383,9 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
         },
       }),
     });
-    return data?.ok === true;
+    if (data?.ok === true) return true;
+    setError("Deposit rejected by the server.");
+    return false;
   }
 
   // ── Envoi d'une demande (rendez-vous) ───────────────────────────────────────
@@ -365,7 +395,10 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     introText: string,
   ): Promise<{ outer: PhantomOuter; slotId: string; recipientFp: string } | null> {
     const prekey = state.prekey;
-    if (!prekey) return null;
+    if (!prekey) {
+      setError("No local prekey available.");
+      return null;
+    }
     const recipientFp = await fp(targetBundle.mlkem768Pk);
     const day = epochDay(Date.now());
     const roomKey = roomId ? ctx.roomKeyFor(roomId) : "";
@@ -374,7 +407,10 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       : await slotGlobal(recipientFp, day);
 
     const master = await deriveMasterSecret();
-    if (!master) return null;
+    if (!master) {
+      setError("Recovery words unavailable — cannot seal the request.");
+      return null;
+    }
     const contextual = await deriveContextualKeypair(master, roomId || "");
     const inner = await signInner(
       {
@@ -406,7 +442,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (!prekey) return false;
     const target = await fetchPrekey(username);
     if (!target) {
-      state.lastError = "This user hasn't published a prekey yet (are they using the app?).";
+      setError("This user hasn't published a prekey yet (are they using the app?).");
       return false;
     }
     const sealed = await sealIntro(target, roomId, introText);
@@ -427,22 +463,34 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
     // Vérifie la signature ML-DSA contre la bundle publique de l'émetteur.
     const senderBundle = await fetchPrekey(incoming.sender.displayName);
-    if (!senderBundle) return false;
+    if (!senderBundle) {
+      setError("Sender prekey unavailable.");
+      return false;
+    }
     const valid = await verifyInner(
       incoming as PhantomInner,
       incoming.sender.contextualPub,
       senderBundle.mldsa65Pk,
     );
-    if (!valid) return false;
+    if (!valid) {
+      setError("Invalid sender signature.");
+      return false;
+    }
 
     const { roomId, roomKey } = ctx.generateRoomAccessToken();
     ctx.importRoomKey(roomId, roomKey);
     ctx.requestJoin(roomId);
 
     const prekey = state.prekey;
-    if (!prekey) return false;
+    if (!prekey) {
+      setError("No local prekey available.");
+      return false;
+    }
     const master = await deriveMasterSecret();
-    if (!master) return false;
+    if (!master) {
+      setError("Recovery words unavailable.");
+      return false;
+    }
     const day = epochDay(Date.now());
     // Réponse scellée dans LE MÊME slot (contextuel ou global) que la demande.
     const contextual = await deriveContextualKeypair(master, roomId);
@@ -490,8 +538,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   async function createGhostLink(): Promise<void> {
     const prekey = await ensurePrekey();
     if (!prekey) {
-      state.lastError = "Publish a prekey first.";
-      if (ctx.showToast) ctx.showToast(state.lastError, { error: true });
+      setError("Publish a prekey first.");
       return;
     }
     ctx.send({ op: 38, d: { requestId: globalThis.crypto.randomUUID() } });
@@ -620,8 +667,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   // ── Pont WS (réponses aux ops 36/37/38/39) ─────────────────────────────────
   setPhantomMessageHandler((op, d) => {
     if (d?.error) {
-      state.lastError = String(d.error);
-      if (ctx.showToast) ctx.showToast(state.lastError, { error: true });
+      setError(String(d.error));
       return;
     }
     if (op === 38 && d?.url) {

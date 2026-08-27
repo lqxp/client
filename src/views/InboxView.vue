@@ -34,6 +34,19 @@ const background = useBackground();
 provide("dialog", dialog);
 provide("phantom", phantom);
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+
+// Publie la prékey dès l'identification (sinon le flux « Pseudo » échoue si
+// l'utilisateur n'a jamais ouvert le panneau Amis : l'op 36 doit partir une
+// fois le WS authentifié, pas seulement à l'ouverture du panneau).
+watch(
+  () => messenger.state.identified,
+  (identified) => {
+    if (!identified) return;
+    phantom.ensurePrekey().catch(() => {});
+    phantom.loadRoster().catch(() => {});
+  },
+  { immediate: true },
+);
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock", "theme", "logout"] as const;
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
