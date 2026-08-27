@@ -48,7 +48,7 @@ const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeout
 
 // Phantom : signature du client via les recovery words.
 const recoveryWordsInput = ref("");
-const phantomRecoverySigned = computed(
+const recoverySigned = computed(
   () =>
     Array.isArray(props.messenger.state.recoveryWords) &&
     props.messenger.state.recoveryWords.length === 12,
@@ -1198,6 +1198,35 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="settings-group">
+          <h4>{{ t("settings.security.recoveryTitle") }}</h4>
+          <p v-if="recoverySigned" class="settings-note recovery-signed">
+            {{ t("settings.security.recoverySigned") }}
+          </p>
+          <p v-else class="settings-note recovery-unsigned">
+            {{ t("settings.security.recoveryNotSigned") }}
+          </p>
+          <p class="settings-note">{{ t("settings.security.recoveryHint") }}</p>
+          <textarea
+            v-model="recoveryWordsInput"
+            class="settings-input settings-textarea"
+            rows="3"
+            :placeholder="t('settings.security.recoveryPlaceholder')"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+          <div class="settings-actions">
+            <button
+              type="button"
+              class="btn settings-btn"
+              :disabled="!recoveryWordsInput.trim()"
+              @click="importRecoveryWords"
+            >
+              {{ t("settings.security.recoveryImport") }}
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h4>{{ t('settings.security.clientLock') }}</h4>
           <div v-if="!messenger.state.clientLockEnabled" class="settings-lock-form">
             <label class="settings-select">
@@ -2100,34 +2129,6 @@ onBeforeUnmount(() => {
 
       <section v-else-if="activeSection === 'phantom'" class="settings-page">
         <div class="settings-group">
-          <h4>{{ t("phantom.recoveryTitle") }}</h4>
-          <p v-if="phantomRecoverySigned" class="settings-note phantom-signed">
-            {{ t("phantom.recoverySigned") }}
-          </p>
-          <p v-else class="settings-note phantom-unsigned">
-            {{ t("phantom.recoveryNotSigned") }}
-          </p>
-          <p class="settings-note">{{ t("phantom.recoveryHint") }}</p>
-          <textarea
-            v-model="recoveryWordsInput"
-            class="settings-input settings-textarea"
-            rows="3"
-            :placeholder="t('phantom.recoveryPlaceholder')"
-            autocomplete="off"
-            spellcheck="false"
-          ></textarea>
-          <div class="settings-actions">
-            <button
-              type="button"
-              class="btn settings-btn"
-              :disabled="!recoveryWordsInput.trim()"
-              @click="importRecoveryWords"
-            >
-              {{ t("phantom.recoveryImport") }}
-            </button>
-          </div>
-        </div>
-        <div class="settings-group">
           <h4>{{ t("phantom.requests") }}</h4>
           <label class="settings-select">
             <span>{{ t("phantom.acceptUnknown") }}</span>
@@ -2656,11 +2657,11 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.phantom-signed {
+.recovery-signed {
   color: var(--green) !important;
 }
 
-.phantom-unsigned {
+.recovery-unsigned {
   color: var(--red) !important;
   font-weight: 600;
 }
