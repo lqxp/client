@@ -17,6 +17,7 @@ const emit = defineEmits(["conversation-selected", "open-spotlight"]);
 
 const sideListRef = ref<HTMLElement | null>(null);
 const statusMenuOpen = ref(false);
+const accountMenuOpen = ref(false);
 const roomContextOpen = ref(false);
 const roomContextRoomId = ref("");
 const roomContextMenuRef = ref<HTMLElement | null>(null);
@@ -72,6 +73,17 @@ function onSideListTouchEnd(event: TouchEvent) {
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meAvatar = computed(() => props.messenger.profileImageSrc(props.messenger.myProfile.value.avatar, "avatar"));
+const accounts = computed(() => props.messenger.localAccounts?.value || []);
+const currentUserId = computed(() => String(props.messenger.state.userId || ""));
+
+function accountAccent(username) {
+  return props.messenger.accentFor(String(username || "you"));
+}
+
+function accountAvatar(account) {
+  return props.messenger.profileImageSrc(account?.profile?.avatar, "avatar");
+}
+
 const statusLabel = computed(() => {
   switch (props.messenger.state.status) {
     case "invisible":
@@ -329,8 +341,28 @@ function setStatus(value) {
   statusMenuOpen.value = false;
 }
 
+function toggleAccountMenu(event) {
+  event.stopPropagation();
+  accountMenuOpen.value = !accountMenuOpen.value;
+}
+
+function switchAccount(userId) {
+  props.messenger.switchAccount?.(userId);
+  accountMenuOpen.value = false;
+}
+
+function removeAccount(userId) {
+  props.messenger.removeAccount?.(userId);
+}
+
+function addAccount() {
+  props.messenger.addAccount?.();
+  accountMenuOpen.value = false;
+}
+
 function onDocumentClick() {
   statusMenuOpen.value = false;
+  accountMenuOpen.value = false;
   closeRoomContext();
   closeSideListContext();
 }
@@ -509,7 +541,8 @@ onBeforeUnmount(() => {
     <RoomSettingsModal :messenger="messenger" :open="roomSettingsOpen" :room-id="roomSettingsRoomId" @close="roomSettingsOpen = false" />
 
     <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
-      <button class="side-user" type="button" :title="messenger.state.username">
+      <button class="side-user" type="button" :title="messenger.state.username"
+        :aria-expanded="accountMenuOpen" @click="toggleAccountMenu">
         <span v-if="meAvatar" class="side-user__avatar">
           <img :src="meAvatar" alt="" />
         </span>
@@ -529,6 +562,38 @@ onBeforeUnmount(() => {
           </small>
         </span>
       </button>
+
+      <div v-if="accountMenuOpen" class="account-menu-backdrop" @click="accountMenuOpen = false"></div>
+      <div v-if="accountMenuOpen" class="account-menu" role="menu" @click.stop>
+        <div class="account-menu__header">
+          <strong>{{ t('sidebar.accounts') }}</strong>
+          <span>{{ accounts.length }} / {{ messenger.MAX_ACCOUNTS }}</span>
+        </div>
+        <div v-for="account in accounts" :key="account.userId" class="account-menu__row"
+          :class="{ 'is-active': account.userId === currentUserId }">
+          <button type="button" class="account-menu__switch" role="menuitem"
+            :aria-label="t('sidebar.switchAccount')" @click="switchAccount(account.userId)">
+            <span v-if="accountAvatar(account)" class="account-menu__avatar">
+              <img :src="accountAvatar(account)" alt="" />
+            </span>
+            <span v-else class="avatar avatar--sm" :class="`avatar--${accountAccent(account.username)}`">{{ initialsOf(account.username) }}</span>
+            <span class="account-menu__name">@{{ account.username }}</span>
+            <span v-if="account.userId === currentUserId" class="account-menu__check">✓</span>
+          </button>
+          <button v-if="account.userId !== currentUserId" type="button" class="account-menu__remove"
+            :aria-label="t('sidebar.removeAccount')" @click="removeAccount(account.userId)">×</button>
+        </div>
+        <button type="button" class="account-menu__add" role="menuitem" @click="addAccount">
+          <span class="account-menu__add-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          <span>{{ t('sidebar.addAccount') }}</span>
+        </button>
+        <div class="account-menu__separator" aria-hidden="true"></div>
+        <button type="button" class="account-menu__cancel" role="menuitem" @click="accountMenuOpen = false">
+          <span>{{ t('message.cancel') }}</span>
+        </button>
+      </div>
 
       <div class="side-status">
         <button class="icon-btn side-status__toggle" type="button" :aria-label="t('sidebar.changeStatus')"
@@ -617,6 +682,166 @@ onBeforeUnmount(() => {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.side-user {
+  cursor: pointer;
+}
+
+.account-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+}
+
+.account-menu {
+  position: absolute;
+  bottom: 60px;
+  left: 8px;
+  right: 8px;
+  z-index: 46;
+  padding: 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 96%, black 4%);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+}
+
+.account-menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.account-menu__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+}
+
+.account-menu__row.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.account-menu__switch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--text);
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.account-menu__switch:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.account-menu__avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.account-menu__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.account-menu__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu__check {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.account-menu__remove {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.account-menu__remove:hover {
+  background: var(--surface-hover);
+  color: var(--red);
+}
+
+.account-menu__add {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--accent);
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.account-menu__add:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.account-menu__add-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.account-menu__separator {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--line);
+}
+
+.account-menu__cancel {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.account-menu__cancel:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .conv--empty-logo {

@@ -92,6 +92,8 @@ const MAX_PROFILE_BANNER_BYTES = 15 * 1024 * 1024;
 const MAX_PROFILE_DESCRIPTION_LENGTH = 512;
 const MAX_PROFILE_PRONOUNS_LENGTH = 24;
 const MAX_PINNED_ROOMS = 5;
+const MAX_ACCOUNTS = 10;
+const ACCOUNTS_STORAGE_KEY = "lqxp:accounts";
 const RECONNECT_DEFAULTS = {
   enabled: true,
   minDelayMs: 1000,
@@ -1190,6 +1192,27 @@ function sanitizePinnedRooms(raw) {
         .filter((roomId) => isValidRoomId(roomId)),
     ),
   ].slice(0, MAX_PINNED_ROOMS);
+}
+
+function loadAccountsVault() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ACCOUNTS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((account) => account && typeof account === "object" && account.userId)
+      .slice(0, MAX_ACCOUNTS);
+  } catch {
+    return [];
+  }
+}
+
+function saveAccountsVault(accounts) {
+  try {
+    const list = Array.isArray(accounts) ? accounts : [];
+    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ACCOUNTS)));
+  } catch {
+    /* ignore */
+  }
 }
 
 function sanitizeBannedRooms(raw) {
@@ -2375,6 +2398,7 @@ export function useMessenger() {
 
     joinedRooms: persisted.joinedRooms,
     pinnedRooms: persisted.pinnedRooms,
+    accounts: loadAccountsVault(),
     pendingJoinRooms: [],
     roomMetaByRoom: {},
     myRoleByRoom: {},
@@ -2658,6 +2682,18 @@ export function useMessenger() {
   const myProfile = computed(() => normalizeProfile(state.profile));
   const myStatus = computed(() => sanitizePresenceStatus(state.status));
 
+  const localAccounts = computed(() =>
+    (state.accounts || [])
+      .map((account) => ({
+        userId: String(account?.userId || ""),
+        username: sanitizeUsername(account?.username || ""),
+        admin: Boolean(account?.admin),
+        profile: normalizeProfile(account?.profile),
+        status: sanitizePresenceStatus(account?.status),
+      }))
+      .filter((account) => account.userId),
+  );
+
   function applyPersistedPayload(payload) {
     const normalized = defaultPersisted({
       ...payload,
@@ -2759,6 +2795,29 @@ export function useMessenger() {
 
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   let persistPending = false;
+
+  function syncAccountVault() {
+    saveAccountsVault(state.accounts);
+  }
+
+  function upsertCurrentAccount() {
+    if (!state.userId || !state.authToken) return;
+    const snapshot = buildPersistedPayload(state);
+    const index = state.accounts.findIndex(
+      (account) => account && String(account.userId) === String(state.userId),
+    );
+    if (index >= 0) {
+      state.accounts.splice(index, 1, snapshot);
+    } else {
+      if (state.accounts.length >= MAX_ACCOUNTS) {
+        state.lastError = t("sidebar.accountLimit");
+        showToast(state.lastError, { error: true });
+        return;
+      }
+      state.accounts.push(snapshot);
+    }
+    syncAccountVault();
+  }
 
   function persist() {
     if (state.clientLockLocked) return Promise.resolve();
@@ -3387,6 +3446,7 @@ export function useMessenger() {
         .slice(0, 16);
     }
     persist();
+    upsertCurrentAccount();
   }
 
   function normalizeRecoveryWords(recoveryWords) {
@@ -7755,7 +7815,7 @@ export function useMessenger() {
     resetToOnboarding();
   }
 
-  function resetToOnboarding() {
+  function clearActiveSession() {
     if (state.inCall) endCall();
     if (state.recording) stopRecordingVoiceMemo(true);
     disconnect();
@@ -7781,7 +7841,54 @@ export function useMessenger() {
     state.activeRoom = "";
     state.settingsOpen = false;
     state.lastError = "";
+    state.sessionExpired = false;
+    state.voiceMembersByRoom = {};
+    state.callClientsByRoom = {};
+    state.deafenedByUser = {};
+    state.clientPlatformsByUser = {};
+    state.roomMetaByRoom = {};
+    state.myRoleByRoom = {};
+    state.callAccessOpenByRoom = {};
+    state.remoteCallStreamsByUser = {};
+    state.remoteCallMediaByUser = {};
+  }
+
+  function resetToOnboarding() {
+    clearActiveSession();
     void wipeBrowserPersistence();
+  }
+
+  function addAccount() {
+    upsertCurrentAccount();
+    clearActiveSession();
+    persist();
+  }
+
+  function removeAccount(userId) {
+    const id = String(userId || "");
+    if (!id) return;
+    state.accounts = state.accounts.filter(
+      (account) => account && String(account.userId) !== id,
+    );
+    syncAccountVault();
+  }
+
+  async function switchAccount(userId) {
+    const id = String(userId || "");
+    if (!id) return false;
+    const target = state.accounts.find(
+      (account) => account && String(account.userId) === id,
+    );
+    if (!target) return false;
+    if (id === String(state.userId)) return true;
+
+    upsertCurrentAccount();
+    clearActiveSession();
+    applyPersistedPayload(target);
+    state.sessionExpired = false;
+    persist();
+    connect();
+    return true;
   }
 
 
@@ -8503,6 +8610,11 @@ export function useMessenger() {
     renewSession,
     dismissSessionExpired,
     logoutAccount,
+    localAccounts,
+    switchAccount,
+    removeAccount,
+    addAccount,
+    MAX_ACCOUNTS,
     deleteAccount,
     downloadRecoveryWords,
     enableClientLock,
