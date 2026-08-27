@@ -424,6 +424,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
+        <div v-if="pinnedConversations.length && regularConversations.length" class="side__channels-label">{{ t('sidebar.channels') }}</div>
+
         <div v-for="c in regularConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
           @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
@@ -676,6 +678,17 @@ onBeforeUnmount(() => {
 
 .side__pinned-label {
   padding: 10px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.side__channels-label {
+  margin-top: 12px;
+  padding: 12px 10px 4px;
+  border-top: 1px solid var(--line);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
