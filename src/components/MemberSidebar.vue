@@ -356,7 +356,6 @@ onBeforeUnmount(() => {
                     :title="messenger.platformLabel(platform)"
                   >{{ messenger.platformIcon(platform) }}</span>
                 </span>
-                <span v-if="roleBadge(username)" class="members__role">{{ roleBadge(username) }}</span>
               </div>
               <div class="members__status">
                 <span
@@ -368,6 +367,7 @@ onBeforeUnmount(() => {
                   }"
                 ></span>
                 {{ voiceMembers.has(username) ? t('call.live') : statusLabel(username) }}
+                <span v-if="roleBadge(username)" class="members__role">{{ roleBadge(username) }}</span>
               </div>
             </div>
           </div>
