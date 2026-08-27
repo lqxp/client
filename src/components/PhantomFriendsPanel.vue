@@ -38,7 +38,9 @@ async function copyGhostUrl(url: string) {
   <section class="phantom-friends">
     <header class="phantom-friends__head">
       <strong>{{ t("phantom.title") }}</strong>
-      <button class="icon-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">+</button>
+      <button class="phantom-add-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
     </header>
 
     <div v-if="requests.length" class="phantom-requests">
@@ -77,7 +79,7 @@ async function copyGhostUrl(url: string) {
 <style scoped>
 .phantom-friends {
   border-top: 1px solid var(--line);
-  padding: 10px 8px;
+  padding: 18px 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -91,6 +93,31 @@ async function copyGhostUrl(url: string) {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
+}
+.phantom-add-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.phantom-add-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.phantom-add-btn:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 .phantom-friends__list {
   list-style: none;
