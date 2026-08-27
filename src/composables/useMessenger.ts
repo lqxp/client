@@ -3571,7 +3571,7 @@ export function useMessenger() {
           throw new Error("Invalid VDF security challenge received from server.");
         }
 
-        if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.tHex || !challengeData.pqcKey?.rhoHex) {
+        if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.ekHex) {
           throw new Error("Post-quantum security challenge missing from server.");
         }
 
