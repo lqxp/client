@@ -23,6 +23,8 @@ import {
 import { generateMlDsa65KeyPair } from "@/crypto/mldsa";
 import { generateDeviceSigningKeyPair } from "@/crypto/e2ee";
 import { computeNullifier } from "@/crypto/rln";
+import { solveVdf } from "@/crypto/vdf";
+import { encapsulatePqcSecret } from "@/crypto/pqc";
 import { setPhantomMessageHandler } from "./phantomBridge";
 
 const te = new TextEncoder();
@@ -274,19 +276,55 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     }
   }
 
+  // Résout le CAPTCHA (VDF + PQC) et frappe un jeton `cap` à usage unique.
+  async function obtainCapToken(scope = "phantom"): Promise<string | null> {
+    try {
+      const challenge = await anonymousFetch(
+        `/api/auth/cap/challenge?scope=${encodeURIComponent(scope)}`,
+      );
+      if (!challenge?.challengeId || !challenge?.vdf?.x || !challenge?.quotaToken?.ticket || !challenge?.pqcKey) {
+        return null;
+      }
+      const vdfProof = await solveVdf(challenge.vdf.x, challenge.vdf.t, challenge.vdf.modulus);
+      const nullifier = await computeNullifier(challenge.quotaToken.ticket, challenge.quotaToken.epoch, scope);
+      const pqcRes = await encapsulatePqcSecret(challenge.pqcKey);
+      const data = await anonymousFetch("/api/auth/cap/redeem", {
+        method: "POST",
+        body: JSON.stringify({
+          challengeId: challenge.challengeId,
+          scope,
+          challenge,
+          vdfProof,
+          nullifier,
+          pqcCiphertext: pqcRes.ciphertext,
+        }),
+      });
+      return data?.capToken || null;
+    } catch {
+      return null;
+    }
+  }
+
   async function depositEnvelope(
     outer: PhantomOuter,
-    gate: { mode: string; token: string },
+    gate: { mode: string; token: string } = { mode: "cap", token: "" },
   ): Promise<boolean> {
     const quota = await obtainQuotaToken();
     if (!quota) return false;
+
+    let token = gate.token;
+    if (gate.mode === "cap" && !token) {
+      token = await obtainCapToken("phantom");
+      if (!token) return false;
+    }
+
     const data = await anonymousFetch("/api/phantom/deposit", {
       method: "POST",
       body: JSON.stringify({
         envelope: outer,
         gate: {
           mode: gate.mode,
-          token: gate.token,
+          token,
           nullifier: quota.nullifier,
           quotaToken: quota.quotaToken,
         },
@@ -348,9 +386,8 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     }
     const sealed = await sealIntro(target, roomId, introText);
     if (!sealed) return false;
-    // NB (M4) : le jeton de porte (cap/pass/ghost) est fourni par l'appelant ;
-    // l'acquisition réelle du CAPTCHA / Privacy Pass est un jalon dédié.
-    return depositEnvelope(sealed.outer, { mode: "cap", token: "" });
+    // Le jeton `cap` est résolu automatiquement par depositEnvelope.
+    return depositEnvelope(sealed.outer);
   }
 
   async function sendIntroByUsername(username: string, introText: string): Promise<boolean> {
@@ -416,7 +453,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       createdAt: Date.now(),
     };
     await syncRoster();
-    return depositEnvelope(outer, { mode: "cap", token: "" });
+    return depositEnvelope(outer);
   }
 
   function ignoreIncoming(id: string): void {
