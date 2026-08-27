@@ -64,11 +64,13 @@ function saveDescription() {
 }
 
 function toggleChatLock() {
-  props.messenger.setChatLocked?.(props.roomId, !chatLocked.value);
+  chatLocked.value = !chatLocked.value;
+  props.messenger.setChatLocked?.(props.roomId, chatLocked.value);
 }
 
 function toggleCalls() {
-  props.messenger.setCallsEnabled?.(props.roomId, !callsEnabled.value);
+  callsEnabled.value = !callsEnabled.value;
+  props.messenger.setCallsEnabled?.(props.roomId, callsEnabled.value);
 }
 
 function setPermission(key: "canBan" | "canKick" | "canMute" | "canDelete", value: boolean) {
@@ -149,38 +151,44 @@ function unban(userId: string) {
 
           <div class="room-settings__field">
             <span class="room-settings__label">{{ t('rooms.chat') }}</span>
-            <label class="room-settings__toggle">
+            <label class="room-settings__switch">
               <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
-              <span>{{ chatLocked ? t('rooms.lockChat') : t('rooms.unlockChat') }}</span>
+              <span class="room-settings__switch-track"></span>
+              <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
             </label>
           </div>
 
           <div class="room-settings__field">
             <span class="room-settings__label">{{ t('rooms.calls') }}</span>
-            <label class="room-settings__toggle">
+            <label class="room-settings__switch">
               <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
-              <span>{{ callsEnabled ? t('rooms.callsEnabled') : t('rooms.callsDisabled') }}</span>
+              <span class="room-settings__switch-track"></span>
+              <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
             </label>
           </div>
 
           <div v-if="canConfigurePermissions" class="room-settings__field">
             <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
             <div class="room-settings__perms">
-              <label class="room-settings__perm">
+              <label class="room-settings__switch">
                 <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
-                <span>{{ t('rooms.permCanBan') }}</span>
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.permCanBan') }}</span>
               </label>
-              <label class="room-settings__perm">
+              <label class="room-settings__switch">
                 <input type="checkbox" :checked="permissions.canKick" @change="setPermission('canKick', ($event.target as HTMLInputElement).checked)" />
-                <span>{{ t('rooms.permCanKick') }}</span>
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.permCanKick') }}</span>
               </label>
-              <label class="room-settings__perm">
+              <label class="room-settings__switch">
                 <input type="checkbox" :checked="permissions.canMute" @change="setPermission('canMute', ($event.target as HTMLInputElement).checked)" />
-                <span>{{ t('rooms.permCanMute') }}</span>
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.permCanMute') }}</span>
               </label>
-              <label class="room-settings__perm">
+              <label class="room-settings__switch">
                 <input type="checkbox" :checked="permissions.canDelete" @change="setPermission('canDelete', ($event.target as HTMLInputElement).checked)" />
-                <span>{{ t('rooms.permCanDelete') }}</span>
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
               </label>
             </div>
           </div>
@@ -221,6 +229,7 @@ function unban(userId: string) {
   width: 100%;
   max-width: 460px;
   max-height: calc(100vh - 48px);
+  font-family: var(--font);
   overflow-y: auto;
   border-radius: 16px;
   background: var(--surface);
@@ -237,6 +246,7 @@ function unban(userId: string) {
 
 .room-settings__title {
   margin: 0;
+  font-family: var(--font);
   font-size: 18px;
 }
 
@@ -260,6 +270,7 @@ function unban(userId: string) {
 
 .room-settings__row {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -308,12 +319,56 @@ function unban(userId: string) {
   display: none;
 }
 
-.room-settings__toggle,
-.room-settings__perm {
+.room-settings__switch {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.room-settings__switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.room-settings__switch-track {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 140ms ease;
+}
+
+.room-settings__switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 140ms ease;
+}
+
+.room-settings__switch input:checked + .room-settings__switch-track {
+  background: var(--accent);
+}
+
+.room-settings__switch input:checked + .room-settings__switch-track::after {
+  transform: translateX(18px);
+}
+
+.room-settings__switch-label {
   font-size: 14px;
+  line-height: 1.4;
 }
 
 .room-settings__perms {
@@ -345,5 +400,104 @@ function unban(userId: string) {
   display: flex;
   justify-content: flex-end;
   padding: 12px 20px 20px;
+}
+
+@keyframes room-settings-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes room-settings-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .room-settings-backdrop {
+    padding: 0;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: room-settings-backdrop-in 160ms ease-out;
+  }
+
+  .room-settings {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    animation: room-settings-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+  }
+
+  .room-settings::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .room-settings__head {
+    padding: 8px 18px 12px;
+  }
+
+  .room-settings__title {
+    font-size: 20px;
+  }
+
+  .room-settings__body {
+    padding: 6px 18px 18px;
+  }
+
+  .room-settings input[type="text"],
+  .room-settings textarea {
+    font-size: 16px;
+    padding: 14px 16px;
+  }
+
+  .room-settings__switch {
+    min-height: 48px;
+  }
+
+  .room-settings__switch-track {
+    width: 46px;
+    height: 28px;
+  }
+
+  .room-settings__switch-track::after {
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .room-settings__switch input:checked + .room-settings__switch-track::after {
+    transform: translateX(18px);
+  }
+
+  .room-settings__switch-label {
+    font-size: 15px;
+  }
+
+  .room-settings__foot {
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .room-settings__foot .btn--ghost {
+    width: 100%;
+    height: 48px;
+  }
+
+  .room-settings__row .btn--ghost {
+    flex: none;
+    height: 48px;
+    padding: 0 16px;
+  }
 }
 </style>

@@ -2335,6 +2335,7 @@ export function useMessenger() {
     pendingJoinRooms: [],
     roomMetaByRoom: {},
     myRoleByRoom: {},
+    callAccessOpenByRoom: {},
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
@@ -4079,9 +4080,19 @@ export function useMessenger() {
     if (meta.kind !== "community") return true;
     if (meta.callsEnabled === false) {
       const role = myRoleInRoom(id);
-      return role === "administrator" || role === "subAdmin";
+      if (role === "administrator" || role === "subAdmin") return true;
+      return Boolean(state.callAccessOpenByRoom[id]);
     }
     return true;
+  }
+
+  function shouldPromptCallAccess(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return false;
+    const meta = roomMeta(id);
+    if (meta.kind !== "community" || meta.callsEnabled !== false) return false;
+    const role = myRoleInRoom(id);
+    return role === "administrator" || role === "subAdmin";
   }
 
   function applyRoomMeta(roomId, d) {
@@ -4276,6 +4287,12 @@ export function useMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 50, d: { gameId: id, enabled: Boolean(enabled) } });
+  }
+
+  function setCallAccess(roomId, allowMembers) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 51, d: { gameId: id, allowMembers: Boolean(allowMembers) } });
   }
 
   function setModeratorPermissions(roomId, permissions) {
@@ -6256,7 +6273,8 @@ export function useMessenger() {
     return all[0];
   }
 
-  async function startCall() {
+  async function startCall(options: any = {}) {
+    const allowMembers = options.allowMembers === true;
     if (state.inCall) return;
     if (sanitizePresenceStatus(state.status) === "invisible") {
       state.lastError = "Switch out of invisible mode before joining a call.";
@@ -6328,6 +6346,9 @@ export function useMessenger() {
           state.callClientsByRoom[roomId] = {};
         state.callClientsByRoom[roomId][me] = [localClientId];
         rememberClientPlatform(me, platform);
+      }
+      if (allowMembers) {
+        send({ op: 51, d: { gameId: roomId, allowMembers: true } });
       }
       publishCallState(true);
       connectKnownCallPeers(roomId);
@@ -7553,6 +7574,11 @@ export function useMessenger() {
           applyRoomSnapshot(d, d?.gameId);
         }
         break;
+      case 51:
+        if (d?.gameId) {
+          state.callAccessOpenByRoom[sanitizeRoomId(d.gameId)] = Boolean(d.allowMembers);
+        }
+        break;
       case 34:
         applyBadgeUpdate(d);
         break;
@@ -8446,6 +8472,7 @@ export function useMessenger() {
     transferOwnership,
     setChatLocked,
     setCallsEnabled,
+    setCallAccess,
     setModeratorPermissions,
     copyRoomInvite,
     clearLocalRoomMessages,
@@ -8477,6 +8504,7 @@ export function useMessenger() {
     canSpeakInRoom,
     speakBlockReason,
     canCallInRoom,
+    shouldPromptCallAccess,
     roomCallsEnabled,
     setLocalRoomIconFromFile,
     clearAllData,

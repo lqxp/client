@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
+import CallAccessModal from "@/components/CallAccessModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
@@ -10,6 +11,8 @@ const props = defineProps({
   messenger: { type: Object, required: true }
 });
 defineEmits(["back"]);
+
+const callAccessOpen = ref(false);
 
 const name = computed(() => props.messenger.displayRoomNameBeautified(props.messenger.state.activeRoom));
 const accent = computed(() => props.messenger.activeConversation.value?.accent || "slate");
@@ -52,8 +55,12 @@ const callsTooltip = computed(() => {
   return callsUnavailableReason.value;
 });
 
-function startCall() {
-  props.messenger.startCall();
+function handleStartCall() {
+  if (props.messenger.shouldPromptCallAccess?.(props.messenger.state.activeRoom)) {
+    callAccessOpen.value = true;
+  } else {
+    props.messenger.startCall();
+  }
 }
 
 function copyInvite() {
@@ -143,7 +150,7 @@ async function removeHere() {
         :aria-label="t('thread.startCall')"
         :title="callsTooltip"
         :disabled="!callsAvailable || !roomCallsAllowed"
-        @click="startCall"
+        @click="handleStartCall"
       >
         <svg viewBox="0 0 24 24"><path d="M7.6 10.8a14.5 14.5 0 0 0 5.6 5.6l1.9-1.9a1.5 1.5 0 0 1 1.5-.37c1.03.34 2.1.52 3.2.52.83 0 1.5.67 1.5 1.5v3.05c0 .83-.67 1.5-1.5 1.5C10.45 20.7 3.3 13.55 3.3 4.2c0-.83.67-1.5 1.5-1.5h3.05c.83 0 1.5.67 1.5 1.5 0 1.1.18 2.17.52 3.2.17.53.03 1.1-.37 1.5l-1.9 1.9Z"/></svg>
       </button>
@@ -151,6 +158,8 @@ async function removeHere() {
         <svg viewBox="0 0 24 24"><path d="M9 12h12"/><path d="m17 8 4 4-4 4"/><path d="M9 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/></svg>
       </button>
     </div>
+
+    <CallAccessModal :messenger="messenger" :open="callAccessOpen" :room-id="messenger.state.activeRoom" @close="callAccessOpen = false" />
   </header>
 </template>
 

@@ -230,6 +230,7 @@ async function submit() {
   width: 100%;
   max-width: 720px;
   max-height: calc(100vh - 56px);
+  font-family: var(--font);
   overflow-y: auto;
   border-radius: 20px;
   background: var(--surface);
@@ -247,6 +248,7 @@ async function submit() {
 
 .create-room__title {
   margin: 0;
+  font-family: var(--font);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -466,10 +468,85 @@ async function submit() {
   cursor: not-allowed;
 }
 
-@media (max-width: 700px) {
+@keyframes create-room-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes create-room-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .create-room-backdrop {
+    padding: 0;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(12px);
+    animation: create-room-backdrop-in 160ms ease-out;
+  }
+
+  .create-room {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    animation: create-room-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
+  }
+
+  .create-room::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 5px;
+    margin: 12px auto 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .create-room__head {
+    padding: 8px 18px 6px;
+  }
+
+  .create-room__title {
+    font-size: 20px;
+  }
+
+  .create-room__body {
+    padding: 10px 18px 18px;
+  }
+
   .create-room__columns {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+
+  .create-room__field {
+    margin-top: 18px;
+  }
+
+  .create-room input[type="text"],
+  .create-room textarea {
+    font-size: 16px;
+    padding: 14px 16px;
+  }
+
+  .create-room__segment {
+    padding: 16px;
+  }
+
+  .create-room__foot {
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .create-room__btn {
+    flex: 1;
+    height: 48px;
   }
 }
 </style>
