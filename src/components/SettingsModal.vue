@@ -2006,7 +2006,7 @@ onBeforeUnmount(() => {
             <code>{{ messenger.state.adminOverview.defaultRoom.roomId }}</code>
           </p>
           <p v-else class="settings-note">{{ t('settings.admin.defaultRoomNone') }}</p>
-          <label class="settings-select">
+          <label class="settings-select" style="margin-top: 14px">
             <span>{{ t('settings.admin.defaultRoomSelect') }}</span>
             <select v-model="adminDefaultRoomId">
               <option value="" disabled>{{ t('settings.admin.defaultRoomSelect') }}</option>
