@@ -25,6 +25,7 @@ const draftName = ref(props.messenger.state.username || "");
 const draftDescription = ref(props.messenger.state.profile?.description || "");
 const draftPronouns = ref(props.messenger.state.profile?.pronouns || "");
 const fileInputRef = ref(null);
+const recoveryFileInputRef = ref(null);
 const avatarInputRef = ref(null);
 const bannerInputRef = ref(null);
 const firstInputRef = ref(null);
@@ -594,6 +595,20 @@ function onFilePicked(event) {
   const file = event.target.files?.[0];
   if (file) props.messenger.importData(file);
   event.target.value = "";
+}
+function onRecoveryFilePick() {
+  recoveryFileInputRef.value?.click();
+}
+async function onRecoveryFilePicked(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    recoveryWordsInput.value = (await file.text()).trim();
+    importRecoveryWords();
+  } catch {
+    /* ignore */
+  }
 }
 async function onClear() {
   if (!await dialog.showConfirm("Clear all local data? This removes every conversation, message, and reaction from this browser. The remote server is not touched.")) return;
@@ -1223,6 +1238,16 @@ onBeforeUnmount(() => {
             >
               {{ t("settings.security.recoveryImport") }}
             </button>
+            <button type="button" class="btn settings-btn" @click="onRecoveryFilePick">
+              {{ t("settings.security.recoveryImportFile") }}
+            </button>
+            <input
+              ref="recoveryFileInputRef"
+              type="file"
+              accept=".txt,text/plain"
+              style="display: none"
+              @change="onRecoveryFilePicked"
+            />
           </div>
         </div>
 

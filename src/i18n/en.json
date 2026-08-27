@@ -333,6 +333,7 @@
             "recoveryNotSigned": "Client not signed — friend requests require your recovery words.",
             "recoveryHint": "Paste your 12 recovery words to sign this client. They stay local and only derive your signing keys.",
             "recoveryImport": "Import words",
+            "recoveryImportFile": "Import from file",
             "recoveryPlaceholder": "word1 word2 … word12",
             "clientLock": "Client lock",
             "clientLockEnabled": "Lock QxChat with a PIN",

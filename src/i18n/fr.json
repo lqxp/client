@@ -333,6 +333,7 @@
             "recoveryNotSigned": "Client non signé — les demandes d'ami nécessitent vos mots de récupération.",
             "recoveryHint": "Collez vos 12 mots de récupération pour signer ce client. Ils restent locaux et servent uniquement à dériver vos clés de signature.",
             "recoveryImport": "Importer les mots",
+            "recoveryImportFile": "Importer depuis un fichier",
             "recoveryPlaceholder": "mot1 mot2 … mot12",
             "clientLock": "Verrouillage client",
             "clientLockEnabled": "Verrouiller QxChat avec un PIN",
