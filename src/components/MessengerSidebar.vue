@@ -108,6 +108,17 @@ const roomContextCanManage = computed(() =>
   props.messenger.canManageRoom?.(roomContextRoomId.value) === true
 );
 
+const conversations = computed(() => props.messenger.conversations.value || []);
+const pinnedConversations = computed(() =>
+  conversations.value.filter((c) => props.messenger.isRoomPinned?.(c.roomId)),
+);
+const regularConversations = computed(() =>
+  conversations.value.filter((c) => !props.messenger.isRoomPinned?.(c.roomId)),
+);
+const roomContextIsPinned = computed(() =>
+  props.messenger.isRoomPinned?.(roomContextRoomId.value) === true,
+);
+
 function initialsOf(name) {
   const trimmed = String(name || "?").trim();
   if (!trimmed) return "?";
@@ -150,6 +161,13 @@ function shareRoomTokenFromContext() {
       props.messenger.showToast(props.messenger.state.lastError);
       closeRoomContext();
     });
+}
+
+function togglePinRoomFromContext() {
+  const roomId = roomContextRoomId.value;
+  if (!roomId) return;
+  props.messenger.toggleRoomPin?.(roomId);
+  closeRoomContext();
 }
 
 function roomIcon(roomId) {
@@ -344,8 +362,35 @@ onBeforeUnmount(() => {
     </div>
 
     <div ref="sideListRef" class="side__list" @contextmenu="onSideListContext">
-      <template v-if="messenger.conversations.value.length">
-        <div v-for="c in messenger.conversations.value" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
+      <template v-if="conversations.length">
+        <div v-if="pinnedConversations.length" class="side__pinned">
+          <div class="side__pinned-label">{{ t('sidebar.pinnedRooms') }}</div>
+          <div v-for="c in pinnedConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
+            role="button" tabindex="0" @click="openConversation(c.roomId)"
+            @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
+            <span class="avatar avatar--lg conv__icon"
+              :class="roomIconIsImage(c.roomId) ? 'conv__icon--image' : `avatar--${c.accent}`">
+              <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
+              <template v-else>{{ initialsOf(c.name) }}</template>
+            </span>
+
+            <span class="conv__head">
+              <span class="conv__name">
+                {{ messenger.displayRoomNameBeautified(c.roomId) }}
+                <span v-if="c.joined" class="conv__joined" :title="t('sidebar.joined')"></span>
+              </span>
+              <span class="conv__time">{{ c.timestampLabel }}</span>
+            </span>
+
+            <span class="conv__preview" :class="{ 'conv__preview--hidden': messenger.state.streamerMode }">
+              {{ messenger.state.streamerMode ? t('sidebar.streamerPreviewHidden') : c.preview }}
+            </span>
+
+            <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
+          </div>
+        </div>
+
+        <div v-for="c in regularConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
           @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
           <span class="avatar avatar--lg conv__icon"
@@ -367,7 +412,6 @@ onBeforeUnmount(() => {
           </span>
 
           <span v-if="c.unread > 0" class="conv__badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
-
         </div>
       </template>
       <div v-else class="conv--empty">
@@ -391,6 +435,10 @@ onBeforeUnmount(() => {
           <div class="room-context__header">
             <strong class="room-context__header-name">{{ messenger.displayRoomNameBeautified(roomContextRoomId) }}</strong>
           </div>
+          <button type="button" role="menuitem" @click="togglePinRoomFromContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+            <span>{{ roomContextIsPinned ? t('sidebar.unpinRoom') : t('sidebar.pinRoom') }}</span>
+          </button>
           <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="pickRoomImageFromContext">
             <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <span>{{ t('sidebar.contextChangeImage') }}</span>
@@ -560,6 +608,15 @@ onBeforeUnmount(() => {
 .conv__preview--hidden {
   color: var(--muted);
   font-style: italic;
+}
+
+.side__pinned-label {
+  padding: 10px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .conv--empty-logo {

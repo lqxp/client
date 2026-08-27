@@ -91,6 +91,7 @@ const MAX_PROFILE_AVATAR_BYTES = 10 * 1024 * 1024;
 const MAX_PROFILE_BANNER_BYTES = 15 * 1024 * 1024;
 const MAX_PROFILE_DESCRIPTION_LENGTH = 512;
 const MAX_PROFILE_PRONOUNS_LENGTH = 24;
+const MAX_PINNED_ROOMS = 5;
 const RECONNECT_DEFAULTS = {
   enabled: true,
   minDelayMs: 1000,
@@ -786,6 +787,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     reconnectMaxDelayMs: RECONNECT_DEFAULTS.maxDelayMs,
     callUserVolumes: {},
     roomNotes: {},
+    pinnedRooms: [],
     selectedTurnServerId: runtimeDefaultTurnServerId(),
     customTurnServers: [],
     profile: loadPersistedProfile(),
@@ -1023,6 +1025,7 @@ function loadPersisted() {
       activeRoom,
       rooms,
       joinedRooms,
+      pinnedRooms: sanitizePinnedRooms(raw.pinnedRooms),
       usersByRoom,
       profilesByUser,
       publicProfileFetchedAtByUser,
@@ -1176,6 +1179,17 @@ function sanitizeRoomNotes(raw) {
       .slice(0, MAX_ROOM_NOTE_LENGTH);
   }
   return next;
+}
+
+function sanitizePinnedRooms(raw) {
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw
+        .map((roomId) => sanitizeRoomId(roomId))
+        .filter((roomId) => isValidRoomId(roomId)),
+    ),
+  ].slice(0, MAX_PINNED_ROOMS);
 }
 
 function sanitizeBannedRooms(raw) {
@@ -1361,6 +1375,7 @@ function buildPersistedPayload(state) {
           .filter((roomId) => isValidRoomId(roomId)),
       ),
     ],
+    pinnedRooms: sanitizePinnedRooms(state.pinnedRooms),
     usersByRoom: Object.fromEntries(
       Object.entries(state.usersByRoom || {})
         .map(([roomId, users]) => [
@@ -2359,6 +2374,7 @@ export function useMessenger() {
     trustedSenderKeysByRoom: (persisted as any).trustedSenderKeysByRoom || {},
 
     joinedRooms: persisted.joinedRooms,
+    pinnedRooms: persisted.pinnedRooms,
     pendingJoinRooms: [],
     roomMetaByRoom: {},
     myRoleByRoom: {},
@@ -2654,6 +2670,7 @@ export function useMessenger() {
       activeRoom: isValidRoomId(payload?.activeRoom) ? sanitizeRoomId(payload.activeRoom) : "",
       rooms: Array.isArray(payload?.rooms) ? payload.rooms : [],
       joinedRooms: Array.isArray(payload?.joinedRooms) ? payload.joinedRooms : [],
+      pinnedRooms: sanitizePinnedRooms(payload?.pinnedRooms),
       usersByRoom: payload?.usersByRoom && typeof payload.usersByRoom === "object" ? payload.usersByRoom : {},
       profilesByUser: payload?.profilesByUser && typeof payload.profilesByUser === "object" ? payload.profilesByUser : {},
       publicProfileFetchedAtByUser: payload?.publicProfileFetchedAtByUser && typeof payload.publicProfileFetchedAtByUser === "object" ? payload.publicProfileFetchedAtByUser : {},
@@ -2685,6 +2702,7 @@ export function useMessenger() {
     state.activeRoom = normalized.activeRoom;
     state.rooms = normalized.rooms;
     state.joinedRooms = normalized.joinedRooms;
+    state.pinnedRooms = normalized.pinnedRooms;
     state.usersByRoom = normalized.usersByRoom;
     state.profilesByUser = { ...normalized.profilesByUser };
     state.publicProfileFetchedAtByUser = { ...(normalized as any).publicProfileFetchedAtByUser };
@@ -4140,6 +4158,32 @@ export function useMessenger() {
     const meta = roomMeta(id);
     const expiry = Number(meta.timeouts[targetId] || 0);
     return expiry > Date.now();
+  }
+
+  function isRoomPinned(roomId) {
+    const id = sanitizeRoomId(roomId);
+    return Boolean(id && state.pinnedRooms.includes(id));
+  }
+
+  function toggleRoomPin(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return false;
+
+    if (state.pinnedRooms.includes(id)) {
+      state.pinnedRooms = state.pinnedRooms.filter((roomId) => roomId !== id);
+      persist();
+      return true;
+    }
+
+    if (state.pinnedRooms.length >= MAX_PINNED_ROOMS) {
+      state.lastError = t("sidebar.pinLimit");
+      showToast(state.lastError, { error: true });
+      return false;
+    }
+
+    state.pinnedRooms = [...state.pinnedRooms, id];
+    persist();
+    return true;
   }
 
   function roomCallsEnabled(roomId) { return roomMeta(roomId).callsEnabled; }
@@ -8587,6 +8631,9 @@ export function useMessenger() {
     changeUsername,
     roomNote,
     setRoomNote,
+    isRoomPinned,
+    toggleRoomPin,
+    MAX_PINNED_ROOMS,
     setLocalRoomName,
     clearLocalRoomName,
     roomIcon,
