@@ -817,29 +817,6 @@ onBeforeUnmount(() => {
   color: var(--accent);
 }
 
-.account-menu__separator {
-  height: 1px;
-  margin: 6px 0;
-  background: var(--line);
-}
-
-.account-menu__cancel {
-  width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 7px;
-  color: var(--muted);
-  text-align: left;
-  font-size: 13px;
-  font-weight: 600;
-  background: transparent;
-}
-
-.account-menu__cancel:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
 .conv--empty-logo {
   fill: rgb(243, 245, 248);
   opacity: 0.55;
