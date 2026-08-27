@@ -3,6 +3,7 @@ import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch } fro
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
+import { usePhantom } from "@/composables/usePhantom";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
@@ -26,10 +27,12 @@ import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
 import CapWidget from "@/components/CapWidget.vue";
 
 const messenger = useMessenger();
+const phantom = usePhantom(messenger);
 const dialog = useDialog();
 const permissions = usePermissions();
 const background = useBackground();
 provide("dialog", dialog);
+provide("phantom", phantom);
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const TITLEBAR_TRAY_STORAGE_KEY = "lqxp:titlebar-tray-items";
 const TITLEBAR_ACTIONS = ["streamer", "settings", "lock", "theme", "logout"] as const;

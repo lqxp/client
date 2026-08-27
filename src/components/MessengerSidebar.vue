@@ -6,9 +6,11 @@ import CreateRoomModal from "@/components/CreateRoomModal.vue";
 import AddServerModal from "@/components/AddServerModal.vue";
 import JoinRoomModal from "@/components/JoinRoomModal.vue";
 import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
+import PhantomFriendsPanel from "@/components/PhantomFriendsPanel.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
+const phantom = inject<any>("phantom");
 
 const props = defineProps({
   messenger: { type: Object, required: true }
@@ -457,6 +459,7 @@ onBeforeUnmount(() => {
         </svg>
         <p>{{ t('app.noConversationHint') }}</p>
       </div>
+      <PhantomFriendsPanel :messenger="messenger" :phantom="phantom" />
     </div>
 
     <Teleport to="body">
