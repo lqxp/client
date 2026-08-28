@@ -74,6 +74,8 @@ const isWindowMaximized = ref(false);
 const titlebarCompact = ref(false);
 const TITLEBAR_COMPACT_MAX_WIDTH = 480;
 const hideTitlebarActions = computed(() => showNativeTitlebar && titlebarCompact.value);
+let titlebarResizeObserver: ResizeObserver | null = null;
+let unlistenTitlebarResize: (() => void) | null = null;
 
 function syncTitlebarCompact() {
   titlebarCompact.value = window.innerWidth <= TITLEBAR_COMPACT_MAX_WIDTH;
@@ -493,6 +495,15 @@ onMounted(() => {
   titlebarTrayItems.value = loadTitlebarTrayItems();
   syncTitlebarCompact();
   window.addEventListener("resize", syncTitlebarCompact);
+  if (typeof ResizeObserver !== "undefined") {
+    titlebarResizeObserver = new ResizeObserver(syncTitlebarCompact);
+    titlebarResizeObserver.observe(document.documentElement);
+  }
+  if (appWindow) {
+    void appWindow.onResized(syncTitlebarCompact).then((unlisten) => {
+      unlistenTitlebarResize = unlisten;
+    });
+  }
   void syncWindowMaximizedState();
   if (messenger.state.authToken) messenger.refreshSession();
   document.addEventListener("pointerdown", onDocumentPointerDown);
@@ -503,6 +514,8 @@ onBeforeUnmount(() => {
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
   systemThemeMedia?.removeEventListener("change", applyAppearance);
   window.removeEventListener("resize", syncTitlebarCompact);
+  titlebarResizeObserver?.disconnect();
+  unlistenTitlebarResize?.();
   document.removeEventListener("pointerdown", onDocumentPointerDown);
   document.removeEventListener("keydown", onDocumentKeydown);
 });
@@ -695,7 +708,8 @@ async function lockClientNow() {
         </span>
         <span class="desktop-titlebar__title">{{ desktopTitle }}</span>
       </div>
-      <div v-if="!hideTitlebarActions" ref="titlebarTrayRef" class="desktop-titlebar__actions">
+      <div class="desktop-titlebar__actions">
+        <div v-if="!hideTitlebarActions" ref="titlebarTrayRef" class="desktop-titlebar__toolbar">
         <div v-for="action in titlebarMainItems" :key="`main-${action}`" class="desktop-titlebar__action-wrap"
           @contextmenu.prevent="moveTitlebarActionToTray(action)">
           <button class="icon-btn"
@@ -802,6 +816,7 @@ async function lockClientNow() {
               </div>
             </template>
           </div>
+        </div>
         </div>
 
         <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
@@ -1150,6 +1165,13 @@ async function lockClientNow() {
   gap: 4px;
   margin-left: auto;
   flex: none;
+}
+
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__toolbar,
+.app.app--desktop-titlebar.is-web-titlebar .desktop-titlebar__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__actions .icon-btn,
