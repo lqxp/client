@@ -128,3 +128,8 @@ export interface GeoInfo {
 export async function getGeo(): Promise<GeoInfo> {
   return invoke<GeoInfo>("plugin:tor|geo");
 }
+
+/** Geolocates a single public IP (e.g. a Tor relay hop) for the circuit map. */
+export async function getGeoIp(ip: string): Promise<GeoPoint | null> {
+  return invoke<GeoPoint | null>("plugin:tor|geo_ip", { ip });
+}

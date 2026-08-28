@@ -5,7 +5,7 @@ import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { onTorStatus, getCircuit, getGeo, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
+import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -295,6 +295,11 @@ const circuitLoading = ref(false);
 // Client + server geolocation for the map endpoints (IP masked backend-side).
 const geo = ref<GeoInfo | null>(null);
 
+// Exact coordinates for circuit relay IPs (resolved lazily via the Rust geo-IP
+// backend); keyed by IP and used as a higher-fidelity alternative to the
+// country-centroid fallback.
+const relayGeo = ref<Record<string, { lat: number; lng: number }>>({});
+
 // Circuit hops geolocated by country, plus client (origin) and server (target).
 const circuitPoints = computed<MapPoint[]>(() => {
   const pts: MapPoint[] = [];
@@ -309,7 +314,10 @@ const circuitPoints = computed<MapPoint[]>(() => {
   }
 
   for (const hop of circuit.value?.hops ?? []) {
-    const coord = countryCoord(hop.country);
+    const exact = hop.ip ? relayGeo.value[hop.ip] : undefined;
+    const coord = exact
+      ? ([exact.lat, exact.lng] as [number, number])
+      : countryCoord(hop.country);
     if (!coord) continue;
     const [lat, lng] = coord;
     const parts = [
@@ -358,11 +366,40 @@ async function loadCircuit() {
   circuitLoading.value = true;
   try {
     circuit.value = await getCircuit();
+    await loadRelayGeo(circuit.value);
   } catch {
     circuit.value = null;
   } finally {
     circuitLoading.value = false;
   }
+}
+
+async function loadRelayGeo(path: CircuitPath | null) {
+  if (!path?.hops?.length) {
+    relayGeo.value = {};
+    return;
+  }
+
+  const entries = await Promise.all(
+    path.hops.map(async (hop) => {
+      if (!hop.ip) return null;
+      try {
+        const point = await getGeoIp(hop.ip);
+        if (point?.latitude != null && point?.longitude != null) {
+          return [hop.ip, { lat: point.latitude, lng: point.longitude }] as const;
+        }
+      } catch {
+        // fall through to country centroid
+      }
+      return null;
+    }),
+  );
+
+  const next: Record<string, { lat: number; lng: number }> = {};
+  for (const entry of entries) {
+    if (entry) next[entry[0]] = entry[1];
+  }
+  relayGeo.value = next;
 }
 
 async function loadRelays() {
