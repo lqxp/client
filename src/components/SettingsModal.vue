@@ -315,6 +315,14 @@ const circuitPoints = computed<MapPoint[]>(() => {
     });
   }
 
+  // The QxChat server itself is hosted in Reykjavik (IP intentionally hidden).
+  pts.push({
+    lat: 64.1466,
+    lng: -21.9426,
+    color: "#f59e0b",
+    label: "Our server",
+  });
+
   return pts;
 });
 
