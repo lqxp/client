@@ -379,6 +379,14 @@ async function loadRelays() {
   }
 }
 
+async function requestRelays() {
+  const confirmed = await dialog.showConfirm(
+    t('settings.tor.relaysConfirm'),
+    t('settings.tor.relays'),
+  );
+  if (confirmed) loadRelays();
+}
+
 /** Tor is ready AND it's our embedded client (circuit view available). */
 const torReady = computed(() => torStatus.value?.phase === "ready" && torStatus.value?.mode === "embedded");
 
@@ -1994,7 +2002,7 @@ onBeforeUnmount(() => {
               :disabled="!isTorRuntime()"
             />
             <button type="button" class="btn settings-btn" :disabled="!isTorRuntime() || relaysLoading"
-              @click="loadRelays">
+              @click="requestRelays">
               {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
             </button>
           </div>

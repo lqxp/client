@@ -492,6 +492,7 @@
             "relays": "Relay directory",
             "relaysNote": "Live relays from the official Tor Metrics directory, sorted by consensus weight.",
             "relaysDesktopOnly": "This experience is only available on Desktop Client.",
+            "relaysConfirm": "This will fetch the live relay directory from Onionoo (onionoo.torproject.org). If you are in a strategically sensitive environment, this is probably not recommended.",
             "refresh": "Refresh relays",
             "searchPlaceholder": "Search relays…",
             "resultsCount": "{shown} of {total} relays",

@@ -492,6 +492,7 @@
             "relays": "Annuaire des relais",
             "relaysNote": "Relais en direct de l’annuaire officiel Tor Metrics, triés par poids de consensus.",
             "relaysDesktopOnly": "Cette expérience est uniquement disponible sur le client Desktop.",
+            "relaysConfirm": "Cela va récupérer l’annuaire des relais en direct depuis Onionoo (onionoo.torproject.org). Si vous êtes dans un environnement stratégiquement sensible, ce n’est probablement pas recommandé.",
             "refresh": "Actualiser les relais",
             "searchPlaceholder": "Rechercher des relais…",
             "resultsCount": "{shown} sur {total} relais",
