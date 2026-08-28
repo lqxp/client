@@ -26,6 +26,8 @@ let resizeObserver: ResizeObserver | null = null;
 
 let worldLayer: L.LayerGroup | null = null;
 let circuitLayer: L.LayerGroup | null = null;
+let renderer: L.Renderer | null = null;
+let themeObserver: MutationObserver | null = null;
 
 const ROLE_COLOR: Record<string, string> = {
   guard: "#2090ea",
@@ -112,10 +114,6 @@ function initMap() {
   const el = container.value;
   if (!el || map) return;
 
-  const { accent, bg, surface } = themeColors();
-
-  el.style.background = bg;
-
   map = L.map(el, {
     zoomControl: false,
     attributionControl: false,
@@ -135,8 +133,22 @@ function initMap() {
 
   worldLayer = L.layerGroup().addTo(map);
   circuitLayer = L.layerGroup().addTo(map);
+  renderer = L.canvas({ padding: 0.5 });
 
-  const renderer = L.canvas({ padding: 0.5 });
+  renderWorld();
+  map.setView([20, 0], 2, { animate: false });
+}
+
+function renderWorld() {
+  if (!map || !worldLayer || !renderer) return;
+
+  const { accent, bg, surface } = themeColors();
+  const el = container.value;
+  if (el) el.style.background = bg;
+
+  const layer = worldLayer;
+  const canvas = renderer;
+  layer.clearLayers();
 
   try {
     const topo = worldTopo as unknown as Topology;
@@ -152,14 +164,14 @@ function initMap() {
     const normalized = normalizeFeatureCollection(filtered);
 
     L.geoJSON(normalized as any, {
-      renderer,
+      renderer: canvas,
       style: {
         color: "transparent",
         weight: 0,
         fillColor: surface,
         fillOpacity: 0.9,
       },
-    }).addTo(worldLayer);
+    }).addTo(layer);
 
     // Bordures : filtrer les segments antiméridien (artefacts de mesh)
     const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
@@ -173,20 +185,35 @@ function initMap() {
     };
 
     L.geoJSON(cleanBorders as any, {
-      renderer,
+      renderer: canvas,
       style: {
         color: accent,
         weight: 0.7,
         opacity: 0.8,
         fill: false,
       },
-    }).addTo(worldLayer);
+    }).addTo(layer);
   } catch (error) {
     console.error("Failed to render world map:", error);
-    el.style.background = surface;
+    if (el) el.style.background = surface;
   }
+}
 
-  map.setView([20, 0], 2, { animate: false });
+function applyTheme() {
+  if (!map) return;
+  renderWorld();
+  updateCircuit();
+}
+
+function watchTheme() {
+  if (typeof MutationObserver === "undefined") return;
+  themeObserver = new MutationObserver(() => {
+    applyTheme();
+  });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "data-accent"],
+  });
 }
 
 function updateCircuit() {
@@ -265,6 +292,7 @@ function updateCircuit() {
 onMounted(async () => {
   await nextTick();
   initMap();
+  watchTheme();
 
   requestAnimationFrame(() => {
     if (!map) return;
@@ -299,6 +327,9 @@ watch(
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  themeObserver?.disconnect();
+  themeObserver = null;
+  renderer = null;
   worldLayer = null;
   circuitLayer = null;
   if (map) {
