@@ -410,9 +410,9 @@ async function loadRelayGeo(path: CircuitPath | null) {
   relayGeo.value = next;
 }
 
-/** Resolved country code for a circuit hop (always from the Rust geo-IP backend). */
+/** Resolved country code for a circuit hop: Tor first, then geo-IP fallback. */
 function hopCountryCode(hop: CircuitPath["hops"][number]): string | null {
-  return hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null;
+  return hop.country ?? (hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null);
 }
 
 async function loadRelays() {
