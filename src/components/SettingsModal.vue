@@ -295,10 +295,10 @@ const circuitLoading = ref(false);
 // Client + server geolocation for the map endpoints (IP masked backend-side).
 const geo = ref<GeoInfo | null>(null);
 
-// Exact coordinates for circuit relay IPs (resolved lazily via the Rust geo-IP
-// backend); keyed by IP and used as a higher-fidelity alternative to the
-// country-centroid fallback.
-const relayGeo = ref<Record<string, { lat: number; lng: number }>>({});
+// Exact coordinates + country for circuit relay IPs (resolved lazily via the
+// Rust geo-IP backend); keyed by IP and used as a higher-fidelity alternative
+// to the country-centroid fallback and to Arti's built-in country code.
+const relayGeo = ref<Record<string, { lat: number | null; lng: number | null; countryCode: string | null }>>({});
 
 // Circuit hops geolocated by country, plus client (origin) and server (target).
 const circuitPoints = computed<MapPoint[]>(() => {
@@ -315,9 +315,10 @@ const circuitPoints = computed<MapPoint[]>(() => {
 
   for (const hop of circuit.value?.hops ?? []) {
     const exact = hop.ip ? relayGeo.value[hop.ip] : undefined;
-    const coord = exact
-      ? ([exact.lat, exact.lng] as [number, number])
-      : countryCoord(hop.country);
+    const coord =
+      exact && exact.lat != null && exact.lng != null
+        ? ([exact.lat, exact.lng] as [number, number])
+        : countryCoord(hop.country);
     if (!coord) continue;
     const [lat, lng] = coord;
     const parts = [
@@ -385,8 +386,15 @@ async function loadRelayGeo(path: CircuitPath | null) {
       if (!hop.ip) return null;
       try {
         const point = await getGeoIp(hop.ip);
-        if (point?.latitude != null && point?.longitude != null) {
-          return [hop.ip, { lat: point.latitude, lng: point.longitude }] as const;
+        if (point) {
+          return [
+            hop.ip,
+            {
+              lat: point.latitude,
+              lng: point.longitude,
+              countryCode: point.countryCode ?? null,
+            },
+          ] as const;
         }
       } catch {
         // fall through to country centroid
@@ -395,11 +403,16 @@ async function loadRelayGeo(path: CircuitPath | null) {
     }),
   );
 
-  const next: Record<string, { lat: number; lng: number }> = {};
+  const next: Record<string, { lat: number | null; lng: number | null; countryCode: string | null }> = {};
   for (const entry of entries) {
     if (entry) next[entry[0]] = entry[1];
   }
   relayGeo.value = next;
+}
+
+/** Resolved country code for a circuit hop: Arti first, then geo-IP fallback. */
+function hopCountryCode(hop: CircuitPath["hops"][number]): string | null {
+  return hop.country ?? (hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null);
 }
 
 async function loadRelays() {
@@ -2013,7 +2026,7 @@ onBeforeUnmount(() => {
                 <div class="tor-circuit__hop">
                   <div class="tor-circuit__role">{{ t(`settings.tor.role.${hop.role}`) }}</div>
                   <div class="tor-circuit__ident">
-                    <span v-if="hop.country" class="tor-circuit__flag" :title="countryNameEnglish(hop.country)">{{ countryFlag(hop.country) }}</span>
+                    <span v-if="hopCountryCode(hop)" class="tor-circuit__flag" :title="countryNameEnglish(hopCountryCode(hop))">{{ countryFlag(hopCountryCode(hop)) }}</span>
                     <span v-if="hop.nickname && hop.nickname !== 'Unnamed'" class="tor-circuit__nick">{{ hop.nickname }}</span>
                     <span class="tor-circuit__ip">{{ hop.ip || '—' }}</span>
                   </div>
