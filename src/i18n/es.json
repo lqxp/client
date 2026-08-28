@@ -558,7 +558,7 @@
         },
         "donation": {
             "title": "Donar",
-            "subtitle": "QxChat es gratuito y privado. Apoya el desarrollo enviando cripto a una de las direcciones de abajo.",
+            "subtitle": "QxChat es gratuito y de código abierto. Apoya el desarrollo enviando cripto a una de las direcciones de abajo.",
             "copy": "Copiar",
             "copied": "Dirección copiada.",
             "note": "Las donaciones se reciben directamente en las carteras listadas. Comprueba siempre la red antes de enviar."
