@@ -110,6 +110,80 @@ async function copyDonationAddress(address: string) {
   }
 }
 
+const githubRepos = [
+  { slug: "app", url: "https://github.com/lqxp/app", licenseBadge: "https://img.shields.io/github/license/lqxp/app" },
+  { slug: "lqxp", url: "https://github.com/lqxp/lqxp", licenseBadge: "https://img.shields.io/github/license/lqxp/lqxp" },
+  { slug: "client", url: "https://github.com/lqxp/client", licenseBadge: "https://img.shields.io/github/license/lqxp/client" }
+];
+
+interface GithubContributor {
+  login: string;
+  html_url: string;
+  avatar_url: string;
+  contributions: number;
+}
+
+const contributorsLoading = ref(false);
+const contributorsError = ref(false);
+const topContributors = ref<GithubContributor[]>([]);
+
+async function loadContributors() {
+  if (contributorsLoading.value || topContributors.value.length) return;
+  contributorsLoading.value = true;
+  contributorsError.value = false;
+  try {
+    const totals = new Map<string, GithubContributor>();
+    const results = await Promise.allSettled(
+      githubRepos.map((repo) =>
+        fetch(`https://api.github.com/repos/lqxp/${repo.slug}/contributors?per_page=100&anon=0`, {
+          headers: { Accept: "application/vnd.github+json" }
+        }).then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+      )
+    );
+
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      const list = Array.isArray(result.value) ? result.value : [];
+      for (const item of list) {
+        const login = String(item?.login || "");
+        if (!login || /\[bot\]$/i.test(login)) continue;
+        const prev = totals.get(login) || {
+          login,
+          html_url: "",
+          avatar_url: "",
+          contributions: 0
+        };
+        prev.html_url = prev.html_url || String(item?.html_url || "");
+        prev.avatar_url = prev.avatar_url || String(item?.avatar_url || "");
+        prev.contributions += Number(item?.contributions || 0);
+        totals.set(login, prev);
+      }
+    }
+
+    topContributors.value = Array.from(totals.values())
+      .sort((a, b) => b.contributions - a.contributions)
+      .slice(0, 3);
+
+    if (!topContributors.value.length) contributorsError.value = true;
+  } catch {
+    contributorsError.value = true;
+  } finally {
+    contributorsLoading.value = false;
+  }
+}
+
+const contributorRoles: Record<string, string> = {
+  kisakay: "Creator And Maintainer",
+  sqlu: "Co-Creator and Commitor"
+};
+
+function contributorRole(login: string): string {
+  return contributorRoles[String(login || "").toLowerCase()] || "";
+}
+
 // Custom TURN server form state
 const showAddTurn = ref(false);
 const newTurnLabel = ref("");
@@ -596,6 +670,7 @@ watch(activeSection, async (section) => {
   if (!isOpen.value) return;
   if (section === "calls") props.messenger.refreshAudioDevices();
   if (section === "admin") props.messenger.loadAdminOverview();
+  if (section === "about") loadContributors();
   if (section !== "calls") {
     props.messenger.stopMicTest();
     stopCameraPreview();
@@ -2337,7 +2412,51 @@ onBeforeUnmount(() => {
 
       <section v-else class="settings-page">
         <div class="settings-group">
-          <h4>{{ t('settings.about.title') }}</h4>
+          <h4>{{ t('settings.about.licenses') }}</h4>
+        </div>
+
+        <div class="about-hero">
+          <svg class="about-hero__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v18" />
+            <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" />
+            <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" />
+            <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" />
+            <path d="M7 21h10" />
+          </svg>
+        </div>
+
+        <div class="settings-group">
+          <div class="about-badges">
+            <a v-for="repo in githubRepos" :key="repo.slug" :href="repo.url" target="_blank" rel="noopener noreferrer" class="about-badge-link">
+              <img :src="repo.licenseBadge" :alt="`${repo.slug} license`" loading="lazy" referrerpolicy="no-referrer" />
+            </a>
+          </div>
+          <p class="about-quote">{{ t('settings.about.quote') }}</p>
+          <p class="about-quote__author">- {{ t('settings.about.quoteAuthor') }}</p>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.about.topContributors') }}</h4>
+          <p v-if="contributorsLoading" class="settings-note">{{ t('settings.about.loading') }}</p>
+          <p v-else-if="contributorsError" class="settings-note">{{ t('settings.about.contributorsError') }}</p>
+          <ul v-else-if="topContributors.length" class="about-contributors">
+            <li v-for="contributor in topContributors" :key="contributor.login" class="about-contributor">
+              <a :href="contributor.html_url" target="_blank" rel="noopener noreferrer" class="about-contributor__link">
+                <img class="about-contributor__avatar" :src="contributor.avatar_url" :alt="contributor.login" loading="lazy" referrerpolicy="no-referrer" />
+                <span class="about-contributor__meta">
+                  <span class="about-contributor__name-row">
+                    <strong class="about-contributor__name">{{ contributor.login }}</strong>
+                    <span v-if="contributorRole(contributor.login)" class="about-contributor__role">{{ contributorRole(contributor.login) }}</span>
+                  </span>
+                  <small class="about-contributor__count">{{ contributor.contributions }} {{ t('settings.about.commits') }}</small>
+                </span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.about.overview') }}</h4>
           <dl class="settings-kv">
             <div>
               <dt>{{ t('settings.about.userId') }}</dt>
@@ -2875,6 +2994,133 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+.about-hero {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
+.about-hero__icon {
+  width: 148px;
+  height: 148px;
+  color: var(--muted, #8a8a90);
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.about-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-hero + .settings-group {
+  border-top: 0;
+}
+
+.about-quote {
+  padding-top: 32px;
+  margin: 0;
+  font-style: italic;
+  line-height: 1.65;
+  color: var(--muted, #8a8a90);
+  white-space: pre-line;
+}
+
+.about-quote__author {
+  margin: 10px 0 0;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--text, #f4f4f5);
+  text-align: right;
+}
+
+.about-badge-link {
+  display: inline-flex;
+  height: 20px;
+  line-height: 0;
+}
+
+.about-badge-link img {
+  height: 20px;
+  display: block;
+}
+
+.about-contributors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-contributor__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  background: var(--surface-2, #2c2c2e);
+  text-decoration: none;
+}
+
+.about-contributor__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface, #1b1b1d);
+  flex: none;
+}
+
+.about-contributor__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-contributor__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #f4f4f5);
+}
+
+.about-contributor__name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.about-contributor__role {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #2090ea) 16%, transparent);
+  color: var(--accent, #2090ea);
+  white-space: nowrap;
+}
+
+.about-contributor__count {
+  font-size: 12px;
+  color: var(--muted, #8a8a90);
+}
+
+.about-contributor__link:hover {
+  border-color: var(--line-strong, rgba(255, 255, 255, 0.12));
 }
 
 .recovery-signed {
