@@ -1959,19 +1959,23 @@ onBeforeUnmount(() => {
           <h4>{{ t('settings.tor.relays') }}</h4>
           <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
 
-          <div class="tor-relay-toolbar">
+          <div class="tor-relay-toolbar" :class="{ 'tor-relay-toolbar--disabled': !isTorRuntime() }">
             <input
               v-model="relaySearch"
               class="settings-input tor-relay-search"
               type="search"
               :placeholder="t('settings.tor.searchPlaceholder')"
               :aria-label="t('settings.tor.searchPlaceholder')"
+              :disabled="!isTorRuntime()"
             />
-            <button type="button" class="btn settings-btn" :disabled="relaysLoading"
+            <button type="button" class="btn settings-btn" :disabled="!isTorRuntime() || relaysLoading"
               @click="loadRelays">
               {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
             </button>
           </div>
+          <p v-if="!isTorRuntime()" class="settings-note tor-relay-desktop-only">
+            {{ t('settings.tor.relaysDesktopOnly') }}
+          </p>
           <p v-if="relays.length" class="settings-note tor-relay-count">
             {{ t('settings.tor.resultsCount', { shown: String(filteredRelays.length), total: String(relays.length) }) }}
           </p>
@@ -2745,6 +2749,16 @@ onBeforeUnmount(() => {
     flex: 0 0 auto;
     white-space: nowrap;
   }
+}
+
+.tor-relay-toolbar--disabled .settings-input,
+.tor-relay-toolbar--disabled .settings-btn {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tor-relay-desktop-only {
+  margin-top: 10px;
 }
 
 .tor-relay-count {

@@ -488,6 +488,7 @@
             "error": "Error de Tor: {error}",
             "relays": "Directorio de relays",
             "relaysNote": "Relays en vivo del directorio oficial de Tor Metrics, ordenados por peso de consenso.",
+            "relaysDesktopOnly": "Esta experiencia solo está disponible en el cliente de escritorio.",
             "refresh": "Actualizar relays",
             "searchPlaceholder": "Buscar relays…",
             "resultsCount": "{shown} de {total} relays",

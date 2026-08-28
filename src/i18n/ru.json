@@ -515,6 +515,7 @@
             "error": "Ошибка Tor: {error}",
             "relays": "Каталог релеев",
             "relaysNote": "Актуальные релеи из официального каталога Tor Metrics, отсортированные по весу консенсуса.",
+            "relaysDesktopOnly": "Этот функционал доступен только в десктопном клиенте.",
             "refresh": "Обновить релеи",
             "searchPlaceholder": "Поиск релеев…",
             "resultsCount": "{shown} из {total} релеев",
