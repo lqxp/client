@@ -116,6 +116,8 @@ const githubRepos = [
   { slug: "client", url: "https://github.com/lqxp/client", licenseBadge: "https://img.shields.io/github/license/lqxp/client" }
 ];
 
+const badgesLoaded = ref(false);
+
 interface GithubContributor {
   login: string;
   html_url: string;
@@ -173,6 +175,22 @@ async function loadContributors() {
   } finally {
     contributorsLoading.value = false;
   }
+}
+
+async function requestContributors() {
+  const confirmed = await dialog.showConfirm(
+    t('settings.about.contributorsConfirm'),
+    t('settings.about.topContributors'),
+  );
+  if (confirmed) loadContributors();
+}
+
+async function requestBadges() {
+  const confirmed = await dialog.showConfirm(
+    t('settings.about.badgesConfirm'),
+    t('settings.about.licenses'),
+  );
+  if (confirmed) badgesLoaded.value = true;
 }
 
 const contributorRoles: Record<string, string> = {
@@ -678,7 +696,6 @@ watch(activeSection, async (section) => {
   if (!isOpen.value) return;
   if (section === "calls") props.messenger.refreshAudioDevices();
   if (section === "admin") props.messenger.loadAdminOverview();
-  if (section === "about") loadContributors();
   if (section !== "calls") {
     props.messenger.stopMicTest();
     stopCameraPreview();
@@ -2438,10 +2455,15 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="settings-group">
-          <div class="about-badges">
+          <div v-if="badgesLoaded" class="about-badges">
             <a v-for="repo in githubRepos" :key="repo.slug" :href="repo.url" target="_blank" rel="noopener noreferrer" class="about-badge-link">
               <img :src="repo.licenseBadge" :alt="`${repo.slug} license`" loading="lazy" referrerpolicy="no-referrer" />
             </a>
+          </div>
+          <div v-else class="about-badges-cta">
+            <button type="button" class="btn settings-btn" @click="requestBadges">
+              {{ t('settings.about.loadBadges') }}
+            </button>
           </div>
           <p class="about-quote">{{ t('settings.about.quote') }}</p>
           <p class="about-quote__author">- {{ t('settings.about.quoteAuthor') }}</p>
@@ -2449,22 +2471,28 @@ onBeforeUnmount(() => {
 
         <div class="settings-group">
           <h4>{{ t('settings.about.topContributors') }}</h4>
-          <p v-if="contributorsLoading" class="settings-note">{{ t('settings.about.loading') }}</p>
-          <p v-else-if="contributorsError" class="settings-note">{{ t('settings.about.contributorsError') }}</p>
-          <ul v-else-if="topContributors.length" class="about-contributors">
-            <li v-for="contributor in topContributors" :key="contributor.login" class="about-contributor">
-              <a :href="contributor.html_url" target="_blank" rel="noopener noreferrer" class="about-contributor__link">
-                <img class="about-contributor__avatar" :src="contributor.avatar_url" :alt="contributor.login" loading="lazy" referrerpolicy="no-referrer" />
-                <span class="about-contributor__meta">
-                  <span class="about-contributor__name-row">
-                    <strong class="about-contributor__name">{{ contributor.login }}</strong>
-                    <span v-if="contributorRole(contributor.login)" class="about-contributor__role">{{ contributorRole(contributor.login) }}</span>
+          <template v-if="topContributors.length">
+            <ul class="about-contributors">
+              <li v-for="contributor in topContributors" :key="contributor.login" class="about-contributor">
+                <a :href="contributor.html_url" target="_blank" rel="noopener noreferrer" class="about-contributor__link">
+                  <img class="about-contributor__avatar" :src="contributor.avatar_url" :alt="contributor.login" loading="lazy" referrerpolicy="no-referrer" />
+                  <span class="about-contributor__meta">
+                    <span class="about-contributor__name-row">
+                      <strong class="about-contributor__name">{{ contributor.login }}</strong>
+                      <span v-if="contributorRole(contributor.login)" class="about-contributor__role">{{ contributorRole(contributor.login) }}</span>
+                    </span>
+                    <small class="about-contributor__count">{{ contributor.contributions }} {{ t('settings.about.commits') }}</small>
                   </span>
-                  <small class="about-contributor__count">{{ contributor.contributions }} {{ t('settings.about.commits') }}</small>
-                </span>
-              </a>
-            </li>
-          </ul>
+                </a>
+              </li>
+            </ul>
+          </template>
+          <template v-else>
+            <p v-if="contributorsError" class="settings-note">{{ t('settings.about.contributorsError') }}</p>
+            <button type="button" class="btn settings-btn" :disabled="contributorsLoading" @click="requestContributors">
+              {{ contributorsLoading ? t('settings.about.loading') : t('settings.about.loadContributors') }}
+            </button>
+          </template>
         </div>
 
         <div class="settings-group">
@@ -3040,6 +3068,11 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  justify-content: center;
+}
+
+.about-badges-cta {
+  display: flex;
   justify-content: center;
 }
 
