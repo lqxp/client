@@ -318,7 +318,7 @@ const circuitPoints = computed<MapPoint[]>(() => {
     const coord =
       exact && exact.lat != null && exact.lng != null
         ? ([exact.lat, exact.lng] as [number, number])
-        : countryCoord(hop.country);
+        : countryCoord(hopCountryCode(hop));
     if (!coord) continue;
     const [lat, lng] = coord;
     const parts = [
@@ -410,9 +410,9 @@ async function loadRelayGeo(path: CircuitPath | null) {
   relayGeo.value = next;
 }
 
-/** Resolved country code for a circuit hop: Arti first, then geo-IP fallback. */
+/** Resolved country code for a circuit hop (always from the Rust geo-IP backend). */
 function hopCountryCode(hop: CircuitPath["hops"][number]): string | null {
-  return hop.country ?? (hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null);
+  return hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null;
 }
 
 async function loadRelays() {
