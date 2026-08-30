@@ -3432,10 +3432,19 @@ export function useMessenger() {
     if (!data?.user) throw new Error("Malformed account response.");
     // Re-login into a previously saved account: restore its local state
     // (rooms, keys, messages) so the fresh auth payload does not wipe the cache.
+    // Only restore when the authenticated account differs from the one already
+    // active in memory (a fresh login / account switch). On a startup session
+    // refresh (`refreshSession`) the local cache has just been loaded from
+    // storage and is already up to date, so overwriting it with the (stale)
+    // account-vault snapshot would silently drop rooms created since the last
+    // vault update.
     const savedAccount = state.accounts.find(
       (account) => account && String(account.userId) === String(data.user.id),
     );
-    if (savedAccount) {
+    if (
+      savedAccount &&
+      String(state.userId || "") !== String(data.user.id || "")
+    ) {
       applyPersistedPayload(savedAccount);
     }
     const preservedSettings = {
