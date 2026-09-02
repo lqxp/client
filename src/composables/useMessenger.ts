@@ -124,6 +124,16 @@ export const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "bat", "c", "cfg", "conf", "cpp", "cs", "css", "csv", "env", "go", "h", "hpp", "html", "ini", "java", "js", "json", "jsx",
   "log", "lua", "md", "php", "properties", "py", "rb", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "txt", "vue", "xml", "yaml", "yml"
 ]);
+const AUDIO_ATTACHMENT_EXTENSIONS = new Set([
+  "aac", "aif", "aiff", "alac", "amr", "flac", "m4a", "mid", "midi", "mp3",
+  "oga", "ogg", "opus", "wav", "weba", "wma",
+]);
+const IMAGE_ATTACHMENT_EXTENSIONS = new Set([
+  "avif", "bmp", "gif", "heic", "heif", "ico", "jpeg", "jpg", "png", "svg", "webp",
+]);
+const VIDEO_ATTACHMENT_EXTENSIONS = new Set([
+  "3g2", "3gp", "avi", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogv", "webm", "wmv",
+]);
 
 const { t, locale } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -207,6 +217,14 @@ function findFirstLinkPreviewUrl(text) {
 function isTextAttachmentByFilename(filename) {
   const ext = String(filename || "").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
   return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
+}
+
+function attachmentKindFromFilename(filename) {
+  const ext = String(filename || "").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
+  if (AUDIO_ATTACHMENT_EXTENSIONS.has(ext)) return "audio";
+  if (IMAGE_ATTACHMENT_EXTENSIONS.has(ext)) return "image";
+  if (VIDEO_ATTACHMENT_EXTENSIONS.has(ext)) return "video";
+  return "";
 }
 
 function isTextAttachmentFile(file) {
@@ -400,6 +418,27 @@ function sanitizeHttpUrl(value: unknown): string {
   } catch {
     return "";
   }
+}
+
+// Blob URLs are transient (scoped to the current document). They must never be
+// written to persistent storage, otherwise a reload restores a dead URL and the
+// UI renders a media player that cannot actually play anything.
+function sanitizeStoredUrl(value: unknown): string {
+  const url = sanitizeHttpUrl(value);
+  return url.startsWith("blob:") ? "" : url;
+}
+
+// Cleans up historical persisted data that may still contain blob URLs from
+// before `sanitizeStoredUrl` started stripping them on write.
+function stripLoadedAttachmentBlobUrl(message) {
+  const attachment = message?.attachment;
+  if (attachment && typeof attachment === "object") {
+    const url = String(attachment.url || "");
+    if (url.startsWith("blob:")) {
+      attachment.url = "";
+    }
+  }
+  return message;
 }
 
 function cacheBustedRoomIconUrl(value: unknown): string {
@@ -940,7 +979,7 @@ function loadPersisted() {
         if (!isValidRoomId(roomId)) continue;
         messagesByRoom[roomId] = arr
           .slice(-MAX_HISTORY_PER_ROOM)
-          .map((m) => normalizeMessage(m, id));
+          .map((m) => stripLoadedAttachmentBlobUrl(normalizeMessage(m, id)));
       }
     }
 
@@ -1269,7 +1308,7 @@ function stripAttachmentDataForStorage(arr) {
     const attachment = message.attachment
       ? {
         id: String(message.attachment.id || "").trim(),
-        url: sanitizeHttpUrl(message.attachment.url),
+        url: sanitizeStoredUrl(message.attachment.url),
         filename: String(message.attachment.filename || "file"),
         mimeType: String(message.attachment.mimeType || "application/octet-stream"),
         size: Number(message.attachment.size) || 0,
@@ -2170,7 +2209,7 @@ function normalizeMessage(message, fallbackRoomId) {
     else if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
     else if ((attachment.mimeType || "").startsWith("image/")) kind = "image";
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
-    else kind = "file";
+    else kind = attachmentKindFromFilename(attachment.filename) || "file";
   } else if (voiceDuration) kind = "voice";
 
   const rawText = message.text || "";

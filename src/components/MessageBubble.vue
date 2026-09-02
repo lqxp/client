@@ -875,7 +875,9 @@ onBeforeUnmount(() => {
       </template>
 
       <template v-else-if="attachmentKind === 'audio' || attachmentKind === 'voice'">
-        <div class="att-expired" role="status">{{ t('message.voiceMessageExpired') }}</div>
+        <div class="att-expired" role="status">
+          {{ message.voiceDuration ? t('message.voiceMessageExpired') : t('message.attachmentExpired') }}
+        </div>
       </template>
 
       <template v-else-if="attachmentKind === 'file' && message.attachment">
