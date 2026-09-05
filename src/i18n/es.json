@@ -707,7 +707,9 @@
         "restartNow": "Reiniciar ahora",
         "retry": "Reintentar",
         "checkUpdates": "Buscar actualizaciones",
-        "availableTitle": "Actualización disponible"
+        "availableTitle": "Actualización disponible",
+        "skipTitle": "¿Omitir actualización?",
+        "skipHint": "Haz clic aquí para omitir la actualización"
     },
     "phantom": {
         "title": "Amigos",

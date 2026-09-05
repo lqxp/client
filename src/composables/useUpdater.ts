@@ -25,10 +25,13 @@ const releaseNotes = ref("");
 const errorDetails = ref("");
 const countdownSeconds = ref(3);
 const updateAvailable = ref(false);
+const skipDrawerVisible = ref(false);
 
 let countdownInterval: ReturnType<typeof setInterval> | null = null;
 let listenerInitialized = false;
 let pendingUpdateObj: any = null;
+let skipRequested = false;
+let skipDrawerTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function useUpdater() {
   const { t } = useI18n();
@@ -83,6 +86,27 @@ export function useUpdater() {
     }
   }
 
+  function clearSkipDrawerTimer() {
+    if (skipDrawerTimeout) {
+      clearTimeout(skipDrawerTimeout);
+      skipDrawerTimeout = null;
+    }
+  }
+
+  function showSkipDrawer() {
+    clearSkipDrawerTimer();
+    skipDrawerVisible.value = true;
+    skipDrawerTimeout = setTimeout(() => {
+      skipDrawerVisible.value = false;
+      skipDrawerTimeout = null;
+    }, 5000);
+  }
+
+  function hideSkipDrawer() {
+    clearSkipDrawerTimer();
+    skipDrawerVisible.value = false;
+  }
+
   function resetState() {
     phase.value = "idle";
     currentStep.value = 1;
@@ -92,6 +116,7 @@ export function useUpdater() {
     errorDetails.value = "";
     countdownSeconds.value = 3;
     pendingUpdateObj = null;
+    hideSkipDrawer();
     if (countdownInterval) {
       clearInterval(countdownInterval);
       countdownInterval = null;
@@ -204,7 +229,17 @@ export function useUpdater() {
     }
 
     resetState();
-    isCheckActive.value = true;
+    skipRequested = false;
+
+    // Startup auto-check: surface a discreet skip drawer in the corner instead of
+    // blocking the app with the full-screen overlay while we look for an update.
+    if (forceManual) {
+      isCheckActive.value = true;
+      hideSkipDrawer();
+    } else {
+      isCheckActive.value = false;
+      showSkipDrawer();
+    }
     phase.value = "checking";
 
     const searchMinTime = new Promise((resolve) => setTimeout(resolve, 1200));
@@ -218,13 +253,23 @@ export function useUpdater() {
       const updatePromise = updaterModule.check();
       const [update] = await Promise.all([updatePromise, searchMinTime]);
 
+      if (skipRequested) {
+        hideSkipDrawer();
+        return;
+      }
+
       if (!update || !update.available) {
         updateAvailable.value = false;
-        phase.value = "upToDate";
-        setTimeout(() => {
-          isCheckActive.value = false;
+        if (forceManual) {
+          phase.value = "upToDate";
+          setTimeout(() => {
+            isCheckActive.value = false;
+            phase.value = "idle";
+          }, 1600);
+        } else {
+          hideSkipDrawer();
           phase.value = "idle";
-        }, 1600);
+        }
         return;
       }
 
@@ -234,22 +279,39 @@ export function useUpdater() {
       releaseNotes.value = update.body || "";
       phase.value = "found";
 
+      // An update was found: swap the skip drawer for the full progress overlay.
+      if (!forceManual) {
+        hideSkipDrawer();
+        isCheckActive.value = true;
+      }
+
       sendUpdateNotification(newVersion.value);
       performUpdate();
     } catch (err: any) {
       await searchMinTime;
       console.error("Failed to check for updates:", err);
+      if (skipRequested) {
+        hideSkipDrawer();
+        return;
+      }
       if (forceManual) {
         phase.value = "error";
         errorDetails.value = err?.message || t("updater.error");
       } else {
         isCheckActive.value = false;
+        hideSkipDrawer();
         phase.value = "idle";
       }
     }
   }
 
   function dismissOverlay() {
+    isCheckActive.value = false;
+    resetState();
+  }
+
+  function skipUpdate() {
+    skipRequested = true;
     isCheckActive.value = false;
     resetState();
   }
@@ -274,9 +336,11 @@ export function useUpdater() {
     countdownSeconds,
     updateAvailable,
     isTauri,
+    skipDrawerVisible,
     checkForUpdates,
     triggerCheckUpdatesEvent,
     dismissOverlay,
+    skipUpdate,
     retryUpdate,
     triggerRelaunch,
     performUpdate,

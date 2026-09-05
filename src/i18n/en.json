@@ -695,7 +695,9 @@
         "restartNow": "Restart Now",
         "retry": "Retry Update",
         "checkUpdates": "Check for updates",
-        "availableTitle": "Update available"
+        "availableTitle": "Update available",
+        "skipTitle": "Skip update?",
+        "skipHint": "Click here to skip update"
     },
     "phantom": {
         "title": "Friends",
