@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import ImageCropModal from "@/components/ImageCropModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -17,6 +18,7 @@ const avatarFile = ref<File | null>(null);
 const avatarPreview = ref("");
 const busy = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const crop = ref<{ open: boolean; src: string; mimeType: string } | null>(null);
 
 const permissions = ref({
   canBan: true,
@@ -48,19 +50,40 @@ function pickAvatar() {
 function onAvatarChange(event: Event) {
   const input = event.target as HTMLInputElement | null;
   const file = input?.files?.[0] || null;
-  if (file && !String(file.type || "").startsWith("image/")) {
+  if (!file) return;
+  if (input) input.value = "";
+  openCrop(file);
+}
+
+function openCrop(file: File) {
+  if (file.type && !String(file.type).startsWith("image/")) {
     props.messenger.state.lastError = t("rooms.avatarMustBeImage");
     props.messenger.showToast?.(props.messenger.state.lastError);
     return;
   }
-  if (file && Number(file.size) > 5 * 1024 * 1024) {
+  if (Number(file.size) > 5 * 1024 * 1024) {
     props.messenger.state.lastError = t("rooms.avatarTooLarge");
     props.messenger.showToast?.(props.messenger.state.lastError);
     return;
   }
+  crop.value = {
+    open: true,
+    src: URL.createObjectURL(file),
+    mimeType: String(file.type || ""),
+  };
+}
+
+function onCropCancel() {
+  if (crop.value?.src) URL.revokeObjectURL(crop.value.src);
+  crop.value = null;
+}
+
+function onCropConfirm(file: File) {
+  const src = crop.value?.src;
+  crop.value = null;
+  if (src) URL.revokeObjectURL(src);
   avatarFile.value = file;
-  avatarPreview.value = file ? URL.createObjectURL(file) : "";
-  if (input) input.value = "";
+  avatarPreview.value = URL.createObjectURL(file);
 }
 
 function close() {
@@ -211,6 +234,18 @@ async function submit() {
       </div>
     </div>
   </Teleport>
+
+  <ImageCropModal
+    :open="crop?.open || false"
+    :src="crop?.src || ''"
+    :title="t('crop.titleRoomIcon')"
+    :aspect="1"
+    :mime-type="crop?.mimeType || 'image/png'"
+    :max-width="1024"
+    :max-height="1024"
+    @cancel="onCropCancel"
+    @confirm="onCropConfirm"
+  />
 </template>
 
 <style scoped>

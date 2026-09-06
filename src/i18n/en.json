@@ -726,5 +726,16 @@
         "removeFriend": "Remove friend",
         "clearMessages": "Clear messages",
         "recoveryNeeded": "Re-enter your recovery words (Settings → Security) to load your friends."
+    },
+    "crop": {
+        "titleAvatar": "Crop profile image",
+        "titleBanner": "Crop banner",
+        "titleRoomIcon": "Crop room icon",
+        "loading": "Loading image…",
+        "loadError": "Could not read this image.",
+        "reset": "Reset",
+        "apply": "Apply",
+        "invalidImage": "Please choose a valid image file.",
+        "tooLarge": "This image is too large."
     }
 }

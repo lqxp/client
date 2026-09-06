@@ -726,5 +726,16 @@
         "removeFriend": "Retirer des amis",
         "clearMessages": "Nettoyer les messages",
         "recoveryNeeded": "Ressaisis tes mots de récupération (Réglages → Sécurité) pour voir tes amis."
+    },
+    "crop": {
+        "titleAvatar": "Recadrer l'image de profil",
+        "titleBanner": "Recadrer la bannière",
+        "titleRoomIcon": "Recadrer l'avatar de la room",
+        "loading": "Chargement de l'image…",
+        "loadError": "Impossible de lire cette image.",
+        "reset": "Réinitialiser",
+        "apply": "Appliquer",
+        "invalidImage": "Choisis un fichier image valide.",
+        "tooLarge": "Cette image est trop volumineuse."
     }
 }

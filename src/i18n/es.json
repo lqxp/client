@@ -738,5 +738,16 @@
         "removeFriend": "Eliminar amigo",
         "clearMessages": "Limpiar mensajes",
         "recoveryNeeded": "Vuelve a introducir tus palabras de recuperación (Ajustes → Seguridad) para ver a tus amigos."
+    },
+    "crop": {
+        "titleAvatar": "Recortar imagen de perfil",
+        "titleBanner": "Recortar banner",
+        "titleRoomIcon": "Recortar avatar de la sala",
+        "loading": "Cargando imagen…",
+        "loadError": "No se pudo leer esta imagen.",
+        "reset": "Restablecer",
+        "apply": "Aplicar",
+        "invalidImage": "Elige un archivo de imagen válido.",
+        "tooLarge": "Esta imagen es demasiado grande."
     }
 }

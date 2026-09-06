@@ -9,6 +9,7 @@ import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus,
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
+import ImageCropModal from "@/components/ImageCropModal.vue";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -30,6 +31,7 @@ const avatarInputRef = ref(null);
 const bannerInputRef = ref(null);
 const firstInputRef = ref(null);
 const cameraPreviewRef = ref<HTMLVideoElement | null>(null);
+const crop = ref<{ open: boolean; src: string; kind: "avatar" | "banner"; mimeType: string } | null>(null);
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
@@ -794,14 +796,47 @@ function saveProfileText() {
 
 function onAvatarPicked(event) {
   const file = event.target.files?.[0];
-  if (file) props.messenger.setProfileImageFromFile("avatar", file);
   event.target.value = "";
+  openCrop(file, "avatar");
 }
 
 function onBannerPicked(event) {
   const file = event.target.files?.[0];
-  if (file) props.messenger.setProfileImageFromFile("banner", file);
   event.target.value = "";
+  openCrop(file, "banner");
+}
+
+function openCrop(file, kind: "avatar" | "banner") {
+  if (!file) return;
+  if (file.type && !String(file.type).startsWith("image/")) {
+    props.messenger.state.lastError = t("crop.invalidImage");
+    props.messenger.showToast?.(props.messenger.state.lastError);
+    return;
+  }
+  const limit = kind === "banner" ? 15 * 1024 * 1024 : 10 * 1024 * 1024;
+  if (Number(file.size) > limit) {
+    props.messenger.state.lastError = t("crop.tooLarge");
+    props.messenger.showToast?.(props.messenger.state.lastError);
+    return;
+  }
+  crop.value = {
+    open: true,
+    src: URL.createObjectURL(file),
+    kind,
+    mimeType: String(file.type || ""),
+  };
+}
+
+function onCropCancel() {
+  if (crop.value?.src) URL.revokeObjectURL(crop.value.src);
+  crop.value = null;
+}
+
+function onCropConfirm(file: File) {
+  const state = crop.value;
+  crop.value = null;
+  if (state?.src) URL.revokeObjectURL(state.src);
+  if (state?.kind) props.messenger.setProfileImageFromFile(state.kind, file);
 }
 
 function onExport() { props.messenger.exportData(); }
@@ -2666,6 +2701,18 @@ onBeforeUnmount(() => {
     </main>
     </div>
   </Transition>
+
+  <ImageCropModal
+    :open="crop?.open || false"
+    :src="crop?.src || ''"
+    :title="crop?.kind === 'banner' ? t('crop.titleBanner') : t('crop.titleAvatar')"
+    :aspect="crop?.kind === 'banner' ? 21 / 9 : 1"
+    :mime-type="crop?.mimeType || 'image/png'"
+    :max-width="crop?.kind === 'banner' ? 2100 : 1024"
+    :max-height="crop?.kind === 'banner' ? 900 : 1024"
+    @cancel="onCropCancel"
+    @confirm="onCropConfirm"
+  />
 </template>
 
 <style scoped>

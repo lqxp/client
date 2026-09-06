@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import ImageCropModal from "@/components/ImageCropModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -18,6 +19,7 @@ const callsEnabled = ref(true);
 const avatarPreview = ref("");
 const avatarFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const crop = ref<{ open: boolean; src: string; mimeType: string } | null>(null);
 const busy = ref(false);
 
 const permissions = ref({
@@ -82,11 +84,16 @@ function pickAvatar() {
   fileInputRef.value?.click();
 }
 
-async function onAvatarChange(event: Event) {
+function onAvatarChange(event: Event) {
   const input = event.target as HTMLInputElement | null;
   const file = input?.files?.[0] || null;
   if (!file) return;
-  if (!String(file.type || "").startsWith("image/")) {
+  if (input) input.value = "";
+  openCrop(file);
+}
+
+function openCrop(file: File) {
+  if (file.type && !String(file.type).startsWith("image/")) {
     props.messenger.state.lastError = t("rooms.avatarMustBeImage");
     props.messenger.showToast?.(props.messenger.state.lastError);
     return;
@@ -96,12 +103,27 @@ async function onAvatarChange(event: Event) {
     props.messenger.showToast?.(props.messenger.state.lastError);
     return;
   }
+  crop.value = {
+    open: true,
+    src: URL.createObjectURL(file),
+    mimeType: String(file.type || ""),
+  };
+}
+
+function onCropCancel() {
+  if (crop.value?.src) URL.revokeObjectURL(crop.value.src);
+  crop.value = null;
+}
+
+async function onCropConfirm(file: File) {
+  const src = crop.value?.src;
+  crop.value = null;
+  if (src) URL.revokeObjectURL(src);
   avatarFile.value = file;
   avatarPreview.value = URL.createObjectURL(file);
   busy.value = true;
   await props.messenger.setLocalRoomIconFromFile?.(props.roomId, file);
   busy.value = false;
-  if (input) input.value = "";
 }
 
 function unban(userId: string) {
@@ -217,6 +239,18 @@ function unban(userId: string) {
       </div>
     </div>
   </Teleport>
+
+  <ImageCropModal
+    :open="crop?.open || false"
+    :src="crop?.src || ''"
+    :title="t('crop.titleRoomIcon')"
+    :aspect="1"
+    :mime-type="crop?.mimeType || 'image/png'"
+    :max-width="1024"
+    :max-height="1024"
+    @cancel="onCropCancel"
+    @confirm="onCropConfirm"
+  />
 </template>
 
 <style scoped>
