@@ -22,6 +22,9 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const crop = ref<{ open: boolean; src: string; mimeType: string } | null>(null);
 const busy = ref(false);
 
+const activeSection = ref("general");
+const mobileSectionOpen = ref(false);
+
 const permissions = ref({
   canBan: true,
   canKick: true,
@@ -31,6 +34,16 @@ const permissions = ref({
 
 const banned = computed(() => props.messenger.bannedMembers?.(props.roomId) || []);
 const canConfigurePermissions = computed(() => props.messenger.canConfigureModeratorPermissions?.(props.roomId) === true);
+
+const sections = computed(() => [
+  { id: "general", label: t("rooms.sectionGeneral") },
+  { id: "moderation", label: t("rooms.sectionModeration") },
+  { id: "banned", label: t("rooms.sectionBanned") }
+]);
+
+const activeSectionLabel = computed(
+  () => sections.value.find((section) => section.id === activeSection.value)?.label || ""
+);
 
 watch(
   () => props.open,
@@ -42,6 +55,8 @@ watch(
     callsEnabled.value = props.messenger.roomCallsEnabled?.(props.roomId) !== false;
     avatarPreview.value = props.messenger.roomIcon?.(props.roomId) || "";
     avatarFile.value = null;
+    activeSection.value = "general";
+    mobileSectionOpen.value = false;
     const perms = props.messenger.roomModPermissions?.(props.roomId) || {};
     permissions.value = {
       canBan: perms.canBan !== false,
@@ -55,6 +70,15 @@ watch(
 function close() {
   if (busy.value) return;
   emit("close");
+}
+
+function selectSection(sectionId: string) {
+  activeSection.value = sectionId;
+  mobileSectionOpen.value = true;
+}
+
+function backToList() {
+  mobileSectionOpen.value = false;
 }
 
 function saveName() {
@@ -106,7 +130,7 @@ function openCrop(file: File) {
   crop.value = {
     open: true,
     src: URL.createObjectURL(file),
-    mimeType: String(file.type || ""),
+    mimeType: String(file.type || "")
   };
 }
 
@@ -134,108 +158,142 @@ function unban(userId: string) {
 <template>
   <Teleport to="body">
     <div v-if="open" class="room-settings-backdrop" @click.self="close">
-      <div class="room-settings" role="dialog" :aria-label="t('rooms.settings')">
-        <header class="room-settings__head">
-          <h2 class="room-settings__title">{{ t('rooms.settings') }}</h2>
-          <button class="icon-btn" type="button" :aria-label="t('message.cancel')" @click="close">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </header>
+      <div
+        class="room-settings"
+        :class="{ 'room-settings--section-open': mobileSectionOpen }"
+        role="dialog"
+        :aria-label="t('rooms.settings')"
+      >
+        <aside class="room-settings__side">
+          <header class="room-settings__side-head">
+            <h2 class="room-settings__title">{{ t('rooms.settings') }}</h2>
+            <button class="icon-btn" type="button" :aria-label="t('message.cancel')" @click="close">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </header>
 
-        <div class="room-settings__body">
-          <div class="room-settings__columns">
-            <div class="room-settings__col">
-              <div class="room-settings__field">
-                <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
-                <div class="room-settings__row">
-                  <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
-                  <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
-                </div>
-              </div>
+          <nav class="room-settings__nav" aria-label="Room settings sections">
+            <button
+              v-for="section in sections"
+              :key="section.id"
+              type="button"
+              class="room-settings__nav-item"
+              :class="{ 'is-active': activeSection === section.id }"
+              @click="selectSection(section.id)"
+            >
+              <svg v-if="section.id === 'general'" viewBox="0 0 24 24">
+                <path d="M4 6h16M4 12h16M4 18h10" />
+              </svg>
+              <svg v-else-if="section.id === 'moderation'" viewBox="0 0 24 24">
+                <path d="M12 3 5 6v5c0 4.4 2.9 8.3 7 9.5 4.1-1.2 7-5.1 7-9.5V6l-7-3Z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24">
+                <circle cx="9" cy="8" r="4" />
+                <path d="M3 21a6 6 0 0 1 12 0M16 4l4 4M20 4l-4 4" />
+              </svg>
+              <span>{{ section.label }}</span>
+            </button>
+          </nav>
+        </aside>
 
-              <div class="room-settings__field">
-                <span class="room-settings__label">{{ t('rooms.avatar') }}</span>
-                <div class="room-settings__avatar-row">
-                  <span class="avatar avatar--lg room-settings__avatar">
-                    <img v-if="avatarPreview" :src="avatarPreview" alt="" />
-                    <template v-else>+</template>
-                  </span>
-                  <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ t('rooms.chooseAvatar') }}</button>
-                </div>
-                <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="room-settings__file-input" @change="onAvatarChange" />
-              </div>
+        <main class="room-settings__main">
+          <header class="room-settings__main-head">
+            <button class="icon-btn room-settings__back" type="button" :aria-label="t('rooms.back')" @click="backToList">
+              <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <h3 class="room-settings__section-title">{{ activeSectionLabel }}</h3>
+          </header>
 
-              <div class="room-settings__field">
-                <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
-                <textarea id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
-                <div class="room-settings__actions">
-                  <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
-                </div>
+          <section v-if="activeSection === 'general'" class="room-settings-page">
+            <div class="room-settings__field">
+              <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
+              <div class="room-settings__row">
+                <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
+                <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
               </div>
             </div>
 
-            <div class="room-settings__col">
-              <div class="room-settings__field">
-                <span class="room-settings__label">{{ t('rooms.chat') }}</span>
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.avatar') }}</span>
+              <div class="room-settings__avatar-row">
+                <span class="avatar avatar--lg room-settings__avatar">
+                  <img v-if="avatarPreview" :src="avatarPreview" alt="" />
+                  <template v-else>+</template>
+                </span>
+                <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ t('rooms.chooseAvatar') }}</button>
+              </div>
+              <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="room-settings__file-input" @change="onAvatarChange" />
+            </div>
+
+            <div class="room-settings__field">
+              <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
+              <textarea id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
+              <div class="room-settings__actions">
+                <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
+              </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeSection === 'moderation'" class="room-settings-page">
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.chat') }}</span>
+              <label class="room-settings__switch">
+                <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
+              </label>
+            </div>
+
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.calls') }}</span>
+              <label class="room-settings__switch">
+                <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
+              </label>
+            </div>
+
+            <div v-if="canConfigurePermissions" class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
+              <div class="room-settings__perms">
                 <label class="room-settings__switch">
-                  <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
+                  <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
                   <span class="room-settings__switch-track"></span>
-                  <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
+                  <span class="room-settings__switch-label">{{ t('rooms.permCanBan') }}</span>
+                </label>
+                <label class="room-settings__switch">
+                  <input type="checkbox" :checked="permissions.canKick" @change="setPermission('canKick', ($event.target as HTMLInputElement).checked)" />
+                  <span class="room-settings__switch-track"></span>
+                  <span class="room-settings__switch-label">{{ t('rooms.permCanKick') }}</span>
+                </label>
+                <label class="room-settings__switch">
+                  <input type="checkbox" :checked="permissions.canMute" @change="setPermission('canMute', ($event.target as HTMLInputElement).checked)" />
+                  <span class="room-settings__switch-track"></span>
+                  <span class="room-settings__switch-label">{{ t('rooms.permCanMute') }}</span>
+                </label>
+                <label class="room-settings__switch">
+                  <input type="checkbox" :checked="permissions.canDelete" @change="setPermission('canDelete', ($event.target as HTMLInputElement).checked)" />
+                  <span class="room-settings__switch-track"></span>
+                  <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
                 </label>
               </div>
+            </div>
+          </section>
 
-              <div class="room-settings__field">
-                <span class="room-settings__label">{{ t('rooms.calls') }}</span>
-                <label class="room-settings__switch">
-                  <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
-                  <span class="room-settings__switch-track"></span>
-                  <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
-                </label>
-              </div>
-
-              <div v-if="canConfigurePermissions" class="room-settings__field">
-                <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
-                <div class="room-settings__perms">
-                  <label class="room-settings__switch">
-                    <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
-                    <span class="room-settings__switch-track"></span>
-                    <span class="room-settings__switch-label">{{ t('rooms.permCanBan') }}</span>
-                  </label>
-                  <label class="room-settings__switch">
-                    <input type="checkbox" :checked="permissions.canKick" @change="setPermission('canKick', ($event.target as HTMLInputElement).checked)" />
-                    <span class="room-settings__switch-track"></span>
-                    <span class="room-settings__switch-label">{{ t('rooms.permCanKick') }}</span>
-                  </label>
-                  <label class="room-settings__switch">
-                    <input type="checkbox" :checked="permissions.canMute" @change="setPermission('canMute', ($event.target as HTMLInputElement).checked)" />
-                    <span class="room-settings__switch-track"></span>
-                    <span class="room-settings__switch-label">{{ t('rooms.permCanMute') }}</span>
-                  </label>
-                  <label class="room-settings__switch">
-                    <input type="checkbox" :checked="permissions.canDelete" @change="setPermission('canDelete', ($event.target as HTMLInputElement).checked)" />
-                    <span class="room-settings__switch-track"></span>
-                    <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
-                  </label>
+          <section v-else-if="activeSection === 'banned'" class="room-settings-page">
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.bannedMembers') }}</span>
+              <div v-if="banned.length" class="room-settings__banned">
+                <div v-for="entry in banned" :key="entry.userId" class="room-settings__banned-row">
+                  <span class="room-settings__banned-name">@{{ entry.username }}</span>
+                  <button type="button" class="btn--ghost" @click="unban(entry.userId)">{{ t('rooms.unban') }}</button>
                 </div>
               </div>
+              <div v-else class="room-settings__empty">{{ t('rooms.noBanned') }}</div>
             </div>
-          </div>
-
-          <div class="room-settings__field room-settings__field--banned">
-            <span class="room-settings__label">{{ t('rooms.bannedMembers') }}</span>
-            <div v-if="banned.length" class="room-settings__banned">
-              <div v-for="entry in banned" :key="entry.userId" class="room-settings__banned-row">
-                <span class="room-settings__banned-name">@{{ entry.username }}</span>
-                <button type="button" class="btn--ghost" @click="unban(entry.userId)">{{ t('rooms.unban') }}</button>
-              </div>
-            </div>
-            <div v-else class="room-settings__empty">{{ t('rooms.noBanned') }}</div>
-          </div>
-        </div>
-
-        <footer class="room-settings__foot">
-          <button type="button" class="btn--ghost" @click="close">{{ t('message.cancel') }}</button>
-        </footer>
+          </section>
+        </main>
       </div>
     </div>
   </Teleport>
@@ -257,64 +315,136 @@ function unban(userId: string) {
 .room-settings-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: 240;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(4px);
 }
 
 .room-settings {
   width: 100%;
-  max-width: 760px;
-  max-height: calc(100vh - 48px);
-  font-family: var(--font);
-  overflow-y: auto;
-  border-radius: 16px;
-  background: var(--surface);
+  max-width: 900px;
+  height: min(700px, calc(100vh - 48px));
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text);
   border: 1px solid var(--line-strong);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  font-family: var(--font);
 }
 
-.room-settings__head {
+.room-settings__side {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 22px 18px;
+  background: var(--surface);
+  border-right: 1px solid var(--line-strong);
+}
+
+.room-settings__side-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 12px;
+  gap: 12px;
+  padding: 0 6px 22px;
 }
 
 .room-settings__title {
   margin: 0;
-  font-family: var(--font);
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
-.room-settings__body {
-  padding: 4px 20px 20px;
+.room-settings__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.room-settings__columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-  align-items: start;
-}
-
-.room-settings__col {
+.room-settings__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 15px;
+  text-align: left;
   min-width: 0;
 }
 
-.room-settings__col .room-settings__field:first-child {
-  margin-top: 0;
+.room-settings__nav-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.room-settings__field--banned {
-  margin-top: 24px;
+.room-settings__nav-item svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.room-settings__nav-item:hover,
+.room-settings__nav-item.is-active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.room-settings__main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 26px clamp(24px, 5vw, 48px) 48px;
+}
+
+.room-settings__main-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.room-settings__section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.room-settings__back {
+  display: none;
+}
+
+.room-settings-page {
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 .room-settings__field {
-  margin-top: 16px;
+  margin-top: 24px;
+}
+
+.room-settings__field:first-child {
+  margin-top: 0;
 }
 
 .room-settings__label {
@@ -337,13 +467,20 @@ function unban(userId: string) {
 .room-settings textarea {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--line-strong);
   background: var(--surface-2);
   color: var(--text);
-  padding: 10px 12px;
+  padding: 11px 13px;
   font-size: 14px;
   resize: vertical;
+}
+
+.room-settings input[type="text"]:focus,
+.room-settings textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .room-settings__actions {
@@ -384,7 +521,7 @@ function unban(userId: string) {
   gap: 12px;
   cursor: pointer;
   user-select: none;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .room-settings__switch input {
@@ -432,7 +569,7 @@ function unban(userId: string) {
 
 .room-settings__perms {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .room-settings__banned {
@@ -445,9 +582,13 @@ function unban(userId: string) {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
   background: var(--surface-2);
+}
+
+.room-settings__banned-name {
+  font-size: 14px;
 }
 
 .room-settings__empty {
@@ -455,23 +596,7 @@ function unban(userId: string) {
   color: var(--muted);
 }
 
-.room-settings__foot {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 20px 20px;
-}
-
-@keyframes room-settings-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes room-settings-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+@media (max-width: 700px) {
   .room-settings-backdrop {
     padding: 0;
     align-items: flex-end;
@@ -481,37 +606,83 @@ function unban(userId: string) {
   }
 
   .room-settings {
+    display: flex;
+    flex-direction: column;
     max-width: 100%;
+    height: auto;
     max-height: 92vh;
+    border: 0;
     border-radius: 22px 22px 0 0;
-    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5);
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
     animation: room-settings-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
   }
 
   .room-settings::before {
     content: "";
     display: block;
+    flex: none;
     width: 40px;
     height: 5px;
     margin: 12px auto 8px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--muted) 48%, transparent);
+    background: color-mix(in srgb, var(--muted) 75%, var(--surface));
   }
 
-  .room-settings__head {
-    padding: 8px 18px 12px;
+  .room-settings__side {
+    flex: none;
+    border-right: 0;
+    padding: 8px 18px 18px;
+    overflow: visible;
+  }
+
+  .room-settings__side-head {
+    padding: 0 6px 18px;
+  }
+
+  .room-settings__side-head .icon-btn,
+  .room-settings__back {
+    width: 44px;
+    height: 44px;
   }
 
   .room-settings__title {
-    font-size: 20px;
+    font-size: 22px;
   }
 
-  .room-settings__body {
-    padding: 6px 18px 18px;
+  .room-settings__nav-item {
+    height: 52px;
+    padding: 0 16px;
+    font-size: 16px;
+  }
+
+  .room-settings__main {
+    flex: none;
+    display: none;
+    overflow: visible;
+    padding: 8px 18px 18px;
+  }
+
+  .room-settings--section-open .room-settings__side {
+    display: none;
+  }
+
+  .room-settings--section-open .room-settings__main {
+    display: block;
+  }
+
+  .room-settings__back {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .room-settings__section-title {
+    font-size: 20px;
   }
 
   .room-settings input[type="text"],
@@ -544,32 +715,32 @@ function unban(userId: string) {
     font-size: 15px;
   }
 
-  .room-settings__foot {
-    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
-  }
-
-  .room-settings__foot .btn--ghost {
-    width: 100%;
-    height: 48px;
-  }
-
   .room-settings__row .btn--ghost {
     flex: none;
     height: 48px;
     padding: 0 16px;
   }
 
-  .room-settings__columns {
-    grid-template-columns: 1fr;
-    gap: 0;
+  .room-settings__banned-row {
+    padding: 12px 14px;
   }
 
-  .room-settings__col .room-settings__field:first-child {
-    margin-top: 0;
+  .room-settings__banned-row .btn--ghost {
+    min-height: 44px;
   }
 
-  .room-settings__field--banned {
+  .room-settings__field {
     margin-top: 18px;
   }
+}
+
+@keyframes room-settings-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes room-settings-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 </style>
