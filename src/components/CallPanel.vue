@@ -1046,6 +1046,7 @@ function toggleLocalMute(username) {
             class="callpanel__context-action"
             @click="openProfile(memberMenu.username)"
           >
+            <svg class="callpanel__context-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>{{ t("members.viewProfile") }}</span>
           </button>
           <button
@@ -1053,6 +1054,8 @@ function toggleLocalMute(username) {
             class="callpanel__context-action"
             @click="toggleLocalMute(memberMenu.username)"
           >
+            <svg v-if="isLocallyMuted(memberMenu.username)" class="callpanel__context-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <svg v-else class="callpanel__context-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
             <span>{{
               isLocallyMuted(memberMenu.username)
                 ? t("call.unmuteLocal")
@@ -1064,9 +1067,10 @@ function toggleLocalMute(username) {
           </button>
           <div class="callpanel__context-divider"></div>
           <label class="callpanel__context-volume">
-            <span class="callpanel__context-label">{{
-              t("call.personalVolume")
-            }}</span>
+            <span class="callpanel__context-label">
+              <svg class="callpanel__context-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              {{ t("call.personalVolume") }}
+            </span>
             <div class="callpanel__context-slider-row">
               <input
                 type="range"
@@ -1414,6 +1418,23 @@ function toggleLocalMute(username) {
   cursor: pointer;
 }
 
+.callpanel__context-action > span:not(.callpanel__context-hint) {
+  flex: 1;
+}
+
+.callpanel__context-icon {
+  display: block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.callpanel__context-action:hover .callpanel__context-icon,
+.callpanel__context-action:focus-visible .callpanel__context-icon {
+  color: currentColor;
+}
+
 .callpanel__context-hint {
   font-size: 0.72rem;
   color: var(--muted);
@@ -1433,6 +1454,9 @@ function toggleLocalMute(username) {
 }
 
 .callpanel__context-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text);

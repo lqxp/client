@@ -469,6 +469,7 @@ onBeforeUnmount(() => {
           <!-- Cancel (mobile only) -->
           <div class="members__context-separator" aria-hidden="true"></div>
           <button type="button" class="members__context-cancel" role="menuitem" @click="closeMemberContext">
+            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
             <span>{{ t('message.cancel') }}</span>
           </button>
         </div>
@@ -551,10 +552,28 @@ onBeforeUnmount(() => {
 }
 
 .members__context-header,
-.members__context-item-icon,
 .members__context-separator,
 .members__context-cancel {
   display: none;
+}
+
+.members__context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.members__context-item-icon {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.members__context-menu button:hover .members__context-item-icon,
+.members__context-menu button:focus-visible .members__context-item-icon {
+  color: currentColor;
 }
 
 @media (max-width: 760px) {
@@ -666,6 +685,8 @@ onBeforeUnmount(() => {
   .members__context-item-icon {
     display: block;
     flex: none;
+    width: 20px;
+    height: 20px;
     color: var(--muted);
     transition: color 120ms ease;
   }
@@ -684,7 +705,9 @@ onBeforeUnmount(() => {
 
   .members__context-cancel {
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 12px;
     text-align: center;
     font-weight: 700;
     color: var(--muted) !important;

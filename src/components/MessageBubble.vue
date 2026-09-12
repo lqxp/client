@@ -1033,6 +1033,7 @@ onBeforeUnmount(() => {
         <!-- Cancel button (mobile only) -->
         <div class="msg__context-separator" aria-hidden="true"></div>
         <button type="button" class="msg__context-item msg__context-cancel" role="menuitem" @click="closeContextMenu">
+          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           <span>{{ t('message.cancel') }}</span>
         </button>
       </div>
@@ -1138,6 +1139,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 10px;
   cursor: pointer;
 }
 
@@ -1157,7 +1159,11 @@ onBeforeUnmount(() => {
 }
 
 .msg__context-item-icon {
-  display: none;
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
 }
 
 .msg__context-cancel {
@@ -1384,6 +1390,8 @@ onBeforeUnmount(() => {
   .msg__context-item-icon {
     display: block;
     flex: none;
+    width: 20px;
+    height: 20px;
     color: var(--muted);
     transition: color 120ms ease;
   }
@@ -1400,7 +1408,9 @@ onBeforeUnmount(() => {
   /* ---- Cancel button ---- */
   .msg__context-cancel {
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 10px;
     text-align: center;
     font-weight: 700;
     color: var(--muted);

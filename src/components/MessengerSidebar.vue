@@ -533,6 +533,7 @@ onBeforeUnmount(() => {
           <!-- Cancel (mobile only) -->
           <div class="room-context__separator" aria-hidden="true"></div>
           <button type="button" class="room-context__cancel" role="menuitem" @click="closeRoomContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
             <span>{{ t('message.cancel') }}</span>
           </button>
         </div>
@@ -560,6 +561,7 @@ onBeforeUnmount(() => {
           <!-- Cancel (mobile only) -->
           <div class="room-context__separator" aria-hidden="true"></div>
           <button type="button" class="room-context__cancel" role="menuitem" @click="closeSideListContext">
+            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
             <span>{{ t('message.cancel') }}</span>
           </button>
         </div>
@@ -651,6 +653,7 @@ onBeforeUnmount(() => {
             <!-- Cancel (mobile only) -->
             <div class="status-menu__separator" aria-hidden="true"></div>
             <button type="button" class="status-menu__cancel" role="menuitem" @click="statusMenuOpen = false">
+              <svg class="status-menu__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               <span>{{ t('message.cancel') }}</span>
             </button>
           </div>
@@ -908,10 +911,28 @@ onBeforeUnmount(() => {
 }
 
 .room-context__header,
-.room-context__item-icon,
 .room-context__separator,
 .room-context__cancel {
   display: none;
+}
+
+.room-context button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.room-context__item-icon {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.room-context button:hover .room-context__item-icon,
+.room-context button:focus-visible .room-context__item-icon {
+  color: currentColor;
 }
 
 .room-context-backdrop {
@@ -925,6 +946,14 @@ onBeforeUnmount(() => {
 .status-menu__separator,
 .status-menu__cancel {
   display: none;
+}
+
+.status-menu__item-icon {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
 }
 
 /* ===== Mobile bottom sheets ===== */
@@ -1015,6 +1044,8 @@ onBeforeUnmount(() => {
   .room-context__item-icon {
     display: block;
     flex: none;
+    width: 20px;
+    height: 20px;
     color: var(--muted);
     transition: color 120ms ease;
   }
@@ -1038,7 +1069,9 @@ onBeforeUnmount(() => {
 
   .room-context__cancel {
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 10px;
     text-align: center;
     font-weight: 700;
     color: var(--muted) !important;
@@ -1140,7 +1173,9 @@ onBeforeUnmount(() => {
 
   .status-menu__cancel {
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 10px;
     text-align: center;
     font-weight: 700;
     color: var(--muted) !important;
