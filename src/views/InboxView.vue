@@ -425,7 +425,7 @@ function moveTitlebarActionToTray(action: TitlebarAction) {
   persistTitlebarTrayItems();
 }
 
-function runTitlebarAction(action: TitlebarAction) {
+async function runTitlebarAction(action: TitlebarAction) {
   if (action === "streamer") {
     toggleStreamerMode();
     return;
@@ -440,8 +440,10 @@ function runTitlebarAction(action: TitlebarAction) {
     return;
   }
   if (action === "logout") {
-    messenger.logoutAccount();
     titlebarTrayOpen.value = false;
+    if (await dialog.showConfirm(t("settings.security.logoutConfirm"))) {
+      messenger.logoutAccount();
+    }
     return;
   }
   lockClientNow();

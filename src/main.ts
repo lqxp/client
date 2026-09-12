@@ -34,8 +34,16 @@ function syncPlatformChromeOffset() {
   document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
 }
 
+function isInMap(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return Boolean(el && typeof (el as HTMLElement).closest === "function" && (el as HTMLElement).closest(".world-map, .leaflet-container"));
+}
+
 function preventMobileZoom() {
   const preventDefaultGesture = (e: Event) => {
+    // Let the Tor map (Leaflet) keep its own pinch-to-zoom; block page-level
+    // pinch everywhere else so the client layout never gets a buggy scale.
+    if (isInMap(e.target)) return;
     e.preventDefault();
   };
   document.addEventListener("gesturestart", preventDefaultGesture, { passive: false });
@@ -45,7 +53,7 @@ function preventMobileZoom() {
   document.addEventListener(
     "touchmove",
     (e: TouchEvent) => {
-      if (e.touches.length > 1) {
+      if (e.touches.length > 1 && !isInMap(e.target)) {
         e.preventDefault();
       }
     },
@@ -67,39 +75,90 @@ function preventMobileZoom() {
     },
     { passive: false }
   );
-
-  window.addEventListener(
-    "wheel",
-    (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-      }
-    },
-    { passive: false }
-  );
 }
+
+// Browser-like window zoom (Ctrl/Cmd + +, -, 0, wheel/pinch).
+//
+// NOTE: this intentionally uses the CSS `zoom` property — NOT
+// `transform: scale()`. `transform: scale()` on <html> does not reflow layout:
+// it leaves a blank area, breaks `position: fixed` descendants (dialogs,
+// settings, titlebar) and requires closing the app to reset. `zoom` reflows
+// like a real browser zoom, so <body> resizes and fixed overlays stay correct.
+const ZOOM_STORAGE_KEY = "lqxp:window-zoom";
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2;
+const ZOOM_STEP = 0.1;
 
 let windowScale = 1;
 
-function handleGlobalKeyDown(e: KeyboardEvent) {
-  if (e.ctrlKey) {
-    if (e.key === "=" || e.key === "+") {
-      e.preventDefault();
-      windowScale = Math.min(windowScale + 0.1, 2);
-      document.documentElement.style.transform = `scale(${windowScale})`;
-      document.documentElement.style.transformOrigin = "0 0";
-    } else if (e.key === "-") {
-      e.preventDefault();
-      windowScale = Math.max(windowScale - 0.1, 0.5);
-      document.documentElement.style.transform = `scale(${windowScale})`;
-      document.documentElement.style.transformOrigin = "0 0";
-    } else if (e.key === "0") {
-      e.preventDefault();
-      windowScale = 1;
-      document.documentElement.style.transform = `scale(${windowScale})`;
-      document.documentElement.style.transformOrigin = "0 0";
-    }
+function readStoredZoom(): number {
+  try {
+    const raw = localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (raw == null) return 1;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 1;
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 100) / 100));
+  } catch {
+    return 1;
   }
+}
+
+function applyWindowZoom(scale: number) {
+  windowScale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(scale * 100) / 100));
+  const root = document.documentElement;
+  // Clear any legacy transform-based zoom left by older builds.
+  if (root.style.transform) root.style.transform = "";
+  if (root.style.transformOrigin) root.style.transformOrigin = "";
+  // `zoom` reflows layout (no blank areas, fixed modals keep working).
+  (root.style as CSSStyleDeclaration & { zoom?: string }).zoom =
+    windowScale === 1 ? "" : String(windowScale);
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(windowScale));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function zoomIn() {
+  applyWindowZoom(windowScale + ZOOM_STEP);
+}
+
+function zoomOut() {
+  applyWindowZoom(windowScale - ZOOM_STEP);
+}
+
+function zoomReset() {
+  applyWindowZoom(1);
+}
+
+function handleGlobalKeyDown(e: KeyboardEvent) {
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  // Like browsers, these shortcuts work even when an input is focused.
+  if (e.key === "=" || e.key === "+" || e.code === "NumpadAdd") {
+    e.preventDefault();
+    e.stopPropagation();
+    zoomIn();
+  } else if (e.key === "-" || e.key === "_" || e.code === "NumpadSubtract") {
+    e.preventDefault();
+    e.stopPropagation();
+    zoomOut();
+  } else if (e.key === "0" || e.code === "Numpad0") {
+    e.preventDefault();
+    e.stopPropagation();
+    zoomReset();
+  }
+}
+
+function handleGlobalWheel(e: WheelEvent) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  // Ctrl/Cmd+wheel (touchpad pinch included) drives our own zoom, like a
+  // browser, instead of letting the WebView apply a native zoom that leaves
+  // the client in a broken scale.
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.deltaY < 0) zoomIn();
+  else if (e.deltaY > 0) zoomOut();
 }
 
 function setupScrollLockdown() {
@@ -123,7 +182,9 @@ syncViewportHeight();
 syncPlatformChromeOffset();
 preventMobileZoom();
 setupScrollLockdown();
-window.addEventListener("keydown", handleGlobalKeyDown);
+applyWindowZoom(readStoredZoom());
+window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
+window.addEventListener("wheel", handleGlobalWheel, { passive: false, capture: true });
 
 window.addEventListener("resize", syncViewportHeight, { passive: true });
 window.addEventListener("contextmenu", (event) => {

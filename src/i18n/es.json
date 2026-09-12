@@ -342,6 +342,7 @@
             "username": "Nombre de usuario",
             "downloadRecovery": "Descargar palabras de recuperación",
             "logout": "Cerrar sesión",
+            "logoutConfirm": "¿Estás seguro de cerrar sesión?",
             "recoveryNote": "Las palabras de recuperación solo se muestran tras crear o recuperar la cuenta en este navegador.",
             "recoveryWordsImported": "Palabras de recuperación importadas.",
             "invalidRecoveryWords": "Palabras de recuperación no válidas. Pega exactamente 12 palabras.",

@@ -432,11 +432,10 @@ async function loadRelays() {
 }
 
 async function requestRelays() {
-  const confirmed = await dialog.showConfirm(
-    t('settings.tor.relaysConfirm'),
-    t('settings.tor.relays'),
-  );
-  if (confirmed) loadRelays();
+  // No confirmation modal: the relay directory is public data and the todo
+  // explicitly flags "press Refresh + accept modal" as a bug. The button
+  // loads directly; the directory also auto-loads when the section opens.
+  await loadRelays();
 }
 
 /** Tor is ready AND it's our embedded client (circuit view available). */
@@ -445,21 +444,35 @@ const torReady = computed(() => torStatus.value?.phase === "ready" && torStatus.
 /** True when a foreign Tor is being reused (transport works, no circuit view). */
 const isExternalTor = computed(() => torStatus.value?.mode === "external");
 
+let relaysAutoLoaded = false;
+
+function maybeAutoLoadTorDirectory() {
+  if (relaysAutoLoaded || relaysLoading.value || relays.value.length) return;
+  // Auto-load the public relay directory as soon as the Tor section is
+  // visible — no user prompting required.
+  if (activeSection.value !== "tor") return;
+  if (!isTorRuntime() || !isOpen.value) return;
+  relaysAutoLoaded = true;
+  void loadRelays();
+}
+
 watch(activeSection, (section) => {
   if (section === "tor") {
     if (torReady.value) {
       loadCircuit();
       loadGeo();
     }
+    maybeAutoLoadTorDirectory();
   }
 });
 
-// When Tor finishes bootstrapping and becomes ready, load the relay directory
-  // and the circuit automatically.
+// When Tor finishes bootstrapping and becomes ready, load the circuit and the
+// relay directory automatically.
   watch(torReady, (ready) => {
     if (ready) {
       loadCircuit();
       loadGeo();
+      maybeAutoLoadTorDirectory();
     }
   });
 
@@ -751,6 +764,7 @@ watch(isOpen, async (v) => {
     }
     if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
     await nextTick();
+    maybeAutoLoadTorDirectory();
   }
 });
 
@@ -1082,6 +1096,13 @@ function initialsOf(name) {
 function onKey(event) {
   if (!isOpen.value) return;
   if (event.key !== "Escape") return;
+  // Let the global confirm/prompt dialog consume Escape first — otherwise
+  // dismissing a logout/delete confirmation would also close Settings.
+  try {
+    if (dialog?.dialogState?.open) return;
+  } catch {
+    /* ignore */
+  }
   if (isMobileSettings.value && mobileSectionOpen.value) backToSettingsList();
   else close();
 }
@@ -1224,7 +1245,7 @@ onBeforeUnmount(() => {
 
       <div class="settings__disconnect">
         <button v-if="messenger.state.authToken" type="button" class="settings__disconnect-btn"
-          @click="messenger.logoutAccount(); close()">
+          @click="onLogout">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path d="M9 12h12" />
             <path d="m17 8 4 4-4 4" />

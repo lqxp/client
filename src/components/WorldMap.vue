@@ -292,6 +292,15 @@ function updateCircuit() {
 onMounted(async () => {
   await nextTick();
   initMap();
+  // Ctrl/Cmd+wheel (touchpad pinch) drives the app-level zoom (see main.ts).
+  // Stop it here so the map doesn't zoom underneath the window zoom.
+  container.value?.addEventListener(
+    "wheel",
+    (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) e.stopPropagation();
+    },
+    { capture: true, passive: true },
+  );
   watchTheme();
 
   requestAnimationFrame(() => {
