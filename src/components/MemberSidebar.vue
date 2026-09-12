@@ -4,6 +4,7 @@ import { useI18n } from "@/composables/useI18n";
 import ImageViewer from "@/components/ImageViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import MuteMemberModal from "@/components/MuteMemberModal.vue";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -174,7 +175,14 @@ const memberContextPos = ref({ x: 0, y: 0 });
 
 async function positionMemberContext(clientX: number, clientY: number) {
   const padding = 16;
-  memberContextPos.value = { x: clientX, y: clientY };
+  // Event coords are visual (unzoomed) pixels but the fixed menu's position
+  // lives in zoomed CSS pixels: convert so the menu opens under the cursor.
+  const zoom = currentWindowZoom();
+  const cursorX = clientX / zoom;
+  const cursorY = clientY / zoom;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  memberContextPos.value = { x: cursorX, y: cursorY };
 
   // The menu is rendered inside a <Teleport to="body"> and contains
   // conditional (v-if) content, so a single nextTick is not enough for its
@@ -191,21 +199,24 @@ async function positionMemberContext(clientX: number, clientY: number) {
 
   if (!rect || rect.width === 0 || rect.height === 0) {
     // Last resort fallback so we never compute a nonsense clamp.
-    memberContextPos.value = { x: clientX, y: clientY };
+    memberContextPos.value = { x: cursorX, y: cursorY };
     return;
   }
 
-  const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
-  const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+  // getBoundingClientRect() is also in visual pixels: convert to zoomed space.
+  const menuW = rect.width / zoom;
+  const menuH = rect.height / zoom;
+  const maxX = Math.max(padding, vw - menuW - padding);
+  const maxY = Math.max(padding, vh - menuH - padding);
 
-  let x = Math.min(Math.max(clientX, padding), maxX);
-  let y = Math.min(Math.max(clientY, padding), maxY);
+  let x = Math.min(Math.max(cursorX, padding), maxX);
+  let y = Math.min(Math.max(cursorY, padding), maxY);
 
   // If the click is near the right edge of the viewport, open the menu to the
   // left of the cursor so it stays fully visible instead of hugging the edge.
-  const rightThreshold = window.innerWidth - rect.width - padding * 2;
-  if (clientX > rightThreshold) {
-    x = clientX - rect.width - padding;
+  const rightThreshold = vw - menuW - padding * 2;
+  if (cursorX > rightThreshold) {
+    x = cursorX - menuW - padding;
     x = Math.max(padding, x);
   }
 

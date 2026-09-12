@@ -2,6 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AddFriendModal from "@/components/AddFriendModal.vue";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const props = defineProps<{ messenger: any; phantom: any }>();
 
@@ -77,7 +78,10 @@ function blockRequest(request: any) {
 }
 
 function openFriendMenu(event: MouseEvent, friend: any) {
-  friendMenu.value = { friend, x: event.clientX, y: event.clientY };
+  // Event coords are visual (unzoomed) pixels but the fixed menu's left/top
+  // live in zoomed CSS pixels: convert so the menu opens under the cursor.
+  const zoom = currentWindowZoom();
+  friendMenu.value = { friend, x: event.clientX / zoom, y: event.clientY / zoom };
 }
 
 function closeFriendMenu() {

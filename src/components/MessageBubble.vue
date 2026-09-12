@@ -8,6 +8,7 @@ import ProfileCard from "@/components/ProfileCard.vue";
 import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
 import { TEXT_ATTACHMENT_EXTENSIONS } from "@/composables/useMessenger";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
@@ -216,6 +217,9 @@ function showReactionTooltip(event: MouseEvent, reaction) {
     window.clearTimeout(reactionTooltipHideTimer);
     reactionTooltipHideTimer = null;
   }
+  // getBoundingClientRect()/innerWidth are visual (unzoomed) pixels but the
+  // fixed tooltip's left/top live in zoomed CSS pixels: convert everything.
+  const zoom = currentWindowZoom();
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const width = 220;
   const height = 220;
@@ -223,14 +227,17 @@ function showReactionTooltip(event: MouseEvent, reaction) {
   const styles = getComputedStyle(document.documentElement);
   const mobileStatusOffset = Number.parseFloat(styles.getPropertyValue("--mobile-status-offset")) || 0;
   const topPadding = mobileStatusOffset + padding;
-  const left = Math.min(Math.max(rect.left, padding), window.innerWidth - width - padding);
-  const placement: "top" | "bottom" = rect.top - height - 10 < topPadding ? "bottom" : "top";
+  const anchorLeft = rect.left / zoom;
+  const anchorTop = rect.top / zoom;
+  const anchorBottom = rect.bottom / zoom;
+  const left = Math.min(Math.max(anchorLeft, padding), window.innerWidth / zoom - width - padding);
+  const placement: "top" | "bottom" = anchorTop - height - 10 < topPadding ? "bottom" : "top";
   reactionTooltip.value = {
     emoji: reaction.emoji,
     count: reaction.count,
     users,
     left,
-    top: placement === "top" ? rect.top - 10 : Math.max(rect.bottom + 10, topPadding),
+    top: placement === "top" ? anchorTop - 10 : Math.max(anchorBottom + 10, topPadding),
     placement
   };
   if (reactionTooltipFallbackTimer) window.clearTimeout(reactionTooltipFallbackTimer);
@@ -530,9 +537,16 @@ function closeContextMenu() {
 
 async function positionContextMenu(clientX: number, clientY: number) {
   const padding = 16;
+  // Event coords are visual (unzoomed) pixels but the fixed menu's left/top
+  // live in zoomed CSS pixels: convert so the menu opens under the cursor.
+  const zoom = currentWindowZoom();
+  const x = clientX / zoom;
+  const y = clientY / zoom;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
   contextMenuStyle.value = {
-    left: `${clientX}px`,
-    top: `${clientY}px`
+    left: `${x}px`,
+    top: `${y}px`
   };
 
   // Menu is rendered in a Teleport with conditional (v-if) content, so a
@@ -550,15 +564,18 @@ async function positionContextMenu(clientX: number, clientY: number) {
     return;
   }
 
-  const maxLeft = Math.max(padding, window.innerWidth - rect.width - padding);
-  const maxTop = Math.max(padding, window.innerHeight - rect.height - padding);
+  // getBoundingClientRect() is also in visual pixels: convert to zoomed space.
+  const menuW = rect.width / zoom;
+  const menuH = rect.height / zoom;
+  const maxLeft = Math.max(padding, vw - menuW - padding);
+  const maxTop = Math.max(padding, vh - menuH - padding);
 
-  let left = Math.min(Math.max(clientX, padding), maxLeft);
-  const top = Math.min(Math.max(clientY, padding), maxTop);
+  let left = Math.min(Math.max(x, padding), maxLeft);
+  const top = Math.min(Math.max(y, padding), maxTop);
 
-  const rightThreshold = window.innerWidth - rect.width - padding * 2;
-  if (clientX > rightThreshold) {
-    left = Math.max(padding, clientX - rect.width - padding);
+  const rightThreshold = vw - menuW - padding * 2;
+  if (x > rightThreshold) {
+    left = Math.max(padding, x - menuW - padding);
   }
 
   contextMenuStyle.value = {

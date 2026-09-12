@@ -7,6 +7,7 @@ import AddServerModal from "@/components/AddServerModal.vue";
 import JoinRoomModal from "@/components/JoinRoomModal.vue";
 import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
 import PhantomFriendsPanel from "@/components/PhantomFriendsPanel.vue";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
@@ -208,7 +209,14 @@ async function positionContextMenu(
   clientY: number
 ) {
   const padding = 16;
-  posRef.value = { x: clientX, y: clientY };
+  // Event coords are visual (unzoomed) pixels but the fixed menu's position
+  // lives in zoomed CSS pixels: convert so the menu opens under the cursor.
+  const zoom = currentWindowZoom();
+  const cursorX = clientX / zoom;
+  const cursorY = clientY / zoom;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  posRef.value = { x: cursorX, y: cursorY };
 
   // Rendered in a Teleport with conditional content; wait for layout to settle.
   await nextTick();
@@ -224,15 +232,18 @@ async function positionContextMenu(
     return;
   }
 
-  const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
-  const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+  // getBoundingClientRect() is also in visual pixels: convert to zoomed space.
+  const menuW = rect.width / zoom;
+  const menuH = rect.height / zoom;
+  const maxX = Math.max(padding, vw - menuW - padding);
+  const maxY = Math.max(padding, vh - menuH - padding);
 
-  let x = Math.min(Math.max(clientX, padding), maxX);
-  const y = Math.min(Math.max(clientY, padding), maxY);
+  let x = Math.min(Math.max(cursorX, padding), maxX);
+  const y = Math.min(Math.max(cursorY, padding), maxY);
 
-  const rightThreshold = window.innerWidth - rect.width - padding * 2;
-  if (clientX > rightThreshold) {
-    x = Math.max(padding, clientX - rect.width - padding);
+  const rightThreshold = vw - menuW - padding * 2;
+  if (cursorX > rightThreshold) {
+    x = Math.max(padding, cursorX - menuW - padding);
   }
 
   posRef.value = { x, y };

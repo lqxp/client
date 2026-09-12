@@ -2,6 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ProfileCard from "@/components/ProfileCard.vue";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -58,14 +59,17 @@ function syncMobile() {
 }
 
 function clampMenuPosition(x, y) {
+  // Input coords and window size are visual (unzoomed) pixels; the menu's
+  // fixed position and its authored size live in zoomed CSS pixels.
+  const zoom = currentWindowZoom();
   const width = 224;
   const height = 176;
   const margin = 12;
-  const maxX = Math.max(margin, window.innerWidth - width - margin);
-  const maxY = Math.max(margin, window.innerHeight - height - margin);
+  const maxX = Math.max(margin, window.innerWidth / zoom - width - margin);
+  const maxY = Math.max(margin, window.innerHeight / zoom - height - margin);
   return {
-    x: Math.min(Math.max(margin, x), maxX),
-    y: Math.min(Math.max(margin, y), maxY),
+    x: Math.min(Math.max(margin, x / zoom), maxX),
+    y: Math.min(Math.max(margin, y / zoom), maxY),
   };
 }
 
@@ -111,7 +115,9 @@ function onStageMouseDown(e: MouseEvent) {
 function onStageMouseMove(e: MouseEvent) {
   if (!stageDragging) return;
   const el = e.currentTarget as HTMLElement;
-  const dx = stageDragStartX - e.clientX;
+  // scrollLeft is in zoomed CSS pixels while the pointer delta is in visual
+  // pixels: convert so the stage follows the cursor 1:1 at any window scale.
+  const dx = (stageDragStartX - e.clientX) / currentWindowZoom();
   el.scrollLeft = stageDragScrollStart + dx;
 }
 
