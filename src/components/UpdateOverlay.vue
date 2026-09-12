@@ -125,8 +125,8 @@ const {
   position: fixed;
   inset: 0;
   z-index: 9999999;
-  width: 100vw;
-  height: 100vh;
+  width: var(--app-viewport-width);
+  height: var(--app-viewport-height);
   background: #0f0c1b;
   color: var(--text, #f4f4f5);
   display: flex;

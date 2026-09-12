@@ -40,6 +40,7 @@
   --row-h: 72px;
   --header-h: 64px;
   --app-viewport-height: 100dvh;
+  --app-viewport-width: 100vw;
   --mobile-status-offset: env(safe-area-inset-top, 0px);
   --app-safe-top: env(safe-area-inset-top, 0px);
 
@@ -1616,8 +1617,7 @@ textarea {
     position: fixed !important;
     top: 0;
     right: 0;
-    height: 100vh;
-    height: 100dvh;
+    height: var(--app-viewport-height);
     width: min(320px, 85vw);
     z-index: 80;
     transform: translateX(0);
@@ -1673,7 +1673,7 @@ textarea {
 .profile-card__panel {
   position: relative;
   width: min(900px, calc(100vw - 32px));
-  max-height: calc(100vh - 36px);
+  max-height: calc(var(--app-viewport-height) - 36px);
   overflow-y: auto;
   overflow-x: hidden;
   border-radius: 16px;
@@ -2095,7 +2095,7 @@ textarea {
 
   .profile-card__panel {
     width: 100%;
-    max-height: calc(100vh - 18px);
+    max-height: calc(var(--app-viewport-height) - 18px);
     border-radius: 16px 16px 0 0;
     border: 0;
     overflow: hidden;
@@ -4058,7 +4058,7 @@ textarea {
   position: relative;
   z-index: 1;
   width: min(92vw, 1100px);
-  height: min(calc(100vh - 130px), 760px);
+  height: min(calc(var(--app-viewport-height) - 130px), 760px);
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -4238,7 +4238,7 @@ textarea {
 
 .image-viewer__image {
   max-width: min(92vw, 1400px);
-  max-height: calc(100vh - 150px);
+  max-height: calc(var(--app-viewport-height) - 150px);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -7116,9 +7116,8 @@ textarea {
   position: fixed;
   inset: 0;
   z-index: 40;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  width: var(--app-viewport-width);
+  height: var(--app-viewport-height);
   border-radius: 0;
   border: 0;
   background: var(--bg);
@@ -7311,7 +7310,7 @@ textarea {
   position: fixed;
   inset: 0;
   z-index: 40;
-  min-height: 100vh;
+  min-height: var(--app-viewport-height);
   border-radius: 0;
   border: 0;
 }
@@ -7567,7 +7566,7 @@ textarea {
 
   .text-viewer__stage {
     width: calc(100vw - 28px);
-    height: calc(100vh - 150px - var(--app-safe-top));
+    height: calc(var(--app-viewport-height) - 150px - var(--app-safe-top));
   }
 
   .image-viewer {
@@ -7581,7 +7580,7 @@ textarea {
   }
 
   .image-viewer__image {
-    max-height: calc(100vh - 170px - var(--app-safe-top));
+    max-height: calc(var(--app-viewport-height) - 170px - var(--app-safe-top));
   }
 
   .image-viewer__caption {

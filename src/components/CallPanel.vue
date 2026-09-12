@@ -1513,9 +1513,8 @@ function toggleLocalMute(username) {
   position: fixed;
   inset: 0;
   z-index: 96;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  width: var(--app-viewport-width);
+  height: var(--app-viewport-height);
   background: #000;
 }
 

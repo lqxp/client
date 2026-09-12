@@ -23,8 +23,17 @@ function resetRootScroll() {
 
 function syncViewportHeight() {
   const viewport = window.visualViewport;
-  const height = Math.round(viewport?.height || window.innerHeight);
-  document.documentElement.style.setProperty("--app-viewport-height", `${height}px`);
+  const rawHeight = Math.round(viewport?.height || window.innerHeight);
+  const rawWidth = Math.round(viewport?.width || window.innerWidth);
+  // CSS `zoom` does NOT rescale viewport units (vh/vw/dvh) nor
+  // window.innerHeight/innerWidth: they stay in unzoomed pixels. Divide by
+  // the current zoom so both vars always equal the *visual* viewport and
+  // full-screen shells keep filling exactly one screen at any zoom level.
+  const height = Math.max(1, Math.round(rawHeight / windowScale));
+  const width = Math.max(1, Math.round(rawWidth / windowScale));
+  const root = document.documentElement;
+  root.style.setProperty("--app-viewport-height", `${height}px`);
+  root.style.setProperty("--app-viewport-width", `${width}px`);
   resetRootScroll();
 }
 
@@ -117,6 +126,9 @@ function applyWindowZoom(scale: number) {
   } catch {
     /* storage unavailable */
   }
+  // Viewport units don't follow `zoom`: re-resolve the compensated viewport
+  // vars so heights (and fullscreen widths) track the new visual viewport.
+  syncViewportHeight();
 }
 
 function zoomIn() {
@@ -178,11 +190,12 @@ function setupScrollLockdown() {
   window.addEventListener("orientationchange", scheduleReset, { passive: true });
 }
 
-syncViewportHeight();
+// applyWindowZoom() also syncs the zoom-compensated viewport vars, so it
+// replaces the standalone syncViewportHeight() call here.
+applyWindowZoom(readStoredZoom());
 syncPlatformChromeOffset();
 preventMobileZoom();
 setupScrollLockdown();
-applyWindowZoom(readStoredZoom());
 window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
 window.addEventListener("wheel", handleGlobalWheel, { passive: false, capture: true });
 

@@ -145,7 +145,7 @@ async function send() {
 .phantom-modal {
   width: 100%;
   max-width: 440px;
-  max-height: calc(100vh - 56px);
+  max-height: calc(var(--app-viewport-height) - 56px);
   overflow-y: auto;
   border-radius: 20px;
   background: var(--surface);

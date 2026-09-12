@@ -1020,7 +1020,7 @@ async function lockClientNow() {
 .app.app--lock-titlebar,
 .app.app--onboarding-titlebar.is-tauri {
   display: grid;
-  min-height: 100dvh;
+  min-height: var(--app-viewport-height);
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -1408,7 +1408,7 @@ async function lockClientNow() {
   .app.app--lock-titlebar,
   .app.app--onboarding-titlebar.is-tauri {
     display: grid;
-    min-height: 100dvh;
+    min-height: var(--app-viewport-height);
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
   }

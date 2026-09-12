@@ -264,7 +264,7 @@ async function submit() {
 .create-room {
   width: 100%;
   max-width: 720px;
-  max-height: calc(100vh - 56px);
+  max-height: calc(var(--app-viewport-height) - 56px);
   font-family: var(--font);
   overflow-y: auto;
   border-radius: 20px;

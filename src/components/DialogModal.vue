@@ -129,7 +129,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
 .dialog-card {
   width: min(400px, calc(100vw - 32px));
-  max-height: calc(100vh - 48px);
+  max-height: calc(var(--app-viewport-height) - 48px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -263,7 +263,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
   .dialog-card {
     width: 100%;
-    max-height: calc(100vh - 40px);
+    max-height: calc(var(--app-viewport-height) - 40px);
     border-radius: 20px;
     border: 1px solid var(--line-strong);
     box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px var(--line-strong);

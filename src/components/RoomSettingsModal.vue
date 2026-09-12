@@ -327,7 +327,7 @@ function unban(userId: string) {
 .room-settings {
   width: 100%;
   max-width: 900px;
-  height: min(700px, calc(100vh - 48px));
+  height: min(700px, calc(var(--app-viewport-height) - 48px));
   display: grid;
   grid-template-columns: 290px 1fr;
   min-width: 0;
