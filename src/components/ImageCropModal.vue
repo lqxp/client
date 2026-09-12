@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -43,10 +44,14 @@ const coverScale = computed(() => {
 function measureViewport() {
   const el = stageEl.value;
   if (!el) return;
+  // getBoundingClientRect() is in visual (unzoomed) pixels, but the crop
+  // frame/image styles below live in zoomed CSS pixels: convert so the math
+  // (fit, clamp, drag, crop output) stays in one consistent space.
+  const zoom = currentWindowZoom();
   const rect = el.getBoundingClientRect();
   const pad = 28;
-  const availW = Math.max(60, rect.width - pad * 2);
-  const availH = Math.max(60, rect.height - pad * 2);
+  const availW = Math.max(60, rect.width / zoom - pad * 2);
+  const availH = Math.max(60, rect.height / zoom - pad * 2);
   let w = availW;
   let h = w / props.aspect;
   if (h > availH) {
@@ -55,8 +60,8 @@ function measureViewport() {
   }
   viewport.w = Math.round(w);
   viewport.h = Math.round(h);
-  viewport.x = (rect.width - viewport.w) / 2;
-  viewport.y = (rect.height - viewport.h) / 2;
+  viewport.x = (rect.width / zoom - viewport.w) / 2;
+  viewport.y = (rect.height / zoom - viewport.h) / 2;
 }
 
 function clampImage() {
@@ -122,8 +127,11 @@ function onPointerDown(event: PointerEvent) {
 
 function onPointerMove(event: PointerEvent) {
   if (!drag.active) return;
-  imageRect.x = drag.origX + (event.clientX - drag.startX);
-  imageRect.y = drag.origY + (event.clientY - drag.startY);
+  // Pointer deltas are visual (unzoomed) pixels, imageRect is zoomed CSS
+  // pixels: convert so the image follows the cursor 1:1 at any window scale.
+  const zoom = currentWindowZoom();
+  imageRect.x = drag.origX + (event.clientX - drag.startX) / zoom;
+  imageRect.y = drag.origY + (event.clientY - drag.startY) / zoom;
   clampImage();
 }
 
@@ -377,7 +385,7 @@ const frameStyle = computed(() => ({
 
 .crop-stage {
   position: relative;
-  height: min(52vh, 460px);
+  height: min(calc(var(--app-viewport-height) * 0.52), 460px);
   min-height: 260px;
   margin: 8px 18px;
   overflow: hidden;
@@ -511,7 +519,7 @@ const frameStyle = computed(() => ({
   }
 
   .crop-stage {
-    height: 48vh;
+    height: calc(var(--app-viewport-height) * 0.48);
     margin: 6px 14px;
   }
 
