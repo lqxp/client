@@ -6,6 +6,7 @@ import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
 import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
+import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcStatus } from "@/calls/discordRpc";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -216,6 +217,47 @@ const turnServerError = ref("");
 const torStatus = ref<TorStatus | null>(null);
 const torError = ref("");
 let unsubTorStatus: (() => void) | null = null;
+
+// Discord Rich Presence (desktop only, driven by the Rust backend).
+const discordRpcEnabled = ref(true);
+const discordRpcShowPlatform = ref(true);
+const discordRpcConnected = ref(false);
+const discordRpcReady = ref(false);
+
+async function loadDiscordRpc() {
+  if (!isTorRuntime()) return;
+  try {
+    const s: DiscordRpcStatus = await getDiscordRpcStatus();
+    discordRpcEnabled.value = s.enabled;
+    discordRpcShowPlatform.value = s.show_platform;
+    discordRpcConnected.value = s.connected;
+    discordRpcReady.value = true;
+  } catch {
+    discordRpcReady.value = false;
+  }
+}
+
+async function toggleDiscordRpcEnabled(enabled: boolean) {
+  if (!isTorRuntime()) return;
+  try {
+    const s = await setDiscordRpcEnabled(enabled);
+    discordRpcEnabled.value = s.enabled;
+    await loadDiscordRpc();
+  } catch {
+    await loadDiscordRpc();
+  }
+}
+
+async function toggleDiscordRpcShowPlatform(showPlatform: boolean) {
+  if (!isTorRuntime()) return;
+  try {
+    const s = await setDiscordRpcShowPlatform(showPlatform);
+    discordRpcShowPlatform.value = s.show_platform;
+    await loadDiscordRpc();
+  } catch {
+    await loadDiscordRpc();
+  }
+}
 
 /** Converts an ISO 3166-1 alpha-2 code to a regional-indicator flag emoji. */
 function countryFlag(code: string): string {
@@ -1126,6 +1168,7 @@ onMounted(() => {
     fetchTorStatus().then((s) => {
       torStatus.value = s;
     }).catch(() => {});
+    loadDiscordRpc().catch(() => {});
   }
 });
 onBeforeUnmount(() => {
@@ -2248,6 +2291,38 @@ onBeforeUnmount(() => {
               @change="messenger.setTypingIndicatorsEnabled(!targetChecked($event))" />
             <span class="toggle__track"><span class="toggle__thumb"></span></span>
           </label>
+        </div>
+
+        <div v-if="isTorRuntime()" class="settings-group">
+          <h4>{{ t('settings.advanced.discordRpc.title') }}</h4>
+          <template v-if="discordRpcReady">
+            <label class="settings-check">
+              <span>{{ t('settings.advanced.discordRpc.enabled') }}</span>
+              <input type="checkbox" :checked="discordRpcEnabled"
+                @change="toggleDiscordRpcEnabled(targetChecked($event))" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </label>
+            <p class="settings-note">
+              {{ t('settings.advanced.discordRpc.enabledNote') }}
+            </p>
+            <label class="settings-check">
+              <span>{{ t('settings.advanced.discordRpc.showPlatform') }}</span>
+              <input type="checkbox" :checked="discordRpcShowPlatform"
+                @change="toggleDiscordRpcShowPlatform(targetChecked($event))" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </label>
+            <p class="settings-note">
+              {{ t('settings.advanced.discordRpc.showPlatformNote') }}
+            </p>
+            <p class="settings-note">
+              {{ discordRpcConnected
+                ? t('settings.advanced.discordRpc.connected')
+                : t('settings.advanced.discordRpc.disconnected') }}
+            </p>
+          </template>
+          <p v-else class="settings-note">
+            {{ t('settings.advanced.discordRpc.unavailable') }}
+          </p>
         </div>
       </section>
 

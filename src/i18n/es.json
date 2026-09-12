@@ -533,7 +533,17 @@
             "renameUploads": "Renombrar cada archivo enviado aleatoriamente",
             "renameUploadsNote": "Cuando está activado, los archivos enviados se renombran a un token aleatorio de 8 caracteres a-z/0-9 (se conserva la extensión).",
             "stripExif": "Eliminar metadatos EXIF de las imágenes",
-            "stripExifNote": "Cuando está activado, los metadatos (GPS, cámara, fechas) se eliminan localmente antes de enviar — EXIF JPEG y chunk eXIf PNG — sin recodificar la imagen."
+            "stripExifNote": "Cuando está activado, los metadatos (GPS, cámara, fechas) se eliminan localmente antes de enviar — EXIF JPEG y chunk eXIf PNG — sin recodificar la imagen.",
+            "discordRpc": {
+                "title": "Discord Rich Presence",
+                "enabled": "Mostrar mi actividad en Discord",
+                "enabledNote": "Activado por defecto. Muestra «Jugando a QxChat» con el icono de QxChat en tu perfil de Discord (solo cliente de escritorio).",
+                "showPlatform": "Mostrar el icono del sistema operativo",
+                "showPlatformNote": "Muestra un pequeño icono de Windows, macOS o Linux detectado automáticamente junto a la actividad.",
+                "connected": "Conectado a Discord.",
+                "disconnected": "No conectado a Discord (abre Discord para activar la presencia).",
+                "unavailable": "Discord Rich Presence no está disponible en esta plataforma."
+            }
         },
         "admin": {
             "title": "Admin",
