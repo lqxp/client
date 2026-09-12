@@ -345,6 +345,7 @@
             "username": "Nom d'utilisateur",
             "downloadRecovery": "Télécharger les mots de récupération",
             "logout": "Se déconnecter",
+            "logoutConfirm": "Êtes-vous sûr de vous déconnecter?",
             "recoveryNote": "Les mots de récupération ne s'affichent qu'après la création ou la récupération du compte sur ce navigateur.",
             "recoveryWordsImported": "Mots de récupération importés.",
             "invalidRecoveryWords": "Mots de récupération invalides. Collez exactement 12 mots.",

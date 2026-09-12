@@ -455,13 +455,13 @@ watch(activeSection, (section) => {
 });
 
 // When Tor finishes bootstrapping and becomes ready, load the relay directory
-// and the circuit automatically (only if the user is currently viewing tor).
-watch(torReady, (ready) => {
-  if (ready && activeSection.value === "tor") {
-    loadCircuit();
-    loadGeo();
-  }
-});
+  // and the circuit automatically.
+  watch(torReady, (ready) => {
+    if (ready) {
+      loadCircuit();
+      loadGeo();
+    }
+  });
 
 function addCustomTurnServer() {
   turnServerError.value = "";
@@ -873,7 +873,8 @@ async function onClear() {
   close();
 }
 
-function onLogout() {
+async function onLogout() {
+  if (!await dialog.showConfirm(t('settings.security.logoutConfirm'))) return;
   props.messenger.logoutAccount();
   close();
 }

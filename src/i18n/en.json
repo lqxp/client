@@ -345,6 +345,7 @@
             "username": "Username",
             "downloadRecovery": "Download recovery words",
             "logout": "Log out",
+            "logoutConfirm": "Are you sure you want to log out?",
             "recoveryNote": "Recovery words are shown only after account creation or recovery on this browser.",
             "recoveryWordsImported": "Recovery words imported.",
             "invalidRecoveryWords": "Invalid recovery words. Paste exactly 12 words.",

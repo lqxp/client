@@ -79,6 +79,29 @@ function preventMobileZoom() {
   );
 }
 
+let windowScale = 1;
+
+function handleGlobalKeyDown(e: KeyboardEvent) {
+  if (e.ctrlKey) {
+    if (e.key === "=" || e.key === "+") {
+      e.preventDefault();
+      windowScale = Math.min(windowScale + 0.1, 2);
+      document.documentElement.style.transform = `scale(${windowScale})`;
+      document.documentElement.style.transformOrigin = "0 0";
+    } else if (e.key === "-") {
+      e.preventDefault();
+      windowScale = Math.max(windowScale - 0.1, 0.5);
+      document.documentElement.style.transform = `scale(${windowScale})`;
+      document.documentElement.style.transformOrigin = "0 0";
+    } else if (e.key === "0") {
+      e.preventDefault();
+      windowScale = 1;
+      document.documentElement.style.transform = `scale(${windowScale})`;
+      document.documentElement.style.transformOrigin = "0 0";
+    }
+  }
+}
+
 function setupScrollLockdown() {
   const scheduleReset = () => {
     resetRootScroll();
@@ -100,6 +123,7 @@ syncViewportHeight();
 syncPlatformChromeOffset();
 preventMobileZoom();
 setupScrollLockdown();
+window.addEventListener("keydown", handleGlobalKeyDown);
 
 window.addEventListener("resize", syncViewportHeight, { passive: true });
 window.addEventListener("contextmenu", (event) => {
