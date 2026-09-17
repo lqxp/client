@@ -3224,6 +3224,12 @@ export function useMessenger() {
     state.opsecDuressSalt = normalized.opsecDuressSalt;
     state.opsecDuressHash = normalized.opsecDuressHash;
     state.opsecDuressAction = normalized.opsecDuressAction;
+    // L'identité device (signature E2EE) est propre à chaque compte : la
+    // restaurer depuis le snapshot cible évite qu'un compte hérite des clés
+    // device du compte précédemment actif.
+    state.deviceId = String(payload?.deviceId || "");
+    state.deviceSigningPublicKey = payload?.deviceSigningPublicKey || null;
+    state.deviceSigningPrivateKey = payload?.deviceSigningPrivateKey || null;
   }
 
   async function applyPersistedPayloadAfterUnlock(payload) {
@@ -8189,6 +8195,12 @@ export function useMessenger() {
     state.profile = normalizeProfile(null);
     state.sessionExpired = false;
     state.status = "online";
+    // Ne laisse pas l'identité device du compte déconnecté dans le blob
+    // local : la prochaine session (même compte via le vault ou compte
+    // neuf) repartira de ses propres clés.
+    state.deviceId = "";
+    state.deviceSigningPublicKey = null;
+    state.deviceSigningPrivateKey = null;
     persist();
   }
 
@@ -8807,6 +8819,12 @@ export function useMessenger() {
     state.callAccessOpenByRoom = {};
     state.remoteCallStreamsByUser = {};
     state.remoteCallMediaByUser = {};
+    // L'identité device ne doit jamais survivre à un changement de compte :
+    // chaque compte régénère (ou restaure depuis son snapshot) ses propres
+    // clés device à la prochaine session.
+    state.deviceId = "";
+    state.deviceSigningPublicKey = null;
+    state.deviceSigningPrivateKey = null;
   }
 
   function resetToOnboarding() {
