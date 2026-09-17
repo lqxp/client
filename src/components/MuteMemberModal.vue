@@ -198,7 +198,7 @@ function close() {
     max-height: 92vh;
     border-radius: 22px 22px 0 0;
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    padding-bottom: max(18px, var(--app-safe-bottom));
     animation: mute-modal-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overscroll-behavior: contain;
   }
@@ -227,7 +227,7 @@ function close() {
   }
 
   .mute-modal__foot {
-    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+    padding: 12px 18px calc(12px + var(--app-safe-bottom));
   }
 
   .mute-modal__btn {

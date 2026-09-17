@@ -618,7 +618,7 @@ function unban(userId: string) {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    padding-bottom: max(18px, var(--app-safe-bottom));
     animation: room-settings-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
   }
 

@@ -1499,7 +1499,7 @@ function toggleLocalMute(username) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  padding: calc(12px + var(--app-safe-top)) 16px 12px;
   flex: none;
 }
 .call-mobile-overlay__title {
@@ -1643,7 +1643,7 @@ function toggleLocalMute(username) {
   display: flex;
   justify-content: center;
   gap: 16px;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(16px + var(--app-safe-bottom));
   flex: none;
 }
 .call-mobile-overlay__controls .icon-btn {

@@ -362,4 +362,12 @@ onBeforeUnmount(() => {
   border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
   contain: layout paint;
 }
+
+/* Leaflet owns every gesture on the map (drag, pinch, double-tap) through
+   its own touch handlers. Forcing touch-action: none keeps the WebView from
+   ever starting a native page pinch-zoom here — that is what used to leave
+   the whole client in a broken scale. */
+.world-map {
+  touch-action: none !important;
+}
 </style>

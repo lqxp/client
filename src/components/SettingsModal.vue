@@ -795,6 +795,7 @@ async function deleteAdminUser(user: any) {
 
 watch(isOpen, async (v) => {
   if (v) {
+    if (settingsHistoryDepth === 0) pushSettingsHistoryEntry();
     mobileSectionOpen.value = false;
     settingsSearch.value = "";
     adminUserSearch.value = "";
@@ -807,6 +808,8 @@ watch(isOpen, async (v) => {
     if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
     await nextTick();
     maybeAutoLoadTorDirectory();
+  } else {
+    releaseSettingsHistoryEntry();
   }
 });
 
@@ -1153,9 +1156,146 @@ function syncMobileSettings() {
   isMobileSettings.value = window.matchMedia("(max-width: 820px)").matches;
 }
 
+// --- System back gesture / history -----------------------------------------
+// While the panel is open it owns one history entry. The Android system back
+// (WryActivity routes back presses into WebView history) then pops it:
+// section open -> back to the list, else close the panel. Button exits route
+// through close()/the watcher, which consume the entry via history.back().
+let settingsHistoryDepth = 0;
+let consumingOwnHistoryState = false;
+
+function pushSettingsHistoryEntry() {
+  try {
+    history.pushState({ lqxpSettings: true }, "");
+    settingsHistoryDepth += 1;
+  } catch {
+    /* history unavailable */
+  }
+}
+
+function releaseSettingsHistoryEntry() {
+  if (settingsHistoryDepth <= 0) return;
+  settingsHistoryDepth -= 1;
+  consumingOwnHistoryState = true;
+  try {
+    history.back();
+  } catch {
+    consumingOwnHistoryState = false;
+  }
+}
+
+function onSettingsPopState() {
+  if (consumingOwnHistoryState) {
+    consumingOwnHistoryState = false;
+    return;
+  }
+  if (settingsHistoryDepth > 0) settingsHistoryDepth -= 1;
+  if (!isOpen.value) return;
+  try {
+    // Mirror Escape: a confirm/prompt dialog eats the back press first.
+    if (dialog?.dialogState?.open) {
+      pushSettingsHistoryEntry();
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  if (isMobileSettings.value && mobileSectionOpen.value) {
+    backToSettingsList();
+    // Panel stays open — re-arm an entry so the next back still targets it.
+    pushSettingsHistoryEntry();
+  } else {
+    close();
+  }
+}
+
+// --- Swipe-down to exit (mobile) --------------------------------------------
+// Dragging the sticky header downward exits: the section header goes back to
+// the list, the list header closes the panel — matching the on-screen
+// chevron/close semantics, with a live follow transform.
+const settingsPanelRef = ref<HTMLElement | null>(null);
+const SWIPE_EXIT_THRESHOLD = 90;
+const SWIPE_MAX_SHIFT = 160;
+let swipeArmed = false;
+let swipeKind: "panel" | "section" | null = null;
+let swipeStartX = 0;
+let swipeStartY = 0;
+
+function clearSwipeTransform() {
+  const panel = settingsPanelRef.value;
+  if (!panel || !panel.style.transform) return;
+  panel.style.transition = "transform 180ms ease";
+  panel.style.transform = "";
+  window.setTimeout(() => {
+    if (settingsPanelRef.value === panel) panel.style.transition = "";
+  }, 200);
+}
+
+function slidePanelOffScreen() {
+  const panel = settingsPanelRef.value;
+  if (!panel) return;
+  panel.style.transition = "transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1), opacity 200ms ease";
+  panel.style.transform = "translateY(100%)";
+  panel.style.opacity = "0";
+}
+
+function onSettingsTouchStart(event: TouchEvent) {
+  if (!isMobileSettings.value) return;
+  const el = event.target as HTMLElement | null;
+  const kind = el?.closest?.(".settings__main-head")
+    ? "section"
+    : el?.closest?.(".settings__side-head")
+      ? "panel"
+      : null;
+  if (!kind) return;
+  swipeArmed = true;
+  swipeKind = kind;
+  swipeStartX = event.touches[0]?.clientX ?? 0;
+  swipeStartY = event.touches[0]?.clientY ?? 0;
+  const panel = settingsPanelRef.value;
+  if (panel) panel.style.transition = "";
+}
+
+function onSettingsTouchMove(event: TouchEvent) {
+  if (!swipeArmed) return;
+  const dy = (event.touches[0]?.clientY ?? 0) - swipeStartY;
+  const dx = (event.touches[0]?.clientX ?? 0) - swipeStartX;
+  const panel = settingsPanelRef.value;
+  if (!panel) return;
+  if (dy <= 0 || dy <= Math.abs(dx)) {
+    if (panel.style.transform) panel.style.transform = "translateY(0px)";
+    return;
+  }
+  panel.style.transform = `translateY(${Math.min(dy, SWIPE_MAX_SHIFT)}px)`;
+}
+
+function onSettingsTouchEnd(event: TouchEvent) {
+  if (!swipeArmed) return;
+  swipeArmed = false;
+  const dy = (event.changedTouches[0]?.clientY ?? 0) - swipeStartY;
+  const dx = (event.changedTouches[0]?.clientX ?? 0) - swipeStartX;
+  const kind = swipeKind;
+  swipeKind = null;
+  if (!(dy > SWIPE_EXIT_THRESHOLD && dy > Math.abs(dx))) {
+    clearSwipeTransform();
+    return;
+  }
+  // Commit: keep the panel sliding down instead of springing back.
+  slidePanelOffScreen();
+  if (kind === "section") backToSettingsList();
+  else close();
+}
+
+function onSettingsTouchCancel() {
+  swipeArmed = false;
+  swipeKind = null;
+  clearSwipeTransform();
+}
+
 onMounted(() => {
   syncMobileSettings();
   window.addEventListener("resize", syncMobileSettings, { passive: true });
+  window.addEventListener("popstate", onSettingsPopState);
   document.addEventListener("keydown", onKey);
 
   // Keep the Tor status in sync with the backend (bootstrap → ready | stopped),
@@ -1173,7 +1313,9 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
+  window.removeEventListener("popstate", onSettingsPopState);
   document.removeEventListener("keydown", onKey);
+  releaseSettingsHistoryEntry();
   stopCameraPreview();
   if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
   unsubTorStatus?.();
@@ -1182,8 +1324,9 @@ onBeforeUnmount(() => {
 
 <template>
   <Transition name="settings">
-    <div v-if="isOpen" class="settings" :class="{ 'settings--section-open': mobileSectionOpen }" role="dialog"
-    aria-modal="true" aria-labelledby="settings-title">
+    <div v-if="isOpen" ref="settingsPanelRef" class="settings" :class="{ 'settings--section-open': mobileSectionOpen }" role="dialog"
+    aria-modal="true" aria-labelledby="settings-title" @touchstart="onSettingsTouchStart" @touchmove="onSettingsTouchMove"
+    @touchend="onSettingsTouchEnd" @touchcancel="onSettingsTouchCancel">
     <aside class="settings__side">
       <header class="settings__side-head">
         <h2 id="settings-title">{{ t('settings.title') }}</h2>

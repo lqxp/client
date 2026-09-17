@@ -241,7 +241,7 @@ function submit() {
     max-height: 92vh;
     border-radius: 22px 22px 0 0;
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    padding-bottom: max(18px, var(--app-safe-bottom));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
@@ -270,7 +270,7 @@ function submit() {
   }
 
   .join-room__foot {
-    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+    padding: 12px 18px calc(12px + var(--app-safe-bottom));
   }
 
   .join-room__btn {

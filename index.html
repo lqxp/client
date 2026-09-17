@@ -10,6 +10,44 @@
     <meta name="color-scheme" content="dark light" />
 
     <title>QxChat</title>
+    <script>
+      // Android edge-to-edge: the WebView draws behind the status bar / camera
+      // cutout, but Android's WebView never exposes those as CSS
+      // env(safe-area-inset-*). MainActivity forwards the real insets here as
+      // *physical* pixels. We take the max with a probed env() value and set
+      // the final --app-safe-top / --app-safe-bottom inline, so no platform
+      // depends on max()/env() resolving inside a custom property.
+      (function () {
+        function readEnvInset(paddingProperty) {
+          if (!document.body) return 0;
+          var probe = document.createElement("div");
+          probe.style.cssText =
+            "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:0;" +
+            paddingProperty + ":env(safe-area-inset-" +
+            (paddingProperty === "padding-top" ? "top" : "bottom") + ");";
+          document.body.appendChild(probe);
+          var value = parseFloat(getComputedStyle(probe)[paddingProperty]) || 0;
+          probe.remove();
+          return value;
+        }
+        window.__lqxpSetSystemInsets = function (top, bottom) {
+          var dpr = window.devicePixelRatio || 1;
+          var t = Math.max(0, Math.round((Number(top) || 0) / dpr));
+          var b = Math.max(0, Math.round((Number(bottom) || 0) / dpr));
+          if (!document.body) return;
+          var root = document.documentElement;
+          if (!root) return;
+          root.style.setProperty(
+            "--app-safe-top",
+            Math.max(t, readEnvInset("padding-top")) + "px"
+          );
+          root.style.setProperty(
+            "--app-safe-bottom",
+            Math.max(b, readEnvInset("padding-bottom")) + "px"
+          );
+        };
+      })();
+    </script>
     <meta
       name="description"
       content="A realtime messenger for QxProtocol rooms with chat, voice, reactions, link previews, and local backups."

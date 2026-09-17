@@ -3,6 +3,7 @@ import type { Plugin } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import { initializeRuntimeConfig } from "./config/runtime";
+import { isWindowZoomEnabled } from "./utils/windowZoom";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -23,8 +24,13 @@ function resetRootScroll() {
 
 function syncViewportHeight() {
   const viewport = window.visualViewport;
-  const rawHeight = Math.round(viewport?.height || window.innerHeight);
-  const rawWidth = Math.round(viewport?.width || window.innerWidth);
+  // While the WebView is natively pinch-zoomed (scale !== 1) the visual
+  // viewport is offset and resized: deriving --app-viewport-* from it would
+  // shrink/shift the fixed app shell and push the sidebar header under the
+  // Android status bar. Fall back to the (unzoomed) layout viewport instead.
+  const nativePinch = (viewport?.scale ?? 1) !== 1;
+  const rawHeight = Math.round((nativePinch ? undefined : viewport?.height) || window.innerHeight);
+  const rawWidth = Math.round((nativePinch ? undefined : viewport?.width) || window.innerWidth);
   // CSS `zoom` does NOT rescale viewport units (vh/vw/dvh) nor
   // window.innerHeight/innerWidth: they stay in unzoomed pixels. Divide by
   // the current zoom so both vars always equal the *visual* viewport and
@@ -43,26 +49,23 @@ function syncPlatformChromeOffset() {
   document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
 }
 
-function isInMap(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  return Boolean(el && typeof (el as HTMLElement).closest === "function" && (el as HTMLElement).closest(".world-map, .leaflet-container"));
-}
-
 function preventMobileZoom() {
   const preventDefaultGesture = (e: Event) => {
-    // Let the Tor map (Leaflet) keep its own pinch-to-zoom; block page-level
-    // pinch everywhere else so the client layout never gets a buggy scale.
-    if (isInMap(e.target)) return;
     e.preventDefault();
   };
   document.addEventListener("gesturestart", preventDefaultGesture, { passive: false });
   document.addEventListener("gesturechange", preventDefaultGesture, { passive: false });
   document.addEventListener("gestureend", preventDefaultGesture, { passive: false });
 
+  // Two-finger touches must always be blocked (gesturestart above is
+  // WebKit-only — Chromium never fires it): the WebView's native page
+  // pinch-zoom is what leaves the client in a broken scale. The Tor map
+  // (Leaflet) is NOT exempted — it zooms through its own touch handlers
+  // (touch-action: none), which keep working behind preventDefault.
   document.addEventListener(
     "touchmove",
     (e: TouchEvent) => {
-      if (e.touches.length > 1 && !isInMap(e.target)) {
+      if (e.touches.length > 1) {
         e.preventDefault();
       }
     },
@@ -76,7 +79,8 @@ function preventMobileZoom() {
       const now = Date.now();
       if (now - lastTouchEnd <= 300) {
         const target = e.target as HTMLElement | null;
-        if (target && !target.closest("input, textarea, [contenteditable='true']")) {
+        // Double-tap zoom stays allowed on the Leaflet map (double-tap zoom).
+        if (target && !target.closest("input, textarea, [contenteditable='true'], .leaflet-container")) {
           e.preventDefault();
         }
       }
@@ -113,6 +117,12 @@ function readStoredZoom(): number {
 }
 
 function applyWindowZoom(scale: number) {
+  if (!isWindowZoomEnabled()) {
+    // Touch runtime: never scale the shell, just keep the viewport vars fresh.
+    windowScale = 1;
+    syncViewportHeight();
+    return;
+  }
   windowScale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(scale * 100) / 100));
   const root = document.documentElement;
   // Clear any legacy transform-based zoom left by older builds.
@@ -144,6 +154,7 @@ function zoomReset() {
 }
 
 function handleGlobalKeyDown(e: KeyboardEvent) {
+  if (!isWindowZoomEnabled()) return;
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
   // Like browsers, these shortcuts work even when an input is focused.
@@ -163,6 +174,7 @@ function handleGlobalKeyDown(e: KeyboardEvent) {
 }
 
 function handleGlobalWheel(e: WheelEvent) {
+  if (!isWindowZoomEnabled()) return;
   if (!(e.ctrlKey || e.metaKey)) return;
   // Ctrl/Cmd+wheel (touchpad pinch included) drives our own zoom, like a
   // browser, instead of letting the WebView apply a native zoom that leaves

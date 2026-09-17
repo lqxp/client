@@ -1217,7 +1217,7 @@ onBeforeUnmount(() => {
     transform: none;
     display: flex;
     flex-direction: column;
-    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    padding: 0 0 max(18px, var(--app-safe-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;

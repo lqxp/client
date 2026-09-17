@@ -67,7 +67,7 @@ function toggleTheme() {
 .theme-toggle {
   position: fixed;
   right: 22px;
-  bottom: max(22px, env(safe-area-inset-bottom));
+  bottom: max(22px, var(--app-safe-bottom));
   z-index: 60;
   width: 44px;
   height: 44px;

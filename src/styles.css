@@ -41,8 +41,14 @@
   --header-h: 64px;
   --app-viewport-height: 100dvh;
   --app-viewport-width: 100vw;
-  --mobile-status-offset: env(safe-area-inset-top, 0px);
-  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-system-inset-top: 0px;
+  --app-system-inset-bottom: 0px;
+  /* Android WebView reports env(safe-area-inset-*) as 0 even in edge-to-edge:
+     MainActivity injects the real insets into --app-system-inset-* and we
+     compose both sources so every platform gets a working value. */
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--app-system-inset-top));
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--app-system-inset-bottom));
+  --mobile-status-offset: var(--app-safe-top);
 
   --discord-text: #dcddde;
   --discord-text-strong: #ffffff;
@@ -774,7 +780,7 @@ textarea {
 
 .toast {
   position: fixed;
-  top: calc(18px + env(safe-area-inset-top, 0px));
+  top: calc(18px + var(--app-safe-top));
   left: 50%;
   z-index: 1000;
   transform: translateX(-50%);
@@ -1625,7 +1631,7 @@ textarea {
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
     background: var(--surface);
     overflow: hidden;
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: var(--app-safe-top);
   }
 
   .members-fade-enter-active,
@@ -3688,7 +3694,7 @@ textarea {
     max-width: 100%;
     display: flex;
     flex-direction: column;
-    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    padding: 0 0 max(18px, var(--app-safe-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -4742,7 +4748,7 @@ textarea {
     max-height: 60vh;
     border-radius: 16px 16px 0 0;
     z-index: 400;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--app-safe-bottom);
   }
 
   .emoji-picker__grid {
@@ -6297,7 +6303,7 @@ textarea {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 16px calc(28px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(28px + var(--app-safe-bottom));
     background: var(--bg);
     border-right: 0;
     border-bottom: 0;
@@ -6311,9 +6317,9 @@ textarea {
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    min-height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + var(--app-safe-top));
     margin: 0 -16px 18px;
-    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    padding: calc(12px + var(--app-safe-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -6440,7 +6446,7 @@ textarea {
     display: none;
     min-height: 0;
     max-height: var(--app-viewport-height);
-    padding: 0 16px calc(40px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(40px + var(--app-safe-bottom));
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
@@ -6463,9 +6469,9 @@ textarea {
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    min-height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + var(--app-safe-top));
     margin: 0 -16px 18px;
-    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    padding: calc(12px + var(--app-safe-top)) 16px 12px;
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom: 1px solid var(--line-strong);
   }
@@ -7658,12 +7664,13 @@ textarea {
   }
 
   .side__search {
+    height: auto;
     gap: 6px;
-    padding: calc(10px + env(safe-area-inset-top)) 10px 8px;
+    padding: calc(10px + var(--app-safe-top)) 10px 8px;
   }
 
   .compose {
-    padding: calc(10px + env(safe-area-inset-top)) 10px 8px;
+    padding: calc(10px + var(--app-safe-top)) 10px 8px;
   }
 
   .search {
@@ -7703,7 +7710,7 @@ textarea {
 
   .side__foot {
     min-height: 62px;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    padding: 8px 8px calc(8px + var(--app-safe-bottom));
   }
 
   .side-foot__link {
@@ -7711,9 +7718,9 @@ textarea {
   }
 
   .thread__head {
-    min-height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + var(--app-safe-top));
     height: auto;
-    padding: calc(8px + env(safe-area-inset-top)) 8px 8px;
+    padding: calc(8px + var(--app-safe-top)) 8px 8px;
     gap: 4px;
     background: color-mix(in srgb, var(--surface) 96%, var(--bg) 4%);
   }
@@ -7759,7 +7766,7 @@ textarea {
   }
 
   .feed {
-    padding: 10px 10px calc(52px + env(safe-area-inset-bottom));
+    padding: 10px 10px calc(52px + var(--app-safe-bottom));
     overscroll-behavior: contain;
   }
 
@@ -7840,7 +7847,7 @@ textarea {
 
   .composer {
     gap: 5px;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    padding: 8px 8px calc(8px + var(--app-safe-bottom));
     background: color-mix(in srgb, var(--surface) 96%, var(--bg) 4%);
     border-top: 1px solid var(--line);
   }
@@ -7888,7 +7895,7 @@ textarea {
   }
 
   .camera-modal__actions {
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    padding-bottom: calc(14px + var(--app-safe-bottom));
   }
 
   .camera-modal__actions .btn {

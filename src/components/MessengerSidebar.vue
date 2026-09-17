@@ -978,7 +978,7 @@ onBeforeUnmount(() => {
     transform: none;
     display: flex;
     flex-direction: column;
-    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    padding: 0 0 max(18px, var(--app-safe-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -1108,7 +1108,7 @@ onBeforeUnmount(() => {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    padding: 0 0 max(18px, var(--app-safe-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -1208,7 +1208,7 @@ onBeforeUnmount(() => {
     max-width: 100%;
     display: flex;
     flex-direction: column;
-    padding: 0 0 max(18px, env(safe-area-inset-bottom));
+    padding: 0 0 max(18px, var(--app-safe-bottom));
     border-radius: 22px 22px 0 0;
     border: 0;
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
