@@ -297,6 +297,19 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
       if (inner.kind === "intro") {
         if (state.acceptUnknown === "off") return;
+        // Le dead-drop re-délivre les enveloppes : sans garde, une même
+        // demande réapparaît à chaque poll et chaque acceptation créerait une
+        // room supplémentaire. Un seul pending (et pas de doublon si déjà ami)
+        // par empreinte de prékey émetteur.
+        const senderFp = inner.sender?.prekeyFp;
+        const alreadyFriend = Object.values(state.friendsByUser).some(
+          (friend: any) => friend?.peerFp === senderFp,
+        );
+        if (alreadyFriend) return;
+        const alreadyPending = state.pendingIncoming.some(
+          (item: any) => item.sender?.prekeyFp === senderFp,
+        );
+        if (alreadyPending) return;
         state.pendingIncoming.push({
           id: globalThis.crypto.randomUUID(),
           ...inner,
@@ -311,6 +324,16 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
   async function handleWelcome(inner: PhantomInner): Promise<void> {
     if (!inner.welcome) return;
+    // Re-délivraison du dead-drop : si ce welcome a déjà été traité (même
+    // room, même émetteur déjà ami), on n'importe/joint pas une seconde fois.
+    const existing = state.friendsByUser[inner.sender?.displayName];
+    if (
+      existing &&
+      existing.state === "friends" &&
+      existing.roomId === inner.welcome.roomId
+    ) {
+      return;
+    }
     try {
       ctx.importRoomKey(inner.welcome.roomId, inner.welcome.roomKey);
       ctx.requestJoin(inner.welcome.roomId);
@@ -537,6 +560,24 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (index < 0) return false;
     const incoming = state.pendingIncoming[index];
 
+    // Gate d'acceptation — tout est vérifié AVANT de créer la moindre room :
+    // 1) le compte doit être identifié (sinon requestJoin() no-op côté WS et
+    //    le pair resterait dans une room vide) ;
+    // 2) les recovery words doivent être disponibles (elles signent le
+    //    welcome — sans elles l'acceptation ne peut jamais aboutir) ;
+    // 3) la signature de l'émetteur doit être valide.
+    if (!ctx.state?.identified) {
+      setError(
+        "Log in with a verified account before accepting friend requests.",
+      );
+      return false;
+    }
+    const master = await deriveMasterSecret();
+    if (!master) {
+      setError("Recovery words unavailable — verify your account first.");
+      return false;
+    }
+
     // Vérifie la signature ML-DSA contre la bundle publique de l'émetteur.
     const senderBundle = await fetchPrekey(incoming.sender.displayName);
     if (!senderBundle) {
@@ -553,6 +594,17 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       return false;
     }
 
+    // Déjà ami avec cette empreinte (acceptation croisée en cours, ou
+    // redélivrance) : purge la demande au lieu de créer une deuxième room.
+    const alreadyFriend = Object.values(state.friendsByUser).some(
+      (friend: any) => friend?.peerFp === incoming.sender?.prekeyFp,
+    );
+    if (alreadyFriend) {
+      state.pendingIncoming.splice(index, 1);
+      await syncRoster();
+      return true;
+    }
+
     const { roomId, roomKey } = ctx.generateRoomAccessToken();
     ctx.importRoomKey(roomId, roomKey);
     ctx.requestJoin(roomId);
@@ -560,11 +612,6 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     const prekey = state.prekey;
     if (!prekey) {
       setError("No local prekey available.");
-      return false;
-    }
-    const master = await deriveMasterSecret();
-    if (!master) {
-      setError("Recovery words unavailable.");
       return false;
     }
     const day = epochDay(Date.now());
@@ -596,6 +643,17 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       bucket: pickBucket(JSON.stringify(inner).length),
     });
 
+    // La room n'est validée qu'après la livraison du welcome : si le dépôt est
+    // rejeté, on annule l'enregistrement local pour pouvoir réessayer, sans
+    // laisser une room fantôme dont le pair ne connaîtra jamais la clé.
+    const deposited = await depositEnvelope(outer);
+    if (!deposited) {
+      ctx.unregisterFriendRoom?.(roomId);
+      delete state.friendsByUser[incoming.sender.displayName];
+      await syncRoster();
+      return false;
+    }
+
     state.pendingIncoming.splice(index, 1);
     ctx.setLocalRoomTitle?.(roomId, incoming.sender.displayName);
     ctx.registerFriendRoom?.(roomId, incoming.sender.displayName);
@@ -608,7 +666,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       createdAt: Date.now(),
     };
     await syncRoster();
-    return depositEnvelope(outer);
+    return true;
   }
 
   function ignoreIncoming(id: string): void {
