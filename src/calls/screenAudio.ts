@@ -13,18 +13,12 @@
 
 import { invoke, Channel } from "@tauri-apps/api/core";
 
+export { isTauriDesktopRuntime } from "@/utils/tauriDesktop";
+
 const SAMPLE_RATE = 48_000;
 // Ring buffer size in frames (2^N for cheap masking).
 const RING_BITS = 15;
 const RING_SIZE = 1 << RING_BITS; // 32768 frames ≈ 0.68 s @ 48 kHz
-
-export function isTauriDesktopRuntime() {
-  if (typeof window === "undefined") return false;
-  const candidate = window as any;
-  if (!(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__)) return false;
-  const ua = String(navigator?.userAgent || "").toLowerCase();
-  return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);
-}
 
 interface ActiveCapture {
   track: MediaStreamTrack;

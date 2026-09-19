@@ -100,7 +100,7 @@ export function relayDetailUrl(fingerprint: string): string {
 function isTauriRuntime(): boolean {
   if (typeof window === "undefined") return false;
   const w = window as any;
-  return Boolean(w.__TAURI_INTERNALS__ || w.__TAURI__);
+  return Boolean(w.__TAURI_INTERNALS__ || w.__TAURI__ || w.__TAURI_IPC__);
 }
 
 /**

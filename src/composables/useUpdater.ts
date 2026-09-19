@@ -37,11 +37,12 @@ export function useUpdater() {
   const { t } = useI18n();
 
   const isTauri = computed(() => {
+    const w = typeof window !== "undefined" ? (window as any) : null;
     const hasTauriGlobals =
-      typeof window !== "undefined" &&
-      ("__TAURI_INTERNALS__" in window ||
-        "__TAURI__" in window ||
-        "__TAURI_IPC__" in window);
+      !!w &&
+      ("__TAURI_INTERNALS__" in w ||
+        "__TAURI__" in w ||
+        "__TAURI_IPC__" in w);
         
     const isMobile =
       typeof navigator !== "undefined" &&

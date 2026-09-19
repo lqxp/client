@@ -6,7 +6,7 @@ import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
 import { appRuntimeConfig, turnServerList } from "@/config/runtime";
 import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
-import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcStatus } from "@/calls/discordRpc";
+import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, isTauriDesktopRuntime as isDiscordRuntime, type DiscordRpcStatus } from "@/calls/discordRpc";
 import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
@@ -219,42 +219,67 @@ const torError = ref("");
 let unsubTorStatus: (() => void) | null = null;
 
 // Discord Rich Presence (desktop only, driven by the Rust backend).
+// NOTE: gated on its own desktop check (not Tor's) so Tor state can never
+// hide/mislabel the RPC section. `discordDesktop` is reactive and refreshed
+// with a retry loop because Tauri globals (`withGlobalTauri`) can be injected
+// after mount on some WebKitGTK/NixOS setups.
 const discordRpcEnabled = ref(true);
 const discordRpcShowPlatform = ref(true);
 const discordRpcConnected = ref(false);
 const discordRpcReady = ref(false);
+const discordRpcError = ref("");
+const discordDesktop = ref(false);
+const showDiscordRpc = computed(() => discordDesktop.value || isDiscordRuntime());
+let discordRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function loadDiscordRpc() {
-  if (!isTorRuntime()) return;
+  if (!isDiscordRuntime()) return;
+  discordDesktop.value = true;
   try {
     const s: DiscordRpcStatus = await getDiscordRpcStatus();
     discordRpcEnabled.value = s.enabled;
     discordRpcShowPlatform.value = s.show_platform;
     discordRpcConnected.value = s.connected;
     discordRpcReady.value = true;
-  } catch {
+    discordRpcError.value = "";
+  } catch (err: any) {
+    console.error("[qxchat] discord-rpc status failed:", err);
     discordRpcReady.value = false;
+    discordRpcError.value = String(err?.message || err || "invoke failed");
   }
 }
 
+function ensureDiscordRpc(attempt = 0) {
+  if (isDiscordRuntime()) {
+    discordDesktop.value = true;
+    void loadDiscordRpc();
+    return;
+  }
+  if (attempt >= 10) return;
+  if (discordRetryTimer) clearTimeout(discordRetryTimer);
+  discordRetryTimer = setTimeout(() => ensureDiscordRpc(attempt + 1), 500);
+}
+
 async function toggleDiscordRpcEnabled(enabled: boolean) {
-  if (!isTorRuntime()) return;
+  if (!isDiscordRuntime()) return;
   try {
     const s = await setDiscordRpcEnabled(enabled);
     discordRpcEnabled.value = s.enabled;
     await loadDiscordRpc();
-  } catch {
+  } catch (err: any) {
+    console.error("[qxchat] discord-rpc set_enabled failed:", err);
     await loadDiscordRpc();
   }
 }
 
 async function toggleDiscordRpcShowPlatform(showPlatform: boolean) {
-  if (!isTorRuntime()) return;
+  if (!isDiscordRuntime()) return;
   try {
     const s = await setDiscordRpcShowPlatform(showPlatform);
     discordRpcShowPlatform.value = s.show_platform;
     await loadDiscordRpc();
-  } catch {
+  } catch (err: any) {
+    console.error("[qxchat] discord-rpc set_show_platform failed:", err);
     await loadDiscordRpc();
   }
 }
@@ -808,6 +833,7 @@ watch(isOpen, async (v) => {
     if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
     await nextTick();
     maybeAutoLoadTorDirectory();
+    ensureDiscordRpc();
   } else {
     releaseSettingsHistoryEntry();
   }
@@ -817,6 +843,7 @@ watch(activeSection, async (section) => {
   if (!isOpen.value) return;
   if (section === "calls") props.messenger.refreshAudioDevices();
   if (section === "admin") props.messenger.loadAdminOverview();
+  if (section === "advanced") ensureDiscordRpc();
   if (section !== "calls") {
     props.messenger.stopMicTest();
     stopCameraPreview();
@@ -1308,8 +1335,10 @@ onMounted(() => {
     fetchTorStatus().then((s) => {
       torStatus.value = s;
     }).catch(() => {});
-    loadDiscordRpc().catch(() => {});
   }
+  // Discord RPC has its own desktop gate + retry: Tauri globals can arrive
+  // after mount (WebKitGTK/NixOS), so never tie this to the Tor check above.
+  ensureDiscordRpc();
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
@@ -1317,6 +1346,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("keydown", onKey);
   releaseSettingsHistoryEntry();
   stopCameraPreview();
+  if (discordRetryTimer) clearTimeout(discordRetryTimer);
   if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
   unsubTorStatus?.();
 });
@@ -2436,7 +2466,7 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
-        <div v-if="isTorRuntime()" class="settings-group">
+        <div v-if="showDiscordRpc" class="settings-group">
           <h4>{{ t('settings.advanced.discordRpc.title') }}</h4>
           <template v-if="discordRpcReady">
             <label class="settings-check">
@@ -2465,6 +2495,7 @@ onBeforeUnmount(() => {
           </template>
           <p v-else class="settings-note">
             {{ t('settings.advanced.discordRpc.unavailable') }}
+            <template v-if="discordRpcError"> ({{ discordRpcError }})</template>
           </p>
         </div>
       </section>

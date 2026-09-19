@@ -9,7 +9,7 @@ type PermissionStateResponse = Record<string, "granted" | "denied" | "prompt">;
 function isTauriRuntime() {
   if (typeof window === "undefined") return false;
   const candidate = window as any;
-  return Boolean(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__);
+  return Boolean(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__ || candidate.__TAURI_IPC__);
 }
 
 /**

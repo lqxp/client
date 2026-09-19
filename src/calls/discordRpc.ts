@@ -11,13 +11,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-export function isTauriDesktopRuntime() {
-  if (typeof window === "undefined") return false;
-  const candidate = window as any;
-  if (!(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__)) return false;
-  const ua = String(navigator?.userAgent || "").toLowerCase();
-  return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);
-}
+export { isTauriDesktopRuntime } from "@/utils/tauriDesktop";
 
 export interface DiscordRpcSettings {
   enabled: boolean;

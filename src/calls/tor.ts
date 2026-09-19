@@ -9,6 +9,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+export { isTauriDesktopRuntime } from "@/utils/tauriDesktop";
+
 export interface TorStatus {
   running: boolean;
   port: number;
@@ -32,14 +34,6 @@ export interface CircuitHop {
 
 export interface CircuitPath {
   hops: CircuitHop[];
-}
-
-export function isTauriDesktopRuntime() {
-  if (typeof window === "undefined") return false;
-  const w = window as any;
-  if (!(w.__TAURI_INTERNALS__ || w.__TAURI__)) return false;
-  const ua = String(navigator?.userAgent || "").toLowerCase();
-  return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);
 }
 
 let statusListeners = new Set<(s: TorStatus) => void>();
