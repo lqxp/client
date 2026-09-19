@@ -190,7 +190,17 @@
         "recordSend": "enviar",
         "recordCancel": "cancelar",
         "dropToSend": "Suelta archivos para enviar",
-        "cannotSpeakHere": "{channel} no te permite hablar allí"
+        "cannotSpeakHere": "{channel} no te permite hablar allí",
+        "emojiCategory": {
+            "smileys": "Emoticonos y personas",
+            "gestures": "Gestos",
+            "animals": "Animales y naturaleza",
+            "food": "Comida y bebida",
+            "activities": "Actividades y viajes",
+            "objects": "Objetos y símbolos",
+            "flags": "Banderas"
+        },
+        "emojiSuggestions": "Sugerencias de emoji"
     },
     "message": {
         "deleted": "Mensaje eliminado",
@@ -711,7 +721,19 @@
         "capture": "Capturar",
         "cancel": "Cancelar",
         "switch": "Cambiar cámara",
-        "close": "Cerrar cámara"
+        "close": "Cerrar cámara",
+        "unavailable": "Este navegador no da acceso a una cámara.",
+        "denied": "Se denegó el acceso a la cámara.",
+        "deniedHint": "Permite la cámara para este sitio en los ajustes del navegador y vuelve a intentarlo.",
+        "notFound": "No se detectó ninguna cámara.",
+        "notFoundHint": "Conecta una cámara y vuelve a intentarlo.",
+        "busy": "La cámara ya está en uso.",
+        "busyHint": "Cierra la otra aplicación que la usa y vuelve a intentarlo.",
+        "failed": "No se pudo abrir la cámara.",
+        "retry": "Reintentar",
+        "capturing": "Capturando…",
+        "notReady": "La cámara aún no está lista.",
+        "captureFailed": "No se pudo tomar la foto."
     },
     "audio": {
         "download": "Descargar audio"

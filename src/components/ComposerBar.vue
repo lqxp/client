@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { twemojiSvgUrl } from "@/utils/twemoji";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -17,12 +18,17 @@ const cameraCanvasRef = ref<HTMLCanvasElement | null>(null);
 const pickerOpen = ref(false);
 const cameraOpen = ref(false);
 const cameraBusy = ref(false);
-const cameraError = ref("");
+/** Which failure to explain, rather than the browser's own wording. */
+type CameraFault = "" | "unavailable" | "denied" | "notFound" | "busy" | "failed" | "notReady" | "captureFailed";
+/** Which failure to explain, rather than the browser's own wording. */
+const cameraError = ref<CameraFault>("");
 const mobileActionsOpen = ref(false);
 const isMobile = ref(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
 const cursorPosition = ref(0);
 const mentionIndex = ref(0);
 const mentionSuppressedStart = ref(-1);
+const shortcodeIndex = ref(0);
+const shortcodeSuppressedStart = ref(-1);
 const cameraFacing = ref<"user" | "environment">(
   (typeof localStorage !== "undefined" && (localStorage.getItem("lqxp_camera_facing") as "user" | "environment" | null)) || "environment"
 );
@@ -109,6 +115,51 @@ const mentionOptions = computed<string[]>(() => {
     })
     .slice(0, 8);
 });
+/**
+ * A half-typed `:shortcode`. The colon has to start a word, so `http://` and
+ * `12:30` never open the list.
+ */
+const shortcodeSearch = computed(() => {
+  const input = inputRef.value;
+  const cursor = input?.selectionStart ?? cursorPosition.value ?? 0;
+  const beforeCursor = String(props.messenger.state.messageInput || "").slice(0, cursor);
+  const match = /(^|[^a-zA-Z0-9_]):([a-z0-9_+-]{1,32})$/i.exec(beforeCursor);
+  if (!match) return null;
+  return {
+    start: beforeCursor.length - match[2].length - 1,
+    query: match[2].toLowerCase()
+  };
+});
+
+const shortcodeOptions = computed<{ code: string; emoji: string }[]>(() => {
+  if (disabled.value || !shortcodeSearch.value) return [];
+  const query = shortcodeSearch.value.query;
+  const seen = new Set<string>();
+  return Object.keys(EMOJI_SHORTCODES)
+    .filter((code) => code.startsWith(query) || code.includes(query))
+    .sort((a, b) => {
+      const aStarts = a.startsWith(query) ? 0 : 1;
+      const bStarts = b.startsWith(query) ? 0 : 1;
+      return aStarts - bStarts || a.length - b.length || a.localeCompare(b);
+    })
+    // One row per emoji: several words point at the same character.
+    .filter((code) => {
+      const emoji = EMOJI_SHORTCODES[code];
+      if (seen.has(emoji)) return false;
+      seen.add(emoji);
+      return true;
+    })
+    .slice(0, 8)
+    .map((code) => ({ code, emoji: EMOJI_SHORTCODES[code] }));
+});
+
+const shortcodeOpen = computed(
+  () => shortcodeOptions.value.length > 0 && shortcodeSearch.value?.start !== shortcodeSuppressedStart.value
+);
+const selectedShortcode = computed(
+  () => shortcodeOptions.value[Math.min(shortcodeIndex.value, shortcodeOptions.value.length - 1)] || null
+);
+
 const mentionOpen = computed(() => mentionOptions.value.length > 0 && mentionSearch.value?.start !== mentionSuppressedStart.value);
 const selectedMention = computed<string>(() => mentionOptions.value[Math.min(mentionIndex.value, mentionOptions.value.length - 1)] || "");
 
@@ -143,10 +194,54 @@ function focusInput(options: { end?: boolean } = {}) {
   try { input.setSelectionRange(length, length); } catch { }
 }
 
+const FLAG_REGIONS = [
+  "AC", "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX",
+  "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ", "BR",
+  "BS", "BT", "BV", "BW", "BY", "BZ", "CA", "CC", "CD", "CF", "CG", "CH", "CI", "CK", "CL", "CM",
+  "CN", "CO", "CP", "CR", "CU", "CV", "CW", "CX", "CY", "CZ", "DE", "DG", "DJ", "DK", "DM", "DO",
+  "DZ", "EA", "EC", "EE", "EG", "EH", "ER", "ES", "ET", "EU", "FI", "FJ", "FK", "FM", "FO", "FR",
+  "GA", "GB", "GD", "GE", "GF", "GG", "GH", "GI", "GL", "GM", "GN", "GP", "GQ", "GR", "GS", "GT",
+  "GU", "GW", "GY", "HK", "HM", "HN", "HR", "HT", "HU", "IC", "ID", "IE", "IM", "IN", "IO", "IQ",
+  "IR", "IS", "IT", "JE", "JM", "JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN", "KP", "KR", "KW",
+  "KY", "KZ", "LA", "LB", "LC", "LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY", "MA", "MC", "MD",
+  "ME", "MF", "MG", "MH", "MK", "ML", "MM", "MN", "MO", "MP", "MQ", "MR", "MS", "MT", "MU", "MV",
+  "MW", "MX", "MY", "MZ", "NA", "NC", "NE", "NF", "NG", "NI", "NL", "NO", "NP", "NR", "NU", "NZ",
+  "OM", "PA", "PE", "PF", "PG", "PH", "PK", "PL", "PM", "PN", "PR", "PS", "PT", "PW", "PY", "QA",
+  "RE", "RO", "RS", "RU", "RW", "SA", "SB", "SC", "SD", "SE", "SG", "SH", "SI", "SJ", "SK", "SL",
+  "SM", "SN", "SO", "SR", "SS", "ST", "SV", "SX", "SY", "SZ", "TA", "TC", "TD", "TF", "TG", "TH",
+  "TJ", "TK", "TL", "TM", "TN", "TO", "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "UM", "UN", "US",
+  "UY", "UZ", "VA", "VC", "VE", "VG", "VI", "VN", "VU", "WF", "WS", "XK", "YE", "YT", "ZA", "ZM",
+  "ZW"
+];
+
+const FLAG_SUBDIVISIONS = ["\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
+  "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",
+  "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}"];
+
+const FLAG_SPECIALS = ["\u{1F3C1}", "\u{1F6A9}", "\u{1F3F3}\uFE0F", "\u{1F3F4}",
+  "\u{1F3F3}\uFE0F\u200D\u{1F308}", "\u{1F3F3}\uFE0F\u200D\u26A7\uFE0F",
+  "\u{1F3F4}\u200D\u2620\uFE0F"];
+
+const FLAG_EXTRA_NAMES: Record<string, string> = {
+  [FLAG_SPECIALS[0]]: "flag chequered checkered race finish",
+  [FLAG_SPECIALS[1]]: "flag triangular red post golf",
+  [FLAG_SPECIALS[2]]: "flag white surrender",
+  [FLAG_SPECIALS[3]]: "flag black",
+  [FLAG_SPECIALS[4]]: "flag rainbow pride lgbt gay",
+  [FLAG_SPECIALS[5]]: "flag transgender trans pride",
+  [FLAG_SPECIALS[6]]: "flag pirate jolly roger skull",
+  [FLAG_SUBDIVISIONS[0]]: "flag england english gbeng united kingdom",
+  [FLAG_SUBDIVISIONS[1]]: "flag scotland scottish gbsct united kingdom",
+  [FLAG_SUBDIVISIONS[2]]: "flag wales welsh gbwls united kingdom"
+};
+
+function regionFlag(code: string) {
+  return String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+
 const EMOJI_CATEGORIES = [
   {
     id: "smileys",
-    label: "Smileys & People",
     emojis: [
       "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃",
       "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙",
@@ -165,7 +260,6 @@ const EMOJI_CATEGORIES = [
   },
   {
     id: "gestures",
-    label: "Gestures",
     emojis: [
       "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞",
       "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍",
@@ -175,8 +269,7 @@ const EMOJI_CATEGORIES = [
     ]
   },
   {
-    id: "nature",
-    label: "Animals & Nature",
+    id: "animals",
     emojis: [
       "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯",
       "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒",
@@ -189,7 +282,6 @@ const EMOJI_CATEGORIES = [
   },
   {
     id: "food",
-    label: "Food & Drink",
     emojis: [
       "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐",
       "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦",
@@ -205,7 +297,6 @@ const EMOJI_CATEGORIES = [
   },
   {
     id: "activities",
-    label: "Activities & Travel",
     emojis: [
       "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸",
       "🏒", "🏑", "🏏", "🥅", "⛳", "🏹", "🎣", "🥊", "🥋", "🎽",
@@ -226,7 +317,6 @@ const EMOJI_CATEGORIES = [
   },
   {
     id: "objects",
-    label: "Objects & Symbols",
     emojis: [
       "⌚", "📱", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️", "🕹️", "💽",
       "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽️", "📞",
@@ -242,6 +332,10 @@ const EMOJI_CATEGORIES = [
       "💢", "🔥", "✨", "⭐", "🎉", "🎊", "☕", "❗", "❓", "✅",
       "❌", "⭕", "🛑", "⛔", "🚫", "⚠️", "♻️", "➕", "➖", "➗", "✖️"
     ]
+  },
+  {
+    id: "flags",
+    emojis: [...FLAG_SPECIALS, ...FLAG_SUBDIVISIONS, ...FLAG_REGIONS.map(regionFlag)]
   }
 ];
 
@@ -603,13 +697,105 @@ const EMOJI_NAMES = {
   "✖️": "multiply"
 };
 
+/**
+ * The shortcodes people already know from other chat apps. Without them the
+ * generated list below answers on a first-come basis, which hands `:fire:` to
+ * the fire engine and `:heart:` to the smiley with heart eyes.
+ */
+const EMOJI_ALIASES: Record<string, string> = {
+  "100": "💯",
+  alien: "👽",
+  angry: "😠",
+  beer: "🍺",
+  bug: "🐛",
+  bulb: "💡",
+  cake: "🎂",
+  check: "✅",
+  clap: "👏",
+  coffee: "☕",
+  crown: "👑",
+  cry: "😢",
+  eyes: "👀",
+  fire: "🔥",
+  ghost: "👻",
+  heart: "❤️",
+  joy: "😂",
+  key: "🔑",
+  kiss: "😘",
+  lock: "🔒",
+  love: "😍",
+  moneybag: "💰",
+  muscle: "💪",
+  ok: "👌",
+  party: "🎉",
+  poop: "💩",
+  pray: "🙏",
+  robot: "🤖",
+  rocket: "🚀",
+  skull: "💀",
+  smile: "😄",
+  sob: "😭",
+  sparkles: "✨",
+  star: "⭐",
+  sunglasses: "😎",
+  tada: "🎉",
+  thinking: "🤔",
+  thumbsdown: "👎",
+  thumbsup: "👍",
+  warning: "⚠️",
+  wave: "👋",
+  wink: "😉",
+  x: "❌"
+};
+
+/**
+ * `:name:` shortcodes, built from the same keyword list the picker searches,
+ * with the aliases above taking precedence. The first emoji to claim a
+ * remaining word keeps it, so a given shortcode always produces the same
+ * character.
+ */
+const EMOJI_SHORTCODES: Record<string, string> = (() => {
+  const map: Record<string, string> = { ...EMOJI_ALIASES };
+  for (const [emoji, names] of Object.entries(EMOJI_NAMES)) {
+    for (const word of String(names).split(/\s+/)) {
+      const code = word.toLowerCase();
+      if (code.length >= 2 && !(code in map)) map[code] = emoji;
+    }
+  }
+  return map;
+})();
+
+function emojiCategoryLabel(id: string) {
+  return t(`composer.emojiCategory.${id}`);
+}
+
 const emojiSearch = ref("");
 const emojiCategory = ref("smileys");
+
+const flagNames: Record<string, string> = (() => {
+  const names: Record<string, string> = { ...FLAG_EXTRA_NAMES };
+  let regionName: Intl.DisplayNames | null = null;
+  try {
+    regionName = new Intl.DisplayNames(["en"], { type: "region" });
+  } catch {
+    regionName = null;
+  }
+  for (const code of FLAG_REGIONS) {
+    let label = "";
+    try {
+      label = regionName?.of(code) ?? "";
+    } catch {
+      label = "";
+    }
+    names[regionFlag(code)] = `flag ${code} ${label}`.toLowerCase();
+  }
+  return names;
+})();
 
 function emojiMatchesQuery(emoji: string, q: string): boolean {
   if (!q) return true;
   if (emoji.toLowerCase().includes(q)) return true;
-  const names = EMOJI_NAMES[emoji];
+  const names = EMOJI_NAMES[emoji] ?? flagNames[emoji];
   return Boolean(names && names.includes(q));
 }
 
@@ -754,7 +940,12 @@ function onComposerClick() {
 
 function onComposerContainerClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
-  if (target.closest("button")) return;
+  // Clicking the padding around the field puts the caret back in the message,
+  // but the emoji picker and the suggestion lists are children of the same
+  // container: without this guard a click on the picker's search box focused
+  // it and then handed the focus straight back to the message field, so every
+  // keystroke went to the chat.
+  if (target.closest("button, input, select, a, .emoji-picker, .mention-picker")) return;
   focusInput();
   syncCursor();
 }
@@ -787,6 +978,23 @@ async function insertMention(username: string) {
 }
 
 function onComposerKeydown(event: KeyboardEvent) {
+  if (shortcodeOpen.value && ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) {
+    event.preventDefault();
+    const count = shortcodeOptions.value.length;
+    if (event.key === "ArrowDown") {
+      shortcodeIndex.value = (shortcodeIndex.value + 1) % count;
+    } else if (event.key === "ArrowUp") {
+      shortcodeIndex.value = (shortcodeIndex.value - 1 + count) % count;
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      const option = selectedShortcode.value;
+      if (option) void insertShortcode(option);
+    } else {
+      shortcodeIndex.value = 0;
+      shortcodeSuppressedStart.value = shortcodeSearch.value?.start ?? -1;
+    }
+    return;
+  }
+
   if (mentionOpen.value && ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) {
     event.preventDefault();
     if (event.key === "ArrowDown") {
@@ -876,9 +1084,22 @@ async function pickCamera() {
   await startCameraStream();
 }
 
+/**
+ * `getUserMedia` rejects with a DOMException whose message is written by the
+ * browser, in the browser's language, for developers. Each cause gets its own
+ * sentence and its own way out instead.
+ */
+function cameraFailure(error: unknown) {
+  const name = error instanceof DOMException ? error.name : "";
+  if (name === "NotAllowedError" || name === "SecurityError") return "denied" as const;
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "notFound" as const;
+  if (name === "NotReadableError" || name === "AbortError") return "busy" as const;
+  return "failed" as const;
+}
+
 async function startCameraStream() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    cameraError.value = "Camera is not available in this browser.";
+    cameraError.value = "unavailable";
     return;
   }
 
@@ -898,9 +1119,25 @@ async function startCameraStream() {
       await cameraVideoRef.value.play().catch(() => { });
     }
   } catch (error) {
-    cameraError.value = error instanceof Error ? error.message : "Could not open camera.";
+    cameraError.value = cameraFailure(error);
     stopCameraStream();
   }
+}
+
+/** Only some faults are worth offering a second attempt for. */
+const cameraRetryable = computed(() => ["denied", "notFound", "busy", "failed"].includes(cameraError.value));
+const cameraHint = computed(() => {
+  const key = cameraError.value;
+  if (key === "denied") return t("camera.deniedHint");
+  if (key === "notFound") return t("camera.notFoundHint");
+  if (key === "busy") return t("camera.busyHint");
+  return "";
+});
+
+async function retryCamera() {
+  cameraError.value = "";
+  await nextTick();
+  await startCameraStream();
 }
 
 function switchCamera() {
@@ -939,6 +1176,49 @@ function toggleMobileActions() {
   if (disabled.value) return;
   pickerOpen.value = false;
   mobileActionsOpen.value = !mobileActionsOpen.value;
+}
+
+/** Swaps the half-typed `:code` for its character and closes the list. */
+async function insertShortcode(option: { code: string; emoji: string }) {
+  const search = shortcodeSearch.value;
+  const input = inputRef.value;
+  if (!search || !input) return;
+  const value = props.messenger.state.messageInput || "";
+  const caret = input.selectionStart ?? value.length;
+
+  props.messenger.state.messageInput = value.slice(0, search.start) + option.emoji + value.slice(caret);
+  shortcodeIndex.value = 0;
+  shortcodeSuppressedStart.value = -1;
+  const position = search.start + option.emoji.length;
+  await nextTick();
+  input.focus();
+  input.setSelectionRange(position, position);
+  syncCursor();
+}
+
+const SHORTCODE_AT_CARET = /:([a-z0-9_+-]{2,32}):$/i;
+
+/**
+ * Turns `:tada:` into 🎉 the moment the closing colon is typed, leaving the
+ * caret after the emoji. Typing continues uninterrupted; nothing happens when
+ * the word is unknown, so `10:30:` and the like are left alone.
+ */
+function expandShortcodeAtCaret() {
+  const input = inputRef.value;
+  if (!input) return;
+  const value = props.messenger.state.messageInput || "";
+  const caret = input.selectionStart ?? value.length;
+  const match = SHORTCODE_AT_CARET.exec(value.slice(0, caret));
+  if (!match) return;
+  const emoji = EMOJI_SHORTCODES[match[1].toLowerCase()];
+  if (!emoji) return;
+
+  props.messenger.state.messageInput = value.slice(0, match.index) + emoji + value.slice(caret);
+  const position = match.index + emoji.length;
+  nextTick(() => {
+    input.setSelectionRange(position, position);
+    input.focus();
+  });
 }
 
 async function insertEmoji(emoji: string) {
@@ -1012,7 +1292,7 @@ async function capturePhoto() {
   const width = video.videoWidth || 1280;
   const height = video.videoHeight || 720;
   if (!width || !height) {
-    cameraError.value = "Camera is not ready yet.";
+    cameraError.value = "notReady";
     return;
   }
 
@@ -1021,7 +1301,7 @@ async function capturePhoto() {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    cameraError.value = "Could not capture photo.";
+    cameraError.value = "captureFailed";
     cameraBusy.value = false;
     return;
   }
@@ -1029,7 +1309,7 @@ async function capturePhoto() {
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
   if (!blob) {
-    cameraError.value = "Could not capture photo.";
+    cameraError.value = "captureFailed";
     cameraBusy.value = false;
     return;
   }
@@ -1051,6 +1331,9 @@ watch(() => props.messenger.state.activeRoom, () => {
 
 function onInput() {
   mentionSuppressedStart.value = -1;
+  shortcodeSuppressedStart.value = -1;
+  shortcodeIndex.value = 0;
+  expandShortcodeAtCaret();
   syncCursor();
 }
 
@@ -1227,8 +1510,9 @@ onBeforeUnmount(() => {
         </button>
 
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
-          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false" @input="onInput"
-          @click="onComposerClick" @keyup="onComposerKeyup" @keydown="onComposerKeydown"></textarea>
+          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false"
+          @input="onInput" @click="onComposerClick" @keyup="onComposerKeyup"
+          @keydown="onComposerKeydown"></textarea>
 
         <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
           :disabled="mediaDisabled" @click="pickCamera">
@@ -1249,6 +1533,16 @@ onBeforeUnmount(() => {
             <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
         </button>
+
+        <div v-if="shortcodeOpen" class="mention-picker mention-picker--emoji" role="listbox"
+          :aria-label="t('composer.emojiSuggestions')">
+          <button v-for="(option, index) in shortcodeOptions" :key="option.code" type="button"
+            class="mention-picker__item" :class="{ 'is-active': index === shortcodeIndex }" role="option"
+            :aria-selected="index === shortcodeIndex" @mousedown.prevent="insertShortcode(option)">
+            <span class="mention-picker__emoji"><img class="emoji-picker__glyph" :src="twemojiSvgUrl(option.emoji)" :alt="option.emoji" draggable="false" /></span>
+            <span class="mention-picker__name">:{{ option.code }}:</span>
+          </button>
+        </div>
 
         <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
           <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
@@ -1293,15 +1587,16 @@ onBeforeUnmount(() => {
                 :class="{ 'is-active': emojiCategory === cat.id }"
                 role="tab"
                 :aria-selected="emojiCategory === cat.id"
-                :aria-label="cat.label"
-                :title="cat.label"
+                :aria-label="emojiCategoryLabel(cat.id)"
+                :title="emojiCategoryLabel(cat.id)"
                 @click="emojiCategory = cat.id"
-              >{{ cat.emojis[0] }}</button>
+              ><img class="emoji-picker__glyph" :src="twemojiSvgUrl(cat.emojis[0])" :alt="cat.emojis[0]"
+                  draggable="false" /></button>
             </div>
 
             <div v-if="emojiSearch.trim()" class="emoji-picker__results">
               <template v-for="cat in filteredEmojiCategories" :key="cat.id">
-                <div class="emoji-picker__section-label">{{ cat.label }}</div>
+                <div class="emoji-picker__section-label">{{ emojiCategoryLabel(cat.id) }}</div>
                 <div class="emoji-picker__grid">
                   <button
                     v-for="emoji in cat.emojis"
@@ -1309,14 +1604,16 @@ onBeforeUnmount(() => {
                     type="button"
                     class="emoji-picker__cell"
                     :aria-label="emoji"
+                    :title="emoji"
                     @click="insertEmoji(emoji)"
-                  >{{ emoji }}</button>
+                  ><img class="emoji-picker__glyph" :src="twemojiSvgUrl(emoji)" :alt="emoji" draggable="false"
+                      decoding="async" /></button>
                 </div>
               </template>
             </div>
 
             <div v-else class="emoji-picker__results">
-              <div class="emoji-picker__section-label">{{ activeEmojiCategory.label }}</div>
+              <div class="emoji-picker__section-label">{{ emojiCategoryLabel(activeEmojiCategory.id) }}</div>
               <div class="emoji-picker__grid">
                 <button
                   v-for="emoji in activeEmojiCategory.emojis"
@@ -1324,8 +1621,10 @@ onBeforeUnmount(() => {
                   type="button"
                   class="emoji-picker__cell"
                   :aria-label="emoji"
+                  :title="emoji"
                   @click="insertEmoji(emoji)"
-                >{{ emoji }}</button>
+                ><img class="emoji-picker__glyph" :src="twemojiSvgUrl(emoji)" :alt="emoji" draggable="false"
+                    decoding="async" /></button>
               </div>
             </div>
           </div>
@@ -1342,41 +1641,64 @@ onBeforeUnmount(() => {
   </footer>
 
   <Teleport to="body">
-    <div v-if="cameraOpen" class="camera-modal" role="dialog" aria-modal="true" :aria-label="t('camera.title')">
-      <div class="camera-modal__panel">
-        <header class="camera-modal__head">
-          <span>{{ t('camera.title') }}</span>
-          <div class="camera-modal__head-actions">
-            <button type="button" class="icon-btn" :aria-label="t('camera.switch')" @click="switchCamera">
-              <svg viewBox="0 0 24 24">
-                <path d="M20 7h-5l-1.5-2h-3L9 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
-                <path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                <path d="m7 3 2 2" />
-                <path d="m17 3-2 2" />
-              </svg>
-            </button>
-            <button type="button" class="icon-btn" :aria-label="t('camera.close')" @click="closeCamera">
-              <svg viewBox="0 0 24 24">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </header>
+    <div v-if="cameraOpen" class="shot" role="dialog" aria-modal="true" :aria-label="t('camera.title')">
+      <div class="shot__stage">
+        <video v-show="!cameraError" ref="cameraVideoRef" autoplay muted playsinline></video>
 
-        <div class="camera-modal__preview">
-          <video ref="cameraVideoRef" autoplay muted playsinline></video>
-          <div v-if="cameraError" class="camera-modal__error">{{ cameraError }}</div>
-        </div>
-
-        <canvas ref="cameraCanvasRef" class="sr-only"></canvas>
-
-        <div class="camera-modal__actions">
-          <button type="button" class="btn" @click="closeCamera">{{ t('camera.cancel') }}</button>
-          <button type="button" class="btn btn--primary" :disabled="cameraBusy || !!cameraError" @click="capturePhoto">
-            {{ cameraBusy ? "..." : t('camera.capture') }}
+        <!-- Says what went wrong and what to do about it, rather than echoing
+             the browser's own developer-facing message. -->
+        <div v-if="cameraError" class="shot__fault">
+          <!-- A whole camera with the slash cutting its own gap through it. The
+               outline used to stop dead on the right, which read as a drawing
+               mistake rather than a struck-through camera. -->
+          <svg class="shot__fault-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 7l1.5-2h3L15 7h5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+            <circle cx="12" cy="13.5" r="3.5" />
+            <path class="shot__fault-cut" d="M3.6 2.6 20.4 21.4" stroke-width="4" />
+            <path d="M4 3 20 21" />
+          </svg>
+          <p class="shot__fault-title">{{ t(`camera.${cameraError}`) }}</p>
+          <p v-if="cameraHint" class="shot__fault-hint">{{ cameraHint }}</p>
+          <button v-if="cameraRetryable" type="button" class="shot__retry" @click="retryCamera">
+            {{ t('camera.retry') }}
           </button>
         </div>
       </div>
+
+      <header class="shot__top">
+        <button type="button" class="shot__chip" :aria-label="t('camera.close')" :title="t('camera.close')"
+          @click="closeCamera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+        <button v-if="!cameraError" type="button" class="shot__chip" :aria-label="t('camera.switch')"
+          :title="t('camera.switch')" @click="switchCamera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 7h-5l-1.5-2h-3L9 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+            <path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+          </svg>
+        </button>
+      </header>
+
+      <canvas ref="cameraCanvasRef" class="sr-only"></canvas>
+
+      <footer class="shot__bar">
+        <button type="button" class="shot__cancel" @click="closeCamera">{{ t('camera.cancel') }}</button>
+        <!-- No viewfinder means nothing to capture: a greyed-out shutter would
+             just be a dead control sitting where the main action belongs. -->
+        <template v-if="!cameraError">
+          <button type="button" class="shot__shutter" :class="{ 'is-busy': cameraBusy }" :disabled="cameraBusy"
+            :aria-label="cameraBusy ? t('camera.capturing') : t('camera.capture')"
+            :title="cameraBusy ? t('camera.capturing') : t('camera.capture')" @click="capturePhoto">
+            <span class="shot__shutter-core"></span>
+          </button>
+          <span class="shot__spacer" aria-hidden="true"></span>
+        </template>
+      </footer>
     </div>
   </Teleport>
 </template>

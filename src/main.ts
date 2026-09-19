@@ -47,6 +47,12 @@ function syncPlatformChromeOffset() {
   const isAndroid = /Android/i.test(navigator.userAgent);
   const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
   document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
+  // The desktop title bar sits at --z-window-chrome, above every overlay, and
+  // the ones teleported to `body` start at y=0: without this offset their top
+  // controls end up underneath it. Same conditions InboxView uses to show it.
+  const isWebDesktop = window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
+  const hasTitlebar = (isTauri && !isAndroid) || isWebDesktop;
+  document.documentElement.style.setProperty("--app-chrome-top", hasTitlebar ? "30px" : "0px");
 }
 
 function preventMobileZoom() {

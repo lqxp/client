@@ -190,7 +190,17 @@
         "recordSend": "send",
         "recordCancel": "cancel",
         "dropToSend": "Drop files to send",
-        "cannotSpeakHere": "{channel} doesn't allow you to speak there"
+        "cannotSpeakHere": "{channel} doesn't allow you to speak there",
+        "emojiCategory": {
+            "smileys": "Smileys & People",
+            "gestures": "Gestures",
+            "animals": "Animals & Nature",
+            "food": "Food & Drink",
+            "activities": "Activities & Travel",
+            "objects": "Objects & Symbols",
+            "flags": "Flags"
+        },
+        "emojiSuggestions": "Emoji suggestions"
     },
     "message": {
         "deleted": "Message deleted",
@@ -700,7 +710,19 @@
         "capture": "Capture",
         "cancel": "Cancel",
         "switch": "Switch camera",
-        "close": "Close camera"
+        "close": "Close camera",
+        "unavailable": "This browser does not give access to a camera.",
+        "denied": "Camera access was refused.",
+        "deniedHint": "Allow the camera for this site in your browser settings, then try again.",
+        "notFound": "No camera found.",
+        "notFoundHint": "Connect a camera, then try again.",
+        "busy": "The camera is already in use.",
+        "busyHint": "Close the other app using it, then try again.",
+        "failed": "The camera could not be opened.",
+        "retry": "Try again",
+        "capturing": "Capturing…",
+        "notReady": "The camera is not ready yet.",
+        "captureFailed": "The photo could not be captured."
     },
     "ban": {
         "title": "Account Banned",

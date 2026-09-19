@@ -7,13 +7,17 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+const ZWJ = 0x200d;
+const VARIATION_SELECTOR = 0xfe0f;
+
 export function twemojiSvgUrl(emoji: string): string {
+  const symbols = Array.from(String(emoji || ""));
+  const joined = symbols.some((symbol) => symbol.codePointAt(0) === ZWJ);
   const codepoints: string[] = [];
-  for (const symbol of Array.from(String(emoji || ""))) {
+  for (const symbol of symbols) {
     const cp = symbol.codePointAt(0);
     if (!cp) continue;
-    // Twemoji filenames generally strip the emoji-variation selector FE0F.
-    if (cp === 0xfe0f) continue;
+    if (cp === VARIATION_SELECTOR && !joined) continue;
     codepoints.push(cp.toString(16));
   }
   if (!codepoints.length) return "";

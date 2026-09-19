@@ -190,7 +190,17 @@
         "recordSend": "envoyer",
         "recordCancel": "annuler",
         "dropToSend": "Dépose tes fichiers pour envoyer",
-        "cannotSpeakHere": "{channel} ne vous autorise pas à parler ici"
+        "cannotSpeakHere": "{channel} ne vous autorise pas à parler ici",
+        "emojiCategory": {
+            "smileys": "Smileys et personnes",
+            "gestures": "Gestes",
+            "animals": "Animaux et nature",
+            "food": "Nourriture et boissons",
+            "activities": "Activités et voyages",
+            "objects": "Objets et symboles",
+            "flags": "Drapeaux"
+        },
+        "emojiSuggestions": "Suggestions d'emoji"
     },
     "message": {
         "deleted": "Message supprimé",
@@ -700,7 +710,19 @@
         "capture": "Capturer",
         "cancel": "Annuler",
         "switch": "Changer de caméra",
-        "close": "Fermer la caméra"
+        "close": "Fermer la caméra",
+        "unavailable": "Ce navigateur ne donne pas accès à une caméra.",
+        "denied": "L'accès à la caméra a été refusé.",
+        "deniedHint": "Autorise la caméra pour ce site dans les réglages du navigateur, puis réessaie.",
+        "notFound": "Aucune caméra détectée.",
+        "notFoundHint": "Branche une caméra, puis réessaie.",
+        "busy": "La caméra est déjà utilisée.",
+        "busyHint": "Ferme l'autre application qui s'en sert, puis réessaie.",
+        "failed": "Impossible d'ouvrir la caméra.",
+        "retry": "Réessayer",
+        "capturing": "Capture…",
+        "notReady": "La caméra n'est pas encore prête.",
+        "captureFailed": "Impossible de prendre la photo."
     },
     "ban": {
         "title": "Compte banni",

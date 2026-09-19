@@ -1243,6 +1243,9 @@ function toggleLocalMute(username) {
           class="icon-btn"
           :class="{ 'icon-btn--danger': messenger.state.callMuted }"
           type="button"
+          :aria-label="messenger.state.callMuted ? t('call.unmute') : t('call.mute')"
+          :title="messenger.state.callMuted ? t('call.unmute') : t('call.mute')"
+          :aria-pressed="messenger.state.callMuted"
           @click="messenger.toggleMute"
         >
           <svg
@@ -1322,6 +1325,9 @@ function toggleLocalMute(username) {
           class="icon-btn"
           :class="{ 'icon-btn--active': messenger.state.callCameraEnabled }"
           type="button"
+          :aria-label="messenger.state.callCameraEnabled ? t('call.stopCamera') : t('call.startCamera')"
+          :title="messenger.state.callCameraEnabled ? t('call.stopCamera') : t('call.startCamera')"
+          :aria-pressed="messenger.state.callCameraEnabled"
           @click="messenger.toggleCamera"
         >
           <svg
@@ -1342,6 +1348,8 @@ function toggleLocalMute(username) {
         <button
           class="icon-btn icon-btn--danger"
           type="button"
+          :aria-label="t('call.endCall')"
+          :title="t('call.endCall')"
           @click="
             messenger.endCall();
             closeMobileCall();
