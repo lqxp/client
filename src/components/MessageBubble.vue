@@ -9,6 +9,7 @@ import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
 import { TEXT_ATTACHMENT_EXTENSIONS } from "@/composables/useMessenger";
 import { currentWindowZoom } from "@/utils/windowZoom";
+import { escapeHtml, renderEmojiHtml } from "@/utils/twemoji";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
@@ -279,15 +280,6 @@ function onReactionClick(reaction) {
   reactionTooltip.value = null;
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function safeHref(value) {
   const raw = String(value || "").trim();
   try {
@@ -304,34 +296,7 @@ function codeBlockLabel(value) {
   return label.slice(0, 40);
 }
 
-function twemojiSvgUrl(emoji) {
-  const codepoints = [];
-  for (const symbol of Array.from(String(emoji || ""))) {
-    const cp = symbol.codePointAt(0);
-    if (!cp) continue;
-    // Twemoji filenames generally strip the emoji-variation selector FE0F.
-    if (cp === 0xfe0f) continue;
-    codepoints.push(cp.toString(16));
-  }
-  if (!codepoints.length) return "";
-  const key = codepoints.join("-");
-  const base = String(import.meta.env.BASE_URL || "./");
-  return `${base}twemoji/svg/${key}.svg`;
-}
-
-function renderDiscordEmoji(value, options: { assumeHtml?: boolean } = {}) {
-  const raw = String(value || "");
-  const assumeHtml = Boolean(options.assumeHtml);
-  if (!raw) return "";
-  const source = assumeHtml ? raw : escapeHtml(raw);
-  const emojiRegex = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/gu;
-  return source.replace(emojiRegex, (emoji) => {
-    const url = twemojiSvgUrl(emoji);
-    if (!url) return emoji;
-    const safeAlt = escapeHtml(emoji);
-    return `<img class="twemoji" data-twemoji="1" draggable="false" alt="${safeAlt}" src="${url}" onerror="this.replaceWith(document.createTextNode('${safeAlt}'))"/>`;
-  });
-}
+const renderDiscordEmoji = renderEmojiHtml;
 
 function isKnownMention(username) {
   return validMentionUsers.value.has(String(username || "").trim().toLowerCase());
@@ -1051,12 +1016,13 @@ onBeforeUnmount(() => {
     </div>
     <!-- Reactions submenu -->
     <div v-if="showReactionsSubmenu" class="msg__context" @click.stop="showReactionsSubmenu = false" @contextmenu.prevent>
-      <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="'Reactions'" @click.stop>
+      <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="t('message.reactions')" @click.stop>
         <div class="msg__context-submenu-head">
-          <button type="button" class="msg__context-back" @click="showReactionsSubmenu = false">
+          <button type="button" class="msg__context-back" :aria-label="t('message.back')"
+            :title="t('message.back')" @click="showReactionsSubmenu = false">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
-          <strong>Reactions</strong>
+          <strong>{{ t('message.reactions') }}</strong>
         </div>
         <div class="msg__context-reactions-detail">
           <div v-for="reaction in message.reactions" :key="`sub-${reaction.emoji}`" class="msg__context-reaction-detail">

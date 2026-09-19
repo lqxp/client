@@ -16,9 +16,7 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-declare global {
-  const __APP_VERSION__: string;
-}
+declare const __APP_VERSION__: string;
 
 interface QxpRtcRuntimeConfig {
   relayOnly?: boolean;
@@ -36,10 +34,8 @@ interface QxpRuntimeConfig {
   rtc?: QxpRtcRuntimeConfig;
 }
 
-declare global {
-  interface Window {
-    __QXP_RUNTIME__?: QxpRuntimeConfig;
-  }
+interface Window {
+  __QXP_RUNTIME__?: QxpRuntimeConfig;
 }
 
 declare module "*.vue" {
@@ -48,5 +44,3 @@ declare module "*.vue" {
   const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>;
   export default component;
 }
-
-export {};

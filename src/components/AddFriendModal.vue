@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import SelectMenu from "@/components/SelectMenu.vue";
 
 const props = defineProps<{ messenger: any; phantom: any; open: boolean }>();
 const emit = defineEmits(["close"]);
@@ -19,6 +20,9 @@ const mutualRooms = computed(() => {
   if (!username.value.trim()) return [];
   return (props.messenger?.mutualRoomsWith?.(username.value.trim()) || []).slice(0, 8);
 });
+const roomOptions = computed(() =>
+  mutualRooms.value.map((room: any) => ({ value: String(room.roomId), label: String(room.name || room.roomId) }))
+);
 
 function reset() {
   tab.value = "context";
@@ -105,11 +109,8 @@ async function send() {
 
             <div v-if="tab === 'context' && mutualRooms.length" class="phantom-field">
               <span>{{ t("phantom.byContext") }}</span>
-              <select v-model="roomId">
-                <option v-for="room in mutualRooms" :key="room.roomId" :value="room.roomId">
-                  {{ room.name || room.roomId }}
-                </option>
-              </select>
+              <SelectMenu :aria-label="t('phantom.byContext')" :model-value="roomId" :options="roomOptions"
+                @update:model-value="roomId = String($event)" />
             </div>
 
             <p v-if="tab === 'username'" class="phantom-warning">{{ t("phantom.usernameWarning") }}</p>
@@ -206,7 +207,6 @@ async function send() {
   color: var(--muted);
 }
 .phantom-field input,
-.phantom-field select,
 .phantom-field textarea {
   padding: 9px 12px;
   border-radius: var(--radius-md);
@@ -217,10 +217,28 @@ async function send() {
   font-size: 14px;
 }
 .phantom-field input:focus,
-.phantom-field select:focus,
 .phantom-field textarea:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+/* The pop-up menu keeps the footprint the native control had here. */
+.phantom-field :deep(.smenu) {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  height: auto;
+  padding: 9px 10px 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.phantom-field :deep(.smenu.is-open),
+.phantom-field :deep(.smenu:focus-visible) {
+  border-color: var(--accent);
 }
 .phantom-warning {
   margin: 0;

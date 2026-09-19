@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import AdminSettings from "@/components/AdminSettings.vue";
+import SelectMenu from "@/components/SelectMenu.vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
+import { badgeLabel as badgeLabelFor } from "@/config/badges";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
@@ -36,11 +39,6 @@ const crop = ref<{ open: boolean; src: string; kind: "avatar" | "banner"; mimeTy
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
-const adminUserSearch = ref("");
-const adminBadgeDrafts = ref<Record<string, string>>({});
-const adminBadgeMenus = ref<Record<string, boolean>>({});
-const adminCustomBadgeDrafts = ref<Record<string, string>>({});
-const adminDefaultRoomId = ref("");
 const isMobileSettings = ref(false);
 const lockPin = ref("");
 const lockPinConfirm = ref("");
@@ -50,11 +48,6 @@ const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinL
 const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
 const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
 const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
-const adminRoomOptions = computed(() =>
-  (props.messenger.state.rooms || [])
-    .filter((room) => room?.roomId && props.messenger.roomKeyFor?.(room.roomId))
-    .map((room) => ({ roomId: room.roomId, title: room.title || room.roomId })),
-);
 
 // Phantom : signature du client via les recovery words.
 const recoveryWordsInput = ref("");
@@ -663,142 +656,70 @@ const filteredSections = computed(() => {
   if (!query) return sections.value;
   return sections.value.filter((section) => section.label.toLowerCase().includes(query));
 });
+const statusOptions = computed(() => [
+  { value: "online", label: t("sidebar.online") },
+  { value: "invisible", label: t("sidebar.invisible") },
+  { value: "dnd", label: t("sidebar.dnd") }
+]);
+const themeModeOptions = computed(() => [
+  { value: "system", label: t("settings.ui.system") },
+  { value: "dark", label: t("settings.ui.dark") },
+  { value: "light", label: t("settings.ui.light") },
+  { value: "adaptive", label: t("settings.ui.adaptive") }
+]);
+const accentOptions = computed(() => [
+  { value: "blue", label: t("settings.ui.blue") },
+  { value: "violet", label: t("settings.ui.violet") },
+  { value: "emerald", label: t("settings.ui.emerald") },
+  { value: "rose", label: t("settings.ui.rose") },
+  { value: "amber", label: t("settings.ui.amber") }
+]);
+const messageStyleOptions = computed(() => [
+  { value: "bubble", label: t("settings.ui.bubbles") },
+  { value: "discord", label: t("settings.ui.discord") }
+]);
+const localeOptions = computed(() =>
+  availableLocales.map((code) => ({ value: code, label: LOCALE_LABELS[code] || code }))
+);
+const pinLengthOptions = [4, 6, 8].map((length) => ({ value: length, label: String(length) }));
+const autolockSelectOptions = computed(() =>
+  autolockOptions.value.map((ms: number) => ({ value: ms, label: autolockLabel(ms) }))
+);
+const duressActionOptions = computed(() => [
+  { value: "wipe", label: t("settings.opsec.actionWipe") },
+  { value: "decoy", label: t("settings.opsec.actionDecoy") }
+]);
+const turnServerOptions = computed(() =>
+  turnServers.value.map((server: any) => ({ value: String(server.id), label: String(server.label) }))
+);
+function deviceOptions(devices: any[], fallback: (index: number) => string) {
+  return [
+    { value: "", label: t("settings.calls.systemDefault") },
+    ...devices.map((device: any, index: number) => ({
+      value: String(device.deviceId || ""),
+      label: deviceLabel(device, fallback(index))
+    }))
+  ];
+}
+const microphoneOptions = computed(() => deviceOptions(microphones.value, (i) => `Microphone ${i + 1}`));
+const speakerOptions = computed(() => deviceOptions(headphones.value, (i) => `Output ${i + 1}`));
+const cameraOptions = computed(() =>
+  deviceOptions(cameras.value, (i) => `${t("settings.calls.camera")} ${i + 1}`)
+);
+const acceptUnknownOptions = computed(() => [
+  { value: "off", label: t("phantom.acceptUnknownOff") },
+  { value: "filter", label: t("phantom.acceptUnknownFilter") },
+  { value: "all", label: t("phantom.acceptUnknownAll") }
+]);
+
+const myBadges = computed<string[]>(() => props.messenger.badgesFor?.(props.messenger.state.username) || []);
+const myBadgeNames = computed(() => myBadges.value.map((badge) => badgeLabelFor(t, badge)).join(", "));
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
-const adminSearchResults = computed(() => props.messenger.state.adminSearchResults || []);
-const adminSearchLoading = computed(() => Boolean(props.messenger.state.adminSearchLoading));
-const adminSearchSearched = computed(() => Boolean(props.messenger.state.adminSearchSearched));
-
-// Debounced server-side search: the client never holds the full user list,
-// each keystroke batch sends one request and the server returns the top 30
-// most similar usernames.
-let adminSearchTimer: number | null = null;
-watch(adminUserSearch, (value) => {
-  if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
-  const needle = String(value || "").trim();
-  if (!needle) {
-    props.messenger.state.adminSearchResults = [];
-    props.messenger.state.adminSearchSearched = false;
-    props.messenger.state.adminSearchLoading = false;
-    return;
-  }
-  adminSearchTimer = window.setTimeout(() => {
-    props.messenger.searchAdminUsers(needle);
-  }, 300);
-});
-
-const systemBadgeIds = new Set(["staff", "system"]);
-const suggestedAdminBadges = [
-  { id: "early", label: "Early QxChat User" },
-  { id: "vip", label: "VIP" },
-  { id: "mod", label: "Mod" },
-  { id: "contributor", label: "Contributor" },
-  { id: "artist", label: "Artist" },
-  { id: "bug_hunter", label: "Bug Hunter" },
-  { id: "bug_hunter_lvl_2", label: "Golden Bug Hunter" }
-];
-
-function adminBadgesFor(user: any): string[] {
-  return Array.isArray(user?.badges) ? user.badges.map((badge) => String(badge || "").trim()).filter(Boolean) : [];
-}
-
-function customAdminBadgesFor(user: any): string[] {
-  return adminBadgesFor(user).filter((badge) => !systemBadgeIds.has(badge));
-}
-
-function adminBadgeDraftFor(user: any): string[] {
-  const key = String(user?.id || "");
-  if (!key) return [];
-  if (!(key in adminBadgeDrafts.value)) {
-    adminBadgeDrafts.value[key] = customAdminBadgesFor(user).join(",");
-  }
-  return parseBadgeDraft(adminBadgeDrafts.value[key]);
-}
-
-function setAdminBadgeDraft(user: any, badges: string[]) {
-  const key = String(user?.id || "");
-  if (!key) return;
-  adminBadgeDrafts.value[key] = parseBadgeDraft(badges.join(",")).join(",");
-}
-
-function parseBadgeDraft(value: string) {
-  return [...new Set(String(value || "")
-    .split(/[\s,]+/)
-    .map((badge) => badge.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""))
-    .filter(Boolean))];
-}
-
-function adminBadgeSelected(user: any, badge: string) {
-  return adminBadgeDraftFor(user).includes(badge);
-}
-
-function toggleAdminBadge(user: any, badge: string) {
-  const current = new Set(adminBadgeDraftFor(user));
-  if (current.has(badge)) current.delete(badge);
-  else current.add(badge);
-  setAdminBadgeDraft(user, [...current]);
-}
-
-function customBadgeDraftFor(user: any) {
-  return adminCustomBadgeDrafts.value[String(user?.id || "")] || "";
-}
-
-function setCustomBadgeDraft(user: any, value: string) {
-  const key = String(user?.id || "");
-  if (!key) return;
-  adminCustomBadgeDrafts.value[key] = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
-}
-
-function addCustomAdminBadge(user: any) {
-  const key = String(user?.id || "");
-  const badge = customBadgeDraftFor(user).trim();
-  if (!key || !badge) return;
-  setAdminBadgeDraft(user, [...adminBadgeDraftFor(user), badge]);
-  adminCustomBadgeDrafts.value[key] = "";
-}
-
-function removeAdminBadge(user: any, badge: string) {
-  setAdminBadgeDraft(user, adminBadgeDraftFor(user).filter((item) => item !== badge));
-}
-
-function adminBadgeMenuOpen(user: any) {
-  return Boolean(adminBadgeMenus.value[String(user?.id || "")]);
-}
-
-function toggleAdminBadgeMenu(user: any) {
-  const key = String(user?.id || "");
-  if (!key) return;
-  adminBadgeMenus.value[key] = !adminBadgeMenus.value[key];
-}
-
-function adminBadgesChanged(user: any) {
-  return adminBadgeDraftFor(user).join(",") !== customAdminBadgesFor(user).join(",");
-}
-
-async function saveAdminBadges(user: any) {
-  const userId = String(user?.id || "");
-  if (!userId || !adminBadgesChanged(user)) return;
-  const badges = adminBadgeDraftFor(user);
-  const saved = await props.messenger.setAdminUserBadges?.(userId, badges);
-  if (saved) {
-    adminBadgeDrafts.value[userId] = badges.join(",");
-    adminBadgeMenus.value[userId] = false;
-  }
-}
-
-async function deleteAdminUser(user: any) {
-  const userId = String(user?.id || "");
-  const username = String(user?.username || userId);
-  if (!userId || userId === String(props.messenger.state.userId || "")) return;
-  if (!await dialog.showConfirm(t('settings.admin.deleteConfirm', { username }))) return;
-  await props.messenger.deleteAdminUser?.(userId);
-}
-
 watch(isOpen, async (v) => {
   if (v) {
     if (settingsHistoryDepth === 0) pushSettingsHistoryEntry();
     mobileSectionOpen.value = false;
     settingsSearch.value = "";
-    adminUserSearch.value = "";
     draftName.value = props.messenger.state.username || "";
     draftDescription.value = props.messenger.state.profile?.description || "";
     draftPronouns.value = props.messenger.state.profile?.pronouns || "";
@@ -816,7 +737,6 @@ watch(isOpen, async (v) => {
 watch(activeSection, async (section) => {
   if (!isOpen.value) return;
   if (section === "calls") props.messenger.refreshAudioDevices();
-  if (section === "admin") props.messenger.loadAdminOverview();
   if (section !== "calls") {
     props.messenger.stopMicTest();
     stopCameraPreview();
@@ -1317,7 +1237,6 @@ onBeforeUnmount(() => {
   document.removeEventListener("keydown", onKey);
   releaseSettingsHistoryEntry();
   stopCameraPreview();
-  if (adminSearchTimer) window.clearTimeout(adminSearchTimer);
   unsubTorStatus?.();
 });
 </script>
@@ -1342,8 +1261,14 @@ onBeforeUnmount(() => {
           <img :src="avatarSrc" alt="" />
         </span>
         <span v-else class="avatar avatar--md" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
-        <span>
-          <strong>@{{ messenger.state.username || "anonymous" }}</strong>
+        <span class="settings__card-identity">
+          <span class="settings__card-name">
+            <strong>@{{ messenger.state.username || "anonymous" }}</strong>
+            <span v-if="myBadges.length" class="settings__card-badges" :aria-label="myBadgeNames">
+              <BadgeIcon v-for="badge in myBadges.slice(0, 3)" :key="badge" :badge="badge" />
+              <small v-if="myBadges.length > 3" class="settings__card-badges-more">+{{ myBadges.length - 3 }}</small>
+            </span>
+          </span>
           <small>{{ connectionStatusLabel }}</small>
         </span>
       </button>
@@ -1522,14 +1447,10 @@ onBeforeUnmount(() => {
               <span class="settings-field__hint">{{ t('settings.profile.statusHint') }}</span>
             </span>
           </label>
-          <label class="settings-select settings-select--offset">
-            <span class="sr-only">Status</span>
-            <select :value="messenger.state.status" @change="messenger.setPresenceStatus(targetValue($event))">
-              <option value="online">{{ t('sidebar.online') }}</option>
-              <option value="invisible">{{ t('sidebar.invisible') }}</option>
-              <option value="dnd">{{ t('sidebar.dnd') }}</option>
-            </select>
-          </label>
+          <div class="settings-select settings-select--offset">
+            <SelectMenu :aria-label="t('settings.profile.status')" :model-value="messenger.state.status" :options="statusOptions"
+              @update:model-value="messenger.setPresenceStatus(String($event))" />
+          </div>
         </div>
 
 
@@ -1590,41 +1511,30 @@ onBeforeUnmount(() => {
       <section v-else-if="activeSection === 'ui'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.ui.theme') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.ui.themeLabel') }}</span>
-            <select :value="messenger.state.themeMode" @change="messenger.setThemeMode(targetValue($event))">
-              <option value="system">{{ t('settings.ui.system') }}</option>
-              <option value="dark">{{ t('settings.ui.dark') }}</option>
-              <option value="light">{{ t('settings.ui.light') }}</option>
-              <option value="adaptive">{{ t('settings.ui.adaptive') }}</option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.ui.themeLabel')" :model-value="messenger.state.themeMode" :options="themeModeOptions"
+              @update:model-value="messenger.setThemeMode(String($event))" />
+          </div>
           <p class="settings-note">{{ t('settings.ui.adaptiveNote') }}</p>
         </div>
 
         <div class="settings-group">
           <h4>{{ t('settings.ui.colors') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.ui.accentColor') }}</span>
-            <select :value="messenger.state.appAccent" @change="messenger.setAppAccent(targetValue($event))">
-              <option value="blue">{{ t('settings.ui.blue') }}</option>
-              <option value="violet">{{ t('settings.ui.violet') }}</option>
-              <option value="emerald">{{ t('settings.ui.emerald') }}</option>
-              <option value="rose">{{ t('settings.ui.rose') }}</option>
-              <option value="amber">{{ t('settings.ui.amber') }}</option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.ui.accentColor')" :model-value="messenger.state.appAccent" :options="accentOptions"
+              @update:model-value="messenger.setAppAccent(String($event))" />
+          </div>
         </div>
 
         <div class="settings-group">
           <h4>{{ t('settings.ui.messages') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.ui.messageShape') }}</span>
-            <select :value="messenger.state.messageStyle" @change="messenger.setMessageStyle(targetValue($event))">
-              <option value="bubble">{{ t('settings.ui.bubbles') }}</option>
-              <option value="discord">{{ t('settings.ui.discord') }}</option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.ui.messageShape')" :model-value="messenger.state.messageStyle" :options="messageStyleOptions"
+              @update:model-value="messenger.setMessageStyle(String($event))" />
+          </div>
         </div>
 
         <div class="settings-group">
@@ -1644,14 +1554,11 @@ onBeforeUnmount(() => {
       <section v-else-if="activeSection === 'language'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.language.title') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.language.appLanguage') }}</span>
-            <select v-model="locale">
-              <option v-for="localeCode in availableLocales" :key="localeCode" :value="localeCode">
-                {{ LOCALE_LABELS[localeCode] || localeCode }}
-              </option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.language.appLanguage')" :model-value="locale" :options="localeOptions"
+              @update:model-value="locale = String($event)" />
+          </div>
           <dl class="settings-kv settings-kv--language">
             <div>
               <dt>{{ t('settings.language.currentLanguage') }}</dt>
@@ -1734,14 +1641,11 @@ onBeforeUnmount(() => {
         <div class="settings-group">
           <h4>{{ t('settings.security.clientLock') }}</h4>
           <div v-if="!messenger.state.clientLockEnabled" class="settings-lock-form">
-            <label class="settings-select">
+            <div class="settings-select">
               <span>{{ lockPinLabel }}</span>
-              <select v-model.number="messenger.state.clientLockPinLength">
-                <option :value="4">4</option>
-                <option :value="6">6</option>
-                <option :value="8">8</option>
-              </select>
-            </label>
+              <SelectMenu :aria-label="lockPinLabel" :model-value="messenger.state.clientLockPinLength" :options="pinLengthOptions"
+                @update:model-value="messenger.state.clientLockPinLength = Number($event)" />
+            </div>
             <div class="settings-inline settings-inline--lock">
               <input v-model="lockPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
                 autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
@@ -1771,16 +1675,12 @@ onBeforeUnmount(() => {
                 @change="messenger.setClientLockAutolockEnabled(targetChecked($event))" />
               <span class="toggle__track"><span class="toggle__thumb"></span></span>
             </label>
-            <label class="settings-select">
+            <div class="settings-select">
               <span>{{ t('settings.security.autolockThreshold') }}</span>
-              <select :value="messenger.state.clientLockAutolockTimeoutMs"
+              <SelectMenu :aria-label="t('settings.security.autolockThreshold')" :model-value="messenger.state.clientLockAutolockTimeoutMs" :options="autolockSelectOptions"
                 :disabled="!messenger.state.clientLockAutolockEnabled"
-                @change="messenger.setClientLockAutolockTimeoutMs(targetNumber($event))">
-                <option v-for="ms in autolockOptions" :key="ms" :value="ms">
-                  {{ autolockLabel(ms) }}
-                </option>
-              </select>
-            </label>
+                @update:model-value="messenger.setClientLockAutolockTimeoutMs(Number($event))" />
+            </div>
             <div class="settings-actions">
               <button type="button" class="btn settings-btn" :disabled="messenger.state.clientLockLoading"
                 @click="messenger.lockClient">
@@ -1811,14 +1711,11 @@ onBeforeUnmount(() => {
 
         <div class="settings-group">
           <h4>{{ t('settings.opsec.duressTitle') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.opsec.duressAction') }}</span>
-            <select :value="messenger.state.opsecDuressAction"
-              @change="messenger.setOpsecDuressAction(targetValue($event))">
-              <option value="wipe">{{ t('settings.opsec.actionWipe') }}</option>
-              <option value="decoy">{{ t('settings.opsec.actionDecoy') }}</option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.opsec.duressAction')" :model-value="messenger.state.opsecDuressAction" :options="duressActionOptions"
+              @update:model-value="messenger.setOpsecDuressAction(String($event))" />
+          </div>
           <div class="settings-inline settings-inline--lock">
             <input v-model="duressPin" class="settings-input settings-input--pin settings-input--duress"
               inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
@@ -2044,17 +1941,11 @@ onBeforeUnmount(() => {
 
         <div v-if="turnServers.length >= 1" class="settings-group">
           <h4>{{ t('settings.calls.turnServer') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.calls.relayServer') }}</span>
-            <select
-              :value="messenger.state.selectedTurnServerId"
-              @change="messenger.setSelectedTurnServer(targetValue($event))"
-            >
-              <option v-for="srv in turnServers" :key="srv.id" :value="srv.id">
-                {{ srv.label }}
-              </option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.calls.relayServer')" :model-value="messenger.state.selectedTurnServerId" :options="turnServerOptions"
+              @update:model-value="messenger.setSelectedTurnServer(String($event))" />
+          </div>
           <div v-if="selectedTurnInfo" class="turn-server-detail">
             <span class="turn-server-detail__urls">{{ selectedTurnInfo.urls }}</span>
             <small v-if="selectedTurnInfo.hint" class="turn-server-detail__hint">{{ selectedTurnInfo.hint }}</small>
@@ -2127,40 +2018,23 @@ onBeforeUnmount(() => {
 
         <div class="settings-group">
           <h4>{{ t('settings.calls.devices') }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.calls.microphone') }}</span>
-            <select :value="messenger.state.selectedAudioInputId"
-              @change="messenger.setAudioInput(targetValue($event))">
-              <option value="">{{ t('settings.calls.systemDefault') }}</option>
-              <option v-for="(device, index) in microphones" :key="device.deviceId || `mic-${index}`"
-                :value="device.deviceId">
-                {{ deviceLabel(device, `Microphone ${Number(index) + 1}`) }}
-              </option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.calls.microphone')" :model-value="messenger.state.selectedAudioInputId" :options="microphoneOptions"
+              @update:model-value="messenger.setAudioInput(String($event))" />
+          </div>
 
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.calls.speakers') }}</span>
-            <select :value="messenger.state.selectedAudioOutputId"
-              @change="messenger.setAudioOutput(targetValue($event))">
-              <option value="">{{ t('settings.calls.systemDefault') }}</option>
-              <option v-for="(device, index) in headphones" :key="device.deviceId || `speaker-${index}`"
-                :value="device.deviceId">
-                {{ deviceLabel(device, `Output ${Number(index) + 1}`) }}
-              </option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.calls.speakers')" :model-value="messenger.state.selectedAudioOutputId" :options="speakerOptions"
+              @update:model-value="messenger.setAudioOutput(String($event))" />
+          </div>
 
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t('settings.calls.camera') }}</span>
-            <select :value="messenger.state.selectedVideoInputId" @change="onVideoInputChanged(targetValue($event))">
-              <option value="">{{ t('settings.calls.systemDefault') }}</option>
-              <option v-for="(device, index) in cameras" :key="device.deviceId || `camera-${index}`"
-                :value="device.deviceId">
-                {{ deviceLabel(device, `${t('settings.calls.camera')} ${Number(index) + 1}`) }}
-              </option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('settings.calls.camera')" :model-value="messenger.state.selectedVideoInputId" :options="cameraOptions"
+              @update:model-value="onVideoInputChanged(String($event))" />
+          </div>
 
           <div class="settings-camera-preview">
             <video ref="cameraPreviewRef" autoplay muted playsinline></video>
@@ -2470,250 +2344,17 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else-if="activeSection === 'admin'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.admin.title') }}</h4>
-          <button type="button" class="btn settings-btn" :disabled="messenger.state.adminLoading"
-            @click="messenger.loadAdminOverview">
-            {{ messenger.state.adminLoading ? t('settings.admin.loading') : t('settings.admin.refresh') }}
-          </button>
-          <dl class="settings-kv" v-if="messenger.state.adminOverview">
-            <div>
-              <dt>{{ t('settings.admin.online') }}</dt>
-              <dd>{{ messenger.state.adminOverview.onlineCount }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('settings.admin.users') }}</dt>
-              <dd>{{ messenger.state.adminOverview.totalUsers ?? 0 }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('settings.admin.rooms') }}</dt>
-              <dd>{{ messenger.state.adminOverview.rooms?.length || 0 }}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div class="settings-group" v-if="messenger.state.adminOverview?.features">
-          <h4>{{ t('settings.admin.features') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.admin.registrations') }}</span>
-            <input type="checkbox" :checked="messenger.state.adminOverview.features.registerEnabled"
-              @change="messenger.setAdminFeature('registerEnabled', targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.admin.calls') }}</span>
-            <input type="checkbox" :checked="messenger.state.adminOverview.features.callsEnabled"
-              @change="messenger.setAdminFeature('callsEnabled', targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-        </div>
-
-        <div class="settings-group" v-if="messenger.state.adminOverview">
-          <h4>{{ t('settings.admin.defaultRoom') }}</h4>
-          <p class="settings-note">{{ t('settings.admin.defaultRoomNote') }}</p>
-          <p v-if="messenger.state.adminOverview.defaultRoom" class="settings-note">
-            {{ t('settings.admin.defaultRoomCurrent') }}:
-            <code>{{ messenger.state.adminOverview.defaultRoom.roomId }}</code>
-          </p>
-          <p v-else class="settings-note">{{ t('settings.admin.defaultRoomNone') }}</p>
-          <label class="settings-select" style="margin-top: 14px">
-            <span>{{ t('settings.admin.defaultRoomSelect') }}</span>
-            <select v-model="adminDefaultRoomId">
-              <option value="" disabled>{{ t('settings.admin.defaultRoomSelect') }}</option>
-              <option v-for="room in adminRoomOptions" :key="room.roomId" :value="room.roomId">
-                {{ room.title }} ({{ room.roomId }})
-              </option>
-            </select>
-          </label>
-          <div class="settings-actions">
-            <button type="button" class="btn settings-btn" :disabled="!adminDefaultRoomId"
-              @click="messenger.setServerDefaultRoom(adminDefaultRoomId)">
-              {{ t('settings.admin.defaultRoomSet') }}
-            </button>
-            <button type="button" class="btn settings-btn settings-btn--danger"
-              @click="messenger.clearServerDefaultRoom()">
-              {{ t('settings.admin.defaultRoomClear') }}
-            </button>
-          </div>
-        </div>
-
-        <div class="settings-group" v-if="messenger.state.adminOverview">
-          <h4>{{ t('settings.admin.users') }}</h4>
-          <input v-model="adminUserSearch" class="settings-input admin-user-search" type="search" autocomplete="off"
-            spellcheck="false" :placeholder="t('settings.admin.searchUsers')" />
-          <p v-if="!adminUserSearch.trim()" class="settings-note">{{ t('settings.admin.searchUsersNote') }}</p>
-          <p v-else-if="adminSearchLoading" class="settings-note">{{ t('settings.admin.loading') }}</p>
-          <p v-else-if="adminSearchSearched && !adminSearchResults.length" class="settings-note">{{ t('settings.admin.noUsersFound') }}</p>
-          <div v-if="adminSearchResults.length" class="admin-list">
-            <div v-for="user in adminSearchResults" :key="user.id" class="admin-row admin-row--user">
-              <div class="admin-row__identity">
-                <strong>{{ user.username }}</strong>
-                <small>
-                  {{ user.id }}
-                  <template v-if="user.admin"> · admin</template>
-                  <template v-if="user.banned"> · {{ t('settings.admin.banned') }}</template>
-                  <template v-else-if="user.disabled"> · {{ t('settings.admin.disabled') }}</template>
-                  <template v-else> · {{ messenger.presenceStatusLabel(user.status) }}</template>
-                </small>
-              </div>
-              <div class="admin-row__controls">
-                <div class="admin-badge-editor">
-                  <span>{{ t('settings.admin.badges') }}</span>
-                  <button type="button" class="admin-badge-menu-button" @click="toggleAdminBadgeMenu(user)">
-                    <span v-if="adminBadgeDraftFor(user).length" class="admin-badge-selection">
-                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-draft-${badge}`">{{ badge
-                        }}</span>
-                    </span>
-                    <span v-else class="admin-badge-placeholder">{{ t('settings.admin.badgesPlaceholder') }}</span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                  <div v-if="adminBadgeMenuOpen(user)" class="admin-badge-menu">
-                    <button v-for="badge in suggestedAdminBadges" :key="`${user.id}-option-${badge.id}`" type="button"
-                      class="admin-badge-option" :class="{ 'is-selected': adminBadgeSelected(user, badge.id) }"
-                      @click="toggleAdminBadge(user, badge.id)">
-
-
-                      <BadgeIcon v-if="badge.id === 'early'" badge="early" class="admin-badge-option__icon" />
-                      <svg v-if="badge.id === 'bug_hunter'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <path
-                          d="m16.5822 2.63812s7.6721 5.23623 4.7567 12.58868c-2.9154 7.3525-8.7142 5.313-6.5469 3.1648 2.1674-2.1482-2.5573-3.6059-5.58143-6.3935l7.36523-9.35998"
-                          fill="#3ba55c" />
-                        <path
-                          d="m16.1155 9.83717c-1.6175 2.05873-3.9 3.08803-5.6646 2.71723l-6.15684 7.8447c-.10362.1324-.23231.243-.37871.3256-.1464.0825-.30764.1354-.47451.1556-.16686.0202-.33606.0073-.49793-.038-.16187-.0452-.31322-.122-.44541-.2258-.13374-.1032-.2457-.2319-.32942-.3786s-.13754-.3086-.15834-.4762c-.02081-.1677-.00819-.3378.03712-.5005s.12242-.3149.22687-.4476l6.12492-7.832c-.81197-1.62394-.36443-4.11099 1.27869-6.18886 2.03946-2.58295 5.11476-3.54836 6.89856-2.15459 1.7837 1.39377 1.5664 4.61607-.4604 7.19902z"
-                          fill="#b4e1cd" />
-                      </svg>
-
-
-                      <svg v-if="badge.id === 'bug_hunter_lvl_2'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <mask id="bug-hunter-lvl2-mask" height="19" maskUnits="userSpaceOnUse" width="16" x="2" y="2">
-                          <path
-                            d="m16.1438 9.84735c-1.6048 2.04975-3.9088 3.08265-5.7044 2.70125l-6.14926 7.8813c-.44491.572-1.22351.6356-1.79554.1907-.57203-.445-.63558-1.2235-.25423-1.7956l6.1493-7.8177c-.82626-1.60486-.38135-4.09954 1.28707-6.21286 2.04976-2.57413 5.11646-3.52751 6.91196-2.19278 1.7956 1.33473 1.5413 4.6239-.4449 7.24569z"
-                            fill="#ffd56c" />
-                        </mask>
-                        <path
-                          d="m16.5888 2.60168s7.6906 5.25949 4.7351 12.63232c-2.9555 7.3728-8.7235 5.323-6.5307 3.1461s-2.5582-3.591-5.57726-6.4194z"
-                          fill="#ffeac0" />
-                        <path
-                          d="m16.1438 9.84735c-1.6048 2.04975-3.9088 3.08265-5.7044 2.70125l-6.14926 7.8813c-.44491.572-1.22351.6356-1.79554.1907-.57203-.445-.63558-1.2235-.25423-1.7956l6.1493-7.8177c-.82626-1.60486-.38135-4.09954 1.28707-6.21286 2.04976-2.57413 5.11646-3.52751 6.91196-2.19278 1.7956 1.33473 1.5413 4.6239-.4449 7.24569z"
-                          fill="#ffd56c" />
-                        <g fill="#fff" mask="url(#bug-hunter-lvl2-mask)">
-                          <path d="m13.0389-1.26782.7405.09754-3.1567 23.96118-.74043-.0976z" />
-                          <path d="m14.2822-1.51801 1.6226.21377-3.1566 23.96114-1.6226-.2137z" />
-                        </g>
-                      </svg>
-                      <svg v-else-if="badge.id === 'mod'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <path
-                          d="m17.2719 3h-9.54383c-.14912 1.9386-1.78947 3.42982-3.72807 3.42982v.89474c0 4.39914 2.08772 8.50004 5.74123 11.40794l2.75877 2.1622 2.7588-2.1622c3.6535-2.8334 5.7412-7.0088 5.7412-11.40794v-.89474c-1.9386 0-3.5044-1.49122-3.7281-3.42982zm-6.4868 12.8991c-2.23685-1.7895-3.57896-4.3245-3.57896-7.08331v-.52193c1.19298 0 2.23684-.89474 2.3114-2.08772h2.98246v11.10966z"
-                          fill="#FC964B" />
-                      </svg>
-                      <svg v-else-if="badge.id === 'vip'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        fill="none" aria-hidden="true">
-                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V10.4H4V6Z" fill="#E4D9EA" />
-                        <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18V13.6H4V18Z"
-                          fill="#0E60EF" />
-                        <path d="M4 10.4H20V13.6H4V10.4Z" fill="#F0B14B" />
-                        <path
-                          d="M15.7333 12C15.7333 14.0619 14.0619 15.7333 12 15.7333C9.93813 15.7333 8.26666 14.0619 8.26666 12C8.26666 9.93813 9.93813 8.26666 12 8.26666C14.0619 8.26666 15.7333 9.93813 15.7333 12Z"
-                          fill="#0F182D" />
-                        <path
-                          d="M13.6 12C13.6 12.8837 12.8837 13.6 12 13.6C11.1164 13.6 10.4 12.8837 10.4 12C10.4 11.1164 11.1164 10.4 12 10.4C12.8837 10.4 13.6 11.1164 13.6 12Z"
-                          fill="#E4D9EA" />
-                      </svg>
-                      <svg v-else-if="badge.id === 'contributor'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <g fill="#5865f2">
-                          <path
-                            d="m16.6033 9.15179-2.4908 1.66051c-.249.2491-.6642.1661-.7472 0-.2491-.2491-.6642-.4151-.9133-.4982-.6642-.166-1.2454 0-1.7435.2491l-.83027.5812-4.64945 2.9889c-.99631.6642-2.2417.4152-2.9059-.6642-.66421-1.0793-.24908-2.2417.74723-2.8228l5.31365-3.65318c1.49447-.83026 3.23804-1.24539 4.89854-.83026 1.4114.24907 2.6568.99631 3.4871 2.15867.249.16605.249.66421-.1661.83026z" />
-                          <path
-                            d="m22 11.6425c0 .7473-.4152 1.4115-.9963 1.7436l-5.4797 3.5701c-.9964.6642-2.2417.9963-3.4041.9963-.4982 0-.9963 0-1.4114-.166-1.41148-.2491-2.49081-1.1624-3.48712-2.1587-.16606-.1661-.16606-.6642.16605-.7473l2.49077-1.6605c.2491-.249.6642-.166.7472 0 .2491.2491.4982.4152.9133.4982.6642.166 1.2454 0 1.7436-.2491l1.2453-.7472 3.7362-2.4908.4982-.41513c.9963-.6642 2.2417-.41512 2.9059.66423.166.4151.3321.7472.3321 1.1623z" />
-                        </g>
-                      </svg>
-                      <svg v-else-if="badge.id === 'artist'" class="admin-badge-option__icon" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <g fill="#fbb848">
-                          <path
-                            d="m21.5912 6.84349-7.8694 5.16551c-.1351.088-.2444.2103-.317.3543l-1.1997 2.4056c-.0174.0399-.0461.0739-.0825.0977-.0364.0239-.079.0366-.1226.0366s-.0862-.0127-.1226-.0366c-.0364-.0238-.0651-.0578-.0825-.0977l-1.1997-2.4056c-.0726-.144-.1819-.2663-.317-.3543l-7.86944-5.16551c-.03957-.04698-.09618-.07632-.15738-.08157-.0612-.00524-.12198.01404-.16896.0536-.04698.03957-.07633.09618-.08157.15738-.00525.0612.01403.12198.0536.16896l3.28825 6.39624c.01598.0335.02385.0703.02297.1074s-.01049.0734-.02804.1061c-.01756.0327-.04257.0608-.07301.082-.03043.0212-.06544.035-.10219.0402h-1.97668c-.04881-.0005-.0965.0146-.13617.043-.03967.0285-.06926.0688-.08449.1152s-.0153.0964-.00022.1428c.01509.0464.04455.0869.08413.1154l8.8142 6.3155c.0403.0275.088.0422.1368.0422s.0965-.0147.1368-.0422l8.8142-6.3155c.0396-.0285.069-.069.0841-.1154s.015-.0964-.0002-.1428-.0448-.0867-.0845-.1152c-.0396-.0284-.0873-.0435-.1362-.043h-1.9766c-.0389-.0015-.0769-.0126-.1105-.0323-.0335-.0197-.0617-.0474-.082-.0806s-.0321-.071-.0343-.1098c-.0022-.0389.0052-.0777.0216-.113l3.3132-6.39624c.0395-.04698.0588-.10776.0536-.16896-.0053-.0612-.0346-.11781-.0816-.15738-.047-.03956-.1078-.05884-.169-.0536-.0612.00525-.1178.03459-.1574.08157z" />
-                          <path
-                            d="m12.1741 2.10696.8081 1.64723c.0143.02721.0346.05084.0594.06913.0247.01829.0533.03078.0835.03654l1.8213.26107c.0356.00524.0691.02036.0966.04366s.0479.05383.0589.08814.0122.07102.0034.10595c-.0089.03494-.0273.06671-.0532.0917l-1.3178 1.28049c-.0213.02203-.0373.04854-.047.07758s-.0127.05988-.009.09025l.3108 1.80885c.0069.03487.0036.07096-.0094.10404-.013.03307-.0351.06174-.0639.08264-.0287.0209-.0628.03315-.0983.03532-.0354.00217-.0708-.00584-.1019-.02309l-1.6285-.85159c-.0265-.01527-.0565-.02331-.0871-.02331-.0305 0-.0605.00804-.087.02331l-1.6286.85159c-.031.01725-.0664.02526-.1019.02309-.0354-.00217-.0695-.01442-.0983-.03532-.0287-.0209-.0509-.04957-.0639-.08264-.0129-.03308-.0162-.06917-.0094-.10404l.3108-1.80885c.0038-.03037.0008-.06121-.0089-.09025s-.0258-.05555-.047-.07758l-1.31781-1.28049c-.02595-.02499-.04438-.05676-.05318-.0917-.00881-.03493-.00764-.07164.00336-.10595s.03141-.06484.05889-.08814c.02749-.0233.06095-.03842.0966-.04366l1.82124-.25485c.0303-.00576.0588-.01825.0836-.03654.0247-.01829.045-.04192.0594-.06913l.8081-1.64723c.015-.03321.0392-.06147.0696-.08149.0305-.02003.066-.03101.1025-.03166.0364-.00065.0723.00905.1035.02798.0311.01893.0563.0463.0725.07895z" />
-                        </g>
-                      </svg>
-                      <span>{{ badge.label }}</span>
-                      <small>{{ badge.id }}</small>
-                    </button>
-                    <div v-if="adminBadgeDraftFor(user).length" class="admin-badge-current">
-                      <span v-for="badge in adminBadgeDraftFor(user)" :key="`${user.id}-remove-${badge}`">
-                        {{ badge }}
-                        <button type="button" @click="removeAdminBadge(user, badge)">×</button>
-                      </span>
-                    </div>
-                    <div class="admin-badge-custom">
-                      <input class="settings-input" type="text" :value="customBadgeDraftFor(user)" maxlength="32"
-                        placeholder="custom_badge" @input="setCustomBadgeDraft(user, targetValue($event))"
-                        @keydown.enter.prevent="addCustomAdminBadge(user)" />
-                      <button type="button" class="btn settings-btn" :disabled="!customBadgeDraftFor(user)"
-                        @click="addCustomAdminBadge(user)">
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div class="settings-actions settings-actions--wrap">
-                  <button type="button" class="btn settings-btn" :disabled="!adminBadgesChanged(user)"
-                    @click="saveAdminBadges(user)">
-                    {{ t('settings.admin.saveBadges') }}
-                  </button>
-                  <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.disabled }"
-                    @click="messenger.setAdminUserDisabled(user.id, !user.disabled)">
-                    {{ user.disabled ? t('settings.admin.enable') : t('settings.admin.disable') }}
-                  </button>
-                  <button type="button" class="btn settings-btn" :class="{ 'settings-btn--danger': !user.banned }"
-                    @click="messenger.setAdminUserBanned(user.id, !user.banned)">
-                    {{ user.banned ? t('settings.admin.pardon') : t('settings.admin.ban') }}
-                  </button>
-                  <button type="button" class="btn settings-btn settings-btn--danger"
-                    :disabled="user.id === messenger.state.userId" @click="deleteAdminUser(user)">
-                    {{ t('settings.admin.delete') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group" v-if="messenger.state.adminOverview?.rooms?.length">
-          <h4>{{ t('settings.admin.rooms') }}</h4>
-          <div class="admin-list">
-            <div v-for="room in messenger.state.adminOverview.rooms" :key="room.roomId" class="admin-row">
-              <div>
-                <strong>{{ messenger.displayRoomName(room.roomId) }}</strong>
-                <small>
-                  {{ room.messageCount }} messages · {{ room.onlineCount || 0 }} online · {{ room.voiceCount || 0 }}
-                  voice
-                  <template v-if="room.active"> · active</template>
-                </small>
-              </div>
-            </div>
-          </div>
-          <p class="settings-note">{{ t('settings.admin.roomsNote') }}</p>
-        </div>
+        <AdminSettings :messenger="messenger" />
       </section>
 
       <section v-else-if="activeSection === 'phantom'" class="settings-page">
         <div class="settings-group">
           <h4>{{ t("phantom.requests") }}</h4>
-          <label class="settings-select">
+          <div class="settings-select">
             <span>{{ t("phantom.acceptUnknown") }}</span>
-            <select :value="phantom.state.acceptUnknown" @change="phantom.setAcceptUnknown(targetValue($event))">
-              <option value="off">{{ t("phantom.acceptUnknownOff") }}</option>
-              <option value="filter">{{ t("phantom.acceptUnknownFilter") }}</option>
-              <option value="all">{{ t("phantom.acceptUnknownAll") }}</option>
-            </select>
-          </label>
+            <SelectMenu :aria-label="t('phantom.acceptUnknown')" :model-value="phantom.state.acceptUnknown" :options="acceptUnknownOptions"
+              @update:model-value="phantom.setAcceptUnknown(String($event))" />
+          </div>
           <p class="settings-note">{{ t("phantom.usernameWarning") }}</p>
         </div>
         <div class="settings-group">

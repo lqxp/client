@@ -1062,7 +1062,7 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
 .app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
-  z-index: 50;
+  z-index: var(--z-window-chrome);
   grid-column: 1 / -1;
   grid-row: 1;
   width: 100%;

@@ -59,6 +59,7 @@ import {
 } from "@/calls/callSounds";
 import { useI18n } from "./useI18n";
 import { dispatchPhantomMessage } from "./phantomBridge";
+import { dedupeBadgeArtwork } from "@/config/badges";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -2888,6 +2889,7 @@ export function useMessenger() {
 
     adminLoading: false,
     adminOverview: null,
+    adminError: "",
     adminSearchResults: [],
     adminSearchLoading: false,
     adminSearchSearched: false,
@@ -4277,31 +4279,62 @@ export function useMessenger() {
     }
   }
 
+  // The admin panel renders its own error and empty states, so a failed
+  // refresh keeps the last snapshot on screen instead of blanking the page,
+  // and reports through `state.adminError` rather than a toast.
   async function loadAdminOverview() {
     if (!state.admin) return null;
     state.adminLoading = true;
     try {
       const data = await apiRequest("/api/admin/overview");
       state.adminOverview = data;
+      state.adminError = "";
       return data;
     } catch (error) {
-      state.lastError = error?.message || "Admin overview failed.";
-      showToast(state.lastError);
+      state.adminError = error?.message || "Admin overview failed.";
       return null;
     } finally {
       state.adminLoading = false;
     }
   }
 
+  /**
+   * Replaces a row in the search results with the account the server just
+   * confirmed. Nothing is applied optimistically: if a request fails the rows
+   * keep showing the last state the server acknowledged.
+   */
+  function applyAdminUser(user) {
+    const id = String(user?.id || "");
+    if (!id) return;
+    const index = state.adminSearchResults.findIndex((entry) => String(entry?.id || "") === id);
+    if (index >= 0) state.adminSearchResults[index] = user;
+  }
+
   // Server-side admin username search: the server ranks the top matches
   // (exact, prefix, then fuzzy) so the client never loads the whole user
   // table — essential once there are hundreds of thousands of accounts.
+  let adminSearchRequestId = 0;
+
+  /**
+   * Drops the current results and makes any in-flight search stale.
+   *
+   * Clearing the field has to invalidate requests that are still on the wire,
+   * otherwise a late answer repopulates the list under an empty search box.
+   */
+  function cancelAdminUserSearch() {
+    adminSearchRequestId += 1;
+    state.adminSearchResults = [];
+    state.adminSearchSearched = false;
+    state.adminSearchLoading = false;
+  }
+
   async function searchAdminUsers(query) {
+    const requestId = ++adminSearchRequestId;
+    const requestedBy = state.userId;
+    const isCurrent = () => requestId === adminSearchRequestId && state.admin && state.userId === requestedBy;
     const needle = String(query || "").trim();
     if (!state.admin || !needle) {
-      state.adminSearchResults = [];
-      state.adminSearchSearched = false;
-      state.adminSearchLoading = false;
+      cancelAdminUserSearch();
       return [];
     }
     state.adminSearchLoading = true;
@@ -4309,17 +4342,19 @@ export function useMessenger() {
       const data = await apiRequest(
         `/api/admin/users/search?q=${encodeURIComponent(needle)}`,
       );
+      if (!isCurrent()) return [];
       state.adminSearchResults = Array.isArray(data?.users) ? data.users : [];
       state.adminSearchSearched = true;
       return state.adminSearchResults;
     } catch (error) {
+      if (!isCurrent()) return [];
       state.lastError = error?.message || "Admin user search failed.";
       showToast(state.lastError);
       state.adminSearchResults = [];
       state.adminSearchSearched = true;
       return [];
     } finally {
-      state.adminSearchLoading = false;
+      if (isCurrent()) state.adminSearchLoading = false;
     }
   }
 
@@ -4386,13 +4421,14 @@ export function useMessenger() {
   async function setAdminUserDisabled(userId, disabled) {
     if (!state.admin) return false;
     try {
-      await apiRequest(
+      const data = await apiRequest(
         `/api/admin/users/${encodeURIComponent(userId)}/disabled`,
         {
           method: "POST",
           body: JSON.stringify({ disabled: Boolean(disabled) }),
         },
       );
+      applyAdminUser(data?.user);
       await loadAdminOverview();
       return true;
     } catch (error) {
@@ -4405,13 +4441,14 @@ export function useMessenger() {
   async function setAdminUserBanned(userId, banned) {
     if (!state.admin) return false;
     try {
-      await apiRequest(
+      const data = await apiRequest(
         `/api/admin/users/${encodeURIComponent(userId)}/banned`,
         {
           method: "POST",
           body: JSON.stringify({ banned: Boolean(banned) }),
         },
       );
+      applyAdminUser(data?.user);
       await loadAdminOverview();
       return true;
     } catch (error) {
@@ -4430,6 +4467,10 @@ export function useMessenger() {
           method: "POST",
         },
       );
+      const id = String(userId || "");
+      state.adminSearchResults = state.adminSearchResults.filter(
+        (entry) => String(entry?.id || "") !== id,
+      );
       await loadAdminOverview();
       return true;
     } catch (error) {
@@ -4443,14 +4484,14 @@ export function useMessenger() {
     if (!state.admin) return false;
     try {
       const normalizedBadges = normalizeUserBadges(badges);
-      await apiRequest(
+      const data = await apiRequest(
         `/api/admin/users/${encodeURIComponent(userId)}/badges`,
         {
           method: "POST",
           body: JSON.stringify({ badges: normalizedBadges }),
         },
       );
-      await loadAdminOverview();
+      applyAdminUser(data?.user);
       return true;
     } catch (error) {
       state.lastError = error?.message || "Badge update failed.";
@@ -4471,7 +4512,9 @@ export function useMessenger() {
     const key = sanitizeUsername(username);
     if (!key) return [];
     if (isSystemUsername(key)) return ["system"];
-    return normalizeUserBadges(state.badgesByUser[key]);
+    // `admin` and `staff` draw the same crest, so an account carrying both
+    // would show it twice. Only one of each picture is displayed.
+    return dedupeBadgeArtwork(normalizeUserBadges(state.badgesByUser[key]));
   }
 
   function createdAtFor(username) {
@@ -9660,6 +9703,7 @@ export function useMessenger() {
     setOpsecRamOnlyEnabled,
     loadAdminOverview,
     searchAdminUsers,
+    cancelAdminUserSearch,
     setAdminFeature,
     setServerDefaultRoom,
     clearServerDefaultRoom,
