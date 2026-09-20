@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
-      <button class="icon-btn" type="button" :title="t('sidebar.collapseList')" :aria-label="t('sidebar.collapseList')" @click="toggleSideMini">
+      <button v-if="!isMobile" class="icon-btn" type="button" :title="t('sidebar.collapseList')" :aria-label="t('sidebar.collapseList')" @click="toggleSideMini">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" /></svg>
       </button>
     </div>
@@ -986,10 +986,6 @@ onBeforeUnmount(() => {
 .side__mini-btn--home.is-active .side__mini-icon--home {
   border-radius: 50%;
   transform: scale(1.06);
-}
-.side__mini-btn--home:hover .side__mini-icon--home,
-.side__mini-btn--home.is-active .side__mini-icon--home {
-  border-radius: 16px;
 }
 
 .side-user {
