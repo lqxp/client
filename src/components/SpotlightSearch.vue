@@ -47,7 +47,7 @@ const results = computed<SearchResult[]>(() => {
 
   // Search messages (last 50 per room, limit total)
   let messageCount = 0;
-  for (const [roomId, messages] of Object.entries(props.messenger.state.messagesByRoom || {}) as [string, any[]][]) {
+  for (const [roomId, messages] of Object.entries(props.messenger.state.messagesByRoom || {})) {
     if (messageCount > 50) break;
     const recent = (messages || []).slice(-100);
     for (let i = recent.length - 1; i >= 0; i--) {

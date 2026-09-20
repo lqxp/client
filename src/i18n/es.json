@@ -1,4 +1,10 @@
 {
+    "chart": {
+        "graph": "Gráfico",
+        "table": "Tabla",
+        "other": "Otros",
+        "empty": "Nada que representar todavía"
+    },
     "app": {
         "noConversation": "Ninguna conversación seleccionada",
         "noConversationHint": "Elige una sala de la lista o toca el icono de lápiz para crear una.",
@@ -200,7 +206,8 @@
             "objects": "Objetos y símbolos",
             "flags": "Banderas"
         },
-        "emojiSuggestions": "Sugerencias de emoji"
+        "emojiSuggestions": "Sugerencias de emoji",
+        "emojiNoResult": "Ningún emoji encontrado"
     },
     "message": {
         "deleted": "Mensaje eliminado",
@@ -234,7 +241,9 @@
         "editMessage": "Editar mensaje",
         "messageOptions": "Opciones del mensaje",
         "reactions": "Reacciones",
-        "back": "Atrás"
+        "back": "Atrás",
+        "spoilerHidden": "Texto oculto, haz clic para revelar",
+        "moreReactions": "Más reacciones"
     },
     "call": {
         "live": "En vivo",
@@ -312,7 +321,8 @@
             "deleteAccountNote": "Esta acción es irreversible. Todos tus datos serán eliminados permanentemente.",
             "deleteAccountConfirm": "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
             "deleteAccountPrompt": "Introduce tu contraseña para confirmar la eliminación:",
-            "deleteAccountError": "No se pudo eliminar la cuenta. Verifica tu contraseña."
+            "deleteAccountError": "No se pudo eliminar la cuenta. Verifica tu contraseña.",
+            "revert": "Restablecer"
         },
         "ui": {
             "theme": "Tema",
@@ -335,7 +345,9 @@
             "discord": "Estilo Discord (línea izquierda)",
             "search": "Búsqueda",
             "spotlightSearch": "Búsqueda Spotlight (escritorio)",
-            "spotlightSearchNote": "Ctrl+K para buscar salas, mensajes y personas."
+            "spotlightSearchNote": "Ctrl+K para buscar salas, mensajes y personas.",
+            "groupMembersByRole": "Agrupar los miembros por rol",
+            "groupMembersByRoleNote": "En salas comunitarias, lista los miembros bajo su rol en lugar de una lista única."
         },
         "language": {
             "title": "Idioma",
@@ -481,8 +493,8 @@
             "turnCredential": "Contraseña",
             "turnInvalid": "Dirección inválida. Usa turn:, turns: o stun:",
             "turnHints": {
-                "qxp-turn": "Relay propio en nuestra infraestructura — puede ser inestable según la carga. Sin IP expuesta, todo pasa por nuestro relay.",
-                "google-stun": "STUN público de Google — muy estable y rápido, pero ⚠️ tus IPs quedan expuestas (sin relay anónimo). Solo útil en red local o para pruebas."
+                "qxp-turn": "Relay propio en nuestra infraestructura, puede ser inestable según la carga. Sin IP expuesta, todo pasa por nuestro relay.",
+                "google-stun": "STUN público de Google, muy estable y rápido, pero ⚠️ tus IPs quedan expuestas (sin relay anónimo). Solo útil en red local o para pruebas."
             }
         },
         "tor": {
@@ -533,7 +545,8 @@
             "relaysError": "No se pudieron cargar los relays: {error}",
             "details": "Detalles",
             "desktopOnly": "El enrutamiento por Tor solo está disponible en la aplicación de escritorio de QxChat, que incorpora el cliente Tor y enruta tu tráfico localmente. En la versión web, tu conexión depende de tu navegador y no puede enrutarse a través de Tor.",
-            "downloadDesktop": "Descargar la aplicación de escritorio"
+            "downloadDesktop": "Descargar la aplicación de escritorio",
+            "relaysConfirmTitle": "Directorio de repetidores"
         },
         "advanced": {
             "connection": "Conexión",
@@ -548,7 +561,7 @@
             "renameUploads": "Renombrar cada archivo enviado aleatoriamente",
             "renameUploadsNote": "Cuando está activado, los archivos enviados se renombran a un token aleatorio de 8 caracteres a-z/0-9 (se conserva la extensión).",
             "stripExif": "Eliminar metadatos EXIF de las imágenes",
-            "stripExifNote": "Cuando está activado, los metadatos (GPS, cámara, fechas) se eliminan localmente antes de enviar — EXIF JPEG y chunk eXIf PNG — sin recodificar la imagen.",
+            "stripExifNote": "Cuando está activado, los metadatos (GPS, cámara, fechas) se eliminan localmente antes de enviar (EXIF JPEG y chunk eXIf PNG) sin recodificar la imagen.",
             "discordRpc": {
                 "title": "Discord Rich Presence",
                 "enabled": "Mostrar mi actividad en Discord",
@@ -648,7 +661,43 @@
             "pardonAccount": "Levantar el baneo",
             "deleteAccount": "Eliminar esta cuenta",
             "roomsLegend": "Cada fila muestra las personas conectadas y luego los mensajes en memoria.",
-            "none": "Ninguna"
+            "none": "Ninguna",
+            "chartSignups": "Cuentas durante la última semana",
+            "chartSignupsNote": "Reconstruido a partir de los recuentos de 24 horas y 7 días, así que las cuentas borradas desde entonces no aparecen.",
+            "chartMessages": "Mensajes en memoria por sala",
+            "chartMessagesNote": "En memoria ahora mismo; el servidor no guarda historial.",
+            "chartPlatforms": "Sesiones por plataforma",
+            "roomMessages": "mensajes",
+            "ageHour": "Última hora",
+            "ageDay": "Hoy",
+            "ageWeek": "Esta semana",
+            "ageOlder": "Más antiguo",
+            "ageNever": "Sin mensajes",
+            "ageHourAccounts": "Últimas 24 horas",
+            "ageWeekAccounts": "2 a 7 días",
+            "ageOlderAccounts": "Más de una semana",
+            "stateActive": "Activos",
+            "stateIdle": "Inactivos",
+            "statMessages": "Mensajes",
+            "statMessagesTotal": "En memoria",
+            "statMessagesRooms": "Salas con mensajes",
+            "statMessagesMedian": "Mediana por sala",
+            "statMessagesBusiest": "Sala más activa",
+            "statMessagesNote": "El servidor almacena los mensajes en memoria y no guarda historial: son cifras actuales, no un registro en el tiempo.",
+            "chartActivity": "Salas por último mensaje",
+            "chartActivityNote": "Cuándo tuvo tráfico cada sala por última vez.",
+            "chartRooms": "Actividad de las salas",
+            "chartAudience": "Personas presentes por sala",
+            "chartAccountState": "Estado de las cuentas",
+            "chartAccountAge": "Antigüedad de las cuentas",
+            "chartAccountAgeNote": "Derivado de los contadores de 24 horas y 7 días del servidor.",
+            "chartPresence": "Sesiones en voz",
+            "openStats": "Estadísticas",
+            "openStatsHint": "Mensajes, salas, cuentas",
+            "chartLastMessage": "Salas por día del último mensaje",
+            "chartLastMessageNote": "Cuenta las salas cuyo mensaje más reciente en memoria cae en cada día.",
+            "chartPlatformsNote": "Reparto de las sesiones activas, por cliente.",
+            "chartAccountStateNote": "Todas las cuentas que guarda el servidor, por estado."
         },
         "backups": {
             "title": "Copias de seguridad",
@@ -860,7 +909,7 @@
         "pollingToggle": "Sondear solicitudes de amistad",
         "pollInterval": "Intervalo de sondeo (segundos)",
         "pollIntervalAuto": "Auto",
-        "pollIntervalHint": "Entre 3 y 40 segundos. Vacío = automático (15–30 s).",
+        "pollIntervalHint": "Entre 3 y 40 segundos. Vacío = automático (15-30 s).",
         "pollUniformityNote": "Precaución: el protocolo se basa en un sondeo de cadencia uniforme para garantizar el anonimato. Cambiar este intervalo rompe la huella predeterminada (sondeo constante en el valor normativo) y hace que tu cliente sea más identificable.",
         "pollingNote": "Sondeo desactivado: el sistema de amigos está en pausa y no se recibirán nuevas solicitudes ni actualizaciones."
     },
@@ -873,7 +922,11 @@
         "reset": "Restablecer",
         "apply": "Aplicar",
         "invalidImage": "Elige un archivo de imagen válido.",
-        "tooLarge": "Esta imagen es demasiado grande."
+        "tooLarge": "Esta imagen es demasiado grande.",
+        "animatedKept": "Imagen animada conservada tal cual: recortarla la congelaría en su primer fotograma.",
+        "zoom": "Zoom",
+        "zoomIn": "Acercar",
+        "zoomOut": "Alejar"
     },
     "badges": {
         "admin": "Staff",

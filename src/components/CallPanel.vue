@@ -391,7 +391,7 @@ function openTileWindow(tile) {
   // Fall back to the in-app fullscreen tile view.
   const isTauri =
     typeof window !== "undefined" &&
-    ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+    ((window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ || (window as unknown as Record<string, unknown>).__TAURI__);
   if (isTauri) {
     toggleTileFullscreen(tile);
     return;
@@ -1223,8 +1223,8 @@ function toggleLocalMute(username) {
                 <line x1="4" y1="4" x2="20" y2="20" />
               </svg>
             </span>
-            <span v-if="tile.kind === 'screen'">— {{ t("call.screen") }}</span>
-            <span v-if="tile.kind === 'camera'">— {{ t("call.camera") }}</span>
+            <span v-if="tile.kind === 'screen'">· {{ t("call.screen") }}</span>
+            <span v-if="tile.kind === 'camera'">· {{ t("call.camera") }}</span>
           </div>
         </div>
       </div>

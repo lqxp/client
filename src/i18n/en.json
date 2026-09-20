@@ -1,4 +1,10 @@
 {
+    "chart": {
+        "graph": "Graph",
+        "table": "Table",
+        "other": "Other",
+        "empty": "Nothing to plot yet"
+    },
     "app": {
         "noConversation": "No conversation selected",
         "noConversationHint": "Pick a room from the list or tap the pencil icon to start one.",
@@ -200,7 +206,8 @@
             "objects": "Objects & Symbols",
             "flags": "Flags"
         },
-        "emojiSuggestions": "Emoji suggestions"
+        "emojiSuggestions": "Emoji suggestions",
+        "emojiNoResult": "No emoji found"
     },
     "message": {
         "deleted": "Message deleted",
@@ -234,7 +241,9 @@
         "editMessage": "Edit message",
         "messageOptions": "Message options",
         "reactions": "Reactions",
-        "back": "Back"
+        "back": "Back",
+        "spoilerHidden": "Hidden text, click to reveal",
+        "moreReactions": "More reactions"
     },
     "call": {
         "live": "Live",
@@ -312,7 +321,8 @@
             "deleteAccountNote": "This action is irreversible. All your data will be permanently deleted.",
             "deleteAccountConfirm": "Are you sure you want to delete your account? This action cannot be undone.",
             "deleteAccountPrompt": "Enter your password to confirm deletion:",
-            "deleteAccountError": "Could not delete account. Check your password."
+            "deleteAccountError": "Could not delete account. Check your password.",
+            "revert": "Revert"
         },
         "ui": {
             "theme": "Theme",
@@ -335,7 +345,9 @@
             "discord": "Discord-style (left line)",
             "search": "Search",
             "spotlightSearch": "Spotlight search (desktop)",
-            "spotlightSearchNote": "Press Ctrl+K to search rooms, messages and people from anywhere."
+            "spotlightSearchNote": "Press Ctrl+K to search rooms, messages and people from anywhere.",
+            "groupMembersByRole": "Group members by role",
+            "groupMembersByRoleNote": "In community rooms, lists members under their role instead of one flat list."
         },
         "language": {
             "title": "Language",
@@ -363,7 +375,7 @@
             "invalidRecoveryWords": "Invalid recovery words. Paste exactly 12 words.",
             "recoveryTitle": "Recovery words (client signing)",
             "recoverySigned": "Client signed with your recovery words.",
-            "recoveryNotSigned": "Client not signed — friend requests require your recovery words.",
+            "recoveryNotSigned": "Client not signed: friend requests require your recovery words.",
             "recoveryHint": "Paste your 12 recovery words to sign this client. They stay local and only derive your signing keys.",
             "recoveryImport": "Import words",
             "recoveryImportFile": "Import from file",
@@ -481,8 +493,8 @@
             "turnCredential": "Password",
             "turnInvalid": "Invalid address. Use turn:, turns: or stun:",
             "turnHints": {
-                "qxp-turn": "Self-hosted relay on our infrastructure — may be unstable under load. No IP exposed, everything goes through our relay.",
-                "google-stun": "Google public STUN — very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."
+                "qxp-turn": "Self-hosted relay on our infrastructure, may be unstable under load. No IP exposed, everything goes through our relay.",
+                "google-stun": "Google public STUN, very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."
             }
         },
         "tor": {
@@ -490,7 +502,7 @@
             "enabled": "Connect through Tor",
             "enabledNote": "Route the app's traffic through the Tor network. First boot can take several seconds while Tor downloads its consensus.",
             "restartNote": "Changing this setting will restart QxChat completely.",
-            "trayNote": "Tor is managed from the system tray. Right-click the QxChat tray icon and toggle “Connect through Tor” — the app will restart to apply the change.",
+            "trayNote": "Tor is managed from the system tray. Right-click the QxChat tray icon and toggle “Connect through Tor”, the app will restart to apply the change.",
             "externalNote": "A foreign Tor is already using the port. Traffic is routed through it, but the live circuit view is unavailable.",
             "port": "Tor SOCKS5 port",
             "running": "Tor is running on port {port}.",
@@ -533,7 +545,8 @@
             "relaysError": "Could not load relays: {error}",
             "details": "Details",
             "desktopOnly": "Tor routing is only available in the QxChat desktop app, which embeds the Tor client and routes your traffic locally. On the web version, your connection depends on your browser and cannot be routed through Tor.",
-            "downloadDesktop": "Download the desktop app"
+            "downloadDesktop": "Download the desktop app",
+            "relaysConfirmTitle": "Relay directory"
         },
         "advanced": {
             "connection": "Connection",
@@ -548,7 +561,7 @@
             "renameUploads": "Rename each uploaded file randomly",
             "renameUploadsNote": "When enabled, uploaded files are renamed to a random 8-character a-z/0-9 token (the extension is kept).",
             "stripExif": "Strip EXIF metadata from images",
-            "stripExifNote": "When enabled, image metadata (GPS, camera, timestamps) is removed locally before sending — JPEG EXIF and PNG eXIf chunks — without re-encoding the image.",
+            "stripExifNote": "When enabled, image metadata (GPS, camera, timestamps) is removed locally before sending (JPEG EXIF and PNG eXIf chunks) without re-encoding the image.",
             "discordRpc": {
                 "title": "Discord Rich Presence",
                 "enabled": "Show my activity on Discord",
@@ -648,7 +661,43 @@
             "pardonAccount": "Lift the ban",
             "deleteAccount": "Delete this account",
             "roomsLegend": "Each row shows people online, then messages held in memory.",
-            "none": "None"
+            "none": "None",
+            "chartSignups": "Accounts over the last week",
+            "chartSignupsNote": "Rebuilt from the 24 hour and 7 day counts, so accounts deleted since are not visible.",
+            "chartMessages": "Buffered messages per room",
+            "chartMessagesNote": "Currently held in memory; the server keeps no history.",
+            "chartPlatforms": "Sessions by platform",
+            "roomMessages": "messages",
+            "ageHour": "Last hour",
+            "ageDay": "Today",
+            "ageWeek": "This week",
+            "ageOlder": "Older",
+            "ageNever": "No messages",
+            "ageHourAccounts": "Last 24 hours",
+            "ageWeekAccounts": "2 to 7 days",
+            "ageOlderAccounts": "Over a week",
+            "stateActive": "Active",
+            "stateIdle": "Idle",
+            "statMessages": "Messages",
+            "statMessagesTotal": "Held in memory",
+            "statMessagesRooms": "Rooms holding messages",
+            "statMessagesMedian": "Median per room",
+            "statMessagesBusiest": "Busiest room",
+            "statMessagesNote": "The server buffers messages and keeps no history, so these are current figures, not a record over time.",
+            "chartActivity": "Rooms by last message",
+            "chartActivityNote": "How recently each room last saw traffic.",
+            "chartRooms": "Room activity",
+            "chartAudience": "People present per room",
+            "chartAccountState": "Account state",
+            "chartAccountAge": "Account age",
+            "chartAccountAgeNote": "Derived from the 24 hour and 7 day counts the server reports.",
+            "chartPresence": "Sessions in voice",
+            "openStats": "Statistics",
+            "openStatsHint": "Messages, rooms, accounts",
+            "chartLastMessage": "Rooms by day of last message",
+            "chartLastMessageNote": "Counts the rooms whose most recent buffered message falls on each day.",
+            "chartPlatformsNote": "Share of the live sessions, by client.",
+            "chartAccountStateNote": "Every account the server holds, split by state."
         },
         "backups": {
             "title": "Backups",
@@ -846,7 +895,7 @@
         "pollingToggle": "Poll friend requests",
         "pollInterval": "Poll interval (seconds)",
         "pollIntervalAuto": "Auto",
-        "pollIntervalHint": "Between 3 and 40 seconds. Leave empty for automatic (15–30 s).",
+        "pollIntervalHint": "Between 3 and 40 seconds. Leave empty for automatic (15-30 s).",
         "pollUniformityNote": "Caution: the protocol relies on a uniform polling cadence to guarantee anonymity. Changing this interval breaks the default fingerprint (constant polling at the normative value) and makes your client more identifiable.",
         "pollingNote": "Polling is off: the friend system is paused and new requests or updates will not be received."
     },
@@ -859,7 +908,11 @@
         "reset": "Reset",
         "apply": "Apply",
         "invalidImage": "Please choose a valid image file.",
-        "tooLarge": "This image is too large."
+        "tooLarge": "This image is too large.",
+        "animatedKept": "Animated image kept as is: cropping would freeze it on its first frame.",
+        "zoom": "Zoom",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out"
     },
     "badges": {
         "admin": "Staff",

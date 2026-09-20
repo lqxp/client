@@ -21,6 +21,7 @@ import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
 import RoomBanOverlay from "@/components/RoomBanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
+import SpoilerParticles from "@/components/SpoilerParticles.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
@@ -348,7 +349,21 @@ function resolveThemeMode(mode: string) {
   return mode === "adaptive" ? adaptiveTheme : mode;
 }
 
+function commitAppearance(apply: () => void) {
+  const root = document.documentElement;
+  const startViewTransition = (document as unknown as { startViewTransition?: (cb: () => void) => void })
+    .startViewTransition;
+  const themeChanged = root.getAttribute("data-theme") !== resolveThemeMode(messenger.state.themeMode || "system");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!themeChanged || reduced || typeof startViewTransition !== "function") return apply();
+  startViewTransition.call(document, apply);
+}
+
 function applyAppearance() {
+  commitAppearance(() => applyAppearanceNow());
+}
+
+function applyAppearanceNow() {
   const theme = resolveThemeMode(messenger.state.themeMode || "system");
   const lockTheme = resolveThemeMode(messenger.state.clientLockThemeMode || messenger.state.themeMode || "system");
 
@@ -882,6 +897,7 @@ async function lockClientNow() {
       </Transition>
     </Teleport>
 
+    <SpoilerParticles :active="Boolean(messenger.state.streamerMode || messenger.state.streamerLeaving)" />
     <DialogModal />
 
     <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" @open-profile="(username) => { spotlightProfile = username }" />

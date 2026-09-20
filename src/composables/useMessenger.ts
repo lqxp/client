@@ -1,4 +1,22 @@
-import { computed, inject, nextTick, reactive } from "vue";
+import { computed, inject, nextTick, reactive } from "vue";import type { TurnServerConfig } from "@/config/runtime";
+
+import type {
+  ActiveRecording,
+  AdminOverview,
+  ByRoom,
+  SocketFrame,
+  IncomingModPermissions,
+  IncomingRoomMeta,
+  IncomingMessage,
+  CallAudioGraph,
+  RoomSummary,
+  ByUser,
+  EditingDraft,
+  IntervalHandle,
+  PreviewMessage,
+  ReplyTarget,
+  TimerHandle,
+} from "@/types/messenger";
 import { zipSync } from "fflate";
 import {
   isPermissionGranted,
@@ -7,6 +25,7 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { EMPTY_CALL_MEDIA, normalizeCallMedia } from "@/calls/callTypes";
 import type {
+  CallSignalType,
   CallMediaState,
   CallSignalPayload,
   RemoteCallMedia,
@@ -40,6 +59,7 @@ import {
   parseRoomAccessToken,
   normalizeRoomKey,
 } from "@/crypto/e2ee";
+import type { EncryptedEnvelope } from "@/crypto/e2ee";
 import { solveVdf } from "@/crypto/vdf";
 import { computeNullifier } from "@/crypto/rln";
 import { encapsulatePqcSecret } from "@/crypto/pqc";
@@ -132,6 +152,10 @@ const PUBLIC_PROFILE_LOOKUP_TTL_MS = 5 * 60 * 1000;
 const PUBLIC_PROFILE_LOOKUP_MAX_USERS = 32;
 export const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "bat",
+  // Markup a browser would execute: read it, never render it.
+  "svg",
+  "xml",
+  "xhtml",
   "c",
   "cfg",
   "conf",
@@ -223,14 +247,14 @@ function inferWebSocketUrl() {
   return appRuntimeConfig.wsUrl;
 }
 
-function sanitizeUsername(value) {
+function sanitizeUsername(value: unknown) {
   return String(value || "")
     .trim()
     .toLowerCase()
     .slice(0, 32);
 }
 
-function isSystemUsername(value) {
+function isSystemUsername(value: unknown) {
   return sanitizeUsername(value) === SYSTEM_USERNAME;
 }
 
@@ -247,7 +271,7 @@ function systemProfile() {
   });
 }
 
-function validateUsernameWithMax(value, max) {
+function validateUsernameWithMax(value: unknown, max: number) {
   const trimmed = String(value || "").trim();
   if (trimmed.length < 2 || trimmed.length > max)
     return `Username must be 2 to ${max} characters.`;
@@ -260,20 +284,20 @@ function validateUsernameWithMax(value, max) {
   return "";
 }
 
-function validateUsername(value) {
+function validateUsername(value: unknown) {
   return validateUsernameWithMax(value, 32);
 }
 
-function validateRegistrationUsername(value) {
+function validateRegistrationUsername(value: unknown) {
   return validateUsernameWithMax(value, 24);
 }
 
-function sanitizePresenceStatus(value) {
+function sanitizePresenceStatus(value: unknown) {
   const status = String(value || "").trim();
   return PRESENCE_STATUSES.includes(status) ? status : "online";
 }
 
-function normalizeUserBadges(value) {
+function normalizeUserBadges(value: unknown) {
   const badges = Array.isArray(value) ? value : [];
   return [
     ...new Set(
@@ -288,7 +312,7 @@ function normalizeUserBadges(value) {
   ];
 }
 
-function presenceStatusLabel(status) {
+function presenceStatusLabel(status: string) {
   switch (sanitizePresenceStatus(status)) {
     case "invisible":
       return "Invisible";
@@ -299,19 +323,19 @@ function presenceStatusLabel(status) {
   }
 }
 
-function sanitizeProfileText(value, limit) {
+function sanitizeProfileText(value: unknown, limit: number) {
   return String(value || "")
     .trim()
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
     .slice(0, limit);
 }
 
-function findFirstLinkPreviewUrl(text) {
+function findFirstLinkPreviewUrl(text: string) {
   const match = String(text || "").match(LINK_PREVIEW_URL_RE);
   return match ? match[0] : "";
 }
 
-function isTextAttachmentByFilename(filename) {
+function isTextAttachmentByFilename(filename: string) {
   const ext =
     String(filename || "")
       .toLowerCase()
@@ -319,7 +343,7 @@ function isTextAttachmentByFilename(filename) {
   return TEXT_ATTACHMENT_EXTENSIONS.has(ext);
 }
 
-function attachmentKindFromFilename(filename) {
+function attachmentKindFromFilename(filename: string) {
   const ext =
     String(filename || "")
       .toLowerCase()
@@ -330,7 +354,7 @@ function attachmentKindFromFilename(filename) {
   return "";
 }
 
-function isTextAttachmentFile(file) {
+function isTextAttachmentFile(file: File) {
   const mimeType = String(file?.type || "").toLowerCase();
   if (isTextAttachmentByFilename(file?.name)) return true;
   if (mimeType.startsWith("text/")) return true;
@@ -443,7 +467,7 @@ function normalizeProfile(profile: unknown): {
     ),
   };
 }
-function mergeProfiles(base, incoming) {
+function mergeProfiles(base: unknown, incoming: unknown) {
   const left = normalizeProfile(base);
   const right = normalizeProfile(incoming);
   return normalizeProfile({
@@ -487,7 +511,33 @@ function normalizeProfilePatch(profile: unknown) {
   return patch;
 }
 
-function normalizeProfileMime(value) {
+/**
+ * Types a browser executes script from when they are opened as a document.
+ *
+ * This matters because an attachment that travels inside an end-to-end
+ * encrypted message never passes through the server: the client decrypts it
+ * and mints a `blob:` URL itself. A blob URL is same-origin with the page, so
+ * the `content-security-policy: sandbox` header the server puts on uploaded
+ * files does not apply to it, and an SVG carrying `<script>` would run on
+ * QxChat's own origin with full access to localStorage.
+ */
+const SCRIPTABLE_MIME_TYPES = new Set([
+  "image/svg+xml",
+  "image/svg",
+  "text/html",
+  "text/xml",
+  "text/xsl",
+  "application/xhtml+xml",
+  "application/xml",
+  "application/mathml+xml",
+]);
+
+function isScriptableMimeType(value: unknown): boolean {
+  return SCRIPTABLE_MIME_TYPES.has(
+    String(value || "").toLowerCase().split(";")[0].trim(),
+  );
+}
+function normalizeProfileMime(value: unknown) {
   const mime = String(value || "")
     .trim()
     .toLowerCase();
@@ -550,7 +600,7 @@ function sanitizeStoredUrl(value: unknown): string {
 
 // Cleans up historical persisted data that may still contain blob URLs from
 // before `sanitizeStoredUrl` started stripping them on write.
-function stripLoadedAttachmentBlobUrl(message) {
+function stripLoadedAttachmentBlobUrl(message: ChatMessage) {
   const attachment = message?.attachment;
   if (attachment && typeof attachment === "object") {
     const url = String(attachment.url || "");
@@ -594,7 +644,7 @@ function isAndroidWebViewRuntime() {
 
 function isTauriRuntime() {
   if (typeof window === "undefined") return false;
-  const candidate = window as any;
+  const candidate = window as unknown as Record<string, unknown>;
   return Boolean(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__);
 }
 
@@ -614,14 +664,14 @@ function detectClientPlatform() {
   return "web";
 }
 
-function sanitizeClientId(value) {
+function sanitizeClientId(value: unknown) {
   return String(value || "")
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, "")
     .slice(0, 48);
 }
 
-function sanitizeClientLockAutolockTimeoutMs(value) {
+function sanitizeClientLockAutolockTimeoutMs(value: unknown) {
   const timeoutMs = Math.round(Number(value) || 0);
   return CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS.includes(timeoutMs)
     ? timeoutMs
@@ -647,7 +697,7 @@ function getPersistentClientId() {
   }
 }
 
-function sanitizePlatform(value) {
+function sanitizePlatform(value: unknown) {
   const platform = String(value || "")
     .trim()
     .toLowerCase();
@@ -656,7 +706,7 @@ function sanitizePlatform(value) {
   return platform ? "desktop" : "web";
 }
 
-function platformLabel(platform) {
+function platformLabel(platform: string) {
   switch (sanitizePlatform(platform)) {
     case "android":
       return "Android";
@@ -671,7 +721,7 @@ function platformLabel(platform) {
   }
 }
 
-function platformIcon(platform) {
+function platformIcon(platform: string) {
   switch (sanitizePlatform(platform)) {
     case "android":
       return "Android";
@@ -686,14 +736,14 @@ function platformIcon(platform) {
   }
 }
 
-function sanitizeRoomId(value) {
+function sanitizeRoomId(value: unknown) {
   return String(value || "")
     .trim()
     .toLowerCase()
     .slice(0, ROOM_ID_MAX_LENGTH);
 }
 
-function validateRoomId(value) {
+function validateRoomId(value: unknown) {
   const id = sanitizeRoomId(value);
   if (id.length < ROOM_ID_MIN_LENGTH)
     return "Room name must be at least 8 characters.";
@@ -704,7 +754,7 @@ function validateRoomId(value) {
   return "";
 }
 
-function isValidRoomId(value) {
+function isValidRoomId(value: unknown) {
   return !validateRoomId(value);
 }
 
@@ -729,7 +779,7 @@ function generateRandomRoomId() {
   return id;
 }
 
-async function copyTextToClipboard(text) {
+async function copyTextToClipboard(text: string) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
     return;
@@ -747,14 +797,14 @@ async function copyTextToClipboard(text) {
   if (!copied) throw new Error("Clipboard copy failed.");
 }
 
-function formatTime(timestamp) {
+function formatTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatDay(timestamp) {
+function formatDay(timestamp: number) {
   const date = new Date(timestamp);
   const now = new Date();
   const oneDay = 86_400_000;
@@ -770,7 +820,7 @@ function formatDay(timestamp) {
   });
 }
 
-function formatSidebarTime(timestamp) {
+function formatSidebarTime(timestamp: number) {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   const now = new Date();
@@ -781,7 +831,7 @@ function formatSidebarTime(timestamp) {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function accentFor(seed) {
+function accentFor(seed: string) {
   const palette = [
     "blue",
     "green",
@@ -798,7 +848,7 @@ function accentFor(seed) {
   return palette[h % palette.length];
 }
 
-function sanitizeRoomUsers(raw) {
+function sanitizeRoomUsers(raw: unknown) {
   const users = new Set<string>();
   for (const player of Array.isArray(raw) ? raw : []) {
     const user = sanitizeUsername(
@@ -812,9 +862,9 @@ function sanitizeRoomUsers(raw) {
   return [...users];
 }
 
-function sanitizeRoomKeys(raw) {
+function sanitizeRoomKeys(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
+  const next = {} as Record<string, ReturnType<typeof normalizeRoomKey>>;
   for (const [roomId, roomKey] of Object.entries(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
@@ -827,9 +877,9 @@ function sanitizeRoomKeys(raw) {
   return next;
 }
 
-function sanitizeRoomRatchets(raw) {
+function sanitizeRoomRatchets(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
+  const next = {} as Record<string, number>;
   for (const [roomId, counter] of Object.entries(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
@@ -889,34 +939,39 @@ const SCREEN_SHARE_QUALITIES = [
 const SCREEN_SHARE_DEFAULT_FPS = 30;
 const SCREEN_SHARE_DEFAULT_QUALITY = "720p";
 
-function defaultPersisted(overrides: Record<string, unknown> = {}) {
+/**
+ * The stored shape and its values, kept apart from the merge: spreading
+ * `Record<string, unknown>` overrides into the literal widened every field to
+ * `T | unknown`, which is why nothing downstream could stay typed.
+ */
+function persistedDefaults() {
   return {
     authToken: "",
     sessionExpired: false,
     userId: "",
     admin: false,
-    recoveryWords: [],
+    recoveryWords: [] as string[],
     username: "",
     status: "online",
     activeRoom: "",
-    rooms: [],
-    joinedRooms: [],
-    usersByRoom: {},
-    profilesByUser: {},
-    createdAtByUser: {},
-    friendRoomIdsByRoom: {},
-    friendRoomsByRoom: {},
-    publicProfileFetchedAtByUser: {},
-    badgesByUser: {},
-    messagesByRoom: {},
-    unreadByRoom: {},
-    roomKeysByRoom: {},
-    roomRatchetsByRoom: {},
+    rooms: [] as RoomSummary[],
+    joinedRooms: [] as string[],
+    usersByRoom: {} as ByRoom<string[]>,
+    profilesByUser: {} as ByUser<ReturnType<typeof normalizeProfile>>,
+    createdAtByUser: {} as ByUser<number>,
+    friendRoomIdsByRoom: {} as ByRoom<boolean>,
+    friendRoomsByRoom: {} as ByRoom<string>,
+    publicProfileFetchedAtByUser: {} as ByUser<number>,
+    badgesByUser: {} as ByUser<string[]>,
+    messagesByRoom: {} as ByRoom<ChatMessage[]>,
+    unreadByRoom: {} as ByRoom<number>,
+    roomKeysByRoom: {} as ByRoom<string>,
+    roomRatchetsByRoom: {} as ByRoom<number>,
     deviceId: "",
-    deviceSigningPublicKey: null,
-    deviceSigningPrivateKey: null,
-    trustedSenderKeysByRoom: {},
-    bannedRooms: {},
+    deviceSigningPublicKey: null as JsonWebKey | null,
+    deviceSigningPrivateKey: null as JsonWebKey | null,
+    trustedSenderKeysByRoom: {} as ByRoom<Record<string, JsonWebKey>>,
+    bannedRooms: {} as ByRoom<boolean>,
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
     selectedVideoInputId: "",
@@ -930,6 +985,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     stripImageExif: true,
     streamerMode: false,
     typingIndicatorsEnabled: true,
+    groupMembersByRole: true,
     messageSoundEnabled: true,
     callSoundsEnabled: true,
     soundFlags: {
@@ -958,11 +1014,11 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     defaultRoomLeavedRoomId: "",
     pinnedCollapsed: false,
     channelsCollapsed: false,
-    callUserVolumes: {},
-    roomNotes: {},
-    pinnedRooms: [],
+    callUserVolumes: {} as ByUser<number>,
+    roomNotes: {} as ByRoom<string>,
+    pinnedRooms: [] as string[],
     selectedTurnServerId: runtimeDefaultTurnServerId(),
-    customTurnServers: [],
+    customTurnServers: [] as TurnServerConfig[],
     profile: loadPersistedProfile(),
     clientLockEnabled: false,
     clientLockSalt: "",
@@ -976,7 +1032,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     clientLockAutolockTimeoutMs: CLIENT_LOCK_DEFAULT_AUTOLOCK_TIMEOUT_MS,
     clientLockStorage: "",
     clientLockDisplayName: "",
-    clientLockAvatar: null,
+    clientLockAvatar: null as ReturnType<typeof normalizeProfileImage> | null,
     clientLockThemeMode: "system",
     clientLockFailedAttempts: 0,
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
@@ -989,16 +1045,39 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     opsecDecoySetupActive: false,
     opsecDecoyConfigured: false,
     opsecDecoyActive: false,
-    ...overrides,
   };
 }
 
-function localDataLockedPayload(raw) {
+export type PersistedState = ReturnType<typeof persistedDefaults>;
+
+function defaultPersisted(overrides: Partial<PersistedState> = {}): PersistedState {
+  return { ...persistedDefaults(), ...overrides };
+}
+
+/** Shape check on data read back from storage, so the input really is unknown. */
+/**
+ * The message of a thrown value. `catch` binds `unknown`, and a rejected fetch
+ * or a DOMException is not always an Error, so both shapes are handled here
+ * instead of at thirty call sites.
+ */
+/** Safari and older WebViews only expose the prefixed constructor. */
+interface LegacyAudioWindow {
+  webkitAudioContext?: typeof AudioContext;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  const bag = error as { message?: unknown } | null | undefined;
+  return typeof bag?.message === "string" ? bag.message : "";
+}
+
+function localDataLockedPayload(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const payload = raw as Record<string, unknown>;
   return (
-    raw &&
-    raw.version === 5 &&
-    raw.locked === true &&
-    (typeof raw.ciphertext === "string" || raw.storage === "indexeddb")
+    payload.version === 5 &&
+    payload.locked === true &&
+    (typeof payload.ciphertext === "string" || payload.storage === "indexeddb")
   );
 }
 
@@ -1014,7 +1093,7 @@ function openClientLockDb(): Promise<IDBDatabase> {
   });
 }
 
-async function putClientLockPayload(payload) {
+async function putClientLockPayload(payload: Record<string, unknown>) {
   const db = await openClientLockDb();
   try {
     await new Promise((resolve, reject) => {
@@ -1111,29 +1190,36 @@ function loadPersisted() {
       });
     }
     const profile = loadPersistedProfile();
-    const rooms = Array.isArray(raw.rooms)
-      ? raw.rooms
-          .filter(
-            (r) => r && typeof r === "object" && typeof r.roomId === "string",
-          )
+    // Rooms read back from storage: untrusted JSON, so the guard narrows each
+    // entry to a bag of unknown fields before anything is read off it.
+    const isRoomLike = (entry: unknown): entry is Record<string, unknown> =>
+      !!entry &&
+      typeof entry === "object" &&
+      typeof (entry as Record<string, unknown>).roomId === "string";
+
+    const rooms: RoomSummary[] = Array.isArray(raw.rooms)
+      ? (raw.rooms as unknown[])
+          .filter(isRoomLike)
           .slice(0, MAX_ROOMS_SHOWN)
-          .map((r) => ({
-            roomId: sanitizeRoomId(r.roomId),
-            title: String(r.title || "")
-              .trim()
-              .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH),
-            lastPreview: String(r.lastPreview || ""),
-            lastTimestamp: Number(r.lastTimestamp) || 0,
-            lastSender: String(r.lastSender || ""),
-            iconUrl: sanitizeHttpUrl(
-              r.iconUrl || r.icon?.url || r.icon?.file?.url,
-            ),
-            members: sanitizeRoomUsers(r.members || []),
-          }))
+          .map((r) => {
+            const icon = (r.icon ?? {}) as Record<string, unknown>;
+            const iconFile = (icon.file ?? {}) as Record<string, unknown>;
+            return {
+              roomId: sanitizeRoomId(r.roomId),
+              title: String(r.title || "")
+                .trim()
+                .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH),
+              lastPreview: String(r.lastPreview || ""),
+              lastTimestamp: Number(r.lastTimestamp) || 0,
+              lastSender: String(r.lastSender || ""),
+              iconUrl: sanitizeHttpUrl(r.iconUrl || icon.url || iconFile.url),
+              members: sanitizeRoomUsers(r.members || []),
+            };
+          })
           .filter((r) => isValidRoomId(r.roomId))
       : [];
 
-    const messagesByRoom = {};
+    const messagesByRoom = {} as ByRoom<ChatMessage[]>;
     if (raw.messagesByRoom && typeof raw.messagesByRoom === "object") {
       for (const [id, arr] of Object.entries(raw.messagesByRoom)) {
         if (!Array.isArray(arr)) continue;
@@ -1145,7 +1231,7 @@ function loadPersisted() {
       }
     }
 
-    const unreadByRoom = {};
+    const unreadByRoom = {} as ByRoom<number>;
     if (raw.unreadByRoom && typeof raw.unreadByRoom === "object") {
       for (const [id, n] of Object.entries(raw.unreadByRoom)) {
         const v = Number(n);
@@ -1155,17 +1241,17 @@ function loadPersisted() {
       }
     }
 
-    const joinedRooms = Array.isArray(raw.joinedRooms)
+    const joinedRooms: string[] = Array.isArray(raw.joinedRooms)
       ? [
           ...new Set(
-            raw.joinedRooms
+            (raw.joinedRooms as unknown[])
               .map((roomId) => sanitizeRoomId(roomId))
-              .filter((roomId) => isValidRoomId(roomId)),
+              .filter((roomId: string) => isValidRoomId(roomId)),
           ),
         ]
       : [];
 
-    const usersByRoom = {};
+    const usersByRoom = {} as ByRoom<string[]>;
     if (raw.usersByRoom && typeof raw.usersByRoom === "object") {
       for (const [id, players] of Object.entries(raw.usersByRoom)) {
         const roomId = sanitizeRoomId(id);
@@ -1174,7 +1260,7 @@ function loadPersisted() {
       }
     }
 
-    const profilesByUser = {};
+    const profilesByUser = {} as ByUser<ReturnType<typeof normalizeProfile>>;
     if (raw.profilesByUser && typeof raw.profilesByUser === "object") {
       for (const [username, profile] of Object.entries(raw.profilesByUser)) {
         const key = sanitizeUsername(username);
@@ -1183,7 +1269,7 @@ function loadPersisted() {
       }
     }
 
-    const createdAtByUser = {};
+    const createdAtByUser = {} as ByUser<number>;
     if (raw.createdAtByUser && typeof raw.createdAtByUser === "object") {
       for (const [username, timestamp] of Object.entries(raw.createdAtByUser)) {
         const key = sanitizeUsername(username);
@@ -1192,7 +1278,7 @@ function loadPersisted() {
       }
     }
 
-    const publicProfileFetchedAtByUser = {};
+    const publicProfileFetchedAtByUser = {} as ByUser<number>;
     if (
       raw.publicProfileFetchedAtByUser &&
       typeof raw.publicProfileFetchedAtByUser === "object"
@@ -1208,7 +1294,7 @@ function loadPersisted() {
       }
     }
 
-    const badgesByUser = {};
+    const badgesByUser = {} as ByUser<string[]>;
     if (raw.badgesByUser && typeof raw.badgesByUser === "object") {
       for (const [username, badges] of Object.entries(raw.badgesByUser)) {
         const key = sanitizeUsername(username);
@@ -1232,14 +1318,16 @@ function loadPersisted() {
       });
     }
 
-    return {
+    // Through defaultPersisted so every key exists even when the stored
+    // blob predates it; the literal only overrides what it could parse.
+    return defaultPersisted({
       authToken: String(raw.authToken || ""),
       sessionExpired: Boolean(raw.sessionExpired),
       userId: String(raw.userId || ""),
       admin: Boolean(raw.admin),
       recoveryWords: Array.isArray(raw.recoveryWords)
         ? raw.recoveryWords
-            .map((word) => String(word || ""))
+            .map((word: string) => String(word || ""))
             .filter(Boolean)
             .slice(0, 16)
         : [],
@@ -1291,6 +1379,7 @@ function loadPersisted() {
       stripImageExif: raw.stripImageExif !== false,
       streamerMode: Boolean(raw.streamerMode),
       typingIndicatorsEnabled: raw.typingIndicatorsEnabled !== false,
+      groupMembersByRole: raw.groupMembersByRole !== false,
       messageSoundEnabled:
         typeof raw.messageSoundEnabled === "boolean"
           ? raw.messageSoundEnabled
@@ -1383,7 +1472,7 @@ function loadPersisted() {
       )
         ? String(raw.opsecDuressAction)
         : "wipe",
-    };
+    });
   } catch {
     return defaultPersisted();
   }
@@ -1399,9 +1488,9 @@ function loadPersistedProfile() {
   }
 }
 
-function sanitizeCallUserVolumes(raw) {
+function sanitizeCallUserVolumes(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
+  const next = {} as ByUser<number>;
   for (const [name, value] of Object.entries(raw)) {
     const key = sanitizeUsername(name);
     if (!key) continue;
@@ -1410,9 +1499,9 @@ function sanitizeCallUserVolumes(raw) {
   return next;
 }
 
-function sanitizeRoomNotes(raw) {
+function sanitizeRoomNotes(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
+  const next = {} as ByRoom<string>;
   for (const [roomId, note] of Object.entries(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
@@ -1423,7 +1512,7 @@ function sanitizeRoomNotes(raw) {
   return next;
 }
 
-function sanitizePinnedRooms(raw) {
+function sanitizePinnedRooms(raw: unknown) {
   if (!Array.isArray(raw)) return [];
   return [
     ...new Set(
@@ -1448,7 +1537,7 @@ function loadAccountsVault() {
   }
 }
 
-function saveAccountsVault(accounts) {
+function saveAccountsVault(accounts: unknown) {
   try {
     const list = Array.isArray(accounts) ? accounts : [];
     localStorage.setItem(
@@ -1460,9 +1549,9 @@ function saveAccountsVault(accounts) {
   }
 }
 
-function sanitizeBannedRooms(raw) {
+function sanitizeBannedRooms(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const next = {};
+  const next = {} as ByRoom<boolean>;
   for (const roomId of Object.keys(raw)) {
     const id = sanitizeRoomId(roomId);
     if (!isValidRoomId(id)) continue;
@@ -1471,7 +1560,7 @@ function sanitizeBannedRooms(raw) {
   return next;
 }
 
-function sanitizeCustomTurnServers(raw) {
+function sanitizeCustomTurnServers(raw: unknown) {
   if (!Array.isArray(raw)) return [];
   const seen = new Set();
   const out = [];
@@ -1483,8 +1572,8 @@ function sanitizeCustomTurnServers(raw) {
         .slice(0, 64) || "Custom TURN";
     const urls = Array.isArray(item.urls)
       ? item.urls
-          .map((u) => String(u || "").trim())
-          .filter((u) => /^(turn|turns|stun):/i.test(u))
+          .map((u: string) => String(u || "").trim())
+          .filter((u: string) => /^(turn|turns|stun):/i.test(u))
           .slice(0, 8)
       : [];
     if (!urls.length) continue;
@@ -1506,7 +1595,7 @@ function sanitizeCustomTurnServers(raw) {
   return out;
 }
 
-function stripAttachmentDataForStorage(arr) {
+function stripAttachmentDataForStorage(arr: IncomingMessage[]) {
   return (arr || []).map((m) => {
     const message = normalizeMessage(m, m?.roomId || "");
     const attachment = message.attachment
@@ -1582,7 +1671,7 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-function base64ToBytes(value) {
+function base64ToBytes(value: unknown) {
   const binary = atob(String(value || ""));
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
@@ -1591,7 +1680,7 @@ function base64ToBytes(value) {
   return bytes;
 }
 
-function validateClientLockPin(pin) {
+function validateClientLockPin(pin: string) {
   const clean = String(pin || "").trim();
   if (!CLIENT_LOCK_PIN_LENGTHS.includes(clean.length) || !/^\d+$/.test(clean)) {
     return "PIN must be 4, 6 or 8 digits.";
@@ -1599,7 +1688,7 @@ function validateClientLockPin(pin) {
   return "";
 }
 
-async function deriveClientLockKey(pin, saltBytes) {
+async function deriveClientLockKey(pin: string, saltBytes: Uint8Array<ArrayBuffer>) {
   const material = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(String(pin || "")),
@@ -1627,12 +1716,9 @@ function yieldToBrowser() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-function buildPersistedPayload(state) {
-  const messagesByRoom = {};
-  for (const [id, arr] of Object.entries(state.messagesByRoom || {}) as [
-    string,
-    any[],
-  ][]) {
+function buildPersistedPayload(state: ReturnType<typeof defaultPersisted>) {
+  const messagesByRoom: ByRoom<ReturnType<typeof stripAttachmentDataForStorage>> = {};
+  for (const [id, arr] of Object.entries(state.messagesByRoom || {})) {
     messagesByRoom[id] = stripAttachmentDataForStorage(
       arr.slice(-MAX_HISTORY_PER_ROOM),
     );
@@ -1653,8 +1739,8 @@ function buildPersistedPayload(state) {
     joinedRooms: [
       ...new Set(
         (state.joinedRooms || [])
-          .map((roomId) => sanitizeRoomId(roomId))
-          .filter((roomId) => isValidRoomId(roomId)),
+          .map((roomId: string) => sanitizeRoomId(roomId))
+          .filter((roomId: string) => isValidRoomId(roomId)),
       ),
     ],
     pinnedRooms: sanitizePinnedRooms(state.pinnedRooms),
@@ -1715,6 +1801,7 @@ function buildPersistedPayload(state) {
     stripImageExif: state.stripImageExif,
     streamerMode: state.streamerMode,
     typingIndicatorsEnabled: state.typingIndicatorsEnabled,
+    groupMembersByRole: state.groupMembersByRole,
     messageSoundEnabled: state.messageSoundEnabled,
     callSoundsEnabled: state.callSoundsEnabled,
     soundFlags: { ...state.soundFlags },
@@ -1759,7 +1846,7 @@ function buildPersistedPayload(state) {
   return payload;
 }
 
-async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
+async function encryptClientLockPayload(payload: Record<string, unknown>, key: CryptoKey, salt: string, pinLength = 6) {
   const serialized = JSON.stringify(payload);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt(
@@ -1781,7 +1868,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
       payload?.opsecHideLockIdentity !== false
         ? null
         : normalizeProfileImage(
-            payload?.profile?.avatar,
+            (payload?.profile as Record<string, unknown> | undefined)?.avatar,
             MAX_PROFILE_AVATAR_BYTES,
           ),
     themeMode: THEME_MODES.includes(
@@ -1809,7 +1896,7 @@ async function encryptClientLockPayload(payload, key, salt, pinLength = 6) {
   };
 }
 
-function writePersistedPayload(payload) {
+function writePersistedPayload(payload: Record<string, unknown>) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -1824,11 +1911,11 @@ function writePersistedPayload(payload) {
   }
 }
 
-function writePersistedPayloadStrict(payload) {
+function writePersistedPayloadStrict(payload: Record<string, unknown>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
-function writeDecoyPersistedPayload(payload) {
+function writeDecoyPersistedPayload(payload: Record<string, unknown>) {
   try {
     localStorage.setItem(OPSEC_DECOY_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -1856,7 +1943,7 @@ function loadDecoyPersistedPayload() {
   }
 }
 
-function decoyPersistedPayload(payload) {
+function decoyPersistedPayload(payload: Record<string, unknown>) {
   return {
     ...payload,
     clientLockEnabled: false,
@@ -1875,7 +1962,9 @@ function decoyPersistedPayload(payload) {
   };
 }
 
-async function writeLockedPersistedPayload(lockedPayload) {
+async function writeLockedPersistedPayload(
+  lockedPayload: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
   try {
     writePersistedPayloadStrict(lockedPayload);
     await deleteClientLockPayload();
@@ -1892,7 +1981,7 @@ async function writeLockedPersistedPayload(lockedPayload) {
   }
 }
 
-async function savePersisted(state) {
+async function savePersisted(state: ReturnType<typeof defaultPersisted>) {
   if (state.opsecRamOnlyEnabled) return;
   const payload = buildPersistedPayload(state);
   if (state.opsecDecoyActive || state.opsecDecoySetupActive) {
@@ -1914,7 +2003,7 @@ async function savePersisted(state) {
   savePersistedProfile(state.profile);
 }
 
-function savePersistedProfile(profile) {
+function savePersistedProfile(profile: unknown) {
   if (
     singleton?.state?.opsecRamOnlyEnabled ||
     singleton?.state?.opsecDecoyActive ||
@@ -1931,7 +2020,7 @@ function savePersistedProfile(profile) {
   }
 }
 
-function parseVoiceLabel(text) {
+function parseVoiceLabel(text: string) {
   const match = /^\[voice:(\d+:\d{2})(?::([0-9,]+))?\]$/i.exec(
     String(text || "").trim(),
   );
@@ -1946,12 +2035,12 @@ function parseVoiceLabel(text) {
   return { duration, waveform };
 }
 
-function extractUsername(label) {
+function extractUsername(label: string) {
   const parts = String(label || "Unknown").split(" ");
   return parts[parts.length - 1] || "Unknown";
 }
 
-function formatSize(bytes) {
+function formatSize(bytes: number) {
   const n = Number(bytes) || 0;
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -1962,7 +2051,7 @@ const RANDOM_UPLOAD_NAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 // Renames an uploaded file to an 8-char `a-z0-9` token, keeping the original
 // extension so the recipient's client can still infer the file type.
-function randomUploadFilename(originalName) {
+function randomUploadFilename(originalName: string) {
   const name = String(originalName || "file");
   const dot = name.lastIndexOf(".");
   const extension = dot > 0 && dot < name.length - 1 ? name.slice(dot) : "";
@@ -1978,7 +2067,7 @@ function randomUploadFilename(originalName) {
 // Losslessly removes the EXIF APP1 segment from a JPEG without re-encoding
 // (pixel data is untouched). Returns null when the input isn't a JPEG or has
 // no EXIF, so callers keep the original file untouched.
-function stripJpegExif(bytes) {
+function stripJpegExif(bytes: Uint8Array) {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
 
   const parts = [bytes.slice(0, 2)]; // SOI (FF D8)
@@ -2037,7 +2126,7 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 // Returns the null-terminated keyword of a PNG textual chunk (tEXt/zTXt/iTXt)
 // as a lowercased ASCII string.
-function pngChunkKeyword(data) {
+function pngChunkKeyword(data: Uint8Array) {
   let end = data.indexOf(0);
   if (end < 0) end = data.length;
   let keyword = "";
@@ -2052,7 +2141,7 @@ function pngChunkKeyword(data) {
 // Also removes textual chunks (`tEXt`/`zTXt`/`iTXt`) that carry an embedded
 // EXIF profile (the legacy "Raw profile type exif/app1" format). Returns null
 // when the input isn't a PNG or has no strip-able metadata.
-function stripPngExif(bytes) {
+function stripPngExif(bytes: Uint8Array) {
   if (bytes.length < 8) return null;
   for (let i = 0; i < 8; i += 1) {
     if (bytes[i] !== PNG_SIGNATURE[i]) return null;
@@ -2126,11 +2215,11 @@ const HEIC_MAJOR_BRANDS = new Set([
   "heif",
 ]);
 
-function readU16(bytes, off) {
+function readU16(bytes: Uint8Array, off: number) {
   return (bytes[off] << 8) | bytes[off + 1];
 }
 
-function readU32(bytes, off) {
+function readU32(bytes: Uint8Array, off: number) {
   return (
     ((bytes[off] << 24) |
       (bytes[off + 1] << 16) |
@@ -2140,7 +2229,7 @@ function readU32(bytes, off) {
   );
 }
 
-function readUInt(bytes, off, size) {
+function readUInt(bytes: Uint8Array, off: number, size: number) {
   let value = 0;
   for (let i = 0; i < size; i += 1) {
     value = value * 256 + bytes[off + i];
@@ -2148,7 +2237,7 @@ function readUInt(bytes, off, size) {
   return value;
 }
 
-function fourcc(bytes, off) {
+function fourcc(bytes: Uint8Array, off: number) {
   return String.fromCharCode(
     bytes[off],
     bytes[off + 1],
@@ -2157,7 +2246,9 @@ function fourcc(bytes, off) {
   );
 }
 
-function readIsoBox(bytes, off, limit) {
+type IsoBox = { type: string; headerSize: number; contentStart: number; end: number };
+
+function readIsoBox(bytes: Uint8Array, off: number, limit: number): IsoBox | null {
   if (off + 8 > limit) return null;
   let size = readU32(bytes, off);
   let headerSize = 8;
@@ -2179,14 +2270,14 @@ function readIsoBox(bytes, off, limit) {
   };
 }
 
-function isHeicFile(bytes) {
+function isHeicFile(bytes: Uint8Array) {
   if (bytes.length < 12) return false;
   if (readU32(bytes, 0) < 12) return false;
   if (fourcc(bytes, 4) !== "ftyp") return false;
   return HEIC_MAJOR_BRANDS.has(fourcc(bytes, 8).toLowerCase());
 }
 
-function parseInfeItemType(bytes, infe) {
+function parseInfeItemType(bytes: Uint8Array, infe: IsoBox) {
   const start = infe.contentStart;
   const end = infe.end;
   if (start + 4 > end) return null;
@@ -2208,7 +2299,7 @@ function parseInfeItemType(bytes, infe) {
   return { id, type: fourcc(bytes, p) };
 }
 
-function collectExifItemIds(bytes, iinf) {
+function collectExifItemIds(bytes: Uint8Array, iinf: IsoBox) {
   const start = iinf.contentStart;
   const end = iinf.end;
   if (start + 4 > end) return null;
@@ -2235,7 +2326,7 @@ function collectExifItemIds(bytes, iinf) {
   return ids;
 }
 
-function collectExifRanges(bytes, iloc, exifIds, idatDataStart) {
+function collectExifRanges(bytes: Uint8Array, iloc: IsoBox, exifIds: number[], idatDataStart: number) {
   const start = iloc.contentStart;
   const end = iloc.end;
   if (start + 4 > end) return null;
@@ -2346,7 +2437,7 @@ function collectExifRanges(bytes, iloc, exifIds, idatDataStart) {
   return ranges;
 }
 
-function stripHeicExif(bytes) {
+function stripHeicExif(bytes: Uint8Array) {
   if (!isHeicFile(bytes)) return null;
 
   let meta = null;
@@ -2388,7 +2479,7 @@ function stripHeicExif(bytes) {
   return out;
 }
 
-async function stripImageExif(file) {
+async function stripImageExif(file: File) {
   if (!file) return file;
   const type = String(file.type || "");
   const isJpeg = /image\/jpe?g/i.test(type);
@@ -2414,7 +2505,7 @@ async function stripImageExif(file) {
   }
 }
 
-function messagePreviewLabel(message) {
+function messagePreviewLabel(message: PreviewMessage | null | undefined) {
   if (!message || message.deleted) return "";
   if (message.kind === "image") return "Photo";
   if (message.kind === "video") return "Video";
@@ -2425,13 +2516,13 @@ function messagePreviewLabel(message) {
   return String(message.text || "").trim();
 }
 
-function isTransientPresenceSystemMessage(message) {
+function isTransientPresenceSystemMessage(message: PreviewMessage | null | undefined) {
   return (
     Boolean(message?.system) && String(message?.systemKind || "") === "presence"
   );
 }
 
-function latestSidebarRoomMessage(messages) {
+function latestSidebarRoomMessage(messages: PreviewMessage[]) {
   for (let i = (messages?.length || 0) - 1; i >= 0; i -= 1) {
     const message = messages?.[i];
     if (
@@ -2453,7 +2544,7 @@ const _emojiSegmenter =
 // Identifies messages that are 1–3 pure emoji graphemes (Discord-style jumbo).
 // Falls back to a code-point-based heuristic when Intl.Segmenter is missing.
 const EMOJI_CHAR_REGEX = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
-function isOnlyEmoji(text) {
+function isOnlyEmoji(text: string) {
   const trimmed = String(text || "").trim();
   if (!trimmed) return false;
 
@@ -2468,8 +2559,10 @@ function isOnlyEmoji(text) {
   return graphemes.every((g) => EMOJI_CHAR_REGEX.test(g));
 }
 
-function normalizeMessage(message, fallbackRoomId) {
-  const voiceInfo = parseVoiceLabel(message.text);
+type ChatMessage = ReturnType<typeof normalizeMessage>;
+
+function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
+  const voiceInfo = parseVoiceLabel(message.text || "");
   const voiceDuration = voiceInfo.duration;
   const voiceWaveform = voiceInfo.waveform;
   const attachment =
@@ -2503,7 +2596,8 @@ function normalizeMessage(message, fallbackRoomId) {
   let kind = "text";
   if (message.deleted) kind = "deleted";
   else if (attachment) {
-    if (isTextAttachmentByFilename(attachment.filename)) kind = "file";
+    if (isTextAttachmentByFilename(attachment.filename) || isScriptableMimeType(attachment.mimeType))
+      kind = "file";
     else if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
     else if ((attachment.mimeType || "").startsWith("image/")) kind = "image";
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
@@ -2534,7 +2628,7 @@ function normalizeMessage(message, fallbackRoomId) {
       : message.user || message.username || "Unknown",
     username: message.system
       ? SYSTEM_USERNAME
-      : message.username || extractUsername(message.user),
+      : message.username || extractUsername(message.user || ""),
     userId: String(message.userId || ""),
     text: voiceDuration ? "" : rawText,
     rawText,
@@ -2560,7 +2654,7 @@ function normalizeMessage(message, fallbackRoomId) {
   };
 }
 
-function blobToBase64(blob, onProgress) {
+function blobToBase64(blob: Blob, onProgress?: (pct: number) => void) {
   return new Promise((resolve, reject) => {
     if (onProgress) onProgress(0);
     const reader = new FileReader();
@@ -2584,7 +2678,7 @@ function blobToBase64(blob, onProgress) {
   });
 }
 
-function zipSafeFilename(name) {
+function zipSafeFilename(name: string) {
   const clean = String(name || "file")
     .replace(/[\\/\u0000-\u001f\u007f]+/g, "_")
     .replace(/^\.+$/, "file")
@@ -2607,12 +2701,12 @@ async function archiveFileAsZip(file: File) {
   });
 }
 
-function base64ToBlob(b64, mimeType) {
+function base64ToBlob(b64: string, mimeType: string) {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   return new Blob([bytes], { type: mimeType || "application/octet-stream" });
 }
 
-function mimeFromProfileFile(file) {
+function mimeFromProfileFile(file: File) {
   const fromType = normalizeProfileMime(file?.type);
   if (fromType) return fromType;
   const name = String(file?.name || "").toLowerCase();
@@ -2623,7 +2717,7 @@ function mimeFromProfileFile(file) {
   return "";
 }
 
-function imageDimensions(file): Promise<{ width: number; height: number }> {
+function imageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -2641,7 +2735,7 @@ function imageDimensions(file): Promise<{ width: number; height: number }> {
   });
 }
 
-function microphoneLevelFromSamples(samples) {
+function microphoneLevelFromSamples(samples: Uint8Array) {
   if (!samples?.length) return 0;
   let peak = 0;
   let sum = 0;
@@ -2655,24 +2749,30 @@ function microphoneLevelFromSamples(samples) {
   return Math.min(100, Math.round(Math.pow(blended, 0.72) * 100));
 }
 
-function smoothLevel(previous, next) {
+function smoothLevel(previous: number, next: number) {
   const attack = 0.38;
   const release = 0.13;
   const factor = next > previous ? attack : release;
   return previous + (next - previous) * factor;
 }
 
-function buildWaveform(seed) {
+function buildWaveform(seed: string) {
   return Array.from({ length: 28 }, (_, index) => {
     const offset = (index * 17 + String(seed).length * 13) % 24;
     return 8 + offset;
   });
 }
 
-let singleton;
+let singleton: Messenger | null = null;
 
-export function useMessenger() {
-  if (singleton) return singleton;
+export type Messenger = ReturnType<typeof createMessenger>;
+
+export function useMessenger(): Messenger {
+  if (!singleton) singleton = createMessenger();
+  return singleton;
+}
+
+function createMessenger() {
 
   const persisted = loadPersisted();
   const importedInvite = parseInviteLink();
@@ -2684,31 +2784,33 @@ export function useMessenger() {
     ) {
       persisted.rooms.unshift({
         roomId: importedInvite.roomId,
+        title: "",
         lastPreview: "",
         lastTimestamp: 0,
         lastSender: "",
         iconUrl: "",
+        members: [],
       });
     }
     clearInviteLinkFromUrl();
   }
-  let toastTimer = null;
+  let toastTimer: TimerHandle | null = null;
 
   const state = reactive({
-    ws: null,
+    ws: null as WebSocket | null,
     connected: false,
     identified: false,
-    uuid: null,
+    uuid: null as string | null,
     heartbeatInterval: 3000,
-    heartbeatTimer: null,
+    heartbeatTimer: null as IntervalHandle | null,
     manualClose: false,
-    reconnectTimer: null,
+    reconnectTimer: null as TimerHandle | null,
     reconnectAttempts: 0,
 
     authToken: persisted.authToken,
     userId: persisted.userId,
     admin: persisted.admin,
-    sessionExpired: Boolean((persisted as any).sessionExpired),
+    sessionExpired: Boolean(persisted.sessionExpired),
     authLoading: false,
     requireCaptcha: false,
     authMode: "login",
@@ -2721,43 +2823,43 @@ export function useMessenger() {
     clientLockLoading: false,
     clientLockProgress: 0,
     clientLockPinLength: CLIENT_LOCK_PIN_LENGTHS.includes(
-      Number((persisted as any).clientLockPinLength),
+      Number(persisted.clientLockPinLength),
     )
-      ? Number((persisted as any).clientLockPinLength)
+      ? Number(persisted.clientLockPinLength)
       : 6,
     clientLockAutolockEnabled:
-      (persisted as any).clientLockAutolockEnabled === true,
+      persisted.clientLockAutolockEnabled === true,
     clientLockAutolockTimeoutMs: sanitizeClientLockAutolockTimeoutMs(
-      (persisted as any).clientLockAutolockTimeoutMs,
+      persisted.clientLockAutolockTimeoutMs,
     ),
-    clientLockStorage: (persisted as any).clientLockStorage || "",
+    clientLockStorage: persisted.clientLockStorage || "",
     clientLockDisplayName: String(
-      (persisted as any).clientLockDisplayName || "",
+      persisted.clientLockDisplayName || "",
     ),
     clientLockAvatar: normalizeProfileImage(
-      (persisted as any).clientLockAvatar,
+      persisted.clientLockAvatar,
       MAX_PROFILE_AVATAR_BYTES,
     ),
     clientLockThemeMode: THEME_MODES.includes(
-      String((persisted as any).clientLockThemeMode || "").toLowerCase(),
+      String(persisted.clientLockThemeMode || "").toLowerCase(),
     )
-      ? String((persisted as any).clientLockThemeMode).toLowerCase()
+      ? String(persisted.clientLockThemeMode).toLowerCase()
       : "system",
     clientLockFailedAttempts: Math.max(
       0,
-      Number((persisted as any).clientLockFailedAttempts) || 0,
+      Number(persisted.clientLockFailedAttempts) || 0,
     ),
     clientLockMaxFailedAttempts: CLIENT_LOCK_MAX_FAILED_ATTEMPTS,
-    opsecRamOnlyEnabled: (persisted as any).opsecRamOnlyEnabled === true,
-    opsecDuressEnabled: (persisted as any).opsecDuressEnabled === true,
-    opsecDuressSalt: String((persisted as any).opsecDuressSalt || ""),
-    opsecDuressHash: String((persisted as any).opsecDuressHash || ""),
+    opsecRamOnlyEnabled: persisted.opsecRamOnlyEnabled === true,
+    opsecDuressEnabled: persisted.opsecDuressEnabled === true,
+    opsecDuressSalt: String(persisted.opsecDuressSalt || ""),
+    opsecDuressHash: String(persisted.opsecDuressHash || ""),
     opsecDuressAction: OPSEC_DURESS_ACTIONS.includes(
-      String((persisted as any).opsecDuressAction || ""),
+      String(persisted.opsecDuressAction || ""),
     )
-      ? String((persisted as any).opsecDuressAction)
+      ? String(persisted.opsecDuressAction)
       : "wipe",
-    opsecHideLockIdentity: (persisted as any).opsecHideLockIdentity !== false,
+    opsecHideLockIdentity: persisted.opsecHideLockIdentity !== false,
     opsecDecoySetupActive: false,
     opsecDecoyConfigured: Boolean(loadDecoyPersistedPayload()),
     opsecDecoyActive: false,
@@ -2770,34 +2872,34 @@ export function useMessenger() {
     activeRoom: persisted.activeRoom,
     rooms: persisted.rooms,
     roomKeysByRoom: persisted.roomKeysByRoom,
-    roomRatchetsByRoom: (persisted as any).roomRatchetsByRoom || {},
-    deviceId: (persisted as any).deviceId || "",
-    deviceSigningPublicKey: (persisted as any).deviceSigningPublicKey || null,
-    deviceSigningPrivateKey: (persisted as any).deviceSigningPrivateKey || null,
-    trustedSenderKeysByRoom: (persisted as any).trustedSenderKeysByRoom || {},
+    roomRatchetsByRoom: persisted.roomRatchetsByRoom || {},
+    deviceId: persisted.deviceId || "",
+    deviceSigningPublicKey: persisted.deviceSigningPublicKey || null,
+    deviceSigningPrivateKey: persisted.deviceSigningPrivateKey || null,
+    trustedSenderKeysByRoom: persisted.trustedSenderKeysByRoom || {},
 
     joinedRooms: persisted.joinedRooms,
     pinnedRooms: persisted.pinnedRooms,
     accounts: loadAccountsVault(),
-    pendingJoinRooms: [],
-    roomMetaByRoom: {},
-    myRoleByRoom: {},
-    callAccessOpenByRoom: {},
+    pendingJoinRooms: [] as string[],
+    roomMetaByRoom: {} as ByRoom<ReturnType<typeof normalizeRoomMeta>>,
+    myRoleByRoom: {} as ByRoom<string>,
+    callAccessOpenByRoom: {} as ByRoom<boolean>,
     bannedRooms: persisted.bannedRooms,
     messagesByRoom: persisted.messagesByRoom,
     usersByRoom: persisted.usersByRoom,
     profilesByUser: { ...persisted.profilesByUser },
-    createdAtByUser: { ...(persisted as any).createdAtByUser },
-    friendRoomIdsByRoom: {},
-    friendRoomsByRoom: {},
+    createdAtByUser: { ...persisted.createdAtByUser },
+    friendRoomIdsByRoom: {} as ByRoom<boolean>,
+    friendRoomsByRoom: {} as ByRoom<string>,
     publicProfileFetchedAtByUser: {
-      ...(persisted as any).publicProfileFetchedAtByUser,
+      ...persisted.publicProfileFetchedAtByUser,
     },
     badgesByUser: { ...persisted.badgesByUser },
-    statusesByUser: {},
-    userIdsByUsername: {},
-    clientPlatformsByUser: {},
-    callClientsByRoom: {},
+    statusesByUser: {} as ByUser<string>,
+    userIdsByUsername: {} as ByUser<string>,
+    clientPlatformsByUser: {} as ByUser<string[]>,
+    callClientsByRoom: {} as ByRoom<ByUser<string[]>>,
     unreadByRoom: persisted.unreadByRoom,
 
     messageInput: "",
@@ -2813,10 +2915,10 @@ export function useMessenger() {
     toastError: false,
 
     settingsOpen: false,
-    replyingTo: null,
-    editingMessage: null,
+    replyingTo: null as ReplyTarget | null,
+    editingMessage: null as EditingDraft | null,
 
-    audioDevices: [],
+    audioDevices: [] as MediaDeviceInfo[],
     selectedAudioInputId: persisted.selectedAudioInputId,
     selectedAudioOutputId: persisted.selectedAudioOutputId,
     selectedVideoInputId: persisted.selectedVideoInputId,
@@ -2830,7 +2932,9 @@ export function useMessenger() {
     renameUploadsRandomly: persisted.renameUploadsRandomly,
     stripImageExif: persisted.stripImageExif,
     streamerMode: persisted.streamerMode,
+    streamerLeaving: false,
     typingIndicatorsEnabled: persisted.typingIndicatorsEnabled,
+    groupMembersByRole: persisted.groupMembersByRole,
     messageSoundEnabled: persisted.messageSoundEnabled,
     callSoundsEnabled: persisted.callSoundsEnabled,
     soundFlags: { ...persisted.soundFlags },
@@ -2859,38 +2963,38 @@ export function useMessenger() {
     micTestLoading: false,
     micTestLevel: 0,
 
-    recording: null, // { recorder, stream, startedAt, roomId } while recording voice memo
+    recording: null as ActiveRecording | null, // { recorder, stream, startedAt, roomId } while recording voice memo
     recordingElapsed: 0,
 
     inCall: false, // currently mid-voice-call
     callRoom: "", // which room the call is in
-    callStream: null, // raw microphone MediaStream
-    cameraStream: null,
-    screenStream: null,
+    callStream: null as MediaStream | null, // raw microphone MediaStream
+    cameraStream: null as MediaStream | null,
+    screenStream: null as MediaStream | null,
     callElapsed: 0, // seconds
     callMuted: false, // local mic mute applied to the outbound call gate
     callDeafened: false, // local headset mute: silences call output locally
     callMutedBeforeDeafen: false, // mic state before deafening, restored on undeafen
-    deafenedByUser: {}, // { username: true } — remote users who muted their headset
+    deafenedByUser: {} as ByUser<boolean>, // { username: true } — remote users who muted their headset
     callCameraEnabled: false,
     callScreenEnabled: false,
     localCallMedia: { ...EMPTY_CALL_MEDIA },
-    remoteCallMediaByUser: {},
-    remoteCallStreamsByUser: {},
+    remoteCallMediaByUser: {} as ByUser<ReturnType<typeof normalizeCallMedia>>,
+    remoteCallStreamsByUser: {} as ByUser<MediaStream>,
     selectedTurnServerId: persisted.selectedTurnServerId,
     customTurnServers: persisted.customTurnServers,
 
-    voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
-    speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
-    typingByRoom: {}, // { roomId: { username: lastTypingTimestamp } }
-    callAnalyser: null,
-    callAnalyserData: null,
-    callAnalyserOutData: null,
+    voiceMembersByRoom: {} as ByRoom<string[]>, // { roomId: [username, ...] } — who is currently in voice
+    speakingByRoom: {} as ByRoom<ByUser<number>>, // { roomId: { username: lastChunkTimestamp } } — recent speakers
+    typingByRoom: {} as ByRoom<ByUser<number>>, // { roomId: { username: lastTypingTimestamp } }
+    callAnalyser: null as CallAudioGraph | null,
+    callAnalyserData: null as Uint8Array<ArrayBuffer> | null,
+    callAnalyserOutData: null as Uint8Array<ArrayBuffer> | null,
 
     adminLoading: false,
-    adminOverview: null,
+    adminOverview: null as AdminOverview | null,
     adminError: "",
-    adminSearchResults: [],
+    adminSearchResults: [] as Record<string, unknown>[],
     adminSearchLoading: false,
     adminSearchSearched: false,
   });
@@ -2903,13 +3007,13 @@ export function useMessenger() {
   // Non-reactive registry of Blob-URLs keyed by messageId so repeated renders
   // reuse the same URL and we can free them when messages are evicted.
   const attachmentUrlCache = new Map();
-  let micTestStream = null;
-  let micTestAudio = null;
+  let micTestStream: MediaStream | null = null;
+  let micTestAudio: HTMLAudioElement | null = null;
   let micTestFrame = 0;
-  let micTestAnalyser = null;
-  let micTestAnalyserData = null;
+  let micTestAnalyser: { context: AudioContext; analyser: AnalyserNode } | null = null;
+  let micTestAnalyserData: Uint8Array<ArrayBuffer> | null = null;
   let micTestSmoothedLevel = 0;
-  let notificationAudioContext = null;
+  let notificationAudioContext: AudioContext | null = null;
   let callManager: WebRtcCallManager | null = null;
   let callOutboundStream: MediaStream | null = null;
   let callGateTimer: ReturnType<typeof setInterval> | null = null;
@@ -2935,7 +3039,7 @@ export function useMessenger() {
   function currentLocalPlatform() {
     return detectClientPlatform();
   }
-  function attachmentUrlFor(message) {
+  function attachmentUrlFor(message: ChatMessage) {
     const remoteUrl = sanitizeHttpUrl(message?.attachment?.url);
     if (remoteUrl) return remoteUrl;
 
@@ -2955,7 +3059,9 @@ export function useMessenger() {
       for (let index = 0; index < binary.length; index += 1)
         bytes[index] = binary.charCodeAt(index);
       const blobUrl = URL.createObjectURL(
-        new Blob([bytes], { type: mimeType }),
+        new Blob([bytes], {
+          type: isScriptableMimeType(mimeType) ? "text/plain" : mimeType,
+        }),
       );
       attachmentUrlCache.set(messageId, blobUrl);
       return blobUrl;
@@ -3093,7 +3199,7 @@ export function useMessenger() {
       .filter((account) => account.userId),
   );
 
-  function applyPersistedPayload(payload) {
+  function applyPersistedPayload(payload: Record<string, unknown>) {
     const normalized = defaultPersisted({
       ...payload,
       authToken: String(payload?.authToken || ""),
@@ -3109,37 +3215,37 @@ export function useMessenger() {
         : "",
       rooms: Array.isArray(payload?.rooms) ? payload.rooms : [],
       joinedRooms: Array.isArray(payload?.joinedRooms)
-        ? payload.joinedRooms
+        ? (payload.joinedRooms as string[])
         : [],
       pinnedRooms: sanitizePinnedRooms(payload?.pinnedRooms),
       usersByRoom:
         payload?.usersByRoom && typeof payload.usersByRoom === "object"
-          ? payload.usersByRoom
+          ? (payload.usersByRoom as PersistedState["usersByRoom"])
           : {},
       profilesByUser:
         payload?.profilesByUser && typeof payload.profilesByUser === "object"
-          ? payload.profilesByUser
+          ? (payload.profilesByUser as PersistedState["profilesByUser"])
           : {},
       createdAtByUser:
         payload?.createdAtByUser && typeof payload.createdAtByUser === "object"
-          ? payload.createdAtByUser
+          ? (payload.createdAtByUser as PersistedState["createdAtByUser"])
           : {},
       publicProfileFetchedAtByUser:
         payload?.publicProfileFetchedAtByUser &&
         typeof payload.publicProfileFetchedAtByUser === "object"
-          ? payload.publicProfileFetchedAtByUser
+          ? (payload.publicProfileFetchedAtByUser as PersistedState["publicProfileFetchedAtByUser"])
           : {},
       badgesByUser:
         payload?.badgesByUser && typeof payload.badgesByUser === "object"
-          ? payload.badgesByUser
+          ? (payload.badgesByUser as PersistedState["badgesByUser"])
           : {},
       messagesByRoom:
         payload?.messagesByRoom && typeof payload.messagesByRoom === "object"
-          ? payload.messagesByRoom
+          ? (payload.messagesByRoom as PersistedState["messagesByRoom"])
           : {},
       unreadByRoom:
         payload?.unreadByRoom && typeof payload.unreadByRoom === "object"
-          ? payload.unreadByRoom
+          ? (payload.unreadByRoom as PersistedState["unreadByRoom"])
           : {},
       roomKeysByRoom: sanitizeRoomKeys(payload?.roomKeysByRoom),
       profile: normalizeProfile(payload?.profile),
@@ -3181,9 +3287,9 @@ export function useMessenger() {
     state.pinnedRooms = normalized.pinnedRooms;
     state.usersByRoom = normalized.usersByRoom;
     state.profilesByUser = { ...normalized.profilesByUser };
-    state.createdAtByUser = { ...(normalized as any).createdAtByUser };
+    state.createdAtByUser = { ...normalized.createdAtByUser };
     state.publicProfileFetchedAtByUser = {
-      ...(normalized as any).publicProfileFetchedAtByUser,
+      ...normalized.publicProfileFetchedAtByUser,
     };
     state.messagesByRoom = normalized.messagesByRoom;
     state.unreadByRoom = normalized.unreadByRoom;
@@ -3199,6 +3305,7 @@ export function useMessenger() {
     state.stripImageExif = normalized.stripImageExif;
     state.streamerMode = normalized.streamerMode;
     state.typingIndicatorsEnabled = normalized.typingIndicatorsEnabled;
+    state.groupMembersByRole = normalized.groupMembersByRole;
     state.messageSoundEnabled = normalized.messageSoundEnabled;
     state.callSoundsEnabled = normalized.callSoundsEnabled;
     state.soundFlags = { ...normalized.soundFlags };
@@ -3216,7 +3323,7 @@ export function useMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
-    state.bannedRooms = sanitizeBannedRooms((normalized as any).bannedRooms);
+    state.bannedRooms = sanitizeBannedRooms(normalized.bannedRooms);
     state.selectedTurnServerId = normalized.selectedTurnServerId;
     state.customTurnServers = normalized.customTurnServers;
     state.clientLockPinLength = normalized.clientLockPinLength;
@@ -3234,7 +3341,7 @@ export function useMessenger() {
     state.deviceSigningPrivateKey = payload?.deviceSigningPrivateKey || null;
   }
 
-  async function applyPersistedPayloadAfterUnlock(payload) {
+  async function applyPersistedPayloadAfterUnlock(payload: Record<string, unknown>) {
     const messagesByRoom = payload?.messagesByRoom;
     const unreadByRoom = payload?.unreadByRoom;
     applyPersistedPayload({ ...payload, messagesByRoom: {}, unreadByRoom: {} });
@@ -3242,10 +3349,12 @@ export function useMessenger() {
     await yieldToBrowser();
     state.messagesByRoom =
       messagesByRoom && typeof messagesByRoom === "object"
-        ? messagesByRoom
+        ? (messagesByRoom as typeof state.messagesByRoom)
         : {};
     state.unreadByRoom =
-      unreadByRoom && typeof unreadByRoom === "object" ? unreadByRoom : {};
+      unreadByRoom && typeof unreadByRoom === "object"
+        ? (unreadByRoom as typeof state.unreadByRoom)
+        : {};
     state.clientLockProgress = 90;
     await yieldToBrowser();
   }
@@ -3352,20 +3461,20 @@ export function useMessenger() {
     scheduleClientLockAutolock();
   }
 
-  function setClientLockAutolockEnabled(value) {
+  function setClientLockAutolockEnabled(value: unknown) {
     state.clientLockAutolockEnabled = Boolean(value);
     markClientActivity();
     persist();
   }
 
-  function setClientLockAutolockTimeoutMs(value) {
+  function setClientLockAutolockTimeoutMs(value: unknown) {
     state.clientLockAutolockTimeoutMs =
       sanitizeClientLockAutolockTimeoutMs(value);
     markClientActivity();
     persist();
   }
 
-  async function enableClientLock(pin) {
+  async function enableClientLock(pin: string) {
     const validation = validateClientLockPin(pin);
     if (validation) {
       state.lastError = validation;
@@ -3394,7 +3503,7 @@ export function useMessenger() {
       showToast("Client lock enabled.");
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Could not enable client lock.";
+      state.lastError = errorMessage(error) || "Could not enable client lock.";
       showToast(state.lastError);
       return false;
     } finally {
@@ -3418,7 +3527,7 @@ export function useMessenger() {
     }
   }
 
-  async function hashOpsecPin(pin, saltB64 = "") {
+  async function hashOpsecPin(pin: string, saltB64 = "") {
     const salt = saltB64
       ? base64ToBytes(saltB64)
       : crypto.getRandomValues(new Uint8Array(16));
@@ -3433,7 +3542,7 @@ export function useMessenger() {
     };
   }
 
-  async function matchesOpsecDuressPin(pin) {
+  async function matchesOpsecDuressPin(pin: string) {
     if (
       !state.opsecDuressEnabled ||
       !state.opsecDuressSalt ||
@@ -3613,7 +3722,7 @@ export function useMessenger() {
     showToast(state.lastError);
   }
 
-  async function unlockClientLock(pin) {
+  async function unlockClientLock(pin: string) {
     const validation = validateClientLockPin(pin);
     if (validation) {
       state.lastError = validation;
@@ -3628,9 +3737,9 @@ export function useMessenger() {
     state.clientLockProgress = 8;
     await yieldToBrowser();
     try {
-      const storedLockPayload: any = state.clientLockCiphertext
+      const storedLockPayload = (state.clientLockCiphertext
         ? { iv: state.clientLockIv, ciphertext: state.clientLockCiphertext }
-        : await getClientLockPayload();
+        : await getClientLockPayload()) as Record<string, unknown> | null;
       state.clientLockProgress = 18;
       await yieldToBrowser();
       const key = await deriveClientLockKey(
@@ -3758,14 +3867,14 @@ export function useMessenger() {
       ? String(lockedPayload.opsecDuressAction)
       : "wipe";
     state.opsecHideLockIdentity =
-      (lockedPayload as any).opsecHideLockIdentity !== false;
+      lockedPayload.opsecHideLockIdentity !== false;
     state.clientLockLocked = true;
     state.settingsOpen = false;
     showToast("QxChat locked.");
     return true;
   }
 
-  async function verifyClientLockPin(pin) {
+  async function verifyClientLockPin(pin: string) {
     const validation = validateClientLockPin(pin);
     if (validation) {
       state.lastError = validation;
@@ -3803,7 +3912,7 @@ export function useMessenger() {
     }
   }
 
-  async function setOpsecDuressPin(pin) {
+  async function setOpsecDuressPin(pin: string) {
     if (
       !state.clientLockEnabled ||
       state.clientLockLocked ||
@@ -3841,14 +3950,14 @@ export function useMessenger() {
     await persist();
   }
 
-  function setOpsecDuressAction(value) {
+  function setOpsecDuressAction(value: unknown) {
     state.opsecDuressAction = OPSEC_DURESS_ACTIONS.includes(String(value || ""))
       ? String(value)
       : "wipe";
     persist();
   }
 
-  async function setOpsecHideLockIdentity(value) {
+  async function setOpsecHideLockIdentity(value: unknown) {
     state.opsecHideLockIdentity = Boolean(value);
     await persist();
     if (
@@ -3867,7 +3976,7 @@ export function useMessenger() {
     }
   }
 
-  async function setOpsecRamOnlyEnabled(value) {
+  async function setOpsecRamOnlyEnabled(value: unknown) {
     state.opsecRamOnlyEnabled = Boolean(value);
     if (state.opsecRamOnlyEnabled) {
       await deleteClientLockPayload().catch(() => {});
@@ -3918,7 +4027,7 @@ export function useMessenger() {
 
   installClientActivityListeners();
 
-  async function apiRequest(path, options: any = {}) {
+  async function apiRequest(path: string, options: RequestInit = {}) {
     const headers = {
       ...(options.body ? { "content-type": "application/json" } : {}),
       ...(state.authToken
@@ -3934,8 +4043,8 @@ export function useMessenger() {
     return data;
   }
 
-  async function apiFormRequest(path, form: FormData) {
-    const headers = state.authToken
+  async function apiFormRequest(path: string, form: FormData) {
+    const headers: Record<string, string> = state.authToken
       ? { authorization: `Bearer ${state.authToken}` }
       : {};
     const response = await fetch(apiUrl(path), {
@@ -3950,7 +4059,8 @@ export function useMessenger() {
     return data;
   }
 
-  function applyAuthenticatedPayload(data) {
+  function applyAuthenticatedPayload(data: Record<string, unknown>) {
+    const authUser = (data.user ?? {}) as Record<string, unknown>;
     if (!data?.user) throw new Error("Malformed account response.");
     // Re-login into a previously saved account: restore its local state
     // (rooms, keys, messages) so the fresh auth payload does not wipe the cache.
@@ -3961,11 +4071,11 @@ export function useMessenger() {
     // account-vault snapshot would silently drop rooms created since the last
     // vault update.
     const savedAccount = state.accounts.find(
-      (account) => account && String(account.userId) === String(data.user.id),
+      (account) => account && String(account.userId) === String(authUser.id),
     );
     if (
       savedAccount &&
-      String(state.userId || "") !== String(data.user.id || "")
+      String(state.userId || "") !== String(authUser.id || "")
     ) {
       applyPersistedPayload(savedAccount);
     }
@@ -3996,19 +4106,19 @@ export function useMessenger() {
       roomNotes: { ...state.roomNotes },
     };
     state.authToken = String(data.token || state.authToken || "");
-    state.userId = String(data.user.id || "");
-    state.username = sanitizeUsername(data.user.username);
-    state.admin = Boolean(data.user.admin);
-    state.profile = mergeProfiles(state.profile, data.user.profile);
-    state.status = sanitizePresenceStatus(data.user.status);
-    const selfCreatedAt = Number(data.user.createdAt) || 0;
+    state.userId = String(authUser.id || "");
+    state.username = sanitizeUsername(authUser.username);
+    state.admin = Boolean(authUser.admin);
+    state.profile = mergeProfiles(state.profile, authUser.profile);
+    state.status = sanitizePresenceStatus(authUser.status);
+    const selfCreatedAt = Number(authUser.createdAt) || 0;
     if (selfCreatedAt)
-      state.createdAtByUser[sanitizeUsername(data.user.username)] =
+      state.createdAtByUser[sanitizeUsername(authUser.username)] =
         selfCreatedAt;
     Object.assign(state, preservedSettings);
     if (Array.isArray(data.recoveryWords)) {
       state.recoveryWords = data.recoveryWords
-        .map((word) => String(word || ""))
+        .map((word: string) => String(word || ""))
         .filter(Boolean)
         .slice(0, 16);
     }
@@ -4016,7 +4126,7 @@ export function useMessenger() {
     upsertCurrentAccount();
   }
 
-  function normalizeRecoveryWords(recoveryWords) {
+  function normalizeRecoveryWords(recoveryWords: unknown) {
     return String(recoveryWords || "")
       .split(/\s+/)
       .map((word) => word.trim().toLowerCase())
@@ -4056,7 +4166,7 @@ export function useMessenger() {
   // Importe (ré-injecte) les 12 mots de récupération dans cette session pour
   // permettre la dérivation du secret maître (utilisé par PHANTOM pour signer
   // les enveloppes). Accepte aussi le contenu complet du fichier `.txt` exporté.
-  function setRecoveryWords(raw) {
+  function setRecoveryWords(raw: unknown) {
     const cleaned = String(raw || "")
       .replace(/qxprotocol\s+account\s+recovery\s+words/gi, " ")
       .replace(/username\s*:\s*\S+/gi, " ");
@@ -4072,7 +4182,7 @@ export function useMessenger() {
     return true;
   }
 
-  async function registerAccount(username, password, capToken = null) {
+  async function registerAccount(username: string, password: string, capToken = null) {
     const validation = validateRegistrationUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -4082,7 +4192,7 @@ export function useMessenger() {
     const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      let payload: any = {
+      let payload: Record<string, unknown> = {
         username: cleanUsername,
         password,
       };
@@ -4165,8 +4275,8 @@ export function useMessenger() {
       downloadRecoveryWords();
       connect();
       return true;
-    } catch (error: any) {
-      state.lastError = error?.message || "Registration failed.";
+    } catch (error) {
+      state.lastError = errorMessage(error) || "Registration failed.";
       showToast(state.lastError);
       return false;
     } finally {
@@ -4174,7 +4284,7 @@ export function useMessenger() {
     }
   }
 
-  async function loginAccount(username, password, capToken = null) {
+  async function loginAccount(username: string, password: string, capToken = null) {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -4184,7 +4294,7 @@ export function useMessenger() {
     const cleanUsername = sanitizeUsername(username);
     state.authLoading = true;
     try {
-      let payload: any = {
+      let payload: Record<string, unknown> = {
         username: cleanUsername,
         password,
       };
@@ -4198,8 +4308,8 @@ export function useMessenger() {
           method: "POST",
           body: JSON.stringify(payload),
         });
-      } catch (firstErr: any) {
-        const msg = String(firstErr?.message || "").toLowerCase();
+      } catch (firstErr) {
+        const msg = String(errorMessage(firstErr) || "").toLowerCase();
         if (
           msg.includes("security challenge") ||
           msg.includes("challenge") ||
@@ -4215,8 +4325,8 @@ export function useMessenger() {
       applyAuthenticatedPayload(data);
       connect();
       return true;
-    } catch (error: any) {
-      state.lastError = error?.message || "Login failed.";
+    } catch (error) {
+      state.lastError = errorMessage(error) || "Login failed.";
       showToast(state.lastError);
       return false;
     } finally {
@@ -4225,10 +4335,10 @@ export function useMessenger() {
   }
 
   async function recoverAccount(
-    username,
-    recoveryWords,
-    newPassword,
-    capToken = null,
+    username: string,
+    recoveryWords: unknown,
+    newPassword: string,
+    capToken: string | null = null,
   ) {
     const validation = validateUsername(username);
     if (validation) {
@@ -4238,7 +4348,7 @@ export function useMessenger() {
     }
     state.authLoading = true;
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         username: sanitizeUsername(username),
         recoveryWords: String(recoveryWords || ""),
         newPassword,
@@ -4256,8 +4366,8 @@ export function useMessenger() {
       downloadRecoveryWords();
       connect();
       return true;
-    } catch (error: any) {
-      state.lastError = error?.message || "Recovery failed.";
+    } catch (error) {
+      state.lastError = errorMessage(error) || "Recovery failed.";
       showToast(state.lastError);
       return false;
     } finally {
@@ -4291,7 +4401,7 @@ export function useMessenger() {
       state.adminError = "";
       return data;
     } catch (error) {
-      state.adminError = error?.message || "Admin overview failed.";
+      state.adminError = errorMessage(error) || "Admin overview failed.";
       return null;
     } finally {
       state.adminLoading = false;
@@ -4303,7 +4413,7 @@ export function useMessenger() {
    * confirmed. Nothing is applied optimistically: if a request fails the rows
    * keep showing the last state the server acknowledged.
    */
-  function applyAdminUser(user) {
+  function applyAdminUser(user: Record<string, unknown>) {
     const id = String(user?.id || "");
     if (!id) return;
     const index = state.adminSearchResults.findIndex((entry) => String(entry?.id || "") === id);
@@ -4328,7 +4438,7 @@ export function useMessenger() {
     state.adminSearchLoading = false;
   }
 
-  async function searchAdminUsers(query) {
+  async function searchAdminUsers(query: string) {
     const requestId = ++adminSearchRequestId;
     const requestedBy = state.userId;
     const isCurrent = () => requestId === adminSearchRequestId && state.admin && state.userId === requestedBy;
@@ -4348,7 +4458,7 @@ export function useMessenger() {
       return state.adminSearchResults;
     } catch (error) {
       if (!isCurrent()) return [];
-      state.lastError = error?.message || "Admin user search failed.";
+      state.lastError = errorMessage(error) || "Admin user search failed.";
       showToast(state.lastError);
       state.adminSearchResults = [];
       state.adminSearchSearched = true;
@@ -4358,7 +4468,7 @@ export function useMessenger() {
     }
   }
 
-  async function setAdminFeature(key, enabled) {
+  async function setAdminFeature(key: string, enabled: boolean) {
     if (!state.admin) return false;
     try {
       const data = await apiRequest("/api/admin/features", {
@@ -4368,13 +4478,13 @@ export function useMessenger() {
       if (state.adminOverview) state.adminOverview.features = data.features;
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Feature update failed.";
+      state.lastError = errorMessage(error) || "Feature update failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function setServerDefaultRoom(roomId) {
+  async function setServerDefaultRoom(roomId: string) {
     if (!state.admin) return false;
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return false;
@@ -4395,7 +4505,7 @@ export function useMessenger() {
         state.adminOverview.defaultRoom = data.defaultRoom;
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Default room update failed.";
+      state.lastError = errorMessage(error) || "Default room update failed.";
       showToast(state.lastError);
       return false;
     }
@@ -4412,13 +4522,13 @@ export function useMessenger() {
         state.adminOverview.defaultRoom = data.defaultRoom;
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Default room clear failed.";
+      state.lastError = errorMessage(error) || "Default room clear failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function setAdminUserDisabled(userId, disabled) {
+  async function setAdminUserDisabled(userId: string, disabled: boolean) {
     if (!state.admin) return false;
     try {
       const data = await apiRequest(
@@ -4432,13 +4542,13 @@ export function useMessenger() {
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "User update failed.";
+      state.lastError = errorMessage(error) || "User update failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function setAdminUserBanned(userId, banned) {
+  async function setAdminUserBanned(userId: string, banned: boolean) {
     if (!state.admin) return false;
     try {
       const data = await apiRequest(
@@ -4452,13 +4562,13 @@ export function useMessenger() {
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "User update failed.";
+      state.lastError = errorMessage(error) || "User update failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function deleteAdminUser(userId) {
+  async function deleteAdminUser(userId: string) {
     if (!state.admin) return false;
     try {
       await apiRequest(
@@ -4474,13 +4584,13 @@ export function useMessenger() {
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "User delete failed.";
+      state.lastError = errorMessage(error) || "User delete failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function setAdminUserBadges(userId, badges) {
+  async function setAdminUserBadges(userId: string, badges: string[]) {
     if (!state.admin) return false;
     try {
       const normalizedBadges = normalizeUserBadges(badges);
@@ -4494,13 +4604,13 @@ export function useMessenger() {
       applyAdminUser(data?.user);
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Badge update failed.";
+      state.lastError = errorMessage(error) || "Badge update failed.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  function profileFor(username) {
+  function profileFor(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return normalizeProfile(null);
     if (isSystemUsername(key)) return systemProfile();
@@ -4508,7 +4618,7 @@ export function useMessenger() {
     return normalizeProfile(state.profilesByUser[key]);
   }
 
-  function badgesFor(username) {
+  function badgesFor(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return [];
     if (isSystemUsername(key)) return ["system"];
@@ -4517,13 +4627,13 @@ export function useMessenger() {
     return dedupeBadgeArtwork(normalizeUserBadges(state.badgesByUser[key]));
   }
 
-  function createdAtFor(username) {
+  function createdAtFor(username: string) {
     const key = sanitizeUsername(username);
     if (!key || isSystemUsername(key)) return 0;
     return Number(state.createdAtByUser[key]) || 0;
   }
 
-  function statusFor(username) {
+  function statusFor(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return "online";
     if (isSystemUsername(key)) return "online";
@@ -4531,16 +4641,16 @@ export function useMessenger() {
     return sanitizePresenceStatus(state.statusesByUser[key]);
   }
 
-  function roomKeyFor(roomId) {
+  function roomKeyFor(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return id ? String(state.roomKeysByRoom[id] || "") : "";
   }
 
-  function hasRoomKey(roomId) {
+  function hasRoomKey(roomId: string) {
     return !!roomKeyFor(roomId);
   }
 
-  function ensureRoomKey(roomId) {
+  function ensureRoomKey(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
     const current = roomKeyFor(id);
@@ -4553,7 +4663,7 @@ export function useMessenger() {
     return next;
   }
 
-  function importRoomKey(roomId, roomKey) {
+  function importRoomKey(roomId: string, roomKey: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
     const normalized = normalizeRoomKey(roomKey);
@@ -4566,14 +4676,14 @@ export function useMessenger() {
     return normalized;
   }
 
-  function roomAccessToken(roomId) {
+  function roomAccessToken(roomId: string) {
     const id = sanitizeRoomId(roomId);
     const key = roomKeyFor(id);
     if (!id || !key) return "";
     return `${id}${key}`;
   }
 
-  function openImportedRoomToken(token) {
+  function openImportedRoomToken(token: string) {
     const parsed = parseRoomAccessToken(token);
     importRoomKey(parsed.roomId, parsed.roomKey);
     selectConversation(parsed.roomId);
@@ -4582,7 +4692,7 @@ export function useMessenger() {
     return parsed.roomId;
   }
 
-  async function copyRoomInvite(roomId, { createIfMissing = true } = {}) {
+  async function copyRoomInvite(roomId: string, { createIfMissing = true } = {}) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
     const key = roomKeyFor(id) || (createIfMissing ? ensureRoomKey(id) : "");
@@ -4592,7 +4702,7 @@ export function useMessenger() {
     return token;
   }
 
-  function encryptedPlaceholderMessage(message, roomId, reason = "") {
+  function encryptedPlaceholderMessage(message: IncomingMessage, roomId: string, reason = "") {
     const hint = reason ? ` (${reason})` : "";
     return normalizeMessage(
       {
@@ -4608,7 +4718,7 @@ export function useMessenger() {
     );
   }
 
-  async function hydrateIncomingMessage(message, fallbackRoomId) {
+  async function hydrateIncomingMessage(message: IncomingMessage, fallbackRoomId: string) {
     const roomId = sanitizeRoomId(message?.roomId || fallbackRoomId || "");
     if (!message?.encrypted) return normalizeMessage(message, roomId);
     const roomKey = roomKeyFor(roomId);
@@ -4630,7 +4740,7 @@ export function useMessenger() {
       const decrypted = await decryptRoomPayload(
         roomKey,
         roomId,
-        message.encrypted,
+        message.encrypted as unknown as EncryptedEnvelope,
         trustedKey,
       );
       if (
@@ -4640,7 +4750,7 @@ export function useMessenger() {
       ) {
         state.trustedSenderKeysByRoom[roomId] = {
           ...roomTrust,
-          [senderDeviceId]: message.encrypted.senderSigningKey,
+          [senderDeviceId]: message.encrypted.senderSigningKey as JsonWebKey,
         };
         persist();
       }
@@ -4696,7 +4806,7 @@ export function useMessenger() {
     };
   }
 
-  async function buildEncryptedOutgoingMessage(roomId, payload) {
+  async function buildEncryptedOutgoingMessage(roomId: string, payload: Record<string, unknown>) {
     const id = sanitizeRoomId(roomId);
     const roomKey = roomKeyFor(id);
     if (!roomKey) {
@@ -4718,7 +4828,7 @@ export function useMessenger() {
     return encrypted;
   }
 
-  function displayRoomName(roomId) {
+  function displayRoomName(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     if (state.streamerMode) return "Hidden channel";
@@ -4728,7 +4838,7 @@ export function useMessenger() {
     return id;
   }
 
-  function beautifyRoomName(name, maxLength = 12) {
+  function beautifyRoomName(name: string, maxLength = 12) {
     const text = String(name || "").trim();
     if (!text) return "";
     // Keep only the first meaningful segment (like a short git commit hash).
@@ -4737,7 +4847,7 @@ export function useMessenger() {
     return segment.slice(0, maxLength);
   }
 
-  function displayRoomNameBeautified(roomId) {
+  function displayRoomNameBeautified(roomId: string) {
     const name = displayRoomName(roomId);
     if (!name || state.streamerMode) return name;
     const id = sanitizeRoomId(roomId);
@@ -4747,19 +4857,19 @@ export function useMessenger() {
     return isCustom ? name : beautifyRoomName(name);
   }
 
-  function roomNote(roomId) {
+  function roomNote(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return id ? String(state.roomNotes[id] || "") : "";
   }
 
-  function roomIcon(roomId) {
+  function roomIcon(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     const room = state.rooms.find((entry) => entry.roomId === id);
     return sanitizeHttpUrl(room?.iconUrl);
   }
 
-  function normalizeModPermissions(perms) {
+  function normalizeModPermissions(perms: IncomingModPermissions | null | undefined) {
     const source = perms && typeof perms === "object" ? perms : {};
     return {
       canBan: source.canBan !== false,
@@ -4769,7 +4879,7 @@ export function useMessenger() {
     };
   }
 
-  function normalizeRoomMeta(meta) {
+  function normalizeRoomMeta(meta: IncomingRoomMeta | null | undefined) {
     if (!meta || typeof meta !== "object") {
       return {
         kind: "classic",
@@ -4808,30 +4918,30 @@ export function useMessenger() {
     };
   }
 
-  function roomMeta(roomId) {
+  function roomMeta(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return id
       ? state.roomMetaByRoom[id] || normalizeRoomMeta(null)
       : normalizeRoomMeta(null);
   }
 
-  function roomKind(roomId) {
+  function roomKind(roomId: string) {
     return roomMeta(roomId).kind;
   }
-  function roomDescription(roomId) {
+  function roomDescription(roomId: string) {
     return roomMeta(roomId).description;
   }
-  function roomOwnerId(roomId) {
+  function roomOwnerId(roomId: string) {
     return roomMeta(roomId).ownerId;
   }
-  function roomChatLocked(roomId) {
+  function roomChatLocked(roomId: string) {
     return roomMeta(roomId).chatLocked;
   }
-  function roomModPermissions(roomId) {
+  function roomModPermissions(roomId: string) {
     return roomMeta(roomId).modPermissions;
   }
 
-  function bannedMembers(roomId) {
+  function bannedMembers(roomId: string) {
     const meta = roomMeta(roomId);
     return Object.entries(meta.banned || {}).map(([userId, username]) => ({
       userId,
@@ -4839,12 +4949,12 @@ export function useMessenger() {
     }));
   }
 
-  function myRoleInRoom(roomId) {
+  function myRoleInRoom(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return String(state.myRoleByRoom[id] || "member");
   }
 
-  function roleLabel(role) {
+  function roleLabel(role: string) {
     switch (String(role)) {
       case "administrator":
         return t("rooms.roleAdmin");
@@ -4857,7 +4967,7 @@ export function useMessenger() {
     }
   }
 
-  function roleForUsername(roomId, username) {
+  function roleForUsername(roomId: string, username: string) {
     const id = sanitizeRoomId(roomId);
     const meta = roomMeta(id);
     const userId = String(userIdForUsername(username) || "");
@@ -4866,7 +4976,7 @@ export function useMessenger() {
     return "member";
   }
 
-  function roleForUserId(roomId, userId) {
+  function roleForUserId(roomId: string, userId: string) {
     const id = sanitizeRoomId(roomId);
     const meta = roomMeta(id);
     const targetId = String(userId || "");
@@ -4875,7 +4985,7 @@ export function useMessenger() {
     return "member";
   }
 
-  function canDeleteMessage(message) {
+  function canDeleteMessage(message: ChatMessage) {
     if (!message || message.deleted || message.system) return false;
     const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!roomId) return false;
@@ -4902,14 +5012,14 @@ export function useMessenger() {
     }
   }
 
-  function isCommunityRoom(roomId) {
+  function isCommunityRoom(roomId: string) {
     return roomKind(roomId) === "community";
   }
-  function isBannedFromRoom(roomId) {
+  function isBannedFromRoom(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return Boolean(id && state.bannedRooms[id]);
   }
-  function markRoomBanned(roomId) {
+  function markRoomBanned(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     const wasActive = state.activeRoom === id;
@@ -4922,36 +5032,36 @@ export function useMessenger() {
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== id);
     persist();
   }
-  function unmarkRoomBanned(roomId) {
+  function unmarkRoomBanned(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     delete state.bannedRooms[id];
     persist();
   }
-  function isRoomOwner(roomId) {
+  function isRoomOwner(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return Boolean(state.userId) && roomOwnerId(id) === state.userId;
   }
-  function isRoomAdministrator(roomId) {
+  function isRoomAdministrator(roomId: string) {
     return myRoleInRoom(roomId) === "administrator" || isRoomOwner(roomId);
   }
-  function canManageRoom(roomId) {
+  function canManageRoom(roomId: string) {
     const role = myRoleInRoom(roomId);
     return role === "administrator" || role === "subAdmin";
   }
-  function canModerateRoom(roomId) {
+  function canModerateRoom(roomId: string) {
     const role = myRoleInRoom(roomId);
     return (
       role === "administrator" || role === "subAdmin" || role === "moderator"
     );
   }
-  function canConfigureModeratorPermissions(roomId) {
+  function canConfigureModeratorPermissions(roomId: string) {
     const role = myRoleInRoom(roomId);
     return (
       role === "administrator" || role === "subAdmin" || isRoomOwner(roomId)
     );
   }
-  function canSpeakInRoom(roomId) {
+  function canSpeakInRoom(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return true;
     const meta = roomMeta(id);
@@ -4967,7 +5077,7 @@ export function useMessenger() {
     return true;
   }
 
-  function speakBlockReason(roomId) {
+  function speakBlockReason(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     const meta = roomMeta(id);
@@ -4983,7 +5093,7 @@ export function useMessenger() {
     return "";
   }
 
-  function myTimeoutRemaining(roomId) {
+  function myTimeoutRemaining(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return 0;
     const meta = roomMeta(id);
@@ -4993,7 +5103,7 @@ export function useMessenger() {
     return Math.max(0, expiry - Date.now());
   }
 
-  function isMemberMuted(roomId, userId) {
+  function isMemberMuted(roomId: string, userId: string) {
     const id = sanitizeRoomId(roomId);
     const targetId = String(userId || "");
     if (!id || !targetId) return false;
@@ -5002,12 +5112,12 @@ export function useMessenger() {
     return expiry > Date.now();
   }
 
-  function isRoomPinned(roomId) {
+  function isRoomPinned(roomId: string) {
     const id = sanitizeRoomId(roomId);
     return Boolean(id && state.pinnedRooms.includes(id));
   }
 
-  function toggleRoomPin(roomId) {
+  function toggleRoomPin(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return false;
 
@@ -5028,11 +5138,11 @@ export function useMessenger() {
     return true;
   }
 
-  function roomCallsEnabled(roomId) {
+  function roomCallsEnabled(roomId: string) {
     return roomMeta(roomId).callsEnabled;
   }
 
-  function canCallInRoom(roomId) {
+  function canCallInRoom(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return true;
     const meta = roomMeta(id);
@@ -5045,7 +5155,7 @@ export function useMessenger() {
     return true;
   }
 
-  function shouldPromptCallAccess(roomId) {
+  function shouldPromptCallAccess(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return false;
     const meta = roomMeta(id);
@@ -5054,7 +5164,8 @@ export function useMessenger() {
     return role === "administrator" || role === "subAdmin";
   }
 
-  function applyRoomMeta(roomId, d) {
+  function applyRoomMeta(roomId: string, d: Record<string, unknown>) {
+    const metaRoom = (d.room ?? {}) as Record<string, unknown>;
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     if (d?.room && typeof d.room === "object") {
@@ -5064,20 +5175,20 @@ export function useMessenger() {
       state.myRoleByRoom[id] = String(d.myRole);
     } else if (d?.room && typeof d.room === "object") {
       const myId = String(state.userId || "");
-      if (myId && d.room.ownerId === myId) {
+      if (myId && metaRoom.ownerId === myId) {
         state.myRoleByRoom[id] = "administrator";
       } else if (
         myId &&
-        d.room.roles &&
-        typeof d.room.roles === "object" &&
-        d.room.roles[myId]
+        metaRoom.roles &&
+        typeof metaRoom.roles === "object" &&
+        (metaRoom.roles as Record<string, unknown> | undefined)?.[myId]
       ) {
-        state.myRoleByRoom[id] = String(d.room.roles[myId]);
+        state.myRoleByRoom[id] = String((metaRoom.roles as Record<string, unknown>)[myId]);
       }
     }
   }
 
-  function setRoomNote(roomId, note) {
+  function setRoomNote(roomId: string, note: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     const clean = String(note || "")
@@ -5091,7 +5202,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setLocalRoomName(roomId, name) {
+  function setLocalRoomName(roomId: string, name: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     const clean = String(name || "")
@@ -5100,7 +5211,7 @@ export function useMessenger() {
     send({ op: 33, d: { gameId: id, title: clean } });
   }
 
-  function clearLocalRoomName(roomId) {
+  function clearLocalRoomName(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     send({ op: 33, d: { gameId: id, title: "" } });
@@ -5108,7 +5219,7 @@ export function useMessenger() {
 
   // Titre purement local (sans aller-retour serveur) — utilisé pour les salons
   // E2EE ami↔ami qui n'ont pas d'enregistrement côté serveur.
-  function setLocalRoomTitle(roomId, name) {
+  function setLocalRoomTitle(roomId: string, name: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     const clean = String(name || "")
@@ -5131,7 +5242,7 @@ export function useMessenger() {
     persist();
   }
 
-  async function setLocalRoomIconFromFile(roomId, file) {
+  async function setLocalRoomIconFromFile(roomId: string, file: File) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return false;
     if (!file) return false;
@@ -5172,20 +5283,20 @@ export function useMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Could not upload room icon.";
+      state.lastError = errorMessage(error) || "Could not upload room icon.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  async function createCommunityRoom(options: any = {}) {
+  async function createCommunityRoom(options: Record<string, unknown> = {}) {
     let id = "";
     try {
       const token = generateRoomAccessToken();
       id = token.roomId;
       importRoomKey(token.roomId, token.roomKey);
     } catch (error) {
-      state.lastError = error?.message || "Could not generate a secure room.";
+      state.lastError = errorMessage(error) || "Could not generate a secure room.";
       showToast(state.lastError);
       return null;
     }
@@ -5197,9 +5308,9 @@ export function useMessenger() {
     const description = String(options.description || "")
       .trim()
       .slice(0, MAX_ROOM_DESCRIPTION_LENGTH);
-    const modPermissions = normalizeModPermissions(options.modPermissions);
+    const modPermissions = normalizeModPermissions(options.modPermissions as IncomingModPermissions);
 
-    const d: any = {
+    const d: Record<string, unknown> = {
       roomId: id,
       kind: "community",
       title,
@@ -5207,13 +5318,10 @@ export function useMessenger() {
       modPermissions,
     };
 
-    if (
-      options.file &&
-      typeof options.file === "object" &&
-      options.file.size != null
-    ) {
+    const iconFile = options.file as File | undefined;
+    if (iconFile && typeof iconFile === "object" && iconFile.size != null) {
       try {
-        const file = options.file;
+        const file = iconFile;
         if (Number(file.size) > 5 * 1024 * 1024) {
           state.lastError = "Room icon must be under 5 MB.";
           showToast(state.lastError);
@@ -5226,7 +5334,7 @@ export function useMessenger() {
           filename: String(file.name || "room-icon").slice(0, 128),
         };
       } catch (error) {
-        state.lastError = error?.message || "Could not prepare room icon.";
+        state.lastError = errorMessage(error) || "Could not prepare room icon.";
         showToast(state.lastError);
         return null;
       }
@@ -5236,7 +5344,7 @@ export function useMessenger() {
     return id;
   }
 
-  function updateRoomDescription(roomId, description) {
+  function updateRoomDescription(roomId: string, description: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({
@@ -5250,31 +5358,31 @@ export function useMessenger() {
     });
   }
 
-  function setMemberRole(roomId, targetUserId, role) {
+  function setMemberRole(roomId: string, targetUserId: string, role: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 42, d: { gameId: id, targetUserId, role } });
   }
 
-  function banMember(roomId, targetUserId) {
+  function banMember(roomId: string, targetUserId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 43, d: { gameId: id, targetUserId } });
   }
 
-  function unbanMember(roomId, targetUserId) {
+  function unbanMember(roomId: string, targetUserId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 44, d: { gameId: id, targetUserId } });
   }
 
-  function kickMember(roomId, targetUserId) {
+  function kickMember(roomId: string, targetUserId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 45, d: { gameId: id, targetUserId } });
   }
 
-  function timeoutMember(roomId, targetUserId, seconds) {
+  function timeoutMember(roomId: string, targetUserId: string, seconds: number) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({
@@ -5283,37 +5391,37 @@ export function useMessenger() {
     });
   }
 
-  function unmuteMember(roomId, targetUserId) {
+  function unmuteMember(roomId: string, targetUserId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 52, d: { gameId: id, targetUserId } });
   }
 
-  function transferOwnership(roomId, targetUserId) {
+  function transferOwnership(roomId: string, targetUserId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 47, d: { gameId: id, targetUserId } });
   }
 
-  function setChatLocked(roomId, locked) {
+  function setChatLocked(roomId: string, locked: boolean) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 48, d: { gameId: id, locked: Boolean(locked) } });
   }
 
-  function setCallsEnabled(roomId, enabled) {
+  function setCallsEnabled(roomId: string, enabled: boolean) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 50, d: { gameId: id, enabled: Boolean(enabled) } });
   }
 
-  function setCallAccess(roomId, allowMembers) {
+  function setCallAccess(roomId: string, allowMembers: boolean) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 51, d: { gameId: id, allowMembers: Boolean(allowMembers) } });
   }
 
-  function setModeratorPermissions(roomId, permissions) {
+  function setModeratorPermissions(roomId: string, permissions: IncomingModPermissions) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({
@@ -5322,25 +5430,45 @@ export function useMessenger() {
     });
   }
 
-  function setDeleteMessagesOnLeave(value) {
+  function setDeleteMessagesOnLeave(value: unknown) {
     state.deleteMessagesOnLeave = Boolean(value);
     syncClientSettings();
     persist();
   }
 
-  function setStreamerMode(value) {
-    state.streamerMode = Boolean(value);
+  let streamerLeaveTimer: TimerHandle | null = null;
+
+  function setStreamerMode(value: unknown) {
+    const next = Boolean(value);
+    if (next === state.streamerMode) return;
+    if (streamerLeaveTimer) {
+      clearTimeout(streamerLeaveTimer);
+      streamerLeaveTimer = null;
+    }
+    if (next) {
+      state.streamerLeaving = false;
+      state.streamerMode = true;
+      persist();
+      return;
+    }
+    
+    state.streamerLeaving = true;
+    state.streamerMode = false;
     persist();
+    streamerLeaveTimer = setTimeout(() => {
+      state.streamerLeaving = false;
+      streamerLeaveTimer = null;
+    }, 260);
   }
 
-  function setTorEnabled(value) {
+  function setTorEnabled(value: unknown) {
     // `torEnabled` is no longer persisted client-side: the backend's `tor-enabled`
     // marker is the single source of truth, and this is only a UI mirror. The
     // real on/off change happens via `toggleTor` → backend → app restart.
     state.torEnabled = Boolean(value);
   }
 
-  function setShareScreenAudio(value) {
+  function setShareScreenAudio(value: unknown) {
     state.shareScreenAudio = Boolean(value);
     persist();
   }
@@ -5407,7 +5535,7 @@ export function useMessenger() {
     });
   }
 
-  function setScreenShareFps(value) {
+  function setScreenShareFps(value: unknown) {
     const fps = SCREEN_SHARE_FPS_OPTIONS.includes(Number(value))
       ? Number(value)
       : SCREEN_SHARE_DEFAULT_FPS;
@@ -5417,7 +5545,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setScreenShareQuality(value) {
+  function setScreenShareQuality(value: unknown) {
     const quality = SCREEN_SHARE_QUALITIES.some((option) => option.id === value)
       ? String(value)
       : SCREEN_SHARE_DEFAULT_QUALITY;
@@ -5427,19 +5555,24 @@ export function useMessenger() {
     persist();
   }
 
-  function setMessageSoundEnabled(value) {
+  function setMessageSoundEnabled(value: unknown) {
     state.messageSoundEnabled = Boolean(value);
     if (state.messageSoundEnabled) ensureNotificationAudio();
     persist();
   }
 
-  function setTypingIndicatorsEnabled(value) {
+  function setGroupMembersByRole(value: boolean) {
+    state.groupMembersByRole = Boolean(value);
+    persist();
+  }
+
+  function setTypingIndicatorsEnabled(value: unknown) {
     state.typingIndicatorsEnabled = Boolean(value);
     setTyping(false);
     persist();
   }
 
-  function setCallSoundsEnabled(value) {
+  function setCallSoundsEnabled(value: unknown) {
     state.callSoundsEnabled = Boolean(value);
     setCallSoundsActive(state.callSoundsEnabled);
     persist();
@@ -5447,8 +5580,9 @@ export function useMessenger() {
 
   function setSoundEnabled(key: string, value: boolean) {
     if (!(key in state.soundFlags)) return;
-    state.soundFlags[key] = Boolean(value);
-    setSoundFlag(key, state.soundFlags[key]);
+    const flag = key as keyof typeof state.soundFlags;
+    state.soundFlags[flag] = Boolean(value);
+    setSoundFlag(key, state.soundFlags[flag]);
     persist();
   }
 
@@ -5490,13 +5624,13 @@ export function useMessenger() {
     }
   }
 
-  function setAndroidNotificationsEnabled(value) {
+  function setAndroidNotificationsEnabled(value: unknown) {
     state.androidNotificationsEnabled = Boolean(value);
     if (state.androidNotificationsEnabled) requestNotificationPermission();
     persist();
   }
 
-  function setThemeMode(value) {
+  function setThemeMode(value: unknown) {
     const next = THEME_MODES.includes(String(value || "").toLowerCase())
       ? String(value).toLowerCase()
       : "system";
@@ -5504,7 +5638,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setClientLockThemeMode(value) {
+  function setClientLockThemeMode(value: unknown) {
     const next = THEME_MODES.includes(String(value || "").toLowerCase())
       ? String(value).toLowerCase()
       : "system";
@@ -5512,7 +5646,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setAppAccent(value) {
+  function setAppAccent(value: unknown) {
     const next = ["blue", "violet", "emerald", "rose", "amber"].includes(
       String(value || "").toLowerCase(),
     )
@@ -5522,7 +5656,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setMessageStyle(value) {
+  function setMessageStyle(value: unknown) {
     const next = ["bubble", "discord"].includes(
       String(value || "").toLowerCase(),
     )
@@ -5532,54 +5666,54 @@ export function useMessenger() {
     persist();
   }
 
-  function setSpotlightSearchEnabled(value) {
+  function setSpotlightSearchEnabled(value: unknown) {
     state.spotlightSearchEnabled = Boolean(value);
     persist();
   }
 
-  function setAutoReconnectEnabled(value) {
+  function setAutoReconnectEnabled(value: unknown) {
     state.autoReconnectEnabled = Boolean(value);
     if (!state.autoReconnectEnabled) clearReconnectTimer();
     persist();
   }
 
-  function setServerClearsLocalMessages(value) {
+  function setServerClearsLocalMessages(value: unknown) {
     state.serverClearsLocalMessages = Boolean(value);
     syncClientSettings();
     persist();
   }
 
-  function setAllowServerDefaultRoom(value) {
+  function setAllowServerDefaultRoom(value: unknown) {
     state.allowServerDefaultRoom = Boolean(value);
     persist();
   }
 
-  function setPinnedCollapsed(value) {
+  function setPinnedCollapsed(value: unknown) {
     state.pinnedCollapsed = Boolean(value);
     persist();
   }
 
-  function setChannelsCollapsed(value) {
+  function setChannelsCollapsed(value: unknown) {
     state.channelsCollapsed = Boolean(value);
     persist();
   }
 
-  function setAutoArchiveUploads(value) {
+  function setAutoArchiveUploads(value: unknown) {
     state.autoArchiveUploads = Boolean(value);
     persist();
   }
 
-  function setRenameUploadsRandomly(value) {
+  function setRenameUploadsRandomly(value: unknown) {
     state.renameUploadsRandomly = Boolean(value);
     persist();
   }
 
-  function setStripImageExif(value) {
+  function setStripImageExif(value: unknown) {
     state.stripImageExif = Boolean(value);
     persist();
   }
 
-  function setReconnectDelays(minDelayMs, maxDelayMs) {
+  function setReconnectDelays(minDelayMs: number, maxDelayMs: number) {
     const min = Math.max(
       250,
       Math.min(
@@ -5599,7 +5733,7 @@ export function useMessenger() {
     persist();
   }
 
-  function setPresenceStatus(value) {
+  function setPresenceStatus(value: unknown) {
     const next = sanitizePresenceStatus(value);
     if (state.status === next) return;
     state.status = next;
@@ -5608,7 +5742,7 @@ export function useMessenger() {
     syncClientSettings();
   }
 
-  function setProfileText(payload: any = {}) {
+  function setProfileText(payload: Record<string, unknown> = {}) {
     const { description, pronouns } = payload;
     state.profile = normalizeProfile({
       ...state.profile,
@@ -5628,7 +5762,7 @@ export function useMessenger() {
     });
   }
 
-  async function setProfileImageFromFile(kind, file) {
+  async function setProfileImageFromFile(kind: string, file: File) {
     const isBanner = kind === "banner";
     const limit = isBanner
       ? MAX_PROFILE_BANNER_BYTES
@@ -5659,27 +5793,27 @@ export function useMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Could not read profile image.";
+      state.lastError = errorMessage(error) || "Could not read profile image.";
       showToast(state.lastError);
       return false;
     }
   }
 
-  function clearProfileImage(kind) {
+  function clearProfileImage(kind: string) {
     if (kind !== "avatar" && kind !== "banner") return;
     state.profile = normalizeProfile({ ...state.profile, [kind]: null });
     persist();
     syncClientSettings(true, { [kind]: null });
   }
 
-  function callUserVolume(username) {
+  function callUserVolume(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return 100;
     const value = Number(state.callUserVolumes[key]);
     return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 100;
   }
 
-  function setCallUserVolume(username, value) {
+  function setCallUserVolume(username: string, value: unknown) {
     const key = sanitizeUsername(username);
     if (!key) return;
     state.callUserVolumes[key] = Math.max(
@@ -5692,7 +5826,7 @@ export function useMessenger() {
   function ensureNotificationAudio() {
     try {
       const AudioCtx =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as unknown as LegacyAudioWindow).webkitAudioContext;
       if (!AudioCtx) return null;
       if (!notificationAudioContext) notificationAudioContext = new AudioCtx();
       if (notificationAudioContext.state === "suspended") {
@@ -5752,7 +5886,7 @@ export function useMessenger() {
     }
   }
 
-  function showAndroidMessageNotification(message, roomId) {
+  function showAndroidMessageNotification(message: ChatMessage, roomId: string) {
     if (document.visibilityState === "visible" && roomId === state.activeRoom)
       return;
     if (!state.androidNotificationsEnabled) return;
@@ -5812,9 +5946,10 @@ export function useMessenger() {
     };
   }
 
-  function mediaErrorMessage(prefix, error) {
-    const name = String(error?.name || "Error").trim();
-    const message = String(error?.message || "").trim();
+  function mediaErrorMessage(prefix: string, error: unknown) {
+    const fault = (error ?? {}) as { name?: unknown; message?: unknown };
+  const name = String(fault.name || "Error").trim();
+    const message = String(fault.message || "").trim();
     return `${prefix}: ${name}${message ? ` - ${message}` : ""}`;
   }
 
@@ -5823,7 +5958,7 @@ export function useMessenger() {
       return await navigator.mediaDevices.getUserMedia(audioConstraints());
     } catch (error) {
       const selectedDeviceId = String(state.selectedAudioInputId || "").trim();
-      const errorName = String(error?.name || "").trim();
+      const errorName = String((error as { name?: unknown })?.name || "").trim();
       if (!selectedDeviceId || errorName !== "OverconstrainedError")
         throw error;
 
@@ -5873,19 +6008,19 @@ export function useMessenger() {
     }
   }
 
-  function setAudioInput(deviceId) {
+  function setAudioInput(deviceId: string) {
     state.selectedAudioInputId = String(deviceId || "");
     if (state.micTestActive) stopMicTest();
     persist();
   }
 
-  function setAudioOutput(deviceId) {
+  function setAudioOutput(deviceId: string) {
     state.selectedAudioOutputId = String(deviceId || "");
-    applyAudioOutput(micTestAudio);
+    if (micTestAudio) applyAudioOutput(micTestAudio);
     persist();
   }
 
-  function setVideoInput(deviceId) {
+  function setVideoInput(deviceId: string) {
     state.selectedVideoInputId = String(deviceId || "");
     persist();
   }
@@ -5895,7 +6030,7 @@ export function useMessenger() {
       return await navigator.mediaDevices.getUserMedia(videoConstraints());
     } catch (error) {
       const selectedDeviceId = String(state.selectedVideoInputId || "").trim();
-      const errorName = String(error?.name || "").trim();
+      const errorName = String((error as { name?: unknown })?.name || "").trim();
       if (!selectedDeviceId || errorName !== "OverconstrainedError")
         throw error;
 
@@ -5905,14 +6040,14 @@ export function useMessenger() {
     }
   }
 
-  function setMicrophoneThreshold(value) {
+  function setMicrophoneThreshold(value: unknown) {
     const next = Math.max(0, Math.min(100, Number(value) || 0));
     state.microphoneThreshold = next;
     updateCallAudioGate();
     persist();
   }
 
-  async function applyAudioOutput(audio) {
+  async function applyAudioOutput(audio: HTMLAudioElement) {
     if (
       !audio ||
       !state.selectedAudioOutputId ||
@@ -5926,18 +6061,18 @@ export function useMessenger() {
     }
   }
 
-  function stopStreamTracks(stream) {
+  function stopStreamTracks(stream: MediaStream | null | undefined) {
     if (!stream) return;
     for (const track of stream.getTracks()) track.stop();
   }
 
-  function setupCallAudioPipeline(stream) {
+  function setupCallAudioPipeline(stream: MediaStream) {
     closeCallAnalyser();
     state.callAnalyser = null;
     state.callAnalyserData = null;
     try {
       const AudioCtx =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as unknown as LegacyAudioWindow).webkitAudioContext;
       if (!AudioCtx) return stream;
       const context = new AudioCtx();
       const monitorStream = new MediaStream(
@@ -6002,7 +6137,7 @@ export function useMessenger() {
     if (!audioTrack || audioTrack.readyState !== "live") return;
     try {
       const AudioCtx =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as unknown as LegacyAudioWindow).webkitAudioContext;
       if (!AudioCtx) return;
       const context = new AudioCtx();
       const source = context.createMediaStreamSource(
@@ -6105,7 +6240,7 @@ export function useMessenger() {
     return microphoneLevelFromSamples(state.callAnalyserData) > threshold;
   }
 
-  function setCallAudioGateOpen(open) {
+  function setCallAudioGateOpen(open: boolean) {
     const gate = state.callAnalyser?.gate;
     const context = state.callAnalyser?.context;
     if (gate && context) {
@@ -6204,7 +6339,7 @@ export function useMessenger() {
       micTestStream = stream;
 
       const AudioCtx =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as unknown as LegacyAudioWindow).webkitAudioContext;
       if (AudioCtx) {
         const context = new AudioCtx();
         const source = context.createMediaStreamSource(stream);
@@ -6247,7 +6382,7 @@ export function useMessenger() {
     }
   }
 
-  function touchRoom(roomId: string, message = null) {
+  function touchRoom(roomId: string, message: PreviewMessage | null = null) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
 
@@ -6277,7 +6412,7 @@ export function useMessenger() {
     persist();
   }
 
-  function clearRoomMessages(roomId) {
+  function clearRoomMessages(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return;
     for (const message of state.messagesByRoom[id] || []) {
@@ -6300,13 +6435,13 @@ export function useMessenger() {
     persist();
   }
 
-  function clearLocalRoomMessages(roomId) {
+  function clearLocalRoomMessages(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     clearRoomMessages(id);
   }
 
-  function removeRoom(roomId) {
+  function removeRoom(roomId: string) {
     const id = sanitizeRoomId(roomId);
     state.rooms = state.rooms.filter((r) => r.roomId !== id);
     delete state.messagesByRoom[id];
@@ -6321,7 +6456,7 @@ export function useMessenger() {
     persist();
   }
 
-  function markUserTyping(roomId, username, typing) {
+  function markUserTyping(roomId: string, username: string, typing: boolean) {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
@@ -6352,7 +6487,7 @@ export function useMessenger() {
     typingExpiryTimers.set(timerKey, timer);
   }
 
-  function setTyping(active) {
+  function setTyping(active: boolean) {
     const roomId = sanitizeRoomId(state.activeRoom);
     const canBroadcast = Boolean(
       state.typingIndicatorsEnabled &&
@@ -6412,7 +6547,7 @@ export function useMessenger() {
     });
   }
 
-  function teardownConnection(message) {
+  function teardownConnection(message: string) {
     clearHeartbeat();
     // WebSocket dropped — clean up any live call state so we can
     // rebuild peer connections from scratch on reconnect.
@@ -6474,14 +6609,14 @@ export function useMessenger() {
     if (message) showToast(message);
   }
 
-  function send(payload) {
+  function send(payload: Record<string, unknown>) {
     if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
     state.ws.send(JSON.stringify(payload));
   }
 
-  function syncClientSettings(includeProfile = false, profileOverride?: any) {
+  function syncClientSettings(includeProfile = false, profileOverride?: Record<string, unknown>) {
     if (!state.connected || !state.identified) return;
-    const d: any = {
+    const d: Record<string, unknown> = {
       deleteMessagesOnLeave: state.deleteMessagesOnLeave,
       serverClearsLocalMessages: state.serverClearsLocalMessages,
       status: sanitizePresenceStatus(state.status),
@@ -6496,7 +6631,7 @@ export function useMessenger() {
     send({ op: 8, d });
   }
 
-  function requestJoin(roomId, options: any = {}) {
+  function requestJoin(roomId: string, options: Record<string, unknown> = {}) {
     const id = sanitizeRoomId(roomId);
     const validation = validateRoomId(id);
     if (validation) {
@@ -6519,13 +6654,13 @@ export function useMessenger() {
     });
   }
 
-  function fetchHistory(roomId) {
+  function fetchHistory(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
     send({ op: 18, d: { gameId: id } });
   }
 
-  function selectConversation(roomId) {
+  function selectConversation(roomId: string) {
     const id = sanitizeRoomId(roomId);
     const validation = validateRoomId(id);
     if (validation) {
@@ -6562,7 +6697,7 @@ export function useMessenger() {
     }
   }
 
-  function leaveRoom(roomId) {
+  function leaveRoom(roomId: string) {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     if (!id || !isValidRoomId(id)) return;
 
@@ -6601,7 +6736,7 @@ export function useMessenger() {
   function leaveAllRooms(deleteMessages = false) {
     const roomIds = state.rooms
       .map((room) => room.roomId)
-      .filter((id) => isValidRoomId(sanitizeRoomId(id)));
+      .filter((id: string) => isValidRoomId(sanitizeRoomId(id)));
 
     for (const id of roomIds) {
       if (deleteMessages) {
@@ -6621,7 +6756,7 @@ export function useMessenger() {
     state.composeInput = "";
   }
 
-  function tryJoinRoom(raw: string) {
+  function tryJoinRoom(raw: unknown) {
     const input = String(raw || "").trim();
     if (!input) return false;
 
@@ -6688,12 +6823,12 @@ export function useMessenger() {
     }
   }
 
-  function joinRoom(raw) {
+  function joinRoom(raw: unknown) {
     return tryJoinRoom(raw);
   }
 
   function showToast(
-    message,
+    message: string,
     options: { badge?: string; badgeAvatarSrc?: string; error?: boolean } = {},
   ) {
     state.toastMessage = message;
@@ -6725,7 +6860,7 @@ export function useMessenger() {
       id = token.roomId;
       importRoomKey(token.roomId, token.roomKey);
     } catch (error) {
-      state.lastError = error.message;
+      state.lastError = errorMessage(error);
       showToast("Could not generate a secure room.");
       return;
     }
@@ -6756,7 +6891,7 @@ export function useMessenger() {
     try {
       state.ws = new WebSocket(inferWebSocketUrl());
     } catch (error) {
-      state.lastError = `Connection failed: ${error.message}`;
+      state.lastError = `Connection failed: ${errorMessage(error)}`;
       showToast(state.lastError);
       state.ws = null;
       scheduleReconnect();
@@ -6880,7 +7015,7 @@ export function useMessenger() {
           setTyping(false);
         })
         .catch((error) => {
-          state.lastError = error?.message || "Message encryption failed.";
+          state.lastError = errorMessage(error) || "Message encryption failed.";
           showToast(state.lastError);
         });
     } else {
@@ -6889,7 +7024,7 @@ export function useMessenger() {
     }
   }
 
-  async function sendAttachment(file, caption = "", onProgress?) {
+  async function sendAttachment(file: File, caption = "", onProgress?: (pct: number) => void) {
     const roomId = state.activeRoom;
     if (!file || !roomId) return;
     if (!state.connected || !state.identified) {
@@ -6965,7 +7100,7 @@ export function useMessenger() {
       state.replyingTo = null;
       persist();
     } catch (err) {
-      state.lastError = `Upload failed: ${err.message || err}`;
+      state.lastError = `Upload failed: ${errorMessage(err) || err}`;
       showToast(state.lastError);
     }
   }
@@ -6989,11 +7124,12 @@ export function useMessenger() {
       refreshAudioDevices();
       state.audioDevicesPermission = "granted";
       const mimeType = pickAudioMime();
+      if (!stream) return;
       const recorder = new MediaRecorder(
         stream,
         mimeType ? { mimeType } : undefined,
       );
-      const chunks = [];
+      const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size) chunks.push(e.data);
       };
@@ -7006,12 +7142,12 @@ export function useMessenger() {
       // Real-time audio waveform analyzer
       let audioCtx: AudioContext | null = null;
       let analyser: AnalyserNode | null = null;
-      let waveInterval: any = null;
+      let waveInterval: ReturnType<typeof setInterval> | null = null;
       const rawWaveSamples: number[] = [];
 
       try {
         const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
+          window.AudioContext || (window as unknown as LegacyAudioWindow).webkitAudioContext;
         if (AudioContextClass) {
           audioCtx = new AudioContextClass();
           const source = audioCtx.createMediaStreamSource(stream);
@@ -7159,7 +7295,7 @@ export function useMessenger() {
     return "";
   }
 
-  function formatDuration(seconds) {
+  function formatDuration(seconds: number) {
     const m = Math.floor(seconds / 60);
     const s = Math.max(0, seconds % 60);
     return `${m}:${String(s).padStart(2, "0")}`;
@@ -7200,7 +7336,7 @@ export function useMessenger() {
     });
   }
 
-  function rememberClientPlatform(username, platform) {
+  function rememberClientPlatform(username: string, platform: string) {
     const key = sanitizeUsername(username);
     const normalized = sanitizePlatform(platform);
     if (!key || !normalized) return;
@@ -7209,7 +7345,7 @@ export function useMessenger() {
     state.clientPlatformsByUser[key] = [...platforms];
   }
 
-  function rememberUserId(username, userId) {
+  function rememberUserId(username: string, userId: string) {
     const key = sanitizeUsername(username);
     const id = String(userId || "").trim();
     if (!key || !id) return;
@@ -7219,7 +7355,7 @@ export function useMessenger() {
     state.userIdsByUsername[key] = id;
   }
 
-  function userIdForUsername(username) {
+  function userIdForUsername(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return "";
     if (isSystemUsername(key)) return "qxchat-system";
@@ -7228,7 +7364,7 @@ export function useMessenger() {
     return String(state.userIdsByUsername[key] || "").trim();
   }
 
-  function normalizeRoomUsers(players) {
+  function normalizeRoomUsers(players: unknown) {
     const users = new Set<string>();
     for (const player of Array.isArray(players) ? players : []) {
       const user = sanitizeUsername(
@@ -7246,7 +7382,7 @@ export function useMessenger() {
     return [...users];
   }
 
-  function platformsForUser(username) {
+  function platformsForUser(username: string) {
     const key = sanitizeUsername(username);
     const platforms = new Set(state.clientPlatformsByUser[key] || []);
     if (key === sanitizeUsername(state.username))
@@ -7290,7 +7426,7 @@ export function useMessenger() {
     return profileImageSrc(profile?.avatar, "avatar");
   }
 
-  function mutualRoomsWith(username) {
+  function mutualRoomsWith(username: string) {
     const target = sanitizeUsername(username);
     const me = sanitizeUsername(state.username);
     if (!target || !me) return [];
@@ -7312,7 +7448,7 @@ export function useMessenger() {
     return matches;
   }
 
-  function connectKnownCallPeers(roomId) {
+  function connectKnownCallPeers(roomId: string) {
     if (!callManager) return;
     const me = sanitizeUsername(state.username);
     const callClients = state.callClientsByRoom[roomId] || {};
@@ -7324,12 +7460,12 @@ export function useMessenger() {
     }
   }
 
-  function updateRemoteMedia(username, media) {
+  function updateRemoteMedia(username: string, media: unknown) {
     const key = sanitizeUsername(username);
     if (!key) return;
     state.remoteCallMediaByUser[key] = normalizeCallMedia({
       ...(state.remoteCallMediaByUser[key] || EMPTY_CALL_MEDIA),
-      ...(media || {}),
+      ...((media ?? {}) as Record<string, unknown>),
     });
   }
 
@@ -7358,7 +7494,7 @@ export function useMessenger() {
     });
   }
 
-  function removeRemoteCallMedia(username) {
+  function removeRemoteCallMedia(username: string) {
     const key = sanitizeUsername(username);
     if (!key) return;
     delete state.remoteCallStreamsByUser[key];
@@ -7366,7 +7502,7 @@ export function useMessenger() {
     removeRemoteCallAnalyser(key);
   }
 
-  function remoteCallStream(username) {
+  function remoteCallStream(username: string) {
     return state.remoteCallStreamsByUser[sanitizeUsername(username)] || null;
   }
 
@@ -7376,7 +7512,7 @@ export function useMessenger() {
     return state.callStream || null;
   }
 
-  function remoteVideoStream(username) {
+  function remoteVideoStream(username: string) {
     const stream = remoteCallStream(username);
     if (
       !stream
@@ -7398,7 +7534,7 @@ export function useMessenger() {
     return all[0];
   }
 
-  async function startCall(options: any = {}) {
+  async function startCall(options: Record<string, unknown> = {}) {
     const allowMembers = options.allowMembers === true;
     if (state.inCall) return;
     if (sanitizePresenceStatus(state.status) === "invisible") {
@@ -7535,11 +7671,11 @@ export function useMessenger() {
     else playUndeafenSound();
   }
 
-  function handleDeafenState(d) {
+  function handleDeafenState(d: Record<string, unknown>) {
     const roomId = sanitizeRoomId(d?.gameId);
     const user = sanitizeUsername(d?.user);
     if (!roomId || !user) return;
-    if (d?.platform) rememberClientPlatform(user, d.platform);
+    if (d?.platform) rememberClientPlatform(user, String(d.platform));
     if (user === sanitizeUsername(state.username)) {
       state.callDeafened = d?.isDeafened === true;
     } else {
@@ -7557,12 +7693,12 @@ export function useMessenger() {
     persist();
   }
 
-  function addCustomTurnServer(server) {
+  function addCustomTurnServer(server: Record<string, unknown>) {
     if (!server || typeof server !== "object") return false;
     const urls = Array.isArray(server.urls)
       ? server.urls
-          .map((u) => String(u || "").trim())
-          .filter((u) => /^(turn|turns|stun):/i.test(u))
+          .map((u: string) => String(u || "").trim())
+          .filter((u: string) => /^(turn|turns|stun):/i.test(u))
       : [];
     if (!urls.length) return false;
     const label =
@@ -7750,7 +7886,7 @@ export function useMessenger() {
     }
   }
 
-  function tickCall(startedAt) {
+  function tickCall(startedAt: number) {
     if (!state.inCall) {
       state.callElapsed = 0;
       return;
@@ -7826,10 +7962,10 @@ export function useMessenger() {
     }
   }
 
-  function handleCallState(d) {
+  function handleCallState(d: Record<string, unknown>) {
     if (d?.error) {
-      state.lastError = d.error;
-      showToast(d.error);
+      state.lastError = String(d.error || "");
+      showToast(String(d.error || ""));
       if (state.inCall) endCall();
       return;
     }
@@ -7838,7 +7974,7 @@ export function useMessenger() {
     if (!roomId || !user) return;
     const clientId = sanitizeClientId(d?.clientId || d?.fromClientId);
     const me = sanitizeUsername(state.username);
-    if (d?.platform) rememberClientPlatform(user, d.platform);
+    if (d?.platform) rememberClientPlatform(user, String(d.platform));
     if (!state.callClientsByRoom[roomId]) state.callClientsByRoom[roomId] = {};
 
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
@@ -7887,7 +8023,7 @@ export function useMessenger() {
     if (hearRemote && wasKnownMember && d.media) {
       const nextMedia = normalizeCallMedia({
         ...prevMedia,
-        ...d.media,
+        ...((d.media ?? {}) as Record<string, unknown>),
       });
       if (prevMedia.audio !== nextMedia.audio) {
         const deafenWindow =
@@ -7911,7 +8047,7 @@ export function useMessenger() {
     }
   }
 
-  function handleCallSignal(d) {
+  function handleCallSignal(d: Record<string, unknown>) {
     if (!state.inCall || !callManager) return;
     const from = sanitizeUsername(d?.from);
     const fromClientId = sanitizeClientId(d?.fromClientId);
@@ -7923,7 +8059,7 @@ export function useMessenger() {
       return;
     if (d?.toClientId && sanitizeClientId(d.toClientId) !== localClientId)
       return;
-    if (d?.fromPlatform) rememberClientPlatform(from, d.fromPlatform);
+    if (d?.fromPlatform) rememberClientPlatform(from, String(d.fromPlatform));
     callManager.handleSignal({
       gameId: sanitizeRoomId(d?.gameId),
       to: sanitizeUsername(d?.to),
@@ -7931,16 +8067,16 @@ export function useMessenger() {
       toClientId: sanitizeClientId(d?.toClientId),
       fromClientId,
       fromPlatform: sanitizePlatform(d?.fromPlatform),
-      type: d?.type,
+      type: d?.type as CallSignalType,
       sdp: typeof d?.sdp === "string" ? d.sdp : undefined,
-      candidate: d?.candidate,
+      candidate: d?.candidate as RTCIceCandidateInit | undefined,
     });
   }
 
-  function handleVoiceState(d) {
+  function handleVoiceState(d: Record<string, unknown>) {
     if (d?.error) {
-      state.lastError = d.error;
-      showToast(d.error);
+      state.lastError = String(d.error || "");
+      showToast(String(d.error || ""));
       if (state.inCall) endCall();
       return;
     }
@@ -7985,7 +8121,7 @@ export function useMessenger() {
     }
   }
 
-  async function changeUsername(newName) {
+  async function changeUsername(newName: string) {
     const clean = sanitizeUsername(newName);
     const validation = validateUsername(clean);
     if (validation) {
@@ -8070,7 +8206,7 @@ export function useMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = error?.message || "Username change failed.";
+      state.lastError = errorMessage(error) || "Username change failed.";
       showToast(state.lastError);
       return false;
     }
@@ -8109,7 +8245,7 @@ export function useMessenger() {
     persist();
   }
 
-  function toggleReaction(message, emoji) {
+  function toggleReaction(message: ChatMessage, emoji: string) {
     if (state.connected && state.identified && message?.messageId) {
       send({
         op: 19,
@@ -8122,7 +8258,7 @@ export function useMessenger() {
     }
   }
 
-  function deleteMessage(message) {
+  function deleteMessage(message: ChatMessage) {
     if (!message?.messageId) return;
     const gameId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!gameId) return;
@@ -8146,7 +8282,7 @@ export function useMessenger() {
     }
   }
 
-  function canEditMessage(message) {
+  function canEditMessage(message: ChatMessage) {
     return Boolean(
       message &&
       isOwnMessage(message) &&
@@ -8158,7 +8294,7 @@ export function useMessenger() {
     );
   }
 
-  function startEditMessage(message) {
+  function startEditMessage(message: ChatMessage) {
     if (!canEditMessage(message)) return;
     const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!roomId || !message.messageId) return;
@@ -8187,7 +8323,7 @@ export function useMessenger() {
     state.messageInput = "";
   }
 
-  function editCurrentMessage(text) {
+  function editCurrentMessage(text: string) {
     const draft = state.editingMessage;
     if (!draft?.messageId) return;
     const roomId = sanitizeRoomId(draft.roomId || state.activeRoom);
@@ -8220,7 +8356,7 @@ export function useMessenger() {
         state.editingMessage = null;
       })
       .catch((error) => {
-        state.lastError = error?.message || "Message edit failed.";
+        state.lastError = errorMessage(error) || "Message edit failed.";
         showToast(state.lastError);
       });
   }
@@ -8258,7 +8394,7 @@ export function useMessenger() {
     logoutLocal();
   }
 
-  async function deleteAccount(password) {
+  async function deleteAccount(password: string) {
     if (!state.authToken) throw new Error("Not authenticated.");
     await apiRequest("/api/auth/delete", {
       method: "POST",
@@ -8291,8 +8427,8 @@ export function useMessenger() {
       state.sessionExpired = false;
       connect();
       return true;
-    } catch (error: any) {
-      state.lastError = error?.message || "Session renewal failed.";
+    } catch (error) {
+      state.lastError = errorMessage(error) || "Session renewal failed.";
       showToast(state.lastError);
       return false;
     } finally {
@@ -8305,7 +8441,7 @@ export function useMessenger() {
     state.sessionExpired = false;
   }
 
-  function findMessageById(roomId, messageId) {
+  function findMessageById(roomId: string, messageId: string) {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     const target = String(messageId || "");
     if (!id || !target) return null;
@@ -8316,7 +8452,7 @@ export function useMessenger() {
     );
   }
 
-  function startReply(message) {
+  function startReply(message: ChatMessage) {
     if (!message?.messageId || message.deleted) return;
     state.editingMessage = null;
     state.replyingTo = {
@@ -8338,7 +8474,7 @@ export function useMessenger() {
     state.replyingTo = null;
   }
 
-  function applyPreview(payload) {
+  function applyPreview(payload: Record<string, unknown>) {
     const messageId = payload?.messageId;
     const targetRoom = sanitizeRoomId(payload?.gameId || "");
     const preview = payload?.preview;
@@ -8356,7 +8492,7 @@ export function useMessenger() {
     }
   }
 
-  function requestEncryptedLinkPreview(message) {
+  function requestEncryptedLinkPreview(message: ChatMessage) {
     if (
       !message?.encrypted ||
       message.preview ||
@@ -8393,7 +8529,7 @@ export function useMessenger() {
     });
   }
 
-  function applyDeletion(payload) {
+  function applyDeletion(payload: Record<string, unknown>) {
     const messageId = payload?.messageId;
     if (!messageId) return;
     if (state.editingMessage?.messageId === messageId) cancelEditMessage();
@@ -8421,7 +8557,7 @@ export function useMessenger() {
           reactions: [],
           editedAt: 0,
           deleted: true,
-          deletedBy: payload?.deletedBy || "",
+          deletedBy: String(payload?.deletedBy || ""),
           deletedByModerator: payload?.deletedByModerator === true,
         },
         id,
@@ -8431,7 +8567,7 @@ export function useMessenger() {
     }
   }
 
-  function pushMessageToRoom(roomId, normalized) {
+  function pushMessageToRoom(roomId: string, normalized: ChatMessage) {
     const id = sanitizeRoomId(roomId);
     if (!id) return false;
     if (!state.messagesByRoom[id]) state.messagesByRoom[id] = [];
@@ -8448,7 +8584,7 @@ export function useMessenger() {
     }
   }
 
-  function replaceOptimisticMessageByClientNonce(roomId, normalized) {
+  function replaceOptimisticMessageByClientNonce(roomId: string, normalized: ChatMessage) {
     const id = sanitizeRoomId(roomId);
     const clientNonce = String(normalized?.clientNonce || "").trim();
     if (!id || !clientNonce) return false;
@@ -8473,7 +8609,7 @@ export function useMessenger() {
     return true;
   }
 
-  async function upsertMessage(message) {
+  async function upsertMessage(message: IncomingMessage) {
     const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
     const normalized = await hydrateIncomingMessage(message, roomId);
     const me = sanitizeUsername(state.username);
@@ -8507,7 +8643,7 @@ export function useMessenger() {
     persist();
   }
 
-  function applyReactions(payload) {
+  function applyReactions(payload: Record<string, unknown>) {
     const messageId = payload?.messageId;
     const targetRoom = sanitizeRoomId(payload?.roomId || "");
     const rooms = targetRoom ? [targetRoom] : Object.keys(state.messagesByRoom);
@@ -8517,7 +8653,7 @@ export function useMessenger() {
       const index = arr.findIndex((m) => m.messageId === messageId);
       if (index !== -1) {
         arr[index] = normalizeMessage(
-          { ...arr[index], reactions: payload.reactions || [] },
+          { ...arr[index], reactions: (payload.reactions as ChatMessage["reactions"]) || [] },
           id,
         );
         persist();
@@ -8526,13 +8662,14 @@ export function useMessenger() {
     }
   }
 
-  function handleMessage(message) {
-    const { op, d } = message;
+  function handleMessage(message: SocketFrame) {
+    const op = message.op;
+    const d = message.d ?? {};
     switch (op) {
       case 0:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
           if (/account deleted/i.test(String(d.error))) {
             handleAccountDeleted();
           }
@@ -8543,8 +8680,8 @@ export function useMessenger() {
         break;
       case 2:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
           if (String(d.error) === "Invalid account session") {
             state.sessionExpired = true;
             persist();
@@ -8552,7 +8689,7 @@ export function useMessenger() {
           }
           break;
         }
-        state.uuid = d.uuid || null;
+        state.uuid = d.uuid ? String(d.uuid) : null;
         state.userId = String(d?.userId || d?.id || state.userId || "");
         if (d?.username) state.username = sanitizeUsername(d.username);
         state.admin = Boolean(d?.admin || state.admin);
@@ -8612,8 +8749,9 @@ export function useMessenger() {
         });
 
         if (d?.defaultRoom) {
-          const defaultRoomId = sanitizeRoomId(d.defaultRoom.roomId);
-          const defaultRoomKey = String(d.defaultRoom.roomKey || "");
+          const defaultRoom = (d.defaultRoom ?? {}) as Record<string, unknown>;
+      const defaultRoomId = sanitizeRoomId(defaultRoom.roomId);
+          const defaultRoomKey = String(defaultRoom.roomKey || "");
           state.defaultRoomId = defaultRoomId;
           if (
             state.allowServerDefaultRoom &&
@@ -8623,7 +8761,7 @@ export function useMessenger() {
           ) {
             try {
               importRoomKey(defaultRoomId, defaultRoomKey);
-              const defaultTitle = String(d.defaultRoom.title || "");
+              const defaultTitle = String(defaultRoom.title || "");
               if (defaultTitle) {
                 const existing = state.rooms.find(
                   (room) => room.roomId === defaultRoomId,
@@ -8650,11 +8788,11 @@ export function useMessenger() {
         break;
       case 7:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error, { error: true });
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""), { error: true });
         } else if (d?.messageId && typeof d?.timestamp === "number") {
           // Full broadcast frame ({messageId, text, username, timestamp, ...}).
-          upsertMessage(d).catch(() => {
+          upsertMessage(d as IncomingMessage).catch(() => {
             state.lastError = "Could not process encrypted message.";
             showToast(state.lastError);
           });
@@ -8663,7 +8801,7 @@ export function useMessenger() {
         break;
       case 10:
         if (d?.heartbeat_interval) {
-          state.heartbeatInterval = d.heartbeat_interval;
+          state.heartbeatInterval = Number(d.heartbeat_interval) || state.heartbeatInterval;
           startHeartbeat();
         }
         break;
@@ -8700,19 +8838,19 @@ export function useMessenger() {
         break;
       case 28:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
         }
         break;
       case 29:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
         }
         break;
       case 30:
         if (d?.messageId && typeof d?.timestamp === "number") {
-          upsertMessage(d).catch(() => {
+          upsertMessage(d as IncomingMessage).catch(() => {
             state.lastError = "Could not process edited message.";
             showToast(state.lastError);
           });
@@ -8720,31 +8858,31 @@ export function useMessenger() {
         break;
       case 31:
         if (d?.gameId && d?.username) {
-          markUserTyping(d.gameId, d.username, Boolean(d.typing));
+          markUserTyping(String(d.gameId || ""), String(d.username || ""), Boolean(d.typing));
         }
         break;
       case 32:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
         } else {
-          applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
+          applyRoomSnapshot(d, String(d?.gameId || ""), { preserveTokenTitle: true });
         }
         break;
       case 33:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error);
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""));
         } else {
-          applyRoomSnapshot(d, d?.gameId);
+          applyRoomSnapshot(d, String(d?.gameId || ""));
         }
         break;
       case 40:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error, { error: true });
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""), { error: true });
         } else {
-          applyRoomSnapshot(d, d?.gameId);
+          applyRoomSnapshot(d, String(d?.gameId || ""));
           const createdId = sanitizeRoomId(d?.gameId);
           if (createdId && isValidRoomId(createdId)) {
             selectConversation(createdId);
@@ -8763,10 +8901,10 @@ export function useMessenger() {
       case 50:
       case 52:
         if (d?.error) {
-          state.lastError = d.error;
-          showToast(d.error, { error: true });
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""), { error: true });
         } else {
-          applyRoomSnapshot(d, d?.gameId);
+          applyRoomSnapshot(d, String(d?.gameId || ""));
         }
         break;
       case 51:
@@ -8791,7 +8929,7 @@ export function useMessenger() {
       case 13:
         break;
       case 87:
-        if (d?.msg) showToast(d.msg);
+        if (d?.msg) showToast(String(d.msg));
         break;
       case 98:
         handleVoiceState(d);
@@ -8806,7 +8944,7 @@ export function useMessenger() {
         handleDeafenState(d);
         break;
       case 999:
-        triggerBan(d?.message);
+        triggerBan(String(d?.message || ""));
         break;
       default:
         break;
@@ -8881,7 +9019,7 @@ export function useMessenger() {
     persist();
   }
 
-  function removeAccount(userId) {
+  function removeAccount(userId: string) {
     const id = String(userId || "");
     if (!id) return;
     state.accounts = state.accounts.filter(
@@ -8890,7 +9028,7 @@ export function useMessenger() {
     syncAccountVault();
   }
 
-  async function switchAccount(userId) {
+  async function switchAccount(userId: string) {
     const id = String(userId || "");
     if (!id) return false;
     const target = state.accounts.find(
@@ -8908,17 +9046,17 @@ export function useMessenger() {
     return true;
   }
 
-  function handleJoinOp(d) {
+  function handleJoinOp(d: Record<string, unknown>) {
     if (d?.error && /banned/i.test(String(d.error))) {
       const bannedRoomId = sanitizeRoomId(d?.gameId || state.activeRoom || "");
       if (bannedRoomId) markRoomBanned(bannedRoomId);
       return;
     }
-    const roomId = applyRoomSnapshot(d, d?.gameId);
+    const roomId = applyRoomSnapshot(d, String(d?.gameId || ""));
     if (!roomId) return;
 
     if (d?.system && d?.joined && !isCommunityRoom(roomId)) {
-      showTransientSystemRoomEvent(roomId, d.joined, "join");
+      showTransientSystemRoomEvent(roomId, String(d.joined || ""), "join");
     }
 
     state.pendingJoinRooms = state.pendingJoinRooms.filter((r) => r !== roomId);
@@ -8947,17 +9085,17 @@ export function useMessenger() {
     }
   }
 
-  function applyProfiles(profiles) {
+  function applyProfiles(profiles: unknown) {
     for (const [username, profile] of Object.entries(profiles || {})) {
       const key = sanitizeUsername(username);
       if (key) state.profilesByUser[key] = normalizeProfile(profile);
     }
   }
 
-  function applyPublicProfileLookup(d) {
+  function applyPublicProfileLookup(d: Record<string, unknown>) {
     if (d?.error) {
-      state.lastError = d.error;
-      showToast(d.error);
+      state.lastError = String(d.error || "");
+      showToast(String(d.error || ""));
       return;
     }
     const now = Date.now();
@@ -8981,7 +9119,7 @@ export function useMessenger() {
     persist();
   }
 
-  function requestPublicProfilesForUsers(users) {
+  function requestPublicProfilesForUsers(users: unknown) {
     if (!state.connected || !state.identified) return;
     const now = Date.now();
     const payloadUsers = [];
@@ -9019,14 +9157,14 @@ export function useMessenger() {
     if (payloadUsers.length) send({ op: 35, d: { users: payloadUsers } });
   }
 
-  function applyStatuses(statuses) {
+  function applyStatuses(statuses: unknown) {
     for (const [username, status] of Object.entries(statuses || {})) {
       const key = sanitizeUsername(username);
       if (key) state.statusesByUser[key] = sanitizePresenceStatus(status);
     }
   }
 
-  function applyPlayerBadges(players) {
+  function applyPlayerBadges(players: unknown) {
     for (const player of Array.isArray(players) ? players : []) {
       const key = sanitizeUsername(
         player?.user || player?.username || player?.name,
@@ -9036,7 +9174,7 @@ export function useMessenger() {
     }
   }
 
-  function applyBadgeUpdate(d) {
+  function applyBadgeUpdate(d: Record<string, unknown>) {
     const key = sanitizeUsername(d?.user || d?.username);
     if (key && Array.isArray(d?.badges)) {
       state.badgesByUser[key] = normalizeUserBadges(d.badges);
@@ -9045,7 +9183,7 @@ export function useMessenger() {
     persist();
   }
 
-  function applyPlatformsMap(platformsMap) {
+  function applyPlatformsMap(platformsMap: unknown) {
     if (!platformsMap || typeof platformsMap !== "object") return;
     for (const [username, platforms] of Object.entries(platformsMap)) {
       const key = sanitizeUsername(username);
@@ -9058,7 +9196,7 @@ export function useMessenger() {
     }
   }
 
-  function applyCallPlayersSnapshot(roomId, callPlayers) {
+  function applyCallPlayersSnapshot(roomId: string, callPlayers: unknown) {
     if (!roomId || !Array.isArray(callPlayers)) return;
     const members = new Set<string>();
     state.callClientsByRoom[roomId] = {};
@@ -9079,13 +9217,14 @@ export function useMessenger() {
   }
 
   function applyRoomSnapshot(
-    d,
+    d: Record<string, unknown>,
     fallbackRoomId = "",
     options: { preserveTokenTitle?: boolean } = {},
   ) {
+    const snapshotRoom = (d?.room ?? {}) as Record<string, unknown>;
     const roomId = sanitizeRoomId(
-      d?.room?.room_id ||
-        d?.room?.roomId ||
+      snapshotRoom.room_id ||
+        snapshotRoom.roomId ||
         d?.gameId ||
         fallbackRoomId ||
         state.activeRoom,
@@ -9093,7 +9232,8 @@ export function useMessenger() {
     if (!roomId) return "";
     applyRoomMeta(roomId, d);
 
-    const roomPayload = d?.room && typeof d.room === "object" ? d.room : null;
+    const roomPayload =
+      d?.room && typeof d.room === "object" ? (d.room as Record<string, unknown>) : null;
     const room = state.rooms.find((entry) => entry.roomId === roomId);
     const existingTitle = String(room?.title || "").trim();
     const hasTitle =
@@ -9109,8 +9249,8 @@ export function useMessenger() {
         ? incomingTitle
         : existingTitle;
     const nextIconUrl = sanitizeHttpUrl(
-      roomPayload?.icon?.file?.url ?? // format Rust RoomIcon { file: StoredFile { url } }
-        roomPayload?.icon?.url ?? // format plat potentiel
+      ((roomPayload?.icon as Record<string, unknown> | undefined)?.file as Record<string, unknown> | undefined)?.url ?? // format Rust RoomIcon { file: StoredFile { url } }
+        (roomPayload?.icon as Record<string, unknown> | undefined)?.url ?? // format plat potentiel
         roomPayload?.iconUrl ?? // champ direct
         "",
     );
@@ -9159,8 +9299,8 @@ export function useMessenger() {
     return roomId;
   }
 
-  function applyProfileUpdate(d) {
-    applyRoomSnapshot(d, d?.gameId, { preserveTokenTitle: true });
+  function applyProfileUpdate(d: Record<string, unknown>) {
+    applyRoomSnapshot(d, String(d?.gameId || ""), { preserveTokenTitle: true });
     const key = sanitizeUsername(d?.user);
     if (!key) return;
     const profile = mergeProfiles(state.profilesByUser[key], d?.profile);
@@ -9170,8 +9310,8 @@ export function useMessenger() {
   }
 
   function applyIncrementalRoomUserState(
-    roomId,
-    username,
+    roomId: string,
+    username: string,
     options: {
       visible?: boolean;
       removeVoice?: boolean;
@@ -9215,8 +9355,8 @@ export function useMessenger() {
     }
   }
 
-  function applyPresenceStatus(d) {
-    const roomId = applyRoomSnapshot(d, d?.gameId, {
+  function applyPresenceStatus(d: Record<string, unknown>) {
+    const roomId = applyRoomSnapshot(d, String(d?.gameId || ""), {
       preserveTokenTitle: true,
     });
     const key = sanitizeUsername(d?.user);
@@ -9227,13 +9367,13 @@ export function useMessenger() {
     const visible = d?.visible !== false;
 
     state.statusesByUser[key] = status;
-    rememberUserId(key, d?.id || d?.userId || d?.uuid);
+    rememberUserId(key, String(d?.id || d?.userId || d?.uuid || ""));
     if (d?.profile)
       state.profilesByUser[key] = mergeProfiles(
         state.profilesByUser[key],
         d.profile,
       );
-    if (d?.platform) rememberClientPlatform(key, d.platform);
+    if (d?.platform) rememberClientPlatform(key, String(d.platform));
     if (key === me) state.status = status;
 
     if (!roomId) return;
@@ -9247,13 +9387,13 @@ export function useMessenger() {
     }
   }
 
-  function handleLeaveOp(d) {
+  function handleLeaveOp(d: Record<string, unknown>) {
     if (d?.removed && d?.reason === "banned") {
       const bannedRoomId = sanitizeRoomId(d?.gameId || state.activeRoom || "");
       if (bannedRoomId) markRoomBanned(bannedRoomId);
       return;
     }
-    const roomId = applyRoomSnapshot(d, d?.gameId);
+    const roomId = applyRoomSnapshot(d, String(d?.gameId || ""));
     if (!roomId) return;
 
     if (d?.ok) {
@@ -9286,7 +9426,7 @@ export function useMessenger() {
     }
   }
 
-  function applyDeletedMessageIds(roomId, messageIds) {
+  function applyDeletedMessageIds(roomId: string, messageIds: unknown) {
     const id = sanitizeRoomId(roomId);
     if (!id || !Array.isArray(messageIds)) return;
     const deleted = new Set(
@@ -9307,14 +9447,14 @@ export function useMessenger() {
     }
   }
 
-  function applyRoomMessagesDeleted(d) {
+  function applyRoomMessagesDeleted(d: Record<string, unknown>) {
     const roomId = sanitizeRoomId(d?.gameId);
     if (!roomId) return;
     applyDeletedMessageIds(roomId, d.messageIds);
     persist();
   }
 
-  async function handleHistoryOp(d) {
+  async function handleHistoryOp(d: Record<string, unknown>) {
     if (!d?.ok) return;
     const roomId = sanitizeRoomId(d.roomId);
     if (!roomId) return;
@@ -9359,7 +9499,7 @@ export function useMessenger() {
     persist();
   }
 
-  function showTransientSystemRoomEvent(roomId, username, eventKind) {
+  function showTransientSystemRoomEvent(roomId: string, username: string, eventKind: string) {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
@@ -9394,7 +9534,7 @@ export function useMessenger() {
     persist();
   }
 
-  function mergeRoomHistory(localMessages, serverMessages, roomId) {
+  function mergeRoomHistory(localMessages: ChatMessage[], serverMessages: IncomingMessage[], roomId: string) {
     const byId = new Map();
     for (const message of localMessages || []) {
       const normalized = normalizeMessage(message, roomId);
@@ -9409,7 +9549,7 @@ export function useMessenger() {
       .slice(-MAX_HISTORY_PER_ROOM);
   }
 
-  function isOwnMessage(message) {
+  function isOwnMessage(message: ChatMessage) {
     const me = sanitizeUsername(state.username);
     return !!me && me === message.username;
   }
@@ -9462,7 +9602,7 @@ export function useMessenger() {
     showToast("Backup exported.");
   }
 
-  function importData(file) {
+  function importData(file: File) {
     state.settingsOpen = false;
     if (!file) return;
     const reader = new FileReader();
@@ -9472,24 +9612,34 @@ export function useMessenger() {
     };
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(String(e.target.result));
+        const data = JSON.parse(String(e.target?.result ?? ""));
         if (!data || typeof data !== "object") throw new Error("Not an object");
         if (Array.isArray(data.rooms)) {
-          const previousRooms = Object.fromEntries(
-            state.rooms.map((room) => [
-              room.roomId,
-              {
-                title: String(room.title || ""),
-                iconUrl: sanitizeHttpUrl(room.iconUrl),
-              },
-            ]),
-          );
-          state.rooms = data.rooms
-            .filter((r) => r && typeof r.roomId === "string")
+          // Object.fromEntries widens tuple values to {}, so the shape is stated.
+          const previousRooms: Record<string, { title: string; iconUrl: string; members: string[] }> =
+            Object.fromEntries(
+              state.rooms.map((room) => [
+                room.roomId,
+                {
+                  title: String(room.title || ""),
+                  iconUrl: sanitizeHttpUrl(room.iconUrl),
+                  members: room.members || [],
+                },
+              ]),
+            );
+          // Same guard as the stored-rooms path: narrow each entry once, then
+          // read its fields.
+          const isRoomLike = (entry: unknown): entry is Record<string, unknown> =>
+            !!entry &&
+            typeof entry === "object" &&
+            typeof (entry as Record<string, unknown>).roomId === "string";
+
+          state.rooms = (data.rooms as unknown[])
+            .filter(isRoomLike)
             .slice(0, MAX_ROOMS_SHOWN)
             .map((r) => {
               const roomId = sanitizeRoomId(r.roomId);
-              const previous = previousRooms[roomId] || {};
+              const previous = previousRooms[roomId] || { title: "", iconUrl: "", members: [] };
               const hasTitle = Object.prototype.hasOwnProperty.call(r, "title");
               const previousTitle = String(previous.title || "").trim();
               const incomingTitle = hasTitle
@@ -9507,13 +9657,14 @@ export function useMessenger() {
                 lastTimestamp: Number(r.lastTimestamp) || 0,
                 lastSender: String(r.lastSender || ""),
                 iconUrl: sanitizeHttpUrl(r.iconUrl) || previous.iconUrl || "",
+                members: Array.isArray(r.members) ? (r.members as string[]) : previous.members,
               };
             })
             .filter((r) => isValidRoomId(r.roomId));
         }
 
         if (data.messagesByRoom && typeof data.messagesByRoom === "object") {
-          const next = {};
+          const next: ByRoom<ChatMessage[]> = {};
           for (const [id, arr] of Object.entries(data.messagesByRoom)) {
             if (!Array.isArray(arr)) continue;
             const roomId = sanitizeRoomId(id);
@@ -9526,7 +9677,7 @@ export function useMessenger() {
         }
 
         if (data.unreadByRoom && typeof data.unreadByRoom === "object") {
-          const next = {};
+          const next: ByRoom<number> = {};
           for (const [id, n] of Object.entries(data.unreadByRoom)) {
             const v = Number(n);
             const roomId = sanitizeRoomId(id);
@@ -9585,7 +9736,7 @@ export function useMessenger() {
 
         window.location.reload();
       } catch (err) {
-        state.lastError = `Import failed: ${err.message}`;
+        state.lastError = `Import failed: ${errorMessage(err)}`;
         showToast(state.lastError);
       }
     };
@@ -9600,7 +9751,7 @@ export function useMessenger() {
 
   installRealtimeLifecycleHandlers();
 
-  singleton = {
+  return {
     QUICK_REACTIONS,
     MESSAGE_LIMIT,
     MAX_PROFILE_DESCRIPTION_LENGTH,
@@ -9721,6 +9872,7 @@ export function useMessenger() {
     setMicrophoneThreshold,
     setDeleteMessagesOnLeave,
     setStreamerMode,
+    setGroupMembersByRole,
     setTorEnabled,
     setShareScreenAudio,
     screenShareFpsOptions: SCREEN_SHARE_FPS_OPTIONS,
@@ -9856,6 +10008,4 @@ export function useMessenger() {
     logout,
     triggerBan,
   };
-
-  return singleton;
 }

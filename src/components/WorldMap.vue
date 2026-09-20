@@ -76,10 +76,10 @@ function normalizeRing(ring: number[][]): number[][] {
   return result;
 }
 
-function normalizeFeatureCollection(fc: any): any {
+function normalizeFeatureCollection(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
   return {
     ...fc,
-    features: fc.features.map((f: any) => {
+    features: fc.features.map((f: GeoJSON.Feature) => {
       const geom = f.geometry;
       if (!geom) return f;
 
@@ -159,11 +159,11 @@ function renderWorld() {
     // Filtrer l'Antarctique + normaliser les rings à l'antiméridien
     const filtered = {
       ...countriesGeo,
-      features: countriesGeo.features.filter((f: any) => f.id !== "010"),
+      features: countriesGeo.features.filter((f: GeoJSON.Feature) => f.id !== "010"),
     };
     const normalized = normalizeFeatureCollection(filtered);
 
-    L.geoJSON(normalized as any, {
+    L.geoJSON(normalized, {
       renderer: canvas,
       style: {
         color: "transparent",
@@ -174,7 +174,7 @@ function renderWorld() {
     }).addTo(layer);
 
     // Bordures : filtrer les segments antiméridien (artefacts de mesh)
-    const borders = mesh(topo, objects.countries, (a: any, b: any) => a !== b);
+    const borders = mesh(topo, objects.countries, (a: { id?: string | number }, b: { id?: string | number }) => a !== b);
     const cleanBorders = {
       ...borders,
       coordinates: (borders.coordinates as number[][][]).filter((line) =>
@@ -184,7 +184,7 @@ function renderWorld() {
       ),
     };
 
-    L.geoJSON(cleanBorders as any, {
+    L.geoJSON(cleanBorders, {
       renderer: canvas,
       style: {
         color: accent,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PhantomFriend } from "@/composables/usePhantom";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import BadgeIcon from "@/components/BadgeIcon.vue";
@@ -73,7 +74,7 @@ watch(
 );
 
 // ── Relations ami / bloqué (via phantom) ────────────────────────────────────
-const friends = computed<any[]>(() => Object.values(phantom?.state?.friendsByUser || {}) as any[]);
+const friends = computed<PhantomFriend[]>(() => Object.values(phantom?.state?.friendsByUser || {}) as PhantomFriend[]);
 const isFriend = computed(() =>
   friends.value.some((f) => String(f?.peerDisplayName || "").trim().toLowerCase() === props.username.trim().toLowerCase())
 );
@@ -92,8 +93,8 @@ const activeTab = ref<"friends" | "rooms">("rooms");
 // Mes salons rejoints (vue « soi-même »).
 const myRooms = computed(() =>
   (props.messenger.state.rooms || [])
-    .filter((r: any) => r?.roomId && !props.messenger.isFriendRoom?.(r.roomId))
-    .map((r: any) => ({
+    .filter((r: { roomId?: string; title?: string }) => r?.roomId && !props.messenger.isFriendRoom?.(r.roomId))
+    .map((r: { roomId?: string; title?: string }) => ({
       roomId: String(r.roomId),
       label: props.messenger.displayRoomName?.(r.roomId) || String(r.roomId),
       previewSrc: props.messenger.roomIcon?.(r.roomId) || "",
@@ -101,7 +102,7 @@ const myRooms = computed(() =>
 );
 
 // Amis affichés : pour soi-même = mes amis, sinon = amis en commun.
-const tabFriends = computed<any[]>(() => {
+const tabFriends = computed<PhantomFriend[]>(() => {
   if (isSelf.value) return friends.value;
   return friends.value.filter((f) =>
     mutualRoomOptions.value.some(
@@ -115,7 +116,7 @@ const tabRooms = computed(() =>
   isSelf.value ? myRooms.value : mutualRoomOptions.value,
 );
 
-function openFriend(friend: any) {
+function openFriend(friend: PhantomFriend) {
   const roomId = String(friend?.roomId || "").trim();
   if (!roomId) return;
   // Titre le salon ami avec son nom (sinon il apparaît comme un salon
@@ -125,7 +126,7 @@ function openFriend(friend: any) {
   emit("close");
 }
 
-function friendAvatar(friend: any) {
+function friendAvatar(friend: PhantomFriend) {
   const p = props.messenger.profileFor?.(friend.peerDisplayName);
   return props.messenger.profileImageSrc?.(p?.avatar, "avatar") || "";
 }

@@ -23,6 +23,19 @@
   --green: #3fcf6f;
   --red: #ff6b70;
 
+  /* Categorical chart marks, one source of truth for every chart.
+     Checked with the dataviz palette validator against this mode's chart
+     surface (--surface-2): lightness band, chroma floor, all-pairs CVD
+     separation, normal-vision floor and 3:1 contrast all pass. Do not
+     hand-edit a single slot; re-run the validator on the whole set. */
+  --chart-1: #3f93f7;
+  --chart-2: #ee5e23;
+  --chart-3: #409f61;
+  --chart-4: #d05fc8;
+  --chart-track: rgba(255, 255, 255, 0.09);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-surface: var(--surface-2);
+
   --bubble-in: #3a3a3d;
   --bubble-out: var(--accent);
 
@@ -105,6 +118,38 @@
   --lock-titlebar-hover: #343438;
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  animation-name: theme-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: theme-fade-in;
+}
+
+@keyframes theme-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes theme-fade-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+
 .context-menu-base {
   position: fixed;
   z-index: 140;
@@ -183,6 +228,13 @@
   --dim: #8893a2;
   --bubble-in: #e8edf4;
   --bubble-out: var(--accent);
+
+  --chart-1: #127eee;
+  --chart-2: #9f3501;
+  --chart-3: #1a9951;
+  --chart-4: #c142ba;
+  --chart-track: rgba(12, 22, 34, 0.1);
+  --chart-grid: rgba(12, 22, 34, 0.08);
 
   --discord-text: #2b3440;
   --discord-text-strong: #18212b;
@@ -779,7 +831,7 @@ textarea {
 
 .toast {
   position: fixed;
-  top: calc(18px + var(--app-safe-top));
+  top: calc(18px + var(--app-safe-top) + var(--app-chrome-top, 0px));
   left: 50%;
   z-index: 100000000;
   transform: translateX(-50%);
@@ -3503,16 +3555,38 @@ textarea {
 }
 
 .composer__input--streamer-blur textarea {
-  contain: paint;
-  filter: blur(8px);
-  opacity: 0.72;
-  transform: translateZ(0);
-  transition: filter 120ms ease, opacity 120ms ease;
+  color: transparent;
+  text-shadow: none;
+  background-color: color-mix(in srgb, var(--text) 14%, var(--bg));
+  background-image: linear-gradient(100deg, transparent 32%, color-mix(in srgb, var(--text) 9%, transparent) 50%, transparent 68%);
+  background-size: 280% 100%;
+  background-repeat: no-repeat;
+  border-radius: 7px;
+  animation: redact-sheen 7s linear infinite;
+  transition: color 130ms ease-out, background-color 130ms ease-out;
+}
+
+.composer__input--streamer-blur textarea::placeholder {
+  color: transparent;
 }
 
 .composer__input--streamer-blur:focus-within textarea {
-  filter: none;
-  opacity: 1;
+  color: var(--text);
+  background-color: transparent;
+  background-image: none;
+  animation: none;
+}
+
+@keyframes redact-sheen {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__input--streamer-blur textarea {
+    animation: none;
+    background-image: none;
+  }
 }
 
 .composer__input--disabled {
@@ -4097,7 +4171,7 @@ textarea {
 
 .text-viewer__toolbar {
   position: absolute;
-  top: calc(18px + var(--app-safe-top));
+  top: calc(18px + var(--app-safe-top) + var(--app-chrome-top, 0px));
   right: 20px;
   z-index: 1;
   display: flex;
@@ -4265,7 +4339,7 @@ textarea {
 
 .image-viewer__toolbar {
   position: absolute;
-  top: calc(18px + var(--app-safe-top));
+  top: calc(18px + var(--app-safe-top) + var(--app-chrome-top, 0px));
   right: 20px;
   left: auto;
   z-index: 2;
@@ -4708,6 +4782,80 @@ textarea {
 
 .composer__mic.is-holding {
   color: var(--red);
+}
+
+/* The reaction grid is teleported to the body: .pick lives in a row with
+   overflow hidden, which would clip a pop-up anchored inside it. */
+.react-pop__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+}
+
+.react-pop {
+  position: fixed;
+  z-index: 999;
+  animation: react-pop-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.react-pop .emoji-picker {
+  position: static;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+}
+
+@keyframes react-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pick__more svg {
+  opacity: .75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-pop {
+    animation: none;
+  }
+}
+
+/* ||spoiler|| inline text.
+
+   These rules are global on purpose: the span is produced by the markdown
+   renderer and injected with v-html, so it never receives a scoped style's
+   data-v attribute and a scoped rule could never match it.
+
+   The blur sits on the span itself rather than on an overlay, so it follows
+   the words across a line break instead of painting a rectangle over the
+   whole paragraph. */
+.spoiler {
+  --redact-blur: 5px;
+  filter: blur(var(--redact-blur)) saturate(0.85);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.spoiler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Peeking is the hover state and undoes itself; revealed is latched by a
+   click and lasts until the room changes. */
+.spoiler.is-revealed,
+.spoiler.is-peeking {
+  filter: none;
+}
+
+.spoiler.is-revealed {
+  cursor: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spoiler {
+    transition: none;
+  }
 }
 
 /* Emoji picker */
@@ -5171,12 +5319,12 @@ textarea {
 .settings__nav-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 12px;
+  gap: 11px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
   color: var(--text);
-  font-size: 15px;
+  font-size: 13.5px;
   text-align: left;
   min-width: 0;
 }
@@ -5190,8 +5338,8 @@ textarea {
 
 .settings__nav-item svg,
 .settings-field__icon svg {
-  width: 21px;
-  height: 21px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -5201,8 +5349,8 @@ textarea {
 }
 
 .settings__nav-item .settings__nav-icon-img {
-  width: 21px;
-  height: 21px;
+  width: 17px;
+  height: 17px;
   flex: none;
   object-fit: contain;
 }
@@ -5211,10 +5359,21 @@ textarea {
   margin-left: auto;
 }
 
-.settings__nav-item:hover,
+.settings__nav-item:hover:not(.is-active) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
 .settings__nav-item.is-active {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text);
+  background: var(--accent);
+  color: #fff;
+}
+
+.settings__nav-item.is-active svg {
+  color: #fff;
+}
+
+.settings__nav-item.is-active .settings__chevron {
+  opacity: .7;
 }
 
 .settings__main {
@@ -5236,16 +5395,16 @@ textarea {
 
 .settings__main-head h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .settings-page {
-  max-width: 760px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
@@ -5282,22 +5441,20 @@ textarea {
   border: 5px solid var(--bg);
 }
 
-.settings-profile__photo {
-  height: 34px;
-  padding: 0 14px;
-  background: rgba(255, 255, 255, 0.09);
-}
 
-.settings-profile__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
 
+/* ── Settings, System Settings language ──────────────────────────────────────
+   A group is a caption, an inset rounded box of rows, and an optional note
+   underneath. The rows are the group's own children rather than a wrapper, so
+   the box is assembled with :has() instead of extra markup: a row rounds both
+   ends by default, loses its bottom rounding when another row follows, and
+   loses its top rounding plus gains a hairline when it follows one. The
+   hairline is a background gradient inset to the text, the way macOS draws it,
+   so it never shifts the layout. */
 .settings-group {
-  padding: 24px 0;
-  border-top: 1px solid var(--line-strong);
+  padding: 0;
+  margin: 0 0 26px;
+  border-top: 0;
 }
 
 .settings-group:first-child {
@@ -5305,16 +5462,20 @@ textarea {
 }
 
 .settings-group h4 {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 700;
+  margin: 0 0 7px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--muted);
 }
 
 .settings-note {
-  margin: 16px 0 0;
+  margin: 7px 0 0;
+  padding: 0 14px;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .settings-note--warn {
@@ -5355,13 +5516,30 @@ textarea {
   text-align: center;
 }
 
-.settings-field,
 .settings-check {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  min-height: 46px;
+  min-height: 42px;
   color: var(--text);
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 42px;
+  color: var(--text);
+}
+
+.settings-field__body {
+  flex: 1 1 auto;
+}
+
+.settings-field__label {
+  white-space: normal;
 }
 
 .settings-check--readonly {
@@ -5450,9 +5628,9 @@ textarea {
 
 .settings-textarea {
   min-height: 116px;
-  margin: 12px 0 0 44px;
+  margin: 0;
   padding: 12px 14px;
-  width: calc(100% - 44px);
+  width: 100%;
   resize: vertical;
   line-height: 1.45;
 }
@@ -5524,7 +5702,7 @@ textarea {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-  transition: transform 150ms ease;
+  transition: transform 320ms cubic-bezier(0.34, 1.32, 0.64, 1), width 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .settings-check:has(input:checked) .toggle__thumb {
@@ -6753,7 +6931,7 @@ textarea {
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background 240ms cubic-bezier(0.32, 0.72, 0, 1), border-color 240ms cubic-bezier(0.32, 0.72, 0, 1);
   position: relative;
 }
 
@@ -6771,7 +6949,7 @@ textarea {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-  transition: transform 150ms ease;
+  transition: transform 320ms cubic-bezier(0.34, 1.32, 0.64, 1), width 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .toggle.is-on .toggle__thumb {
@@ -7528,7 +7706,7 @@ textarea {
   }
 
   .text-viewer__toolbar {
-    top: calc(12px + var(--app-safe-top));
+    top: calc(12px + var(--app-safe-top) + var(--app-chrome-top, 0px));
     right: 12px;
     left: 12px;
     justify-content: flex-end;
@@ -7545,7 +7723,7 @@ textarea {
   }
 
   .image-viewer__toolbar {
-    top: calc(12px + var(--app-safe-top));
+    top: calc(12px + var(--app-safe-top) + var(--app-chrome-top, 0px));
     right: 12px;
     overflow-x: auto;
   }
@@ -8010,4 +8188,309 @@ textarea {
   min-height: 34px;
   padding: 0 12px;
   font-size: 13px;
+}
+
+
+/* ── Settings rows ───────────────────────────────────────────────────────── */
+
+/* Every direct child of a group is a row, apart from the caption, the note and
+   a nested group. Naming what is *not* a row keeps this working for the eight
+   one-off children already in the panel and for whatever is added next. */
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group) {
+  margin: 0;
+  padding: 7px 14px;
+  background-color: var(--surface-2);
+  border-radius: 10px;
+  transition: background-color 140ms ease-out;
+}
+
+/* A row that follows another is joined to it by an inset hairline. */
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group)
+  + *:not(h4):not(.settings-note):not(.settings-group) {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  background-image: linear-gradient(to right, transparent 0 14px, var(--line-strong) 14px);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top left;
+}
+
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group):has(
+    + *:not(h4):not(.settings-note):not(.settings-group)) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Only rows that actually do something light up under the pointer. */
+.settings-group > :is(.settings-check, .settings-select):hover {
+  background-color: color-mix(in srgb, var(--text) 5%, var(--surface-2));
+}
+
+.settings-group > .settings-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 42px;
+}
+
+.settings-group > .settings-inline {
+  margin-left: 0;
+}
+
+.settings-group > .settings-actions {
+  margin-top: 0;
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* A nested group keeps its own caption and box rather than becoming a row. */
+.settings-group > .settings-group {
+  margin-top: 18px;
+}
+
+/* ── Section changes ─────────────────────────────────────────────────────── */
+
+.settings-page {
+  animation: settings-page-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes settings-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings__nav-item {
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.settings__nav-item:active {
+  transform: scale(.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page {
+    animation: none;
+  }
+
+  .settings__nav-item {
+    transition: none;
+  }
+}
+
+
+/* ── Settings controls inside a row ──────────────────────────────────────── */
+
+/* The row is already the container, so a field inside it drops its own border
+   and sits on a faint inset wash instead of drawing a second box. */
+.settings-group :is(.settings-input, .settings-textarea) {
+  border: 0;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-radius: 8px;
+  transition: background-color 140ms ease-out, box-shadow 140ms ease-out;
+}
+
+.settings-group :is(.settings-input, .settings-textarea):focus {
+  outline: none;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.settings-group > .settings-inline {
+  display: block;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.settings-group > .settings-kv {
+  gap: 1px;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The cells of a key/value pair are the row's own columns, not boxes of their
+   own; the 1px grid gap shows the row background through as a hairline. */
+.settings-group > .settings-kv > * {
+  margin: 0;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-2);
+}
+
+.settings-group > .settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A section's count sits apart from its name, the way a sidebar heading does,
+   instead of being joined to it by a dash. */
+.members__count {
+  margin-left: 7px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ── Settings motion ─────────────────────────────────────────────────────── */
+
+/* An intro note needs air before the box it introduces. */
+.settings-group > .settings-note + *:not(h4):not(.settings-note):not(.settings-group) {
+  margin-top: 9px;
+}
+
+.settings-group > :is(.settings-check, .settings-select) {
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Pressing a toggle row gives way slightly, then springs back. A select row
+   is left alone: its menu button answers the press itself, and scaling the
+   row moved the whole block behind the open menu. */
+.settings-group > .settings-check:active {
+  transform: scale(.995);
+}
+
+.settings-btn,
+.settings-group .btn {
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 140ms ease-out;
+}
+
+.settings-btn:active:not(:disabled),
+.settings-group .btn:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+/* The knob stretches while held, the way a physical switch would. */
+.toggle:active .toggle__thumb {
+  width: 22px;
+}
+
+.toggle.is-on:active .toggle__thumb {
+  transform: translateX(14px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .toggle__track,
+  .toggle__thumb,
+  .settings-btn,
+  .settings-group .btn,
+  .settings-group > :is(.settings-check, .settings-select) {
+    transition-duration: .01ms;
+  }
+
+  .settings-group > .settings-check:active,
+  .settings-btn:active,
+  .settings-group .btn:active {
+    transform: none;
+  }
+
+  .toggle:active .toggle__thumb {
+    width: 18px;
+  }
+}
+
+
+
+/* ── Profile picture and banner ──────────────────────────────────────────── */
+
+.settings-profile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* A picker and its removal travel together, so clearing one picture never
+   moves the other button. */
+.settings-profile__pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-profile__pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.settings-profile__pick svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settings-profile__pick:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.settings-profile__clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 140ms ease-out, color 140ms ease-out,
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.settings-profile__clear svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.settings-profile__clear:hover {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+  color: var(--red);
+}
+
+.settings-profile__pick:active,
+.settings-profile__clear:active {
+  transform: scale(.95);
+}
+
+.settings-profile__pick:focus-visible,
+.settings-profile__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .settings-profile__pick,
+  .settings-profile__clear {
+    transition-duration: .01ms;
+  }
+
+  .settings-profile__pick:active,
+  .settings-profile__clear:active {
+    transform: none;
+  }
 }

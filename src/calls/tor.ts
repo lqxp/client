@@ -36,7 +36,7 @@ export interface CircuitPath {
 
 export function isTauriDesktopRuntime() {
   if (typeof window === "undefined") return false;
-  const w = window as any;
+  const w = window as unknown as Record<string, unknown>;
   if (!(w.__TAURI_INTERNALS__ || w.__TAURI__)) return false;
   const ua = String(navigator?.userAgent || "").toLowerCase();
   return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);

@@ -99,7 +99,7 @@ async function startSolve() {
       pqcCiphertext: pqcRes.ciphertext,
       instrumentation: {
         interactionTimeMs,
-        webdriver: !!(navigator as any).webdriver,
+        webdriver: !!(navigator as unknown as { webdriver?: boolean }).webdriver,
         entropy: 0.98,
       },
     };
@@ -124,7 +124,7 @@ async function startSolve() {
     state.value = "done";
     token.value = redeemData.capToken;
     emit("solve", { token: redeemData.capToken });
-  } catch (err: any) {
+  } catch (err) {
     state.value = "error";
     errorMessage.value = err?.message || "Error. Try again.";
     emit("error", { message: errorMessage.value });

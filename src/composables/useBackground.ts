@@ -3,7 +3,7 @@ import { ref } from "vue";
 
 function isTauriRuntime() {
   if (typeof window === "undefined") return false;
-  const candidate = window as any;
+  const candidate = window as unknown as Record<string, unknown>;
   return Boolean(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__);
 }
 
@@ -23,7 +23,7 @@ export function useBackground() {
       running.value = await invoke<boolean>("plugin:background|is_background_running");
       return running.value;
     } catch (e) {
-      lastError.value = String((e as any)?.message || e);
+      lastError.value = String((e as { message?: unknown })?.message ?? e);
       return false;
     }
   }
@@ -36,7 +36,7 @@ export function useBackground() {
       running.value = true;
       return true;
     } catch (e) {
-      lastError.value = String((e as any)?.message || e);
+      lastError.value = String((e as { message?: unknown })?.message ?? e);
       return false;
     }
   }
@@ -49,7 +49,7 @@ export function useBackground() {
       running.value = false;
       return true;
     } catch (e) {
-      lastError.value = String((e as any)?.message || e);
+      lastError.value = String((e as { message?: unknown })?.message ?? e);
       return false;
     }
   }

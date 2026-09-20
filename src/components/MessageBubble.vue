@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
+import EmojiPicker from "@/components/EmojiPicker.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
@@ -52,7 +53,11 @@ const isSystemPresenceEvent = computed(() =>
   /^system-(join|leave)-/.test(String(props.message.messageId || ""))
 );
 const isDiscordStyle = computed(() => props.messenger.state.messageStyle === "discord");
-const streamerBlur = computed(() => Boolean(props.messenger.state.streamerMode) && !props.message.deleted && !isSystem.value);
+const streamerBlur = computed(() =>
+  Boolean(props.messenger.state.streamerMode || props.messenger.state.streamerLeaving) &&
+  !props.message.deleted &&
+  !isSystem.value
+);
 const showTimestamp = computed(() => props.position === "end" || props.position === "single");
 const keepBubbleReactions = computed(() => isDiscordStyle.value && props.position === "mid");
 const discordActionsStyle = computed(() => (
@@ -386,6 +391,12 @@ function markdown(value) {
     .replace(/(^|[^a-zA-Z0-9_.])@([a-z0-9_.]{2,32})(?=$|[^a-zA-Z0-9_.])/gi, (match, prefix, username) => (
       isKnownMention(username) ? `${prefix}<span class="mention" data-mention="${escapeHtml(username)}" role="button" tabindex="0">@${username}</span>` : match
     ))
+    .replace(
+      /\|\|([^\n|]+)\|\|/g,
+      // The label keeps a screen reader from reading out what the spoiler is
+      // hiding; revealCover drops it once the text is open.
+      `<span class="spoiler" data-spoiler role="button" tabindex="0" aria-label="${escapeHtml(t('message.spoilerHidden'))}">$1</span>`
+    )
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
     .replace(/~~([^~\n]+)~~/g, "<del>$1</del>")
@@ -441,7 +452,103 @@ async function onCodeCopyClick(event) {
   return true;
 }
 
+/** Records where the pointer is, in the element's own coordinates, so the
+ *  particle cloud can open its hole from there rather than from the middle. */
+function setRevealOrigin(el: HTMLElement, clientX: number, clientY: number) {
+  const rect = el.getBoundingClientRect();
+  el.style.setProperty("--reveal-x", `${clientX - rect.left}px`);
+  el.style.setProperty("--reveal-y", `${clientY - rect.top}px`);
+}
+
+/** Lifts the blur off one element; the CSS transition does the animation. */
+function revealCover(el: HTMLElement) {
+  el.classList.remove("is-peeking");
+  el.classList.add("is-revealed");
+  el.removeAttribute("aria-label");
+}
+
+/**
+ * Hovering opens the blur for as long as the pointer stays, clicking latches
+ * it open. Both are wanted: a glance costs nothing and closes itself, while a
+ * message you actually want to read should not need the mouse held on it.
+ */
+function onCoverPointerMove(event: PointerEvent) {
+  const target = event.target as HTMLElement | null;
+  const cover = target?.closest?.(PEEKABLE_SELECTOR) as HTMLElement | null;
+  if (peeking && peeking !== cover) {
+    peeking.classList.remove("is-peeking");
+    peeking = null;
+  }
+  if (!cover || cover.classList.contains("is-revealed")) return;
+  setRevealOrigin(cover, event.clientX, event.clientY);
+  if (peeking !== cover) {
+    cover.classList.add("is-peeking");
+    peeking = cover;
+  }
+}
+
+function onCoverPointerLeave() {
+  if (!peeking) return;
+  peeking.classList.remove("is-peeking");
+  peeking = null;
+}
+
+let peeking: HTMLElement | null = null;
+
+function onSpoilerActivate(event: MouseEvent | KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  const spoiler = target?.closest?.("[data-spoiler]") as HTMLElement | null;
+  if (!spoiler || spoiler.classList.contains("is-revealed")) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  revealCover(spoiler);
+  return true;
+}
+
+/** Each part needs the prefix; `"x " + "a, b"` would only scope `a`. */
+const PEEKABLE_SELECTOR = [
+  "[data-spoiler]",
+  ...".msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media"
+    .split(", ")
+    .map((part) => `.msg.is-streamer-blur ${part}`)
+].join(", ");
+
+const COVERED_SELECTOR =
+  ".msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author," +
+  " .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text," +
+  " .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph," +
+  " .att-image-link, .audio-player, .video-player, .embed__media";
+
+/**
+ * In streamer mode a click opens the whole message, not just the part under
+ * the pointer: every cover wipes from that same screen point, so the reveal
+ * reads as one wave crossing the message instead of a dozen separate ones.
+ * Capture phase, so it runs before links and reactions take the click.
+ */
+function onStreamerReveal(event: MouseEvent) {
+  if (!streamerBlur.value) return;
+  const root = event.currentTarget as HTMLElement | null;
+  if (!root) return;
+  const covers = root.querySelectorAll<HTMLElement>(COVERED_SELECTOR);
+  let opened = false;
+  for (const cover of covers) {
+    if (cover.classList.contains("is-revealed")) continue;
+    revealCover(cover);
+    opened = true;
+  }
+  if (opened) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
+function onSpoilerKeydown(event: KeyboardEvent) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  onSpoilerActivate(event);
+}
+
 async function onMarkdownClick(event) {
+  if (onSpoilerActivate(event)) return;
   const target = event.target as HTMLElement | null;
   const mention = target?.closest?.("[data-mention]") as HTMLElement | null;
   const username = String(mention?.getAttribute?.("data-mention") || "").trim().toLowerCase();
@@ -453,6 +560,44 @@ async function onMarkdownClick(event) {
   }
 
   await onCodeCopyClick(event);
+}
+
+watch(
+  () => props.messenger.state.activeRoom,
+  () => {
+    for (const el of document.querySelectorAll<HTMLElement>(".is-revealed, .is-peeking")) {
+      el.classList.remove("is-revealed", "is-peeking");
+      el.style.removeProperty("--reveal-x");
+      el.style.removeProperty("--reveal-y");
+    }
+    peeking = null;
+  }
+);
+
+const reactionPickerOpen = ref(false);
+const reactionPickerStyle = ref<Record<string, string>>({});
+
+/**
+ * Anchors the grid to the button that opened it, flipping above when there is
+ * no room below, and clamping so it never hangs off the side.
+ */
+function openReactionPicker(event: MouseEvent) {
+  const button = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect();
+  if (!button) return;
+  const width = 360;
+  const height = 400;
+  const left = Math.min(Math.max(8, button.left - width / 2), window.innerWidth - width - 8);
+  const below = window.innerHeight - button.bottom;
+  const style: Record<string, string> = { left: `${left}px` };
+  if (below < height + 16 && button.top > below) style.bottom = `${window.innerHeight - button.top + 8}px`;
+  else style.top = `${button.bottom + 8}px`;
+  reactionPickerStyle.value = style;
+  reactionPickerOpen.value = true;
+}
+
+function onReactionPicked(emoji: string) {
+  reactionPickerOpen.value = false;
+  props.messenger.toggleReaction(props.message, emoji);
 }
 
 function closeProfile() {
@@ -637,13 +782,14 @@ onBeforeUnmount(() => {
 <template>
   <article :id="messageDomId(message.messageId)" class="msg" :class="[
     { 'is-own': isOwn, 'is-jumbo': jumbo, 'is-deleted': deleted, 'is-system': isSystem },
-    { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle, 'is-streamer-blur': streamerBlur },
+    { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle, 'is-streamer-blur': streamerBlur, 'is-streamer-leaving': messenger.state.streamerLeaving },
     {
       'has-reactions': message.reactions.length && !deleted,
       'has-discord-reply': message.replyToMessageId && isDiscordStyle
     },
     runClass
-  ]" @contextmenu.prevent.stop="onMessageContextMenu"
+  ]" @contextmenu.prevent.stop="onMessageContextMenu" @click.capture="onStreamerReveal"
+    @pointermove.passive="onCoverPointerMove" @pointerleave.passive="onCoverPointerLeave"
     @pointerdown="onMessagePointerDown" @pointermove="onMessagePointerMove"
     @pointerup="onMessagePointerUp" @pointercancel="onMessagePointerCancel">
     <span v-if="showAvatar && !isSystem" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
@@ -702,6 +848,14 @@ onBeforeUnmount(() => {
         <div class="pick">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
+          <button type="button" class="pick__more" :aria-label="t('message.moreReactions')"
+            :title="t('message.moreReactions')" :aria-expanded="reactionPickerOpen" @click.stop="openReactionPicker">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8.5v7M8.5 12h7" />
+            </svg>
+          </button>
           <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
@@ -735,6 +889,14 @@ onBeforeUnmount(() => {
         <div class="pick" role="group" aria-label="React">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
+          <button type="button" class="pick__more" :aria-label="t('message.moreReactions')"
+            :title="t('message.moreReactions')" :aria-expanded="reactionPickerOpen" @click.stop="openReactionPicker">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8.5v7M8.5 12h7" />
+            </svg>
+          </button>
           <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round">
@@ -812,10 +974,12 @@ onBeforeUnmount(() => {
         </button>
         <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
         <ImageViewer v-if="imageViewerOpen" :src="attachmentUrl" :filename="message.attachment.filename"
+          :mime-type="message.attachment.mimeType"
           :size-label="messenger.formatSize(message.attachment.size)" @close="imageViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
           </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
@@ -826,11 +990,13 @@ onBeforeUnmount(() => {
 
       <template v-else-if="attachmentKind === 'video'">
         <VideoPlayer v-if="attachmentUrl" :src="attachmentUrl" :filename="message.attachment.filename"
+          :mime-type="message.attachment.mimeType"
           :size-label="messenger.formatSize(message.attachment.size)" />
         <div v-else class="att-expired" role="status">{{ t('message.attachmentExpired') }}</div>
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
           </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
@@ -841,12 +1007,14 @@ onBeforeUnmount(() => {
 
       <template v-else-if="(attachmentKind === 'audio' || attachmentKind === 'voice') && attachmentUrl">
         <AudioPlayer :src="attachmentUrl" :filename="message.attachment.filename"
+          :mime-type="message.attachment.mimeType"
           :size-label="messenger.formatSize(message.attachment.size)" :fallback-duration="message.voiceDuration || ''"
           :waveform="message.voiceWaveform || []"
           :messenger="messenger" />
         <div v-if="message.text && !message.text.startsWith('[voice:')" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
           </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
@@ -893,7 +1061,8 @@ onBeforeUnmount(() => {
           @close="textViewerOpen = false" />
         <div v-if="message.text" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
           </div>
           <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
         </div>
@@ -905,7 +1074,8 @@ onBeforeUnmount(() => {
       <template v-else-if="!isSystem">
         <div class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
-            @click="onMarkdownClick" @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
           </div>
           <span v-if="isDiscordStyle && edited && !deleted" class="bubble__edited">(edited)</span>
         </div>
@@ -941,6 +1111,14 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </article>
+
+  <Teleport to="body">
+    <div v-if="reactionPickerOpen" class="react-pop__backdrop" @click="reactionPickerOpen = false"
+      @contextmenu.prevent="reactionPickerOpen = false"></div>
+    <div v-if="reactionPickerOpen" class="react-pop" :style="reactionPickerStyle" @click.stop>
+      <EmojiPicker @pick="onReactionPicked" />
+    </div>
+  </Teleport>
 
   <Teleport to="body">
     <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
@@ -1639,34 +1817,70 @@ onBeforeUnmount(() => {
   background-color: rgba(88, 101, 242, 0.16);
 }
 
-.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
-  filter: blur(8px);
-  opacity: 0.72;
-  transition: filter 120ms ease, opacity 120ms ease;
+
+/* Streamer mode blurs the elements themselves rather than covering them with a
+   box. An overlay always draws the element's rectangle, which on a block of
+   text is the whole bubble width and reads as a grey slab; a filter follows
+   the glyphs and the avatar's circle exactly. The particle cloud on top comes
+   from SpoilerParticles.vue, which measures the same elements line by line. */
+.msg.is-streamer-blur {
+  --redact-tint: color-mix(in srgb, var(--text) 16%, var(--bg));
+  --redact-blur: 5px;
 }
 
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):hover,
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .bubble__text, .reactions, .jumbo__glyph):focus-within,
-.msg.is-streamer-blur .msg__avatar:hover,
-.msg.is-streamer-blur .reply-ref:hover :is(.reply-ref__avatar, .reply-ref__username, .reply-ref__text),
-.msg.is-streamer-blur .reply-card:hover :is(.reply-card__author, .reply-card__text),
-.msg.is-streamer-blur .att-file:hover .att-file-meta {
-  filter: none;
-  opacity: 1;
+.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
+  filter: blur(var(--redact-blur)) saturate(0.85);
+  cursor: pointer;
+  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
-  filter: blur(24px);
-  opacity: 0.72;
+  filter: blur(14px) saturate(0.7);
+  cursor: pointer;
+  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* The avatar tint is derived from the username, so the hue has to go with the
+   detail. `background` and not `background-color`: the accent classes set the
+   shorthand, so a colour alone leaves their gradient in place. */
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) {
-  filter: blur(22px);
+  background: var(--redact-tint);
+  overflow: hidden;
+  cursor: pointer;
 }
 
-.msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
-  overflow: hidden;
-  transform: translateZ(0);
+/* Blurring the children keeps the circle's edge crisp: a filter on the avatar
+   itself would soften its outline into a blob. */
+.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) > * {
+  filter: blur(6px) grayscale(1);
+  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media):is(.is-revealed, .is-peeking),
+.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar):is(.is-revealed, .is-peeking) > * {
+  filter: none;
+  cursor: auto;
+}
+
+.msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar):is(.is-revealed, .is-peeking) {
+  background: none;
+}
+
+/* Leaving streamer mode lifts every blur at once instead of snapping. */
+.msg.is-streamer-blur.is-streamer-leaving :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
+.msg.is-streamer-blur.is-streamer-leaving :is(.msg__avatar, .reply-ref__avatar) > * {
+  filter: none;
+}
+
+.msg.is-streamer-blur.is-streamer-leaving :is(.msg__avatar, .reply-ref__avatar) {
+  background: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
+  .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) > * {
+    transition: none;
+  }
 }
 
 :global(:root[data-message-style="discord"] .msg__avatar) {

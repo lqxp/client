@@ -1,4 +1,4 @@
-export type PhantomMessageHandler = (op: number, d: any) => void;
+export type PhantomMessageHandler = (op: number, d: Record<string, unknown>) => void;
 
 let handler: PhantomMessageHandler | null = null;
 
@@ -11,6 +11,6 @@ export function setPhantomMessageHandler(next: PhantomMessageHandler | null): vo
   handler = next;
 }
 
-export function dispatchPhantomMessage(op: number, d: any): void {
+export function dispatchPhantomMessage(op: number, d: Record<string, unknown>): void {
   if (handler) handler(op, d);
 }

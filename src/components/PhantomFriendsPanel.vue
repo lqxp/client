@@ -1,22 +1,24 @@
 <script setup lang="ts">
+import type { Messenger } from "@/composables/useMessenger";
+import type { Phantom, PhantomFriend } from "@/composables/usePhantom";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AddFriendModal from "@/components/AddFriendModal.vue";
 import { currentWindowZoom } from "@/utils/windowZoom";
 
-const props = defineProps<{ messenger: any; phantom: any }>();
+const props = defineProps<{ messenger: Messenger; phantom: Phy }>();
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const addOpen = ref(false);
-const friendMenu = ref<null | { friend: any; x: number; y: number }>(null);
+const friendMenu = ref<null | { friend: PhantomFriend; x: number; y: number }>(null);
 
 const collapsed = computed(() => !!props.phantom.state.friendsCollapsed);
 function toggleCollapsed() {
   props.phantom.setFriendsCollapsed(!collapsed.value);
 }
 
-const friends = computed<any[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as any[]);
+const friends = computed<PhantomFriend[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as PhantomFriend[]);
 const requests = computed(() => props.phantom.state.pendingIncoming || []);
 const recoveryReady = computed(
   () =>
@@ -47,7 +49,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("click", closeFriendMenu);
 });
 
-function openFriend(friend: any) {
+function openFriend(friend: PhantomFriend) {
   if (!friend?.roomId) return;
   // Titre le salon ami avec son nom pour qu'il s'intègre proprement
   // (sinon il apparaît comme un salon « classique » à hash brut).
@@ -57,12 +59,12 @@ function openFriend(friend: any) {
   }
 }
 
-function friendAvatar(friend: any) {
+function friendAvatar(friend: PhantomFriend) {
   const profile = props.messenger.profileFor?.(friend.peerDisplayName);
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 }
 
-function friendUnread(friend: any) {
+function friendUnread(friend: PhantomFriend) {
   const roomId = String(friend?.roomId || "").trim();
   if (!roomId) return 0;
   return Number(props.messenger.state.unreadByRoom?.[roomId] || 0);
@@ -72,12 +74,12 @@ function unreadLabel(count: number) {
   return count > 99 ? "99+" : String(count);
 }
 
-function blockRequest(request: any) {
+function blockRequest(request: Record<string, unknown>) {
   props.phantom.blockUser(request.sender?.prekeyFp);
   props.phantom.ignoreIncoming(request.id);
 }
 
-function openFriendMenu(event: MouseEvent, friend: any) {
+function openFriendMenu(event: MouseEvent, friend: PhantomFriend) {
   // Event coords are visual (unzoomed) pixels but the fixed menu's left/top
   // live in zoomed CSS pixels: convert so the menu opens under the cursor.
   const zoom = currentWindowZoom();

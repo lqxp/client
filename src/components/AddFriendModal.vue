@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { Messenger } from "@/composables/useMessenger";
+import type { Phantom } from "@/composables/usePhantom";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import SelectMenu from "@/components/SelectMenu.vue";
 
-const props = defineProps<{ messenger: any; phantom: any; open: boolean }>();
+const props = defineProps<{ messenger: Messenger; phantom: Phantom; open: boolean }>();
 const emit = defineEmits(["close"]);
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -21,7 +23,7 @@ const mutualRooms = computed(() => {
   return (props.messenger?.mutualRoomsWith?.(username.value.trim()) || []).slice(0, 8);
 });
 const roomOptions = computed(() =>
-  mutualRooms.value.map((room: any) => ({ value: String(room.roomId), label: String(room.name || room.roomId) }))
+  mutualRooms.value.map((room: { roomId?: string; title?: string }) => ({ value: String(room.roomId), label: String(room.name || room.roomId) }))
 );
 
 function reset() {

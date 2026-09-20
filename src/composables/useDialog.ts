@@ -1,3 +1,6 @@
+/** What a dialog resolves with: text for a prompt, a choice for a confirm. */
+export type DialogResult = string | boolean | null | undefined;
+
 import { reactive, ref } from "vue";
 
 export interface DialogState {
@@ -6,7 +9,7 @@ export interface DialogState {
   title: string;
   message: string;
   defaultValue: string;
-  resolve: ((value: any) => void) | null;
+  resolve: ((value: DialogResult) => void) | null;
 }
 
 const state = reactive<DialogState>({
@@ -23,7 +26,7 @@ interface QueuedDialog {
   title: string;
   message: string;
   defaultValue: string;
-  resolve: (value: any) => void;
+  resolve: (value: DialogResult) => void;
 }
 
 const queue: QueuedDialog[] = [];
@@ -42,26 +45,26 @@ function processQueue() {
 export function useDialog() {
   function showAlert(message: string, title = ""): Promise<void> {
     return new Promise((resolve) => {
-      queue.push({ kind: "alert", title, message, defaultValue: "", resolve });
+      queue.push({ kind: "alert", title, message, defaultValue: "", resolve: resolve as (value: DialogResult) => void });
       processQueue();
     });
   }
 
   function showConfirm(message: string, title = ""): Promise<boolean> {
     return new Promise((resolve) => {
-      queue.push({ kind: "confirm", title, message, defaultValue: "", resolve });
+      queue.push({ kind: "confirm", title, message, defaultValue: "", resolve: resolve as (value: DialogResult) => void });
       processQueue();
     });
   }
 
   function showPrompt(message: string, defaultValue = "", title = ""): Promise<string | null> {
     return new Promise((resolve) => {
-      queue.push({ kind: "prompt", title, message, defaultValue, resolve });
+      queue.push({ kind: "prompt", title, message, defaultValue, resolve: resolve as (value: DialogResult) => void });
       processQueue();
     });
   }
 
-  function closeDialog(value: any) {
+  function closeDialog(value: DialogResult) {
     if (state.resolve) {
       state.resolve(value);
       state.resolve = null;

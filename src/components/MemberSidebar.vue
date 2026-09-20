@@ -223,21 +223,41 @@ async function positionMemberContext(clientX: number, clientY: number) {
   memberContextPos.value = { x, y };
 }
 
+const ROLE_ORDER = ["administrator", "subAdmin", "moderator", "member"] as const;
+
+const groupByRole = computed(
+  () => isCommunity.value && Boolean(props.messenger.state.groupMembersByRole)
+);
+
 const sections = computed(() => {
   const inCall: string[] = [];
-  const online: string[] = [];
+  const rest: string[] = [];
 
   for (const username of members.value) {
-    if (voiceMembers.value.has(username)) {
-      inCall.push(username);
-      continue;
-    }
-    online.push(username);
+    if (voiceMembers.value.has(username)) inCall.push(username);
+    else rest.push(username);
+  }
+
+  const call = { key: "call", label: t('call.live'), users: inCall };
+
+  if (!groupByRole.value) {
+    return [call, { key: "online", label: t('members.online'), users: rest }]
+      .filter((section) => section.users.length);
+  }
+
+  const byRole = new Map<string, string[]>(ROLE_ORDER.map((role) => [role, []]));
+  for (const username of rest) {
+    const role = roleFor(username);
+    (byRole.get(role) ?? byRole.get("member")!).push(username);
   }
 
   return [
-    { key: "call", label: t('call.live'), users: inCall },
-    { key: "online", label: t('members.online'), users: online }
+    call,
+    ...ROLE_ORDER.map((role) => ({
+      key: `role-${role}`,
+      label: props.messenger.roleLabel?.(role) || role,
+      users: byRole.get(role) ?? []
+    }))
   ].filter((section) => section.users.length);
 });
 
@@ -343,7 +363,7 @@ onBeforeUnmount(() => {
 
     <div v-if="sections.length" class="members__sections">
       <section v-for="section in sections" :key="section.key" class="members__group">
-        <div class="members__label">{{ section.label }} — {{ section.users.length }}</div>
+        <div class="members__label">{{ section.label }}<span class="members__count">{{ section.users.length }}</span></div>
         <div class="members__list">
           <div
             v-for="username in section.users"

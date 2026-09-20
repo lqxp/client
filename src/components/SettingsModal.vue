@@ -14,6 +14,7 @@ import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays
 import { countryCoord } from "@/calls/geo";
 import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
 import ImageCropModal from "@/components/ImageCropModal.vue";
+import { isAnimatedImage } from "@/utils/animatedImage";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
@@ -346,7 +347,7 @@ const circuitPoints = computed<MapPoint[]>(() => {
       lat: geo.value.client.latitude,
       lng: geo.value.client.longitude,
       color: "#3fcf6f",
-      label: ["You", geo.value.client.ip].filter(Boolean).join(" — "),
+      label: ["You", geo.value.client.ip].filter(Boolean).join(" · "),
     });
   }
 
@@ -366,7 +367,7 @@ const circuitPoints = computed<MapPoint[]>(() => {
       lat,
       lng,
       role: hop.role,
-      label: parts.join(" — "),
+      label: parts.join(" · "),
     });
   }
 
@@ -375,7 +376,7 @@ const circuitPoints = computed<MapPoint[]>(() => {
       lat: geo.value.server.latitude,
       lng: geo.value.server.longitude,
       color: "#f43f5e",
-      label: ["qxch.at", geo.value.server.ip].filter(Boolean).join(" — "),
+      label: ["qxch.at", geo.value.server.ip].filter(Boolean).join(" · "),
     });
   }
 
@@ -452,6 +453,8 @@ function hopCountryCode(hop: CircuitPath["hops"][number]): string | null {
   return hop.country ?? (hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null);
 }
 
+const relaysConsent = ref(false);
+
 async function loadRelays() {
   relaysLoading.value = true;
   relaysError.value = "";
@@ -459,7 +462,7 @@ async function loadRelays() {
     // fetchTorRelays falls back to a direct Onionoo fetch when Tor isn't
     // running, so the directory is always browseable.
     relays.value = await fetchTorRelays(100);
-  } catch (err: any) {
+  } catch (err) {
     relaysError.value = err?.message || String(err);
   } finally {
     relaysLoading.value = false;
@@ -467,9 +470,14 @@ async function loadRelays() {
 }
 
 async function requestRelays() {
-  // No confirmation modal: the relay directory is public data and the todo
-  // explicitly flags "press Refresh + accept modal" as a bug. The button
-  // loads directly; the directory also auto-loads when the section opens.
+  if (!relaysConsent.value) {
+    const confirmed = await dialog.showConfirm(
+      t('settings.tor.relaysConfirm'),
+      t('settings.tor.relaysConfirmTitle'),
+    );
+    if (!confirmed) return;
+    relaysConsent.value = true;
+  }
   await loadRelays();
 }
 
@@ -483,10 +491,9 @@ let relaysAutoLoaded = false;
 
 function maybeAutoLoadTorDirectory() {
   if (relaysAutoLoaded || relaysLoading.value || relays.value.length) return;
-  // Auto-load the public relay directory as soon as the Tor section is
-  // visible — no user prompting required.
   if (activeSection.value !== "tor") return;
   if (!isTorRuntime() || !isOpen.value) return;
+  if (!relaysConsent.value) return;
   relaysAutoLoaded = true;
   void loadRelays();
 }
@@ -570,7 +577,10 @@ watch(lockPinConfirm, (value) => {
 const isOpen = computed(() => props.messenger.state.settingsOpen);
 
 const nameChanged = computed(() => draftName.value.trim() !== String(props.messenger.state.username || "").trim());
-const nameValid = computed(() => !props.messenger.validateUsername(draftName.value));
+const nameError = computed(() =>
+  nameChanged.value ? String(props.messenger.validateUsername(draftName.value) || "") : ""
+);
+const nameValid = computed(() => !nameError.value);
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const profile = computed(() => props.messenger.myProfile.value);
@@ -578,7 +588,7 @@ const turnServers = computed(() => props.messenger.turnServers.value || turnServ
 const selectedTurnInfo = computed(() => {
   const id = props.messenger.state.selectedTurnServerId;
   if (!id) return null;
-  const srv = turnServers.value.find((s: any) => s.id === id);
+  const srv = turnServers.value.find((s: TurnServerConfig) => s.id === id);
   if (!srv) return null;
   // Try i18n key first, fall back to server config hint
   const hintKey = `settings.calls.turnHints.${id}`;
@@ -605,7 +615,7 @@ function formatTurnUrl(url: string) {
   }
 }
 
-function formatServerUrls(server: any) {
+function formatServerUrls(server: TurnServerConfig) {
   return (server.urls || []).map((u: string) => formatTurnUrl(u)).join(" · ");
 }
 const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar, "avatar"));
@@ -690,12 +700,12 @@ const duressActionOptions = computed(() => [
   { value: "decoy", label: t("settings.opsec.actionDecoy") }
 ]);
 const turnServerOptions = computed(() =>
-  turnServers.value.map((server: any) => ({ value: String(server.id), label: String(server.label) }))
+  turnServers.value.map((server: TurnServerConfig) => ({ value: String(server.id), label: String(server.label) }))
 );
-function deviceOptions(devices: any[], fallback: (index: number) => string) {
+function deviceOptions(devices: MediaDeviceInfo[], fallback: (index: number) => string) {
   return [
     { value: "", label: t("settings.calls.systemDefault") },
-    ...devices.map((device: any, index: number) => ({
+    ...devices.map((device: MediaDeviceInfo, index: number) => ({
       value: String(device.deviceId || ""),
       label: deviceLabel(device, fallback(index))
     }))
@@ -763,8 +773,8 @@ function backToSettingsList() {
 
 async function saveName() {
   if (!nameValid.value || !nameChanged.value) return;
-  await props.messenger.changeUsername(draftName.value.trim());
-  draftName.value = props.messenger.state.username || "";
+  const saved = await props.messenger.changeUsername(draftName.value.trim());
+  if (saved) draftName.value = props.messenger.state.username || "";
 }
 
 function saveProfileText() {
@@ -773,6 +783,13 @@ function saveProfileText() {
     description: draftDescription.value,
     pronouns: draftPronouns.value
   });
+}
+
+/** Puts the three drafts back to what the account currently holds. */
+function revertProfileDrafts() {
+  draftName.value = props.messenger.state.username || "";
+  draftDescription.value = props.messenger.state.profile?.description || "";
+  draftPronouns.value = props.messenger.state.profile?.pronouns || "";
 }
 
 async function saveAll() {
@@ -792,7 +809,7 @@ function onBannerPicked(event) {
   openCrop(file, "banner");
 }
 
-function openCrop(file, kind: "avatar" | "banner") {
+async function openCrop(file, kind: "avatar" | "banner") {
   if (!file) return;
   if (file.type && !String(file.type).startsWith("image/")) {
     props.messenger.state.lastError = t("crop.invalidImage");
@@ -805,6 +822,16 @@ function openCrop(file, kind: "avatar" | "banner") {
     props.messenger.showToast?.(props.messenger.state.lastError);
     return;
   }
+  // Cropping draws the image onto a canvas, and a canvas only ever holds one
+  // frame: running an animated GIF, APNG or WebP through it would silently
+  // turn it into a still. There is no in-browser re-encoder for those, so the
+  // file goes up untouched and the crop step is skipped rather than faked.
+  if (await isAnimatedImage(file)) {
+    props.messenger.showToast?.(t("crop.animatedKept"));
+    props.messenger.setProfileImageFromFile(kind, file);
+    return;
+  }
+
   crop.value = {
     open: true,
     src: URL.createObjectURL(file),
@@ -908,7 +935,7 @@ async function onDeleteAccount() {
     .then(() => {
       close();
     })
-    .catch(async (err: any) => {
+    .catch(async (err: unknown) => {
       await dialog.showAlert(err?.message || t('settings.profile.deleteAccountError'));
     });
 }
@@ -1012,12 +1039,12 @@ const runtimePlatform = computed(() => {
   return "web";
 });
 
-const browserLanguage = computed(() => navigator.language || "—");
+const browserLanguage = computed(() => navigator.language || "-");
 
 const selectedTurnServer = computed(() => {
   const id = props.messenger.state.selectedTurnServerId;
   if (!id) return null;
-  return turnServers.value.find((s: any) => s.id === id) || null;
+  return turnServers.value.find((s: TurnServerConfig) => s.id === id) || null;
 });
 
 const runtimeDetails = computed(() => {
@@ -1038,11 +1065,11 @@ const runtimeDetails = computed(() => {
     serverOrigin: appRuntimeConfig.serverOrigin,
     apiBaseUrl: appRuntimeConfig.apiBaseUrl,
     wsUrl: appRuntimeConfig.wsUrl,
-    turnUser: turn?.username || "—",
-    turnHost: turnUrls[0] || "—",
+    turnUser: turn?.username || "-",
+    turnHost: turnUrls[0] || "-",
     turnRemote: Boolean(turn?.urls?.some((url: string) => /^turn|turns:/i.test(url))),
     turnSecure: turnUrls.some((url: string) => String(url).trim().toLowerCase().startsWith("turns:")),
-    turnPassword: turn?.credential || "—"
+    turnPassword: turn?.credential || "-"
   };
 });
 
@@ -1383,20 +1410,52 @@ onBeforeUnmount(() => {
           <div class="settings-profile__banner" :class="{ 'has-image': bannerSrc }">
             <img v-if="bannerSrc" :src="bannerSrc" alt="" />
           </div>
+
           <span v-if="avatarSrc" class="settings-profile__avatar-image">
             <img :src="avatarSrc" alt="" />
           </span>
-          <span v-else class="avatar settings-profile__avatar" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
+          <span v-else class="avatar settings-profile__avatar"
+            :class="`avatar--${meAccent}`">{{ meInitial }}</span>
+
+          <!-- One row, fixed shape: the two pickers always sit in the same
+               place, and each removal appears beside the picture it clears
+               rather than shifting the row around. -->
           <div class="settings-profile__actions">
-            <button type="button" class="btn settings-profile__photo" @click="avatarInputRef?.click()">{{
-              t('settings.profile.profileImage') }}</button>
-            <button type="button" class="btn settings-profile__photo" @click="bannerInputRef?.click()">{{
-              t('settings.profile.banner') }}</button>
-            <button v-if="profile.avatar" type="button" class="btn settings-profile__photo"
-              @click="messenger.clearProfileImage('avatar')">{{ t('settings.profile.clearImage') }}</button>
-            <button v-if="profile.banner" type="button" class="btn settings-profile__photo"
-              @click="messenger.clearProfileImage('banner')">{{ t('settings.profile.clearBanner') }}</button>
+            <div class="settings-profile__pair">
+              <button type="button" class="settings-profile__pick" @click="avatarInputRef?.click()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+                  <circle cx="12" cy="13" r="3.5" />
+                </svg>
+                <span>{{ t('settings.profile.profileImage') }}</span>
+              </button>
+              <button v-if="profile.avatar" type="button" class="settings-profile__clear"
+                :aria-label="t('settings.profile.clearImage')" :title="t('settings.profile.clearImage')"
+                @click="messenger.clearProfileImage('avatar')">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="settings-profile__pair">
+              <button type="button" class="settings-profile__pick" @click="bannerInputRef?.click()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 5h18v14H3z" />
+                  <path d="m3 15 5-4 4 3 3-2 6 4" />
+                </svg>
+                <span>{{ t('settings.profile.banner') }}</span>
+              </button>
+              <button v-if="profile.banner" type="button" class="settings-profile__clear"
+                :aria-label="t('settings.profile.clearBanner')" :title="t('settings.profile.clearBanner')"
+                @click="messenger.clearProfileImage('banner')">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
+
           <input ref="avatarInputRef" type="file"
             accept="image/png,image/apng,image/gif,image/jpeg,image/webp,.apng,.webp" style="display: none"
             @change="onAvatarPicked" />
@@ -1410,7 +1469,7 @@ onBeforeUnmount(() => {
         </p>
 
         <div class="settings-group">
-          <label class="settings-field">
+          <label class="settings-field" for="profile-display-name">
             <span class="settings-field__icon">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="4" />
@@ -1423,9 +1482,14 @@ onBeforeUnmount(() => {
             </span>
           </label>
           <div class="settings-inline">
-            <input ref="firstInputRef" v-model="draftName" type="text" maxlength="32" autocomplete="off"
-              spellcheck="false" placeholder="@echo" class="settings-input" @keydown.enter.prevent="saveName" />
+            <input id="profile-display-name" ref="firstInputRef" v-model="draftName" type="text" maxlength="32" autocomplete="off"
+              spellcheck="false" placeholder="@echo" class="settings-input"
+              :aria-invalid="nameError ? 'true' : undefined"
+              :aria-describedby="nameError ? 'profile-display-name-error' : undefined"
+              @keydown.enter.prevent="saveName" />
           </div>
+          <p v-if="nameError" id="profile-display-name-error" class="settings-note settings-note--error"
+            role="alert">{{ nameError }}</p>
         </div>
 
         <div class="settings-group">
@@ -1455,7 +1519,7 @@ onBeforeUnmount(() => {
 
 
         <div class="settings-group">
-          <label class="settings-field">
+          <label class="settings-field" for="profile-description">
             <span class="settings-field__icon">
               <svg viewBox="0 0 24 24">
                 <path d="M4 6h16" />
@@ -1469,13 +1533,15 @@ onBeforeUnmount(() => {
                 messenger.MAX_PROFILE_DESCRIPTION_LENGTH }}</span>
             </span>
           </label>
-          <textarea v-model="draftDescription" class="settings-input settings-textarea"
-            :maxlength="messenger.MAX_PROFILE_DESCRIPTION_LENGTH" spellcheck="true" rows="4"
-            :placeholder="t('settings.profile.descriptionPlaceholder')"></textarea>
+          <div class="settings-inline">
+            <textarea id="profile-description" v-model="draftDescription" class="settings-input settings-textarea"
+              :maxlength="messenger.MAX_PROFILE_DESCRIPTION_LENGTH" spellcheck="true" rows="4"
+              :placeholder="t('settings.profile.descriptionPlaceholder')"></textarea>
+          </div>
         </div>
 
         <div class="settings-group">
-          <label class="settings-field">
+          <label class="settings-field" for="profile-pronouns">
             <span class="settings-field__icon">
               <svg viewBox="0 0 24 24">
                 <path d="M5 7h14" />
@@ -1491,7 +1557,7 @@ onBeforeUnmount(() => {
             </span>
           </label>
           <div class="settings-inline">
-            <input v-model="draftPronouns" type="text" :maxlength="messenger.MAX_PROFILE_PRONOUNS_LENGTH"
+            <input id="profile-pronouns" v-model="draftPronouns" type="text" :maxlength="messenger.MAX_PROFILE_PRONOUNS_LENGTH"
               autocomplete="off" spellcheck="false" :placeholder="t('settings.profile.pronounsPlaceholder')"
               class="settings-input" @keydown.enter.prevent="saveProfileText" />
           </div>
@@ -1535,6 +1601,15 @@ onBeforeUnmount(() => {
             <SelectMenu :aria-label="t('settings.ui.messageShape')" :model-value="messenger.state.messageStyle" :options="messageStyleOptions"
               @update:model-value="messenger.setMessageStyle(String($event))" />
           </div>
+          <label class="settings-check">
+            <span>{{ t('settings.ui.groupMembersByRole') }}</span>
+            <span class="toggle" :class="{ 'is-on': messenger.state.groupMembersByRole }">
+              <input type="checkbox" :checked="messenger.state.groupMembersByRole"
+                @change="messenger.setGroupMembersByRole(($event.target as HTMLInputElement).checked)" />
+              <span class="toggle__track"><span class="toggle__thumb"></span></span>
+            </span>
+          </label>
+          <p class="settings-note">{{ t('settings.ui.groupMembersByRoleNote') }}</p>
         </div>
 
         <div class="settings-group">
@@ -1579,11 +1654,11 @@ onBeforeUnmount(() => {
           <dl class="settings-kv">
             <div>
               <dt>{{ t('settings.security.userId') }}</dt>
-              <dd>{{ messenger.state.userId || "—" }}</dd>
+              <dd>{{ messenger.state.userId || "-" }}</dd>
             </div>
             <div>
               <dt>{{ t('settings.security.username') }}</dt>
-              <dd>{{ messenger.state.username || "—" }}</dd>
+              <dd>{{ messenger.state.username || "-" }}</dd>
             </div>
           </dl>
           <div class="settings-actions">
@@ -1608,14 +1683,18 @@ onBeforeUnmount(() => {
             {{ t("settings.security.recoveryNotSigned") }}
           </p>
           <p class="settings-note">{{ t("settings.security.recoveryHint") }}</p>
-          <textarea
-            v-model="recoveryWordsInput"
-            class="settings-input settings-textarea"
-            rows="3"
-            :placeholder="t('settings.security.recoveryPlaceholder')"
-            autocomplete="off"
-            spellcheck="false"
-          ></textarea>
+          <div class="settings-inline">
+            <textarea
+              id="security-recovery-words"
+              v-model="recoveryWordsInput"
+              class="settings-input settings-textarea"
+              rows="3"
+              :aria-label="t('settings.security.recoveryTitle')"
+              :placeholder="t('settings.security.recoveryPlaceholder')"
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+          </div>
           <div class="settings-actions">
             <button
               type="button"
@@ -2153,7 +2232,7 @@ onBeforeUnmount(() => {
                 <div class="tor-circuit__role">{{ t('settings.tor.role.you') }}</div>
                 <div class="tor-circuit__ident">
                   <span v-if="geo.client.countryCode" class="tor-circuit__flag" :title="countryNameEnglish(geo.client.countryCode)">{{ countryFlag(geo.client.countryCode) }}</span>
-                  <span class="tor-circuit__ip">{{ maskIpFirstBlock(geo.client.ip) || '—' }}</span>
+                  <span class="tor-circuit__ip">{{ maskIpFirstBlock(geo.client.ip) || '-' }}</span>
                 </div>
               </div>
               <div v-if="geo?.client" class="tor-circuit__arrow">→</div>
@@ -2164,7 +2243,7 @@ onBeforeUnmount(() => {
                   <div class="tor-circuit__ident">
                     <span v-if="hopCountryCode(hop)" class="tor-circuit__flag" :title="countryNameEnglish(hopCountryCode(hop))">{{ countryFlag(hopCountryCode(hop)) }}</span>
                     <span v-if="hop.nickname && hop.nickname !== 'Unnamed'" class="tor-circuit__nick">{{ hop.nickname }}</span>
-                    <span class="tor-circuit__ip">{{ hop.ip || '—' }}</span>
+                    <span class="tor-circuit__ip">{{ hop.ip || '-' }}</span>
                   </div>
                 </div>
                 <div v-if="i < circuit.hops.length - 1" class="tor-circuit__arrow">→</div>
@@ -2213,7 +2292,7 @@ onBeforeUnmount(() => {
                 </span>
               </div>
               <div class="tor-relay__meta">
-                <span class="tor-relay__address">{{ relay.address || '—' }}</span>
+                <span class="tor-relay__address">{{ relay.address || '-' }}</span>
                 <span v-if="relay.asName" class="tor-relay__as">{{ relay.asName }}</span>
               </div>
               <a class="tor-relay__link" :href="relayDetailUrl(relay.fingerprint)"
@@ -2462,9 +2541,7 @@ onBeforeUnmount(() => {
       <section v-else class="settings-page">
         <div class="settings-group">
           <h4>{{ t('settings.about.licenses') }}</h4>
-        </div>
-
-        <div class="about-hero">
+          <div class="about-hero">
           <svg class="about-hero__icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3v18" />
             <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" />
@@ -2472,9 +2549,7 @@ onBeforeUnmount(() => {
             <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" />
             <path d="M7 21h10" />
           </svg>
-        </div>
-
-        <div class="settings-group">
+          </div>
           <div v-if="badgesLoaded" class="about-badges">
             <a v-for="repo in githubRepos" :key="repo.slug" :href="repo.url" target="_blank" rel="noopener noreferrer" class="about-badge-link">
               <img :src="repo.licenseBadge" :alt="`${repo.slug} license`" loading="lazy" referrerpolicy="no-referrer" />
@@ -2520,7 +2595,7 @@ onBeforeUnmount(() => {
           <dl class="settings-kv">
             <div>
               <dt>{{ t('settings.about.userId') }}</dt>
-              <dd>{{ messenger.state.userId || "—" }}</dd>
+              <dd>{{ messenger.state.userId || "-" }}</dd>
             </div>
             <div>
               <dt>{{ t('settings.about.status') }}</dt>
@@ -2630,6 +2705,9 @@ onBeforeUnmount(() => {
     <Transition name="save-bar">
       <div v-if="isOpen && activeSection === 'profile' && hasUnsavedChanges" class="settings-save-bar">
         <span class="settings-save-bar__hint">{{ t('settings.profile.unsavedChanges') }}</span>
+        <button type="button" class="settings-save-bar__revert" @click="revertProfileDrafts">
+          {{ t('settings.profile.revert') }}
+        </button>
         <button type="button" class="settings-save-bar__btn" :disabled="nameChanged && !nameValid" @click="saveAll">
           {{ t('settings.profile.save') }}
         </button>
@@ -2644,8 +2722,8 @@ onBeforeUnmount(() => {
     :title="crop?.kind === 'banner' ? t('crop.titleBanner') : t('crop.titleAvatar')"
     :aspect="crop?.kind === 'banner' ? 21 / 9 : 1"
     :mime-type="crop?.mimeType || 'image/png'"
-    :max-width="crop?.kind === 'banner' ? 2100 : 1024"
-    :max-height="crop?.kind === 'banner' ? 900 : 1024"
+    :max-width="crop?.kind === 'banner' ? 2560 : 2048"
+    :max-height="crop?.kind === 'banner' ? 1097 : 2048"
     @cancel="onCropCancel"
     @confirm="onCropConfirm"
   />
@@ -3094,8 +3172,8 @@ onBeforeUnmount(() => {
 }
 
 .about-hero__icon {
-  width: 148px;
-  height: 148px;
+  width: 46px;
+  height: 46px;
   color: var(--muted, #8a8a90);
   stroke: currentColor;
   stroke-width: 1.6;
@@ -3253,6 +3331,30 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+/* The quiet way out, beside the primary action rather than competing with it. */
+.settings-save-bar__revert {
+  flex: none;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 140ms ease-out, color 140ms ease-out,
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.settings-save-bar__revert:hover {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text);
+}
+
+.settings-save-bar__revert:active {
+  transform: scale(.96);
+}
+
 .settings-save-bar__btn {
   flex: none;
   padding: 8px 16px;
@@ -3263,7 +3365,29 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 120ms ease, transform 80ms ease;
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.settings-save-bar__btn:active:not(:disabled) {
+  transform: scale(.96);
+}
+
+.settings-save-bar__btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .settings-save-bar__revert,
+  .settings-save-bar__btn {
+    transition-duration: .01ms;
+  }
+
+  .settings-save-bar__revert:active,
+  .settings-save-bar__btn:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .settings-save-bar__btn:hover:not(:disabled) {

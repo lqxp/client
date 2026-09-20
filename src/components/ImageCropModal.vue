@@ -1,4 +1,16 @@
 <script setup lang="ts">
+/**
+ * Framing a picture before it becomes an avatar or a banner.
+ *
+ * Presented like the image viewer rather than as a dialog box: the picture
+ * gets the whole surface and the controls float over it. The frame is fixed
+ * by the caller's aspect and the picture moves behind it, which is the only
+ * arrangement where the result is never a surprise.
+ *
+ * Animated images never reach this screen. A canvas holds one frame, so
+ * cropping a GIF would silently flatten it; the caller sends those through
+ * untouched instead.
+ */
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { currentWindowZoom } from "@/utils/windowZoom";
@@ -15,10 +27,7 @@ const props = defineProps({
   maxHeight: { type: Number, default: 1024 },
 });
 
-const emit = defineEmits<{
-  cancel: [];
-  confirm: [file: File];
-}>();
+const emit = defineEmits<{ cancel: []; confirm: [file: File] }>();
 
 const stageEl = ref<HTMLDivElement | null>(null);
 const imageEl = ref<HTMLImageElement | null>(null);
@@ -29,29 +38,44 @@ const error = ref("");
 const naturalW = ref(0);
 const naturalH = ref(0);
 
+/** The hole the picture is framed through, in stage coordinates. */
 const viewport = reactive({ x: 0, y: 0, w: 0, h: 0 });
+/** Where the picture sits behind that hole. */
 const imageRect = reactive({ x: 0, y: 0, w: 0, h: 0 });
 const zoomPct = ref(100);
+
+const ZOOM_MIN = 100;
+const ZOOM_MAX = 800;
+const NUDGE_PX = 12;
 
 const drag = { active: false, startX: 0, startY: 0, origX: 0, origY: 0 };
 let resizeObserver: ResizeObserver | null = null;
 
+const ready = computed(() => Boolean(naturalW.value && naturalH.value && !error.value));
+const canApply = computed(() => ready.value && !loading.value && !confirming.value);
+/** A square frame is an avatar, so the mask is drawn round. */
+const roundFrame = computed(() => Math.abs(props.aspect - 1) < 0.01);
+
+/** The smallest scale that still fills the frame, so no gap can ever show. */
 const coverScale = computed(() => {
   if (!naturalW.value || !naturalH.value || !viewport.w || !viewport.h) return 1;
   return Math.max(viewport.w / naturalW.value, viewport.h / naturalH.value);
 });
 
+/**
+ * getBoundingClientRect reports visual pixels while the styles below are in
+ * zoomed CSS pixels. Everything downstream (fit, clamp, drag, export) stays in
+ * the latter, so the conversion happens once, here.
+ */
 function measureViewport() {
   const el = stageEl.value;
   if (!el) return;
-  // getBoundingClientRect() is in visual (unzoomed) pixels, but the crop
-  // frame/image styles below live in zoomed CSS pixels: convert so the math
-  // (fit, clamp, drag, crop output) stays in one consistent space.
   const zoom = currentWindowZoom();
   const rect = el.getBoundingClientRect();
-  const pad = 28;
+  const pad = 32;
   const availW = Math.max(60, rect.width / zoom - pad * 2);
   const availH = Math.max(60, rect.height / zoom - pad * 2);
+
   let w = availW;
   let h = w / props.aspect;
   if (h > availH) {
@@ -64,30 +88,29 @@ function measureViewport() {
   viewport.y = (rect.height / zoom - viewport.h) / 2;
 }
 
+/** Keeps the frame covered: the picture can never be dragged off its edge. */
 function clampImage() {
-  if (!naturalW.value || !naturalH.value || !viewport.w || !viewport.h) return;
-  const iw = imageRect.w;
-  const ih = imageRect.h;
-  if (!iw || !ih) return;
-  const minX = viewport.x + viewport.w - iw;
-  const minY = viewport.y + viewport.h - ih;
+  if (!imageRect.w || !imageRect.h) return;
+  const minX = viewport.x + viewport.w - imageRect.w;
+  const minY = viewport.y + viewport.h - imageRect.h;
   imageRect.x = Math.min(viewport.x, Math.max(minX, imageRect.x));
   imageRect.y = Math.min(viewport.y, Math.max(minY, imageRect.y));
 }
 
 function resetImage() {
   if (!naturalW.value || !naturalH.value || !viewport.w || !viewport.h) return;
-  const s = coverScale.value;
-  imageRect.w = naturalW.value * s;
-  imageRect.h = naturalH.value * s;
+  const scale = coverScale.value;
+  imageRect.w = naturalW.value * scale;
+  imageRect.h = naturalH.value * scale;
   imageRect.x = viewport.x + (viewport.w - imageRect.w) / 2;
   imageRect.y = viewport.y + (viewport.h - imageRect.h) / 2;
-  zoomPct.value = 100;
+  zoomPct.value = ZOOM_MIN;
 }
 
+/** Zooms about the centre of the frame, so the framed subject stays put. */
 function applyZoomPct(nextRaw: number) {
   if (!naturalW.value || !naturalH.value) return;
-  const next = Math.max(100, Math.min(800, nextRaw));
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, nextRaw));
   const oldScale = imageRect.w / naturalW.value;
   const newScale = coverScale.value * (next / 100);
 
@@ -104,10 +127,20 @@ function applyZoomPct(nextRaw: number) {
   clampImage();
 }
 
+function zoomBy(step: number) {
+  applyZoomPct(zoomPct.value + step);
+}
+
+function nudge(dx: number, dy: number) {
+  if (!ready.value) return;
+  imageRect.x += dx;
+  imageRect.y += dy;
+  clampImage();
+}
+
 function onWheel(event: WheelEvent) {
-  if (!naturalW.value || !naturalH.value) return;
-  const factor = Math.exp(-event.deltaY * 0.0015);
-  applyZoomPct(zoomPct.value * factor);
+  if (!ready.value) return;
+  applyZoomPct(zoomPct.value * Math.exp(-event.deltaY * 0.0015));
 }
 
 function onSliderInput(event: Event) {
@@ -115,20 +148,19 @@ function onSliderInput(event: Event) {
 }
 
 function onPointerDown(event: PointerEvent) {
-  if (!naturalW.value || !naturalH.value) return;
+  if (!ready.value) return;
   drag.active = true;
   drag.startX = event.clientX;
   drag.startY = event.clientY;
   drag.origX = imageRect.x;
   drag.origY = imageRect.y;
-  const target = event.currentTarget as HTMLElement;
-  if (target.setPointerCapture) target.setPointerCapture(event.pointerId);
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 }
 
 function onPointerMove(event: PointerEvent) {
   if (!drag.active) return;
-  // Pointer deltas are visual (unzoomed) pixels, imageRect is zoomed CSS
-  // pixels: convert so the image follows the cursor 1:1 at any window scale.
+  // Pointer deltas arrive in visual pixels; imageRect is in zoomed ones, so
+  // the picture follows the cursor one to one at any window scale.
   const zoom = currentWindowZoom();
   imageRect.x = drag.origX + (event.clientX - drag.startX) / zoom;
   imageRect.y = drag.origY + (event.clientY - drag.startY) / zoom;
@@ -138,13 +170,10 @@ function onPointerMove(event: PointerEvent) {
 function onPointerEnd(event: PointerEvent) {
   if (!drag.active) return;
   drag.active = false;
-  const target = event.currentTarget as HTMLElement;
-  if (target.releasePointerCapture) {
-    try {
-      target.releasePointerCapture(event.pointerId);
-    } catch {
-      /* ignore */
-    }
+  try {
+    (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+  } catch {
+    /* the pointer may already be gone */
   }
 }
 
@@ -170,16 +199,37 @@ function onImageError() {
   error.value = t("crop.loadError");
 }
 
+/** Only two encoders are worth keeping: JPEG for photos, PNG for the rest. */
 function outputMimeType() {
   const mime = String(props.mimeType || "").toLowerCase();
   return mime === "image/jpeg" || mime === "image/jpg" ? "image/jpeg" : "image/png";
 }
 
-function confirmCrop() {
-  if (loading.value || confirming.value || error.value || !naturalW.value || !naturalH.value) return;
+/**
+ * Applying without having reframed anything used to still go through the
+ * canvas, which re-encodes: a JPEG came back softer than it went in for no
+ * reason at all. When the frame already holds the whole picture and no
+ * downscale is needed, the original bytes are sent instead.
+ */
+async function passThroughOriginal(): Promise<boolean> {
+  try {
+    const response = await fetch(props.src);
+    const blob = await response.blob();
+    if (!blob.size) return false;
+    const ext = (props.mimeType.split("/")[1] || "png").replace("jpeg", "jpg").split("+")[0];
+    emit("confirm", new File([blob], `crop-${Date.now()}.${ext}`, { type: props.mimeType }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function confirmCrop() {
+  if (!canApply.value) return;
   const img = imageEl.value;
   if (!img) return;
 
+  // From frame coordinates back to source pixels.
   const scale = imageRect.w / naturalW.value;
   let sx = (viewport.x - imageRect.x) / scale;
   let sy = (viewport.y - imageRect.y) / scale;
@@ -193,9 +243,24 @@ function confirmCrop() {
   if (sw <= 0 || sh <= 0) return;
 
   const outputMime = outputMimeType();
-  const scaleFactor = Math.min(1, props.maxWidth / sw, props.maxHeight / sh);
-  const ow = Math.max(1, Math.round(sw * scaleFactor));
-  const oh = Math.max(1, Math.round(sh * scaleFactor));
+  const factor = Math.min(1, props.maxWidth / sw, props.maxHeight / sh);
+
+  // Whole picture, no downscale: nothing to redraw.
+  const whole =
+    factor === 1 &&
+    sx < 1 &&
+    sy < 1 &&
+    sw >= naturalW.value - 1 &&
+    sh >= naturalH.value - 1;
+  if (whole) {
+    confirming.value = true;
+    const reused = await passThroughOriginal();
+    confirming.value = false;
+    if (reused) return;
+  }
+
+  const ow = Math.max(1, Math.round(sw * factor));
+  const oh = Math.max(1, Math.round(sh * factor));
 
   const canvas = document.createElement("canvas");
   canvas.width = ow;
@@ -203,11 +268,11 @@ function confirmCrop() {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
+  // JPEG has no alpha, so transparency would come out black without this.
   if (outputMime === "image/jpeg") {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, ow, oh);
   }
-
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, ow, oh);
 
   confirming.value = true;
@@ -216,8 +281,7 @@ function confirmCrop() {
       confirming.value = false;
       if (!blob) return;
       const ext = outputMime === "image/jpeg" ? "jpg" : "png";
-      const file = new File([blob], `crop-${Date.now()}.${ext}`, { type: outputMime });
-      emit("confirm", file);
+      emit("confirm", new File([blob], `crop-${Date.now()}.${ext}`, { type: outputMime }));
     },
     outputMime,
     outputMime === "image/jpeg" ? 0.92 : undefined,
@@ -229,37 +293,75 @@ function cancel() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") cancel();
+  switch (event.key) {
+    case "Escape":
+      cancel();
+      break;
+    case "Enter":
+      event.preventDefault();
+      confirmCrop();
+      break;
+    case "ArrowLeft":
+      event.preventDefault();
+      nudge(NUDGE_PX, 0);
+      break;
+    case "ArrowRight":
+      event.preventDefault();
+      nudge(-NUDGE_PX, 0);
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      nudge(0, NUDGE_PX);
+      break;
+    case "ArrowDown":
+      event.preventDefault();
+      nudge(0, -NUDGE_PX);
+      break;
+    case "+":
+    case "=":
+      event.preventDefault();
+      zoomBy(25);
+      break;
+    case "-":
+      event.preventDefault();
+      zoomBy(-25);
+      break;
+    default:
+      break;
+  }
 }
 
 watch(
   () => props.open,
   async (isOpen) => {
-    if (isOpen) {
-      loading.value = Boolean(props.src);
-      confirming.value = false;
-      error.value = "";
-      naturalW.value = 0;
-      naturalH.value = 0;
-      imageRect.x = 0;
-      imageRect.y = 0;
-      imageRect.w = 0;
-      imageRect.h = 0;
-      zoomPct.value = 100;
-      window.addEventListener("keydown", onKeydown);
-      await nextTick();
-      measureViewport();
-      if (stageEl.value && typeof ResizeObserver !== "undefined") {
-        resizeObserver = new ResizeObserver(() => {
-          measureViewport();
-          resetImage();
-        });
-        resizeObserver.observe(stageEl.value);
-      }
-    } else {
+    if (!isOpen) {
       window.removeEventListener("keydown", onKeydown);
       resizeObserver?.disconnect();
       resizeObserver = null;
+      return;
+    }
+
+    loading.value = Boolean(props.src);
+    confirming.value = false;
+    error.value = "";
+    naturalW.value = 0;
+    naturalH.value = 0;
+    imageRect.x = 0;
+    imageRect.y = 0;
+    imageRect.w = 0;
+    imageRect.h = 0;
+    zoomPct.value = ZOOM_MIN;
+
+    window.addEventListener("keydown", onKeydown);
+    await nextTick();
+    measureViewport();
+
+    if (stageEl.value && typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        measureViewport();
+        resetImage();
+      });
+      resizeObserver.observe(stageEl.value);
     }
   },
 );
@@ -287,214 +389,318 @@ const frameStyle = computed(() => ({
 <template>
   <Teleport to="body">
     <Transition name="crop">
-      <div v-if="open" class="crop-backdrop" @click.self="cancel">
-        <div class="crop-modal" role="dialog" :aria-label="title">
-          <header class="crop-head">
-            <h2 class="crop-title">{{ title }}</h2>
-            <button class="icon-btn" type="button" :aria-label="t('message.cancel')" @click="cancel">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
-            </button>
-          </header>
+      <div v-if="open" class="crop" role="dialog" aria-modal="true" :aria-label="title">
+        <div ref="stageEl" class="crop__stage" @wheel.prevent="onWheel" @pointerdown="onPointerDown"
+          @pointermove="onPointerMove" @pointerup="onPointerEnd" @pointercancel="onPointerEnd">
+          <img v-show="ready" ref="imageEl" class="crop__image" :src="src" :style="imageStyle"
+            draggable="false" alt="" @load="onImageLoad" @error="onImageError" />
 
-          <div
-            ref="stageEl"
-            class="crop-stage"
-            @wheel.prevent="onWheel"
-            @pointerdown="onPointerDown"
-            @pointermove="onPointerMove"
-            @pointerup="onPointerEnd"
-            @pointercancel="onPointerEnd"
-          >
-            <img
-              v-show="naturalW"
-              ref="imageEl"
-              class="crop-image"
-              :src="src"
-              draggable="false"
-              :style="imageStyle"
-              @load="onImageLoad"
-              @error="onImageError"
-              alt=""
-            />
-            <div v-show="naturalW" class="crop-frame" :style="frameStyle"></div>
-            <div v-if="loading" class="crop-status">{{ t('crop.loading') }}</div>
-            <div v-else-if="error" class="crop-status crop-status--error">{{ error }}</div>
-          </div>
+          <!-- One element does the dimming and the outline: a huge spread
+               shadow darkens everything outside the frame. -->
+          <div v-show="ready" class="crop__frame" :class="{ 'is-round': roundFrame }"
+            :style="frameStyle" aria-hidden="true"></div>
 
-          <div class="crop-controls">
-            <button type="button" class="btn--ghost" @click="resetImage">{{ t('crop.reset') }}</button>
-            <div class="crop-zoom">
+          <p v-if="loading" class="crop__state">{{ t('crop.loading') }}</p>
+          <p v-else-if="error" class="crop__state crop__state--error" role="alert">{{ error }}</p>
+        </div>
+
+        <header class="crop__top">
+          <span class="crop__title">{{ title }}</span>
+          <button type="button" class="crop__chip" :aria-label="t('message.cancel')"
+            :title="t('message.cancel')" @click="cancel">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+
+        <footer class="crop__bar">
+          <div class="crop__zoom">
+            <button type="button" class="crop__chip crop__chip--sm" :disabled="!ready"
+              :aria-label="t('crop.zoomOut')" :title="t('crop.zoomOut')" @click="zoomBy(-25)">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5M8.5 11h5M11 8.5v5" />
+                <path d="M6 12h12" />
               </svg>
-              <input :value="zoomPct" type="range" min="100" max="800" step="1"
-                @input="onSliderInput" />
-            </div>
+            </button>
+            <input class="crop__slider" type="range" :min="ZOOM_MIN" :max="ZOOM_MAX" step="1"
+              :value="zoomPct" :disabled="!ready" :aria-label="t('crop.zoom')"
+              @input="onSliderInput" />
+            <button type="button" class="crop__chip crop__chip--sm" :disabled="!ready"
+              :aria-label="t('crop.zoomIn')" :title="t('crop.zoomIn')" @click="zoomBy(25)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 6v12M6 12h12" />
+              </svg>
+            </button>
           </div>
 
-          <footer class="crop-foot">
-            <button type="button" class="btn--ghost" @click="cancel">{{ t('message.cancel') }}</button>
-            <button type="button" class="btn crop-confirm" :disabled="loading || confirming || !!error" @click="confirmCrop">
+          <div class="crop__actions">
+            <button type="button" class="crop__ghost" :disabled="!ready" @click="resetImage">
+              {{ t('crop.reset') }}
+            </button>
+            <button type="button" class="crop__ghost" @click="cancel">{{ t('message.cancel') }}</button>
+            <button type="button" class="crop__apply" :disabled="!canApply" @click="confirmCrop">
               {{ t('crop.apply') }}
             </button>
-          </footer>
-        </div>
+          </div>
+        </footer>
       </div>
     </Transition>
   </Teleport>
 </template>
 
 <style scoped>
-.crop-backdrop {
+.crop {
   position: fixed;
   inset: 0;
   z-index: 240;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.62);
-}
-
-.crop-modal {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  font-family: var(--font);
-}
-
-.crop-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px 8px;
-}
-
-.crop-title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.crop-stage {
-  position: relative;
-  height: min(calc(var(--app-viewport-height) * 0.52), 460px);
-  min-height: 260px;
-  margin: 8px 18px;
-  overflow: hidden;
-  border-radius: 12px;
+  display: grid;
   background: #000;
-  touch-action: none;
-  cursor: grab;
+  color: #fff;
+  font-family: var(--font);
   user-select: none;
 }
 
-.crop-stage:active {
+.crop__stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.crop__stage:active {
   cursor: grabbing;
 }
 
-.crop-image {
+.crop__image {
   position: absolute;
-  left: 0;
-  top: 0;
-  will-change: left, top, width, height;
+  max-width: none;
   -webkit-user-drag: none;
 }
 
-.crop-frame {
+/* The spread shadow is the mask: it covers the whole stage except the frame,
+   so no second element has to be kept in sync with it. */
+.crop__frame {
   position: absolute;
-  z-index: 2;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .62), inset 0 0 0 1px rgba(255, 255, 255, .9);
   pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.58);
-  outline: 1px solid rgba(255, 255, 255, 0.92);
 }
 
-.crop-status {
+.crop__frame.is-round {
+  border-radius: 50%;
+}
+
+.crop__state {
   position: absolute;
   inset: 0;
-  z-index: 3;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
   font-size: 14px;
-  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, .72);
 }
 
-.crop-status--error {
-  color: #ff8a8a;
+.crop__state--error {
+  color: var(--red);
 }
 
-.crop-controls {
+.crop__top {
+  position: absolute;
+  top: calc(max(14px, var(--app-safe-top)) + var(--app-chrome-top, 0px));
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 18px 4px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
 }
 
-.crop-zoom {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
+.crop__title {
+  font-size: 14px;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
 }
 
-.crop-zoom svg {
+.crop__chip {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.crop__chip--sm {
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, .12);
+}
+
+.crop__chip svg {
+  width: 17px;
+  height: 17px;
   fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.6;
+  stroke: currentColor;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.crop-zoom input[type="range"] {
-  flex: 1;
-  min-width: 0;
-  accent-color: var(--accent);
+.crop__chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .22);
 }
 
-.crop-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 18px 18px;
+.crop__chip:active:not(:disabled) {
+  transform: scale(.92);
 }
 
-.crop-confirm {
-  height: 36px;
-  padding: 0 20px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-}
-
-.crop-confirm:hover {
-  background: color-mix(in srgb, var(--accent) 84%, #000 16%);
-}
-
-.crop-confirm:disabled {
-  opacity: 0.5;
+.crop__chip:disabled {
+  opacity: .4;
   cursor: not-allowed;
 }
 
-.crop-enter-active,
-.crop-leave-active {
-  transition: opacity 160ms ease;
+.crop__bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(22px, var(--app-safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: calc(100vw - 28px);
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(22, 22, 24, .86);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .5);
 }
 
-.crop-enter-active .crop-modal,
-.crop-leave-active .crop-modal {
-  transition: transform 180ms ease;
+.crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.crop__slider {
+  width: clamp(90px, 22vw, 190px);
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.crop__slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .22);
+}
+
+.crop__slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .22);
+}
+
+.crop__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.crop__slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+}
+
+.crop__slider:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.crop__slider:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.crop__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.crop__ghost,
+.crop__apply {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.crop__ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, .78);
+}
+
+.crop__ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
+
+.crop__apply {
+  padding: 0 18px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.crop__apply:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, #000 14%);
+}
+
+.crop__ghost:active:not(:disabled),
+.crop__apply:active:not(:disabled) {
+  transform: scale(.96);
+}
+
+.crop__ghost:disabled,
+.crop__apply:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.crop-enter-active {
+  transition: opacity 200ms ease-out;
+}
+
+.crop-leave-active {
+  transition: opacity 160ms ease-in;
+}
+
+.crop-enter-active .crop__bar,
+.crop-enter-active .crop__top {
+  transition: transform 340ms cubic-bezier(0.34, 1.26, 0.64, 1), opacity 220ms ease-out;
 }
 
 .crop-enter-from,
@@ -502,35 +708,53 @@ const frameStyle = computed(() => ({
   opacity: 0;
 }
 
-.crop-enter-from .crop-modal,
-.crop-leave-to .crop-modal {
-  transform: translateY(12px) scale(0.98);
+.crop-enter-from .crop__bar {
+  opacity: 0;
+  transform: translateX(-50%) translateY(16px);
+}
+
+.crop-enter-from .crop__top {
+  opacity: 0;
+  transform: translateY(-12px);
 }
 
 @media (max-width: 640px) {
-  .crop-backdrop {
-    padding: 0;
-    align-items: flex-end;
+  .crop__bar {
+    flex-direction: column;
+    gap: 12px;
+    border-radius: 20px;
   }
 
-  .crop-modal {
-    max-width: 100%;
-    border-radius: 22px 22px 0 0;
+  .crop__slider {
+    width: min(58vw, 220px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .crop-enter-active,
+  .crop-leave-active,
+  .crop-enter-active .crop__bar,
+  .crop-enter-active .crop__top,
+  .crop__chip,
+  .crop__ghost,
+  .crop__apply {
+    transition-duration: .01ms;
   }
 
-  .crop-stage {
-    height: calc(var(--app-viewport-height) * 0.48);
-    margin: 6px 14px;
+  .crop-enter-from .crop__bar {
+    transform: translateX(-50%);
   }
 
-  .crop-foot .btn--ghost {
-    flex: 1;
-    height: 46px;
+  .crop-enter-from .crop__top {
+    transform: none;
   }
 
-  .crop-confirm {
-    flex: 1;
-    height: 46px;
+  .crop__chip:active:not(:disabled),
+  .crop__ghost:active:not(:disabled),
+  .crop__apply:active:not(:disabled),
+  .crop__slider:active::-webkit-slider-thumb {
+    transform: none;
   }
 }
 </style>

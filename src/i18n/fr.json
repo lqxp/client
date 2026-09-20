@@ -1,4 +1,10 @@
 {
+    "chart": {
+        "graph": "Graphique",
+        "table": "Tableau",
+        "other": "Autres",
+        "empty": "Rien à tracer pour l'instant"
+    },
     "app": {
         "noConversation": "Aucune conversation sélectionnée",
         "noConversationHint": "Choisissez un salon dans la liste ou touchez l’icône crayon pour en démarrer un.",
@@ -25,7 +31,7 @@
         "createAccount": "Créer un compte",
         "recoverAccount": "Récupérer un compte",
         "recoverAccountTitle": "Récupérer le compte",
-        "welcomeBackTitle": "Bon retour parmi nous !",
+        "welcomeBackTitle": "Bon retour parmi nous!",
         "createAccountSubtitle": "Créez votre compte QxChat pour continuer.",
         "recoverAccountSubtitle": "Renseignez vos informations pour reprendre l'accès.",
         "welcomeBackSubtitle": "Connectez-vous pour retrouver vos salons et conversations.",
@@ -95,7 +101,7 @@
         "changeStatus": "Changer le statut",
         "joined": "Rejoint",
         "removeConversation": "Supprimer {room}",
-        "removeConversationConfirm": "Supprimer la conversation \"{room}\" et ses messages ?",
+        "removeConversationConfirm": "Supprimer la conversation \"{room}\" et ses messages?",
         "contextChangeImage": "Choisir une image",
         "contextRenameRoom": "Renommer le salon",
         "promptRoomName": "Nom du salon",
@@ -105,8 +111,8 @@
         "listOptions": "Options de la liste",
         "leaveAllRooms": "Quitter tous les salons",
         "leaveAllRoomsDelete": "Quitter tous les salons et supprimer les messages",
-        "leaveAllRoomsConfirm": "Quitter tous les salons ?",
-        "leaveAllRoomsDeleteConfirm": "Quitter tous les salons et supprimer leurs messages locaux ?",
+        "leaveAllRoomsConfirm": "Quitter tous les salons?",
+        "leaveAllRoomsDeleteConfirm": "Quitter tous les salons et supprimer leurs messages locaux?",
         "statusOptions": "Statut"
     },
     "members": {
@@ -159,13 +165,13 @@
         "roomConversation": "Conversation du salon",
         "e2eeReady": "E2EE prêt",
         "noRoomKeyYet": "Pas encore de clé de salon",
-        "callsUnavailable": "Appels indisponibles : relais non configuré",
+        "callsUnavailable": "Appels indisponibles: relais non configuré",
         "copyTokenSuccess": "Token du salon copié.",
         "copyTokenError": "Impossible de copier le token du salon.",
         "clearLocalMessagesSuccess": "Messages locaux effacés.",
-        "clearLocalMessagesConfirm": "Effacer tous les messages locaux de \"{room}\" ?",
+        "clearLocalMessagesConfirm": "Effacer tous les messages locaux de \"{room}\"?",
         "leaveRoomDeletesLocal": "Les messages locaux seront supprimés.",
-        "leaveRoomConfirm": "Quitter \"{room}\" ?{suffix}",
+        "leaveRoomConfirm": "Quitter \"{room}\"?{suffix}",
         "roomJoined": "{user} a rejoint le salon",
         "roomLeft": "{user} a quitté le salon",
         "today": "Aujourd’hui",
@@ -200,7 +206,8 @@
             "objects": "Objets et symboles",
             "flags": "Drapeaux"
         },
-        "emojiSuggestions": "Suggestions d'emoji"
+        "emojiSuggestions": "Suggestions d'emoji",
+        "emojiNoResult": "Aucun emoji trouvé"
     },
     "message": {
         "deleted": "Message supprimé",
@@ -218,7 +225,7 @@
         "deleteMessage": "Supprimer le message",
         "seeMore": "Voir plus",
         "seeLess": "Voir moins",
-        "deleteConfirm": "Supprimer ce message pour tout le monde dans le salon ?",
+        "deleteConfirm": "Supprimer ce message pour tout le monde dans le salon?",
         "photo": "Photo",
         "video": "Vidéo",
         "voiceMessage": "Message vocal",
@@ -234,7 +241,9 @@
         "editMessage": "Modifier le message",
         "messageOptions": "Options du message",
         "reactions": "Réactions",
-        "back": "Retour"
+        "back": "Retour",
+        "spoilerHidden": "Texte masqué, cliquez pour révéler",
+        "moreReactions": "Plus de réactions"
     },
     "call": {
         "live": "En direct",
@@ -310,9 +319,10 @@
             "dangerZone": "Zone dangereuse",
             "deleteAccount": "Supprimer le compte",
             "deleteAccountNote": "Cette action est irréversible. Toutes vos données seront définitivement supprimées.",
-            "deleteAccountConfirm": "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
-            "deleteAccountPrompt": "Entrez votre mot de passe pour confirmer la suppression :",
-            "deleteAccountError": "Impossible de supprimer le compte. Vérifiez votre mot de passe."
+            "deleteAccountConfirm": "Êtes-vous sûr de vouloir supprimer votre compte? Cette action est irréversible.",
+            "deleteAccountPrompt": "Entrez votre mot de passe pour confirmer la suppression:",
+            "deleteAccountError": "Impossible de supprimer le compte. Vérifiez votre mot de passe.",
+            "revert": "Rétablir"
         },
         "ui": {
             "theme": "Thème",
@@ -335,7 +345,9 @@
             "discord": "Style Discord (ligne à gauche)",
             "search": "Recherche",
             "spotlightSearch": "Recherche Spotlight (desktop)",
-            "spotlightSearchNote": "Ctrl+K pour rechercher salons, messages et personnes."
+            "spotlightSearchNote": "Ctrl+K pour rechercher salons, messages et personnes.",
+            "groupMembersByRole": "Grouper les membres par rôle",
+            "groupMembersByRoleNote": "Dans les salons communautaires, classe les membres sous leur rôle au lieu d'une liste unique."
         },
         "language": {
             "title": "Langue",
@@ -363,7 +375,7 @@
             "invalidRecoveryWords": "Mots de récupération invalides. Collez exactement 12 mots.",
             "recoveryTitle": "Mots de récupération (signature du client)",
             "recoverySigned": "Client signé avec vos mots de récupération.",
-            "recoveryNotSigned": "Client non signé — les demandes d'ami nécessitent vos mots de récupération.",
+            "recoveryNotSigned": "Client non signé: les demandes d'ami nécessitent vos mots de récupération.",
             "recoveryHint": "Collez vos 12 mots de récupération pour signer ce client. Ils restent locaux et servent uniquement à dériver vos clés de signature.",
             "recoveryImport": "Importer les mots",
             "recoveryImportFile": "Importer depuis un fichier",
@@ -380,7 +392,7 @@
             "lockNow": "Verrouiller maintenant",
             "disableLock": "Désactiver le verrouillage",
             "disableLockPrompt": "Entre le PIN pour désactiver le verrouillage client.",
-            "disableLockConfirm": "Le PIN est correct. Confirmer la désactivation du verrouillage client et la réécriture des données locales en clair ?",
+            "disableLockConfirm": "Le PIN est correct. Confirmer la désactivation du verrouillage client et la réécriture des données locales en clair?",
             "disableLockSuccess": "Le verrouillage client a été désactivé.",
             "pinMismatch": "Les PIN ne correspondent pas.",
             "autolockEnabled": "Verrouillage automatique après inactivité",
@@ -396,23 +408,23 @@
         "opsec": {
             "duressTitle": "Mot de passe sous contrainte",
             "duressAction": "Action du PIN sous contrainte",
-            "actionWipe": "Panique : wipe local puis crash apparent",
+            "actionWipe": "Panique: wipe local puis crash apparent",
             "actionDecoy": "Faux profil leurre",
             "duressPin": "PIN sous contrainte",
             "confirmDuressPin": "Confirmer le PIN",
             "saveDuressPin": "Enregistrer le PIN sous contrainte",
             "disableDuressPin": "Désactiver le PIN sous contrainte",
             "duressNote": "Si ce PIN est saisi sur l’écran de verrouillage, l’action OpSec configurée est exécutée au lieu du déverrouillage normal.",
-            "requiresLock": "Active d’abord le Lock Screen : le Duress Password se déclenche uniquement depuis l’écran de saisie du PIN.",
+            "requiresLock": "Active d’abord le Lock Screen: le Duress Password se déclenche uniquement depuis l’écran de saisie du PIN.",
             "requiresUnlockedLock": "Déverrouille et active d’abord le Lock Screen avant d’enregistrer un Duress PIN.",
             "lockScreenPrivacyTitle": "Confidentialité du Lock Screen",
             "hideLockIdentity": "Masquer le username et l’avatar sur le Lock Screen",
-            "hideLockIdentityNote": "Recommandé : garde la ligne multi-user plausible sans révéler quel compte est protégé.",
+            "hideLockIdentityNote": "Recommandé: garde la ligne multi-user plausible sans révéler quel compte est protégé.",
             "decoyTitle": "Profil leurre",
             "configureDecoy": "Configurer le profil leurre",
             "decoyConfigured": "Un profil leurre est configuré sur cet appareil.",
             "decoyNote": "La configuration te déconnecte temporairement et ouvre l’onboarding. Crée ou connecte un compte leurre séparé, personnalise-le, puis refresh l’app pour revenir au vrai Lock Screen.",
-            "decoySetupConfirm": "Cela va te déconnecter temporairement et ouvrir l’onboarding pour configurer le profil leurre. Après avoir créé ou connecté le compte leurre, refresh l’app pour revenir au vrai Lock Screen. Continuer ?",
+            "decoySetupConfirm": "Cela va te déconnecter temporairement et ouvrir l’onboarding pour configurer le profil leurre. Après avoir créé ou connecté le compte leurre, refresh l’app pour revenir au vrai Lock Screen. Continuer?",
             "ramOnlyTitle": "RAM-only",
             "ramOnlyEnabled": "Ne rien persister sur le disque",
             "ramOnlyNote": "Quand ce mode est actif, QxChat arrête d’écrire dans LocalStorage/IndexedDB et efface la persistance locale existante. Les données disparaissent à la fermeture ou au rechargement."
@@ -427,7 +439,7 @@
             "messages": "Messages",
             "messageSound": "Jouer un son pour les nouveaux messages",
             "backgroundNotifs": "Afficher les notifications pour les messages en arrière-plan",
-            "permission": "Permission : {status}",
+            "permission": "Permission: {status}",
             "sounds": "Sons",
             "previewSound": "Prévisualiser le son",
             "soundMessage": "Message",
@@ -481,8 +493,8 @@
             "turnCredential": "Mot de passe",
             "turnInvalid": "Adresse invalide. Utilisez turn:, turns: ou stun:",
             "turnHints": {
-                "qxp-turn": "Relais auto-hébergé sur notre infrastructure — peut être instable selon la charge. Aucune IP exposée, tout passe par notre relais.",
-                "google-stun": "STUN public de Google — très stable et rapide, mais ⚠️ vos IPs sont exposées (pas de relay anonyme). Utile uniquement en réseau local ou pour du test."
+                "qxp-turn": "Relais auto-hébergé sur notre infrastructure, peut être instable selon la charge. Aucune IP exposée, tout passe par notre relais.",
+                "google-stun": "STUN public de Google, très stable et rapide, mais ⚠️ vos IPs sont exposées (pas de relay anonyme). Utile uniquement en réseau local ou pour du test."
             }
         },
         "tor": {
@@ -490,7 +502,7 @@
             "enabled": "Se connecter via Tor",
             "enabledNote": "Achemine le trafic de l’application via le réseau Tor. Le premier démarrage peut prendre plusieurs secondes pendant que Tor télécharge son consensus.",
             "restartNote": "Modifier ce réglage redémarrera complètement QxChat.",
-            "trayNote": "Tor se gère depuis la barre système. Faites un clic droit sur l’icône QxChat de la barre système et basculez « Se connecter via Tor » — l’application redémarrera pour appliquer le changement.",
+            "trayNote": "Tor se gère depuis la barre système. Faites un clic droit sur l’icône QxChat de la barre système et basculez « Se connecter via Tor », l’application redémarrera pour appliquer le changement.",
             "externalNote": "Un Tor externe utilise déjà le port. Le trafic passe par celui-ci, mais la vue du circuit en direct n’est pas disponible.",
             "port": "Port SOCKS5 de Tor",
             "running": "Tor est en cours d’exécution sur le port {port}.",
@@ -520,7 +532,7 @@
               "V2Dir": "Répertoire V2",
               "Valid": "Valide"
             },
-            "error": "Erreur Tor : {error}",
+            "error": "Erreur Tor: {error}",
             "relays": "Annuaire des relais",
             "relaysNote": "Relais en direct de l’annuaire officiel Tor Metrics, triés par poids de consensus.",
             "relaysDesktopOnly": "Cette expérience est uniquement disponible sur le client Desktop.",
@@ -530,10 +542,11 @@
             "resultsCount": "{shown} sur {total} relais",
             "noSearchResults": "Aucun relais ne correspond à votre recherche.",
             "loading": "Chargement…",
-            "relaysError": "Impossible de charger les relais : {error}",
+            "relaysError": "Impossible de charger les relais: {error}",
             "details": "Détails",
             "desktopOnly": "Le routage via Tor n’est disponible que dans l’application de bureau QxChat, qui embarque le client Tor et achemine votre trafic localement. Sur la version web, votre connexion dépend de votre navigateur et ne peut pas être routée via Tor.",
-            "downloadDesktop": "Télécharger l’application de bureau"
+            "downloadDesktop": "Télécharger l’application de bureau",
+            "relaysConfirmTitle": "Annuaire des relais"
         },
         "advanced": {
             "connection": "Connexion",
@@ -544,11 +557,11 @@
             "serverDefaultRoom": "Laisser le serveur me faire rejoindre le salon par défaut",
             "uploads": "Envois",
             "autoArchive": "Archiver automatiquement les fichiers en .zip à l’envoi",
-            "autoArchiveNote": "Désactivé par défaut. Quand c’est activé, les pièces jointes sont emballées dans un ZIP avant l’envoi. Limite d’envoi : 25 Mo.",
+            "autoArchiveNote": "Désactivé par défaut. Quand c’est activé, les pièces jointes sont emballées dans un ZIP avant l’envoi. Limite d’envoi: 25 Mo.",
             "renameUploads": "Renommer chaque fichier envoyé aléatoirement",
             "renameUploadsNote": "Quand c’est activé, les fichiers envoyés sont renommés en un jeton aléatoire de 8 caractères a-z/0-9 (l’extension est conservée).",
             "stripExif": "Supprimer les métadonnées EXIF des images",
-            "stripExifNote": "Quand c’est activé, les métadonnées (GPS, appareil, horodatage) sont supprimées localement avant l’envoi — EXIF JPEG et chunk eXIf PNG — sans ré-encoder l’image.",
+            "stripExifNote": "Quand c’est activé, les métadonnées (GPS, appareil, horodatage) sont supprimées localement avant l’envoi (EXIF JPEG et chunk eXIf PNG) sans ré-encoder l’image.",
             "discordRpc": {
                 "title": "Discord Rich Presence",
                 "enabled": "Afficher mon activité sur Discord",
@@ -579,7 +592,7 @@
             "disabled": "désactivé",
             "badges": "Badges",
             "saveBadges": "Sauver badges",
-            "deleteConfirm": "Supprimer définitivement le compte {username} de la base de données et du réseau ?",
+            "deleteConfirm": "Supprimer définitivement le compte {username} de la base de données et du réseau?",
             "searchUsers": "Chercher par username",
             "searchUsersNote": "Saisis un username pour afficher les détails d’un utilisateur.",
             "noUsersFound": "Aucun utilisateur trouvé.",
@@ -600,7 +613,7 @@
             "roomsActive": "Avec quelqu'un en ligne",
             "roomsBuffered": "Messages en mémoire",
             "roomsVoice": "En vocal",
-            "snapshotNote": "Les connexions comptent les sessions : un même compte peut apparaître plusieurs fois. Les chiffres des salons et des messages viennent du tampon mémoire du serveur, pas d'un total historique.",
+            "snapshotNote": "Les connexions comptent les sessions: un même compte peut apparaître plusieurs fois. Les chiffres des salons et des messages viennent du tampon mémoire du serveur, pas d'un total historique.",
             "noSnapshot": "Aucun relevé chargé. Utilise Actualiser pour réessayer.",
             "never": "Jamais",
             "joined": "inscrit le {date}",
@@ -615,9 +628,9 @@
             "badgesNote": "Les badges sont décoratifs et n'accordent aucune permission. Ceux que le serveur attribue lui-même ne sont pas modifiables ici.",
             "saving": "Enregistrement…",
             "confirmTitle": "Confirmation",
-            "disableConfirm": "Désactiver {username} ? Ses sessions sont fermées immédiatement.",
-            "banConfirm": "Bannir {username} ? Ses sessions sont fermées immédiatement.",
-            "defaultRoomClearConfirm": "Retirer le salon par défaut ? Les nouveaux membres n'y seront plus ajoutés automatiquement.",
+            "disableConfirm": "Désactiver {username}? Ses sessions sont fermées immédiatement.",
+            "banConfirm": "Bannir {username}? Ses sessions sont fermées immédiatement.",
+            "defaultRoomClearConfirm": "Retirer le salon par défaut? Les nouveaux membres n'y seront plus ajoutés automatiquement.",
             "serverVersion": "Version du serveur",
             "since": "En service depuis",
             "updated": "Relevé",
@@ -648,7 +661,43 @@
             "pardonAccount": "Lever le bannissement",
             "deleteAccount": "Supprimer ce compte",
             "roomsLegend": "Chaque ligne indique les personnes en ligne, puis les messages gardés en mémoire.",
-            "none": "Aucun"
+            "none": "Aucun",
+            "chartSignups": "Comptes sur la dernière semaine",
+            "chartSignupsNote": "Reconstruit à partir des compteurs 24 heures et 7 jours, donc les comptes supprimés depuis n'apparaissent pas.",
+            "chartMessages": "Messages en mémoire par salon",
+            "chartMessagesNote": "Actuellement en mémoire; le serveur ne garde aucun historique.",
+            "chartPlatforms": "Sessions par plateforme",
+            "roomMessages": "messages",
+            "ageHour": "Dernière heure",
+            "ageDay": "Aujourd'hui",
+            "ageWeek": "Cette semaine",
+            "ageOlder": "Plus ancien",
+            "ageNever": "Aucun message",
+            "ageHourAccounts": "Dernières 24 heures",
+            "ageWeekAccounts": "2 à 7 jours",
+            "ageOlderAccounts": "Plus d'une semaine",
+            "stateActive": "Actifs",
+            "stateIdle": "Inactifs",
+            "statMessages": "Messages",
+            "statMessagesTotal": "En mémoire",
+            "statMessagesRooms": "Salons avec des messages",
+            "statMessagesMedian": "Médiane par salon",
+            "statMessagesBusiest": "Salon le plus actif",
+            "statMessagesNote": "Le serveur met les messages en tampon et ne garde aucun historique: ce sont des chiffres actuels, pas un relevé dans le temps.",
+            "chartActivity": "Salons par dernier message",
+            "chartActivityNote": "À quand remonte le dernier trafic de chaque salon.",
+            "chartRooms": "Activité des salons",
+            "chartAudience": "Personnes présentes par salon",
+            "chartAccountState": "État des comptes",
+            "chartAccountAge": "Ancienneté des comptes",
+            "chartAccountAgeNote": "Déduit des compteurs 24 heures et 7 jours renvoyés par le serveur.",
+            "chartPresence": "Sessions en vocal",
+            "openStats": "Statistiques",
+            "openStatsHint": "Messages, salons, comptes",
+            "chartLastMessage": "Salons par jour du dernier message",
+            "chartLastMessageNote": "Compte les salons dont le message le plus récent en mémoire tombe ce jour-là.",
+            "chartPlatformsNote": "Répartition des sessions en cours, par client.",
+            "chartAccountStateNote": "Tous les comptes que le serveur détient, répartis par état."
         },
         "backups": {
             "title": "Copies de sauvegarde",
@@ -656,7 +705,7 @@
             "export": "Exporter JSON",
             "import": "Importer JSON",
             "clear": "Tout effacer",
-            "clearConfirm": "Effacer toutes les données locales ? Cela supprime toutes les conversations, les messages et les réactions de ce navigateur. Le serveur distant n’est pas affecté."
+            "clearConfirm": "Effacer toutes les données locales? Cela supprime toutes les conversations, les messages et les réactions de ce navigateur. Le serveur distant n’est pas affecté."
         },
         "donation": {
             "title": "Faire un don",
@@ -747,7 +796,7 @@
         "typeCommunityHint": "Rôles, modération, bannissements et timeouts.",
         "typeClassic": "Classique",
         "typeClassicHint": "Le flux de conversation privée actuel.",
-        "classicNote": "Les salons classiques gardent le comportement actuel : pas de propriétaire, tout le monde peut renommer ou changer l'icône.",
+        "classicNote": "Les salons classiques gardent le comportement actuel: pas de propriétaire, tout le monde peut renommer ou changer l'icône.",
         "name": "Nom",
         "namePlaceholder": "Nom du salon",
         "avatar": "Avatar",
@@ -771,8 +820,8 @@
         "callsEnabled": "Appels activés",
         "callsDisabled": "Appels désactivés",
         "callsAllowLabel": "Autoriser les appels",
-        "callAccessTitle": "Autoriser les membres à rejoindre ?",
-        "callAccessMessage": "Les appels sont désactivés pour les membres dans {channel}. Veux-tu les autoriser à rejoindre cet appel ?",
+        "callAccessTitle": "Autoriser les membres à rejoindre?",
+        "callAccessMessage": "Les appels sont désactivés pour les membres dans {channel}. Veux-tu les autoriser à rejoindre cet appel?",
         "callAllowMembers": "Autoriser les membres",
         "callAdminsOnly": "Admins uniquement",
         "bannedMembers": "Membres bannis",
@@ -812,7 +861,7 @@
         "retry": "Réessayer",
         "checkUpdates": "Vérifier les mises à jour",
         "availableTitle": "Mise à jour disponible",
-        "skipTitle": "Ignorer la mise à jour ?",
+        "skipTitle": "Ignorer la mise à jour?",
         "skipHint": "Cliquez ici pour ignorer la mise à jour"
     },
     "phantom": {
@@ -846,9 +895,9 @@
         "pollingToggle": "Sonder les demandes d'ami",
         "pollInterval": "Intervalle de sondage (secondes)",
         "pollIntervalAuto": "Auto",
-        "pollIntervalHint": "Entre 3 et 40 secondes. Vide = automatique (15–30 s).",
-        "pollUniformityNote": "Attention : le protocole repose sur un sondage à cadence uniforme pour garantir l'anonymat. Modifier cet intervalle brise l'empreinte par défaut (polling constant sur la valeur normative) et rend votre client plus identifiable.",
-        "pollingNote": "Sondage désactivé : le système d'amis est en pause, les nouvelles demandes et mises à jour ne seront plus reçues."
+        "pollIntervalHint": "Entre 3 et 40 secondes. Vide = automatique (15-30 s).",
+        "pollUniformityNote": "Attention: le protocole repose sur un sondage à cadence uniforme pour garantir l'anonymat. Modifier cet intervalle brise l'empreinte par défaut (polling constant sur la valeur normative) et rend votre client plus identifiable.",
+        "pollingNote": "Sondage désactivé: le système d'amis est en pause, les nouvelles demandes et mises à jour ne seront plus reçues."
     },
     "crop": {
         "titleAvatar": "Recadrer l'image de profil",
@@ -859,7 +908,11 @@
         "reset": "Réinitialiser",
         "apply": "Appliquer",
         "invalidImage": "Choisis un fichier image valide.",
-        "tooLarge": "Cette image est trop volumineuse."
+        "tooLarge": "Cette image est trop volumineuse.",
+        "animatedKept": "Image animée conservée telle quelle: le recadrage la figerait sur sa première image.",
+        "zoom": "Zoom",
+        "zoomIn": "Agrandir",
+        "zoomOut": "Réduire"
     },
     "badges": {
         "admin": "Staff",

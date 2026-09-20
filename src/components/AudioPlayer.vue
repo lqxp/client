@@ -55,7 +55,7 @@ async function decodeRealWaveform(url: string) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const buffer = await res.arrayBuffer();
 
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as Record<string, unknown>).webkitAudioContext;
     if (!AudioContextClass) return;
 
     const audioCtx = new AudioContextClass();

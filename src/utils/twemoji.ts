@@ -21,7 +21,7 @@ export function twemojiSvgUrl(emoji: string): string {
     codepoints.push(cp.toString(16));
   }
   if (!codepoints.length) return "";
-  const base = String((import.meta as any).env?.BASE_URL || "./");
+  const base = String(import.meta.env?.BASE_URL || "./");
   return `${base}twemoji/svg/${codepoints.join("-")}.svg`;
 }
 

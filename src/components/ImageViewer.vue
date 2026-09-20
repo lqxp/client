@@ -5,6 +5,7 @@ import { useI18n } from "@/composables/useI18n";
 const props = defineProps({
   src: { type: String, required: true },
   filename: { type: String, default: "Image" },
+  mimeType: { type: String, default: "" },
   sizeLabel: { type: String, default: "" }
 });
 
@@ -55,7 +56,17 @@ function download() {
   a.remove();
 }
 
+/**
+ * Opening a blob: URL makes a top-level document on this very origin, so a
+ * scriptable payload would run with full access to local storage. The viewer
+ * only ever shows rasters, but this is the door that would let one out, so it
+ * checks rather than trusts what it was handed.
+ */
 function openInNewTab() {
+  if (/^blob:/i.test(props.src) && !/^image\/(png|jpeg|gif|webp|avif|bmp)$/i.test(props.mimeType)) {
+    downloadImage();
+    return;
+  }
   window.open(props.src, "_blank", "noopener,noreferrer");
 }
 

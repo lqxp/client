@@ -9,6 +9,13 @@
  * applied optimistically: a row changes only once the server confirms it.
  */
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import type { AdminOverview, AdminRoom, AdminUser } from "@/types/messenger";
+import type { LineSeries } from "@/components/charts/LineChart.vue";
+import DonutChart from "@/components/charts/DonutChart.vue";
+import LineChart from "@/components/charts/LineChart.vue";
+import PieChart from "@/components/charts/PieChart.vue";
+import RankChart from "@/components/charts/RankChart.vue";
+import StackChart from "@/components/charts/StackChart.vue";
 import { useI18n } from "@/composables/useI18n";
 import type { useDialog } from "@/composables/useDialog";
 import BadgeIcon from "@/components/BadgeIcon.vue";
@@ -48,27 +55,201 @@ const adminDefaultRoomId = ref("");
 
 /** Which account the detail pane shows, and which way the panes travel. */
 const detailId = ref("");
+const statsOpen = ref(false);
 const transitionName = ref<"push" | "pop" | "forward" | "back">("push");
 const stageEl = ref<HTMLElement | null>(null);
 
 const state = computed(() => props.messenger.state);
-const overview = computed<any>(() => state.value.adminOverview);
+const overview = computed<AdminOverview | null>(() => state.value.adminOverview ?? null);
 const loading = computed(() => Boolean(state.value.adminLoading));
 const error = computed(() => String(state.value.adminError || ""));
 const accounts = computed(() => overview.value?.accounts || null);
 const connections = computed(() => overview.value?.connections || null);
 const roomTotals = computed(() => overview.value?.roomTotals || null);
 const server = computed(() => overview.value?.server || null);
-const features = computed<any>(() => overview.value?.features || null);
+const features = computed<Record<string, boolean> | null>(() => overview.value?.features ?? null);
 const defaultRoom = computed(() => overview.value?.defaultRoom || null);
 
-const searchResults = computed<any[]>(() => state.value.adminSearchResults || []);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const allRoomRows = computed(() => overview.value?.rooms ?? []);
+
+/** Rooms actually holding messages, largest first. */
+const roomMessageRows = computed(() =>
+  allRoomRows.value
+    .filter((room) => Number(room.messageCount) > 0)
+    .map((room) => ({ label: String(room.roomId || ""), value: Number(room.messageCount) || 0 }))
+);
+
+const messageCounts = computed(() => roomMessageRows.value.map((row) => row.value));
+
+const messageStats = computed(() => {
+  const counts = [...messageCounts.value].sort((a, b) => a - b);
+  const total = counts.reduce((sum, value) => sum + value, 0);
+  if (!counts.length) return { total: 0, rooms: 0, median: 0, busiest: 0, share: 0 };
+  const middle = Math.floor(counts.length / 2);
+  const median =
+    counts.length % 2 ? counts[middle] : Math.round((counts[middle - 1] + counts[middle]) / 2);
+  const busiest = counts[counts.length - 1];
+  return {
+    total,
+    rooms: counts.length,
+    median,
+    busiest,
+    share: total ? Math.round((busiest / total) * 100) : 0,
+  };
+});
+
+/** How recently each room last saw a message, bucketed. */
+const activityBuckets = computed(() => {
+  const now = Date.now();
+  const buckets = [0, 0, 0, 0, 0];
+  for (const room of allRoomRows.value) {
+    const at = Number(room.lastMessageAt) || 0;
+    if (!at) {
+      buckets[4] += 1;
+      continue;
+    }
+    const age = now - at;
+    if (age < 60 * 60 * 1000) buckets[0] += 1;
+    else if (age < DAY_MS) buckets[1] += 1;
+    else if (age < 7 * DAY_MS) buckets[2] += 1;
+    else buckets[3] += 1;
+  }
+  const labels = [
+    t("settings.admin.ageHour"),
+    t("settings.admin.ageDay"),
+    t("settings.admin.ageWeek"),
+    t("settings.admin.ageOlder"),
+    t("settings.admin.ageNever"),
+  ];
+  return buckets
+    .map((value, index) => ({ label: labels[index], value }))
+    .filter((row) => row.value > 0);
+});
+
+/** Account age from the two windows the server reports, by subtraction. */
+const accountAgeSlices = computed(() => {
+  const total = Number(accounts.value?.total) || 0;
+  const day = Number(accounts.value?.newLastDay) || 0;
+  const week = Number(accounts.value?.newLastWeek) || 0;
+  if (!total) return [];
+  return [
+    { label: t("settings.admin.ageHourAccounts"), value: day },
+    { label: t("settings.admin.ageWeekAccounts"), value: Math.max(0, week - day) },
+    { label: t("settings.admin.ageOlderAccounts"), value: Math.max(0, total - week) },
+  ];
+});
+
+const accountStateSlices = computed(() => {
+  const total = Number(accounts.value?.total) || 0;
+  const disabled = Number(accounts.value?.disabled) || 0;
+  const banned = Number(accounts.value?.banned) || 0;
+  if (!total) return [];
+  return [
+    { label: t("settings.admin.stateActive"), value: Math.max(0, total - disabled - banned) },
+    { label: t("settings.admin.accountsDisabled"), value: disabled },
+    { label: t("settings.admin.accountsBanned"), value: banned },
+  ];
+});
+
+const presenceSlices = computed(() => {
+  const sessions = Number(connections.value?.sessions) || 0;
+  const voice = Number(connections.value?.voice) || 0;
+  if (!sessions) return [];
+  return [
+    { label: t("settings.admin.connectionVoice"), value: Math.min(voice, sessions) },
+    { label: t("settings.admin.stateIdle"), value: Math.max(0, sessions - voice) },
+  ];
+});
+
+const roomStateSlices = computed(() => {
+  const known = Number(roomTotals.value?.known) || 0;
+  const active = Number(roomTotals.value?.active) || 0;
+  if (!known) return [];
+  return [
+    { label: t("settings.admin.roomsActive"), value: Math.min(active, known) },
+    { label: t("settings.admin.stateIdle"), value: Math.max(0, known - active) },
+  ];
+});
+
+/** How far back the daily room chart looks. */
+const LAST_MESSAGE_DAYS = 14;
+
+/**
+ * The account total at the only three moments the server actually pins down:
+ * now, and that same total less each of the two windows it reports. Nothing
+ * between them is filled in, which is why this is three points and not thirty.
+ */
+const accountGrowth = computed<LineSeries[]>(() => {
+  const total = Number(accounts.value?.total) || 0;
+  if (!total) return [];
+  const now = Number(overview.value?.generatedAt) || Date.now();
+  const day = Number(accounts.value?.newLastDay) || 0;
+  const week = Number(accounts.value?.newLastWeek) || 0;
+  return [
+    {
+      label: t("settings.admin.accountsTotal"),
+      points: [
+        { at: now - 7 * DAY_MS, value: Math.max(0, total - week) },
+        { at: now - DAY_MS, value: Math.max(0, total - day) },
+        { at: now, value: total },
+      ],
+    },
+  ];
+});
+
+/**
+ * Rooms whose most recent buffered message falls on each of the last fortnight
+ * of days. The server keeps no message history, so this is the one real
+ * timeline it can answer: when each room was last heard from.
+ */
+const lastMessageSeries = computed<LineSeries[]>(() => {
+  const now = Number(overview.value?.generatedAt) || Date.now();
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  const start = midnight.getTime() - (LAST_MESSAGE_DAYS - 1) * DAY_MS;
+  const counts = new Array<number>(LAST_MESSAGE_DAYS).fill(0);
+  let seen = 0;
+  for (const room of allRoomRows.value) {
+    const at = Number(room.lastMessageAt) || 0;
+    if (at < start) continue;
+    const index = Math.floor((at - start) / DAY_MS);
+    if (index < 0 || index >= LAST_MESSAGE_DAYS) continue;
+    counts[index] += 1;
+    seen += 1;
+  }
+  if (!seen) return [];
+  return [
+    {
+      label: t("settings.admin.roomsKnown"),
+      points: counts.map((value, index) => ({ at: start + index * DAY_MS, value })),
+    },
+  ];
+});
+
+const platformRows = computed(() =>
+  (connections.value?.platforms ?? []).map((entry) => ({
+    label: props.messenger.platformLabel?.(entry.platform) || String(entry.platform || ""),
+    value: Number(entry.count) || 0,
+  }))
+);
+
+/** Per-room audience: how many people are present where the messages are. */
+const roomAudienceRows = computed(() =>
+  allRoomRows.value
+    .filter((room) => Number(room.onlineCount) > 0)
+    .map((room) => ({ label: String(room.roomId || ""), value: Number(room.onlineCount) || 0 }))
+);
+
+/** Real daily counts from the server; never filled in when absent. */
+const searchResults = computed<AdminUser[]>(() => state.value.adminSearchResults || []);
 const searchLoading = computed(() => Boolean(state.value.adminSearchLoading));
 const searched = computed(() => Boolean(state.value.adminSearchSearched));
 
 /** The account in the detail pane, re-read from the list so it stays current. */
-const detailUser = computed<any>(
-  () => searchResults.value.find((entry) => String(entry?.id || "") === detailId.value) || null
+const detailUser = computed<AdminUser | null>(
+  () => searchResults.value.find((entry) => String(entry?.id || "") === detailId.value) ?? null
 );
 
 // A deleted account cannot stay on screen.
@@ -76,12 +257,12 @@ watch([detailId, searchResults], () => {
   if (detailId.value && !detailUser.value) detailId.value = "";
 });
 
-const allRooms = computed<any[]>(() => (Array.isArray(overview.value?.rooms) ? overview.value.rooms : []));
+const allRooms = computed<AdminRoom[]>(() => (Array.isArray(overview.value?.rooms) ? overview.value.rooms : []));
 
-const matchingRooms = computed<any[]>(() => {
+const matchingRooms = computed<AdminRoom[]>(() => {
   const needle = roomQuery.value.trim().toLowerCase();
   if (!needle) return allRooms.value;
-  return allRooms.value.filter((room: any) => {
+  return allRooms.value.filter((room: AdminRoom) => {
     const id = String(room?.roomId || "").toLowerCase();
     const name = String(props.messenger.displayRoomName?.(room?.roomId) || "").toLowerCase();
     return id.includes(needle) || name.includes(needle);
@@ -89,7 +270,7 @@ const matchingRooms = computed<any[]>(() => {
 });
 
 // A busy server can hold thousands of rooms; only a page of them is rendered.
-const rooms = computed<any[]>(() => matchingRooms.value.slice(0, ROOM_PAGE));
+const rooms = computed<AdminRoom[]>(() => matchingRooms.value.slice(0, ROOM_PAGE));
 
 /**
  * Only rooms this client holds a key for can become the default: the server
@@ -97,8 +278,8 @@ const rooms = computed<any[]>(() => matchingRooms.value.slice(0, ROOM_PAGE));
  */
 const roomOptions = computed(() =>
   (props.messenger.state.rooms || [])
-    .filter((room: any) => room?.roomId && props.messenger.roomKeyFor?.(room.roomId))
-    .map((room: any) => ({ value: String(room.roomId), label: String(room.title || room.roomId) }))
+    .filter((room: AdminRoom) => room?.roomId && props.messenger.roomKeyFor?.(room.roomId))
+    .map((room: AdminRoom) => ({ value: String(room.roomId), label: String(room.title || room.roomId) }))
 );
 
 const dateFormatter = computed(() => new Intl.DateTimeFormat(locale.value, { dateStyle: "medium" }));
@@ -119,6 +300,16 @@ function formatTime(value: unknown) {
 
 function formatCount(value: unknown) {
   return new Intl.NumberFormat(locale.value).format(Number(value) || 0);
+}
+
+const dayFormatter = computed(() => new Intl.DateTimeFormat(locale.value, { month: "short", day: "numeric" }));
+
+function formatDay(at: number) {
+  return dayFormatter.value.format(new Date(at));
+}
+
+function formatPlain(value: number) {
+  return new Intl.NumberFormat(locale.value).format(value);
 }
 
 /** Uptime is shown as the moment the process came up, with no invented units. */
@@ -253,17 +444,29 @@ function pulse(kind: "danger" | "restore") {
   }, 900);
 }
 
+function openStats() {
+  transitionName.value = "push";
+  statsOpen.value = true;
+}
+
+function closeStats() {
+  transitionName.value = "pop";
+  statsOpen.value = false;
+}
+
 function selectView(id: AdminView) {
-  if (id === view.value && !detailId.value) return;
-  // Leaving a detail pane is a step back up; moving between views travels
-  // sideways, in whichever direction the segmented control just went.
-  transitionName.value = detailId.value
+  const leavingPane = Boolean(detailId.value) || statsOpen.value;
+  if (id === view.value && !leavingPane) return;
+  // Leaving a pane is a step back up; moving between views travels sideways,
+  // in whichever direction the segmented control just went.
+  transitionName.value = leavingPane
     ? "pop"
     : VIEWS.indexOf(id) > VIEWS.indexOf(view.value)
       ? "forward"
       : "back";
   view.value = id;
   detailId.value = "";
+  statsOpen.value = false;
 }
 
 function viewLabel(id: AdminView) {
@@ -272,7 +475,7 @@ function viewLabel(id: AdminView) {
 
 const viewIndex = computed(() => VIEWS.indexOf(view.value));
 
-function openUser(user: any) {
+function openUser(user: AdminUser) {
   transitionName.value = "push";
   detailId.value = String(user?.id || "");
   pickerOpen.value = false;
@@ -284,20 +487,20 @@ function closeUser() {
   detailId.value = "";
 }
 
-function accountStateLabel(user: any) {
+function accountStateLabel(user: AdminUser) {
   if (user?.banned) return t("settings.admin.banned");
   if (user?.disabled) return t("settings.admin.disabled");
   return t("settings.admin.active");
 }
 
-function accountStateClass(user: any) {
+function accountStateClass(user: AdminUser) {
   if (user?.banned) return "is-banned";
   if (user?.disabled) return "is-disabled";
   return "is-active";
 }
 
 /** Badges actually stored on the account, the ones an admin can take back. */
-function grantableBadges(user: any): string[] {
+function grantableBadges(user: AdminUser): string[] {
   const stored = Array.isArray(user?.customBadges) ? user.customBadges : [];
   return stored.map(normalizeBadgeId).filter((badge: string) => badge && !isReservedBadge(badge));
 }
@@ -308,13 +511,13 @@ function grantableBadges(user: any): string[] {
  * nothing, so they are listed locked. An admin can still grant `early` to
  * somebody else; it simply cannot be taken off an account that earned it.
  */
-function serverBadges(user: any): string[] {
+function serverBadges(user: AdminUser): string[] {
   const stored = new Set(grantableBadges(user));
   const all = Array.isArray(user?.badges) ? user.badges : [];
   return all.map(normalizeBadgeId).filter((badge: string) => badge && !stored.has(badge));
 }
 
-function draftFor(user: any): string[] {
+function draftFor(user: AdminUser): string[] {
   const id = String(user?.id || "");
   if (!id) return [];
   if (!(id in badgeDrafts.value)) badgeDrafts.value[id] = grantableBadges(user);
@@ -326,13 +529,13 @@ function draftFor(user: any): string[] {
  * the server derives, and matching on artwork rather than on id. Offering
  * `staff` to somebody who is already `admin` would paint the same crest twice.
  */
-function availableBadges(user: any): string[] {
+function availableBadges(user: AdminUser): string[] {
   const taken = new Set([...draftFor(user), ...serverBadges(user)].map(badgeArtworkKey));
   return ASSIGNABLE_BADGE_IDS.filter((badge) => !taken.has(badgeArtworkKey(badge)));
 }
 
 /** A stored badge the server already covers with the same picture. */
-function isShadowed(user: any, badge: string) {
+function isShadowed(user: AdminUser, badge: string) {
   return serverBadges(user).some((derived) => sameBadgeArtwork(derived, badge));
 }
 
@@ -344,34 +547,34 @@ function chipLabel(badge: string) {
   return isCustom(badge) ? badge : badgeLabelFor(t, badge);
 }
 
-function draftChanged(user: any) {
+function draftChanged(user: AdminUser) {
   return draftFor(user).join(",") !== grantableBadges(user).join(",");
 }
 
-function atBadgeLimit(user: any) {
+function atBadgeLimit(user: AdminUser) {
   return draftFor(user).length >= MAX_BADGES;
 }
 
-function addBadge(user: any, badge: string) {
+function addBadge(user: AdminUser, badge: string) {
   const id = String(user?.id || "");
   const current = draftFor(user);
   if (current.includes(badge) || current.length >= MAX_BADGES) return;
   badgeDrafts.value[id] = [...current, badge];
 }
 
-function removeBadge(user: any, badge: string) {
+function removeBadge(user: AdminUser, badge: string) {
   const id = String(user?.id || "");
   badgeDrafts.value[id] = draftFor(user).filter((entry) => entry !== badge);
 }
 
-function addCustomBadge(user: any) {
+function addCustomBadge(user: AdminUser) {
   const badge = normalizeBadgeId(customBadgeDraft.value);
   if (!badge || isReservedBadge(badge)) return;
   addBadge(user, badge);
   customBadgeDraft.value = "";
 }
 
-function resetDraft(user: any) {
+function resetDraft(user: AdminUser) {
   const id = String(user?.id || "");
   if (id) badgeDrafts.value[id] = grantableBadges(user);
 }
@@ -390,7 +593,7 @@ async function run(action: string, task: () => Promise<unknown>) {
   }
 }
 
-async function saveBadges(user: any) {
+async function saveBadges(user: AdminUser) {
   const badges = [...draftFor(user)];
   pickerOpen.value = false;
   await run("badges", async () => {
@@ -401,7 +604,7 @@ async function saveBadges(user: any) {
   });
 }
 
-async function setDisabled(user: any, disabled: boolean) {
+async function setDisabled(user: AdminUser, disabled: boolean) {
   if (disabled && !(await confirmAction("disableConfirm", user))) return;
   await run("disabled", async () => {
     const ok = await props.messenger.setAdminUserDisabled(String(user.id), disabled);
@@ -409,7 +612,7 @@ async function setDisabled(user: any, disabled: boolean) {
   });
 }
 
-async function setBanned(user: any, banned: boolean) {
+async function setBanned(user: AdminUser, banned: boolean) {
   if (banned && !(await confirmAction("banConfirm", user))) return;
   await run("banned", async () => {
     const ok = await props.messenger.setAdminUserBanned(String(user.id), banned);
@@ -417,17 +620,17 @@ async function setBanned(user: any, banned: boolean) {
   });
 }
 
-async function removeAccount(user: any) {
+async function removeAccount(user: AdminUser) {
   if (isSelf(user)) return;
   if (!(await confirmAction("deleteConfirm", user))) return;
   await run("delete", () => props.messenger.deleteAdminUser(String(user.id)));
 }
 
-function isSelf(user: any) {
+function isSelf(user: AdminUser) {
   return String(user?.id || "") === String(state.value.userId || "");
 }
 
-function confirmAction(key: string, user: any) {
+function confirmAction(key: string, user: AdminUser) {
   return dialog.showConfirm(
     t(`settings.admin.${key}`, { username: String(user?.username || user?.id || "") }),
     t("settings.admin.confirmTitle")
@@ -637,6 +840,122 @@ async function clearDefaultRoom() {
         </div>
 
         <!-- ──────────────────────────────── Root ──────────────────────────── -->
+        <div v-else-if="statsOpen" key="stats" class="pane">
+          <button type="button" class="back" @click="closeStats">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+            {{ viewLabel('overview') }}
+          </button>
+
+          <p v-if="!overview" class="empty">{{ t('settings.admin.noSnapshot') }}</p>
+          <template v-else>
+            <!-- Everything here is arithmetic on the snapshot the server
+                 already sends. Nothing is stored or simulated to draw it. -->
+            <section class="grp" style="--n: 0">
+              <p class="grp__label">{{ t('settings.admin.statMessages') }}</p>
+              <div class="grp__box">
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statMessagesTotal') }}</span>
+                  <span class="row__value row__value--lead">{{ formatCount(messageStats.total) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statMessagesRooms') }}</span>
+                  <span class="row__value">{{ formatCount(messageStats.rooms) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statMessagesMedian') }}</span>
+                  <span class="row__value">{{ formatCount(messageStats.median) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statMessagesBusiest') }}</span>
+                  <span class="row__value">{{ formatCount(messageStats.busiest) }} ({{ messageStats.share }}%)</span>
+                </div>
+              </div>
+              <p class="grp__note">{{ t('settings.admin.statMessagesNote') }}</p>
+            </section>
+
+            <section style="--n: 1" v-if="roomMessageRows.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <RankChart :rows="roomMessageRows" :title="t('settings.admin.chartMessages')"
+                  :caption="t('settings.admin.chartMessagesNote')"
+                  :value-label="t('settings.admin.roomMessages')" />
+              </div>
+            </section>
+
+            <section style="--n: 2" v-if="lastMessageSeries.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <LineChart :series="lastMessageSeries" :title="t('settings.admin.chartLastMessage')"
+                  :caption="t('settings.admin.chartLastMessageNote')"
+                  :value-label="t('settings.admin.roomsKnown')" :format-x="formatDay"
+                  :format-value="formatPlain" />
+              </div>
+            </section>
+
+            <section style="--n: 3" v-if="activityBuckets.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <RankChart :rows="activityBuckets" :title="t('settings.admin.chartActivity')"
+                  :caption="t('settings.admin.chartActivityNote')"
+                  :value-label="t('settings.admin.roomsKnown')" :max="5" />
+              </div>
+            </section>
+
+            <section style="--n: 4" v-if="roomStateSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <StackChart :slices="roomStateSlices" :title="t('settings.admin.chartRooms')"
+                  :value-label="t('settings.admin.roomsKnown')" />
+              </div>
+            </section>
+
+            <section style="--n: 5" v-if="roomAudienceRows.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <RankChart :rows="roomAudienceRows" :title="t('settings.admin.chartAudience')"
+                  :value-label="t('settings.admin.connectionUsers')" />
+              </div>
+            </section>
+
+            <section style="--n: 6" v-if="accountGrowth.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <LineChart :series="accountGrowth" :title="t('settings.admin.chartSignups')"
+                  :caption="t('settings.admin.chartSignupsNote')" :value-label="t('settings.admin.accounts')"
+                  :format-x="formatDay" :format-value="formatPlain" />
+              </div>
+            </section>
+
+            <section style="--n: 7" v-if="accountStateSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <DonutChart :slices="accountStateSlices" :title="t('settings.admin.chartAccountState')"
+                  :caption="t('settings.admin.chartAccountStateNote')"
+                  :value-label="t('settings.admin.accounts')" />
+              </div>
+            </section>
+
+            <section style="--n: 8" v-if="accountAgeSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <StackChart :slices="accountAgeSlices" :title="t('settings.admin.chartAccountAge')"
+                  :caption="t('settings.admin.chartAccountAgeNote')"
+                  :value-label="t('settings.admin.accounts')" />
+              </div>
+            </section>
+
+            <section style="--n: 9" v-if="presenceSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <StackChart :slices="presenceSlices" :title="t('settings.admin.chartPresence')"
+                  :value-label="t('settings.admin.connectionSessions')" />
+              </div>
+            </section>
+
+            <section style="--n: 10" v-if="platformRows.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <PieChart :slices="platformRows" :title="t('settings.admin.chartPlatforms')"
+                  :caption="t('settings.admin.chartPlatformsNote')"
+                  :value-label="t('settings.admin.connectionSessions')" />
+              </div>
+            </section>
+          </template>
+        </div>
+
         <div v-else :key="view" class="pane">
           <!-- Overview -->
           <template v-if="view === 'overview'">
@@ -749,6 +1068,23 @@ async function clearDefaultRoom() {
                       {{ defaultRoom ? messenger.displayRoomName(defaultRoom.roomId) : t('settings.admin.defaultRoomNone') }}
                     </span>
                   </div>
+                </div>
+              </section>
+
+              <!-- The way into the figures, at the end of the summary rather
+                   than as a fifth tab: they are read, not navigated between. -->
+              <section class="grp">
+                <div class="grp__box">
+                  <button type="button" class="row row--action row--enter" @click="openStats">
+                    <span class="row__label">{{ t('settings.admin.openStats') }}</span>
+                    <span class="row__value row__value--lead">
+                      {{ t('settings.admin.openStatsHint') }}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m9 5 7 7-7 7" />
+                      </svg>
+                    </span>
+                  </button>
                 </div>
               </section>
             </template>
@@ -1105,6 +1441,54 @@ async function clearDefaultRoom() {
 
 .grp__count.is-full {
   color: #e0a32e;
+}
+
+/* The stats pane assembles itself top to bottom rather than landing whole. */
+.pane .grp[style*="--n"] {
+  animation: stat-in 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation-delay: calc(min(var(--n), 8) * 55ms);
+}
+
+@keyframes stat-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.row--enter {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row--enter svg {
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+  vertical-align: -3px;
+  color: var(--muted);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.row--enter:hover svg {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .pane .grp[style*="--n"] {
+    animation: none;
+  }
+
+  .row--enter svg {
+    transition: none;
+  }
+}
+
+.grp__box--chart {
+  padding: 14px 14px 12px;
 }
 
 .grp__box {

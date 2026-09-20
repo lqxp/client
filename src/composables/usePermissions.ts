@@ -8,7 +8,7 @@ type PermissionStateResponse = Record<string, "granted" | "denied" | "prompt">;
 
 function isTauriRuntime() {
   if (typeof window === "undefined") return false;
-  const candidate = window as any;
+  const candidate = window as unknown as Record<string, unknown>;
   return Boolean(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__);
 }
 
@@ -45,7 +45,7 @@ export function usePermissions() {
       state.value = await normalize(() => invoke<PermissionStateResponse>("plugin:permissions|check_permissions"));
       return state.value;
     } catch (e) {
-      lastError.value = String((e as any)?.message || e);
+      lastError.value = String((e as { message?: unknown })?.message ?? e);
       return {};
     }
   }
@@ -60,7 +60,7 @@ export function usePermissions() {
       state.value = await normalize(() => invoke<PermissionStateResponse>("plugin:permissions|request_permissions"));
       return state.value;
     } catch (e) {
-      lastError.value = String((e as any)?.message || e);
+      lastError.value = String((e as { message?: unknown })?.message ?? e);
       return {};
     } finally {
       requesting.value = false;
