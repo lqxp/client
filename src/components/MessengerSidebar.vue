@@ -6,7 +6,6 @@ import CreateRoomModal from "@/components/CreateRoomModal.vue";
 import AddServerModal from "@/components/AddServerModal.vue";
 import JoinRoomModal from "@/components/JoinRoomModal.vue";
 import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
-import AddFriendModal from "@/components/AddFriendModal.vue";
 import PhantomFriendsPanel from "@/components/PhantomFriendsPanel.vue";
 import { currentWindowZoom } from "@/utils/windowZoom";
 
@@ -36,7 +35,6 @@ const addServerOpen = ref(false);
 const joinRoomOpen = ref(false);
 const roomSettingsOpen = ref(false);
 const roomSettingsRoomId = ref("");
-const addFriendOpen = ref(false);
 
 let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
@@ -142,10 +140,12 @@ const miniMode = computed(() =>
 function toggleSideMini() {
   props.messenger.setSideMini?.(!(props.messenger.state.sideMini === true));
 }
-// Demandes d'ami entrantes : bulle de notification sur le bouton du rail.
-const pendingFriendCount = computed(
-  () => (phantom?.state?.pendingIncoming || []).length,
-);
+// Accueil façon Discord : bouton QxChat + non-lus des MPs.
+const isHomeActive = computed(() => props.messenger.state.homeOpen === true);
+const dmUnreads = computed(() => props.messenger.friendUnreadsTotal?.() || 0);
+function openHome() {
+  props.messenger.openHome?.();
+}
 function togglePinnedCollapsed() {
   props.messenger.setPinnedCollapsed(!pinnedCollapsed.value);
 }
@@ -425,9 +425,18 @@ onBeforeUnmount(() => {
     <!-- Rail miniature : petites icônes quand un serveur est ouvert -->
     <div v-if="miniMode" class="side__mini" role="navigation" aria-label="Serveurs">
       <div class="side__mini-list">
-        <button class="side__mini-btn side__mini-btn--search" type="button" :title="t('sidebar.searchAction')"
-          :aria-label="t('sidebar.searchAction')" @click="emit('open-spotlight')">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <button class="side__mini-btn side__mini-btn--home" :class="{ 'is-active': isHomeActive }" type="button"
+          :title="t('app.home')" :aria-label="t('app.home')" @click="openHome">
+          <svg class="side__mini-icon side__mini-icon--home" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" fill="#1c71d8" />
+            <g transform="translate(24,0) scale(-1,1)">
+              <g transform="translate(4,5)" fill="#ffffff">
+                <path d="M5.939,0 C2.666,0 0.009,1.987 0.009,4.438 C0.009,6.674 2.224,8.52 5.101,8.825 L3.88,11.26 L8.129,8.56 C10.318,7.906 12,6.309 12,4.438 C12,1.988 9.213,0 5.939,0 Z" />
+                <path d="M15.947,8.89 C15.947,7.766 14.885,6.602 13.658,6.022 C13.314,7.972 11.734,9.767 9.241,10.469 L8.054,11.111 C8.508,11.451 9.064,11.722 9.688,11.899 L13.326,13.87 L12.023,12.094 C14.24,11.869 15.947,10.523 15.947,8.89 Z" />
+              </g>
+            </g>
+          </svg>
+          <span v-if="dmUnreads > 0" class="side__mini-badge">{{ dmUnreads > 99 ? "99+" : dmUnreads }}</span>
         </button>
         <button v-for="c in conversations" :key="c.roomId" class="side__mini-btn"
           :class="{ 'is-active': c.active }" type="button"
@@ -448,11 +457,6 @@ onBeforeUnmount(() => {
         <button class="side__mini-btn side__mini-btn--expand" type="button" :title="t('sidebar.expandList')"
           :aria-label="t('sidebar.expandList')" @click="toggleSideMini">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 17 5-5-5-5" /><path d="m6 17 5-5-5-5" /></svg>
-        </button>
-        <button class="side__mini-btn side__mini-btn--friend" type="button" :title="t('profile.addFriend')"
-          :aria-label="t('profile.addFriend')" @click="addFriendOpen = true">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M16 11h6" /></svg>
-          <span v-if="pendingFriendCount > 0" class="side__mini-badge">{{ pendingFriendCount > 99 ? "99+" : pendingFriendCount }}</span>
         </button>
         <button class="side__mini-btn side__mini-btn--add" type="button" :title="t('sidebar.addServer')"
           :aria-label="t('sidebar.addServer')" @click="addServerOpen = true">
@@ -642,7 +646,6 @@ onBeforeUnmount(() => {
     <AddServerModal :open="addServerOpen" @close="addServerOpen = false" @create="createRoomFromAddServer" @join="joinRoomFromAddServer" />
     <JoinRoomModal :messenger="messenger" :open="joinRoomOpen" @close="joinRoomOpen = false" />
     <RoomSettingsModal :messenger="messenger" :open="roomSettingsOpen" :room-id="roomSettingsRoomId" @close="roomSettingsOpen = false" />
-    <AddFriendModal :messenger="messenger" :phantom="phantom" :open="addFriendOpen" @close="addFriendOpen = false" />
   </aside>
 
   <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
@@ -934,9 +937,7 @@ onBeforeUnmount(() => {
   padding-top: 8px;
 }
 .side__mini-btn--add svg,
-.side__mini-btn--expand svg,
-.side__mini-btn--friend svg,
-.side__mini-btn--search svg {
+.side__mini-btn--expand svg {
   width: 22px;
   height: 22px;
   fill: none;
@@ -946,21 +947,49 @@ onBeforeUnmount(() => {
   stroke-linejoin: round;
 }
 .side__mini-btn--add,
-.side__mini-btn--expand,
-.side__mini-btn--friend,
-.side__mini-btn--search {
+.side__mini-btn--expand {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .side__mini-btn--add:hover,
-.side__mini-btn--expand:hover,
-.side__mini-btn--friend:hover,
-.side__mini-btn--search:hover {
+.side__mini-btn--expand:hover {
   border-radius: 16px;
   background: color-mix(in srgb, var(--accent) 24%, transparent);
   color: var(--text);
+}
+/* Bouton d'accueil : pleine largeur comme les salons (pilule collée au bord
+   de la fenêtre), logo circulaire dessiné par le SVG (jamais rogné),
+   pas de morph — léger zoom au survol/actif à la place. */
+.side__mini-btn--home {
+  width: 100%;
+  height: auto;
+  padding: 2px 0;
+  background: transparent;
+  border-radius: 0;
+}
+.side__mini-btn--home:hover,
+.side__mini-btn--home.is-active {
+  background: transparent;
+  border-radius: 0;
+}
+.side__mini-icon--home {
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  display: block;
+  border-radius: 50%;
+  transition: border-radius 140ms ease, transform 140ms ease;
+}
+.side__mini-btn--home:hover .side__mini-icon--home,
+.side__mini-btn--home.is-active .side__mini-icon--home {
+  border-radius: 50%;
+  transform: scale(1.06);
+}
+.side__mini-btn--home:hover .side__mini-icon--home,
+.side__mini-btn--home.is-active .side__mini-icon--home {
+  border-radius: 16px;
 }
 
 .side-user {
@@ -1462,6 +1491,63 @@ onBeforeUnmount(() => {
     font-size: 16px;
     gap: 12px;
   }
+}
+
+/* Mini + panneau : barre footer compacte (avatar + nom + status + settings)
+   s'étendant sur rail + chanpanel — même look que Discord sidebar collapsed. */
+.app--mini.app--channels > .side__foot {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.24) !important;
+  background: #232428 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+.app--mini.app--channels > .side__foot .side-user {
+  flex: none !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  min-width: 0 !important;
+  gap: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.app--mini.app--channels > .side__foot .side-user__avatar {
+  width: 32px !important;
+  height: 32px !important;
+}
+.app--mini.app--channels > .side__foot .side-user__text {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings,
+.app--mini.app--channels > .side__foot .side-status__toggle {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  flex: none !important;
+  display: inline-flex !important;
+  place-items: unset !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings {
+  border-radius: 4px !important;
+}
+.app--mini.app--channels > .side__foot .side-status {
+  margin-left: auto !important;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings svg,
+.app--mini.app--channels > .side__foot .side-status__toggle svg {
+  width: 18px !important;
+  height: 18px !important;
 }
 
 @keyframes room-context-backdrop-in {

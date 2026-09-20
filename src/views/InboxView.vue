@@ -22,6 +22,7 @@ import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
 import RoomBanOverlay from "@/components/RoomBanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
+import AddFriendModal from "@/components/AddFriendModal.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
@@ -70,6 +71,7 @@ const mobileChannelsOpen = ref(false);
 const mobileNavDir = ref<"forward" | "back">("forward");
 const showMobileMembers = ref(false);
 const spotlightOpen = ref(false);
+const addFriendOpen = ref(false);
 const spotlightProfile = ref("");
 const settingsInitialSection = ref("profile");
 const titlebarTrayOpen = ref(false);
@@ -950,6 +952,7 @@ async function lockClientNow() {
     </Teleport>
 
     <DialogModal />
+    <AddFriendModal :messenger="messenger" :phantom="phantom" :open="addFriendOpen" @close="addFriendOpen = false" />
 
     <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" @open-profile="(username) => { spotlightProfile = username }" />
 
@@ -998,7 +1001,15 @@ async function lockClientNow() {
     </main>
 
     <div v-else class="no-thread">
-      <div>
+      <div v-if="messenger.state.homeOpen" class="no-thread__home">
+        <span class="no-thread__home-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M16 11h6" /></svg>
+        </span>
+        <h2>{{ t('app.homeEmptyTitle') }}</h2>
+        <p>{{ t('app.homeEmptyHint') }}</p>
+        <button type="button" class="no-thread__home-cta" @click="addFriendOpen = true">{{ t('profile.addFriend') }}</button>
+      </div>
+      <div v-else>
         <h2>{{ t('app.noConversation') }}</h2>
         <p>{{ t('app.noConversationHint') }}</p>
       </div>
@@ -1062,6 +1073,65 @@ async function lockClientNow() {
 .drop-fade-enter-from,
 .drop-fade-leave-to {
   opacity: 0;
+}
+
+.no-thread__home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 380px;
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.no-thread__home-icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.no-thread__home-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.no-thread__home h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.no-thread__home p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.no-thread__home-cta {
+  margin-top: 8px;
+  height: 42px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.no-thread__home-cta:hover {
+  background: color-mix(in srgb, var(--accent) 82%, #000 18%);
 }
 </style>
 

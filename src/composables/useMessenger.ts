@@ -958,6 +958,8 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     pinnedCollapsed: false,
     channelsCollapsed: false,
     sideMini: false,
+    homeOpen: false,
+    lastFriendRoomId: "",
     callUserVolumes: {},
     roomNotes: {},
     pinnedRooms: [],
@@ -1334,6 +1336,8 @@ function loadPersisted() {
       pinnedCollapsed: raw.pinnedCollapsed === true,
       channelsCollapsed: raw.channelsCollapsed === true,
       sideMini: raw.sideMini === true,
+      homeOpen: raw.homeOpen === true,
+      lastFriendRoomId: sanitizeRoomId(raw.lastFriendRoomId),
       reconnectMinDelayMs: Math.max(
         250,
         Math.min(
@@ -1734,6 +1738,8 @@ function buildPersistedPayload(state) {
     pinnedCollapsed: state.pinnedCollapsed,
     channelsCollapsed: state.channelsCollapsed,
     sideMini: state.sideMini,
+    homeOpen: state.homeOpen,
+    lastFriendRoomId: state.lastFriendRoomId,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     bannedRooms: sanitizeBannedRooms(state.bannedRooms),
@@ -2856,6 +2862,8 @@ export function useMessenger() {
     pinnedCollapsed: persisted.pinnedCollapsed,
     channelsCollapsed: persisted.channelsCollapsed,
     sideMini: Boolean((persisted as any).sideMini),
+    homeOpen: Boolean((persisted as any).homeOpen),
+    lastFriendRoomId: sanitizeRoomId((persisted as any).lastFriendRoomId),
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
     reconnectMaxDelayMs: Math.max(
       persisted.reconnectMinDelayMs,
@@ -3232,6 +3240,8 @@ export function useMessenger() {
     state.defaultRoomLeavedRoomId = normalized.defaultRoomLeavedRoomId;
     state.pinnedCollapsed = normalized.pinnedCollapsed;
     state.channelsCollapsed = normalized.channelsCollapsed;
+    state.homeOpen = Boolean((normalized as any).homeOpen);
+    state.lastFriendRoomId = sanitizeRoomId((normalized as any).lastFriendRoomId);
     state.sideMini = Boolean((normalized as any).sideMini);
     state.reconnectMinDelayMs = normalized.reconnectMinDelayMs;
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
@@ -6940,6 +6950,12 @@ export function useMessenger() {
     }
     if (state.activeRoom && state.activeRoom !== id) setTyping(false);
     state.activeRoom = id;
+    // Rester en accueil quand on ouvre un MP, en sortir vers un salon classique.
+    if (id && isFriendRoom(id)) {
+      state.lastFriendRoomId = id;
+    } else if (id) {
+      state.homeOpen = false;
+    }
     ensureActiveChannel(id);
     const msgKey = activeMessageKey() || id;
     state.unreadByRoom[msgKey] = 0;
@@ -6970,10 +6986,41 @@ export function useMessenger() {
     }
   }
 
+  // Accueil façon Discord : ouvre le dernier MP, sinon vue vide avec CTA.
+  function openHome() {
+    const last = sanitizeRoomId(state.lastFriendRoomId);
+    const valid =
+      last &&
+      isValidRoomId(last) &&
+      isFriendRoom(last) &&
+      state.rooms.some((room) => room.roomId === last);
+    state.homeOpen = true;
+    if (valid) {
+      selectConversation(last);
+    } else {
+      state.activeRoom = "";
+      persist();
+    }
+  }
+
+  function closeHome() {
+    state.homeOpen = false;
+    persist();
+  }
+
+  // Total des non-lus des MPs (masqués de la liste des salons) pour la bulle
+  // du bouton d'accueil.
+  function friendUnreadsTotal() {
+    let total = 0;
+    for (const roomId of Object.keys(state.friendRoomIdsByRoom || {})) {
+      total += Number(state.unreadByRoom?.[sanitizeRoomId(roomId)] || 0);
+    }
+    return total;
+  }
+
   function leaveRoom(roomId) {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     if (!id || !isValidRoomId(id)) return;
-
     if (
       !state.connected ||
       !state.identified ||
@@ -7692,6 +7739,7 @@ export function useMessenger() {
     if (!id) return;
     delete state.friendRoomIdsByRoom[id];
     delete state.friendRoomsByRoom[id];
+    if (sanitizeRoomId(state.lastFriendRoomId) === id) state.lastFriendRoomId = "";
   }
 
   function isFriendRoom(roomId: string): boolean {
@@ -10308,6 +10356,9 @@ export function useMessenger() {
     disconnect,
     selectConversation,
     selectChannel,
+    openHome,
+    closeHome,
+    friendUnreadsTotal,
     fetchChannels,
     createChannel,
     renameChannel,

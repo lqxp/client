@@ -7,7 +7,10 @@
         "desktopDirectMessage": "Личное сообщение",
         "desktopGroupPlaceholder": "Групповая беседа",
         "inCall": "В звонке · {room} · {elapsed}",
-        "endCall": "Завершить"
+        "endCall": "Завершить",
+        "home": "Главная",
+        "homeEmptyTitle": "Нет друзей",
+        "homeEmptyHint": "Начни с чего-нибудь — добавь друга, чтобы общаться."
     },
     "titlebar": {
         "tray": "Трей",
@@ -138,7 +141,6 @@
         "leaveAllRoomsConfirm": "Покинуть все комнаты?",
         "leaveAllRoomsDeleteConfirm": "Покинуть все комнаты и удалить их локальные сообщения?",
         "statusOptions": "Статус",
-        "searchAction": "Поиск",
         "expandList": "Развернуть список",
         "collapseList": "Свернуть список"
     },

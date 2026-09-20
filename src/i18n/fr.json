@@ -5,7 +5,10 @@
         "inCall": "En appel · {room} · {elapsed}",
         "endCall": "Terminer",
         "desktopDirectMessage": "Message direct",
-        "desktopGroupPlaceholder": "Conversation de groupe"
+        "desktopGroupPlaceholder": "Conversation de groupe",
+        "home": "Accueil",
+        "homeEmptyTitle": "Aucun ami",
+        "homeEmptyHint": "Commence quelque part — ajoute un ami pour démarrer une conversation."
     },
     "titlebar": {
         "tray": "Tray",
@@ -113,7 +116,6 @@
         "leaveAllRoomsConfirm": "Quitter tous les salons ?",
         "leaveAllRoomsDeleteConfirm": "Quitter tous les salons et supprimer leurs messages locaux ?",
         "statusOptions": "Statut",
-        "searchAction": "Rechercher",
         "expandList": "Agrandir la liste",
         "collapseList": "Réduire la liste"
     },

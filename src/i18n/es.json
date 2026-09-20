@@ -5,7 +5,10 @@
         "inCall": "En llamada · {room} · {elapsed}",
         "endCall": "Terminar",
         "desktopDirectMessage": "Mensaje directo",
-        "desktopGroupPlaceholder": "Conversación de grupo"
+        "desktopGroupPlaceholder": "Conversación de grupo",
+        "home": "Inicio",
+        "homeEmptyTitle": "Sin amigos",
+        "homeEmptyHint": "Empieza en algún lugar — añade un amigo para chatear."
     },
     "titlebar": {
         "tray": "Bandeja",
@@ -113,7 +116,6 @@
         "leaveAllRoomsConfirm": "¿Salir de todas las salas?",
         "leaveAllRoomsDeleteConfirm": "¿Salir de todas las salas y borrar sus mensajes locales?",
         "statusOptions": "Estado",
-        "searchAction": "Buscar",
         "expandList": "Ampliar la lista",
         "collapseList": "Reducir la lista"
     },

@@ -42,11 +42,11 @@ export function useUpdater() {
       ("__TAURI_INTERNALS__" in window ||
         "__TAURI__" in window ||
         "__TAURI_IPC__" in window);
-        
+
     const isMobile =
       typeof navigator !== "undefined" &&
       /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      
+
     return hasTauriGlobals && !isMobile;
   });
 

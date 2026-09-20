@@ -5,7 +5,10 @@
         "inCall": "In call · {room} · {elapsed}",
         "endCall": "End",
         "desktopDirectMessage": "Direct Message",
-        "desktopGroupPlaceholder": "Group conversation"
+        "desktopGroupPlaceholder": "Group conversation",
+        "home": "Home",
+        "homeEmptyTitle": "No friends",
+        "homeEmptyHint": "Start somewhere — add a friend to begin chatting."
     },
     "titlebar": {
         "tray": "Tray",
@@ -113,7 +116,6 @@
         "leaveAllRoomsConfirm": "Leave all rooms?",
         "leaveAllRoomsDeleteConfirm": "Leave all rooms and delete their local messages?",
         "statusOptions": "Status",
-        "searchAction": "Search",
         "expandList": "Expand the list",
         "collapseList": "Collapse the list"
     },

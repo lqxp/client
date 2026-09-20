@@ -814,14 +814,71 @@ textarea {
   grid-template-columns: 76px 264px minmax(0, 1fr);
 }
 
-/* En mini, le footer vit dans la colonne du rail uniquement (jamais de
-   barre pleine largeur). Avec un panneau salons, celui-ci reprend toute
-   la hauteur pour ne pas laisser de trou. */
-.app--mini > .side__foot {
+/* En mini sans panneau, le footer vit dans la colonne du rail uniquement. */
+.app--mini:not(.app--channels) > .side__foot {
   grid-column: 1;
 }
-.app--mini.app--channels > .chanpanel {
-  grid-row: 1 / 3;
+
+/* Mini + panneau : le footer s'étend sur rail + chanpanel, layout compact
+   horizontal comme Discord en sidebar collapsed (avatar + nom + status +
+   settings). */
+.app--mini.app--channels > .side__foot {
+  grid-column: 1 / 3;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.24);
+  background: #232428;
+  min-height: 0;
+  height: auto;
+}
+.app--mini.app--channels > .side__foot .side-user {
+  flex: none;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 4px;
+  min-width: 0;
+  gap: 6px;
+}
+.app--mini.app--channels > .side__foot .side-user__avatar {
+  width: 32px;
+  height: 32px;
+}
+.app--mini.app--channels > .side__foot .side-user__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  margin-left: auto;
+  margin-right: 4px;
+  overflow: hidden;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings svg {
+  width: 18px;
+  height: 18px;
+}
+.app--mini.app--channels > .side__foot .side-foot__settings:hover {
+  color: #fff;
+  background: var(--surface-hover);
+}
+.app--mini.app--channels > .side__foot .side-status__toggle {
+  width: 32px;
+  height: 32px;
+}
+.app--mini.app--channels > .side__foot .side-status__toggle svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Mini sans panneau : le thread reprend toute la hauteur (lignes 1 / 3),
@@ -865,6 +922,22 @@ textarea {
 }
 .app--mini > .side__foot .side-foot__link {
   display: none;
+}
+/* Mode petit sans panneau : le rail 76px ne garde que l'engrenage —
+   avatar, statut, cadenas et lien sont masqués (trop serré). */
+.app--mini:not(.app--channels) > .side__foot .side-user,
+.app--mini:not(.app--channels) > .side__foot .side-status,
+.app--mini:not(.app--channels) > .side__foot .side-foot__lock,
+.app--mini:not(.app--channels) > .side__foot .side-foot__link {
+  display: none;
+}
+.app--mini:not(.app--channels) > .side__foot {
+  align-items: center;
+  padding-bottom: max(8px, var(--app-safe-bottom));
+}
+.app--mini:not(.app--channels) > .side__foot .side-foot__settings {
+  width: 44px;
+  height: 44px;
 }
 /* Les menus s'ouvrent à droite du rail plutôt que dans 76px. */
 .app--mini > .side__foot .account-menu {
@@ -913,11 +986,11 @@ textarea {
 .app.app--desktop-titlebar.is-web-titlebar > .side__foot {
   grid-row: 3;
 }
-/* Mini + panneau salons : le footer est dans le rail, le panneau reprend
-   toute la hauteur (même raison que pour le thread). */
-.app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .chanpanel,
-.app.app--desktop-titlebar.is-web-titlebar.app--mini.app--channels > .chanpanel {
-  grid-row: 2 / 4;
+/* Mini + panneau salons : le footer s'étend sur rail + chanpanel
+   (même logique que la version sans titlebar). */
+.app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .side__foot,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini.app--channels > .side__foot {
+  grid-column: 1 / 3;
 }
 
 @media (min-width: 901px) {
@@ -933,8 +1006,8 @@ textarea {
   .app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels) > .no-thread {
     grid-row: 2 / 4;
   }
-  .app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .chanpanel {
-    grid-row: 2 / 4;
+  .app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .side__foot {
+    grid-column: 1 / 3;
   }
   .app.app--desktop-titlebar.is-tauri > .side__foot {
     grid-row: 3;
