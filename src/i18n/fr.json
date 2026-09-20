@@ -167,7 +167,8 @@
         "editSubtitle": "Nom, sujet et catégorie du salon.",
         "serverMenu": "Options du serveur",
         "menuMoveUp": "Monter",
-        "menuMoveDown": "Descendre"
+        "menuMoveDown": "Descendre",
+        "toggleVoiceMembers": "Afficher les membres en vocal"
     },
     "members": {
         "presence": "Présence",

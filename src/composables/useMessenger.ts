@@ -2891,6 +2891,7 @@ export function useMessenger() {
     customTurnServers: persisted.customTurnServers,
 
     voiceMembersByRoom: {}, // { roomId: [username, ...] } — who is currently in voice
+    voiceMembersByChannel: {}, // { roomId: { channelId: [username, ...] } } — per-channel voice members
     speakingByRoom: {}, // { roomId: { username: lastChunkTimestamp } } — recent speakers
     typingByRoom: {}, // { roomId: { username: lastTypingTimestamp } }
     callAnalyser: null,
@@ -6705,6 +6706,7 @@ export function useMessenger() {
     delete state.messagesByRoom[id];
     delete state.usersByRoom[id];
     delete state.voiceMembersByRoom[id];
+    delete state.voiceMembersByChannel[id];
     delete state.callClientsByRoom[id];
     delete state.typingByRoom[id];
     delete state.unreadByRoom[id];
@@ -6991,6 +6993,7 @@ export function useMessenger() {
       state.rooms = state.rooms.filter((room) => room.roomId !== id);
       delete state.usersByRoom[id];
       delete state.voiceMembersByRoom[id];
+      delete state.voiceMembersByChannel[id];
       delete state.callClientsByRoom[id];
       delete state.typingByRoom[id];
       delete state.unreadByRoom[id];
@@ -7596,6 +7599,7 @@ export function useMessenger() {
     state.localCallMedia = media;
     callManager?.setLocalMedia(media);
     const platform = currentLocalPlatform();
+    const voiceChannelId = isVoiceChat ? (state.activeVoiceChannelByRoom?.[state.callRoom || state.activeRoom] || "") : "";
     send({
       op: 98,
       d: {
@@ -7604,6 +7608,7 @@ export function useMessenger() {
         media,
         clientId: localClientId,
         platform,
+        voiceChannelId: voiceChannelId || undefined,
       },
     });
     send({
@@ -7614,6 +7619,7 @@ export function useMessenger() {
         media,
         clientId: localClientId,
         platform,
+        voiceChannelId: voiceChannelId || undefined,
       },
     });
   }
@@ -8246,6 +8252,19 @@ export function useMessenger() {
       );
       state.voiceMembersByRoom[roomId] = members;
       delete state.callClientsByRoom[roomId]?.[me];
+      // Remove self from per-channel lists
+      if (state.voiceMembersByChannel[roomId]) {
+        for (const chId of Object.keys(state.voiceMembersByChannel[roomId])) {
+          const chMembers = (state.voiceMembersByChannel[roomId][chId] || []).filter(
+            (u) => u !== me,
+          );
+          if (chMembers.length) {
+            state.voiceMembersByChannel[roomId][chId] = chMembers;
+          } else {
+            delete state.voiceMembersByChannel[roomId][chId];
+          }
+        }
+      }
     }
   }
 
@@ -8261,6 +8280,7 @@ export function useMessenger() {
     if (!roomId || !user) return;
     const clientId = sanitizeClientId(d?.clientId || d?.fromClientId);
     const me = sanitizeUsername(state.username);
+    const voiceChannelId = sanitizeRoomId(d?.voiceChannelId) || "";
     if (d?.platform) rememberClientPlatform(user, d.platform);
     if (!state.callClientsByRoom[roomId]) state.callClientsByRoom[roomId] = {};
 
@@ -8285,6 +8305,13 @@ export function useMessenger() {
         if (!wasKnownMember) publishCallState(true);
       }
       if (hearRemote && !wasKnownMember) playJoinSound();
+      // Per-channel tracking
+      if (voiceChannelId) {
+        if (!state.voiceMembersByChannel[roomId]) state.voiceMembersByChannel[roomId] = {};
+        const chMembers = new Set(state.voiceMembersByChannel[roomId][voiceChannelId] || []);
+        chMembers.add(user);
+        state.voiceMembersByChannel[roomId][voiceChannelId] = [...chMembers];
+      }
     } else {
       const clients = new Set(state.callClientsByRoom[roomId][user] || []);
       if (clientId) clients.delete(clientId);
@@ -8304,6 +8331,18 @@ export function useMessenger() {
         if (user !== me) removeRemoteCallMedia(user);
       }
       if (hearRemote && wasKnownMember && !members.has(user)) playLeaveSound();
+      // Remove from all per-channel lists for this room
+      if (state.voiceMembersByChannel[roomId]) {
+        for (const chId of Object.keys(state.voiceMembersByChannel[roomId])) {
+          const chMembers = new Set(state.voiceMembersByChannel[roomId][chId]);
+          chMembers.delete(user);
+          if (chMembers.size) {
+            state.voiceMembersByChannel[roomId][chId] = [...chMembers];
+          } else {
+            delete state.voiceMembersByChannel[roomId][chId];
+          }
+        }
+      }
     }
     state.voiceMembersByRoom[roomId] = [...members];
 
@@ -8375,6 +8414,7 @@ export function useMessenger() {
       handleCallState(d);
       return;
     }
+    const voiceChannelId = sanitizeRoomId(d?.voiceChannelId) || "";
     const members = new Set(state.voiceMembersByRoom[roomId] || []);
     const wasKnownMember = members.has(user);
     const hearRemote =
@@ -8385,6 +8425,13 @@ export function useMessenger() {
     if (d.isVoiceChat === true) {
       members.add(user);
       if (hearRemote && !wasKnownMember) playJoinSound();
+      // Per-channel tracking
+      if (voiceChannelId) {
+        if (!state.voiceMembersByChannel[roomId]) state.voiceMembersByChannel[roomId] = {};
+        const chMembers = new Set(state.voiceMembersByChannel[roomId][voiceChannelId] || []);
+        chMembers.add(user);
+        state.voiceMembersByChannel[roomId][voiceChannelId] = [...chMembers];
+      }
     } else {
       members.delete(user);
       delete state.deafenedByUser[user];
@@ -8395,6 +8442,18 @@ export function useMessenger() {
         delete state.callClientsByRoom[roomId]?.[user];
       }
       if (hearRemote && wasKnownMember) playLeaveSound();
+      // Remove from all per-channel lists for this room
+      if (state.voiceMembersByChannel[roomId]) {
+        for (const chId of Object.keys(state.voiceMembersByChannel[roomId])) {
+          const chMembers = new Set(state.voiceMembersByChannel[roomId][chId]);
+          chMembers.delete(user);
+          if (chMembers.size) {
+            state.voiceMembersByChannel[roomId][chId] = [...chMembers];
+          } else {
+            delete state.voiceMembersByChannel[roomId][chId];
+          }
+        }
+      }
     }
     state.voiceMembersByRoom[roomId] = [...members];
   }
@@ -9038,6 +9097,7 @@ export function useMessenger() {
         state.pendingJoinRooms = [];
         state.usersByRoom = {};
         state.voiceMembersByRoom = {};
+        state.voiceMembersByChannel = {};
         state.callClientsByRoom = {};
         state.deafenedByUser = {};
         state.typingByRoom = {};
@@ -9309,6 +9369,7 @@ export function useMessenger() {
     state.lastError = "";
     state.sessionExpired = false;
     state.voiceMembersByRoom = {};
+    state.voiceMembersByChannel = {};
     state.callClientsByRoom = {};
     state.deafenedByUser = {};
     state.clientPlatformsByUser = {};
@@ -9381,6 +9442,7 @@ export function useMessenger() {
       ) {
         delete state.usersByRoom[roomId];
         delete state.voiceMembersByRoom[roomId];
+        delete state.voiceMembersByChannel[roomId];
         delete state.callClientsByRoom[roomId];
         delete state.typingByRoom[roomId];
       }
@@ -9512,6 +9574,7 @@ export function useMessenger() {
     if (!roomId || !Array.isArray(callPlayers)) return;
     const members = new Set<string>();
     state.callClientsByRoom[roomId] = {};
+    const channelMembers = {};
     for (const player of callPlayers) {
       const user = sanitizeUsername(player?.user || player?.username || player);
       if (!user) continue;
@@ -9524,8 +9587,18 @@ export function useMessenger() {
       }
       if (player?.platform) rememberClientPlatform(user, player.platform);
       updateRemoteMedia(user, player?.media);
+      // Per-channel tracking
+      const vcId = sanitizeRoomId(player?.voiceChannelId) || "";
+      if (vcId) {
+        if (!channelMembers[vcId]) channelMembers[vcId] = new Set();
+        channelMembers[vcId].add(user);
+      }
     }
     state.voiceMembersByRoom[roomId] = [...members];
+    state.voiceMembersByChannel[roomId] = {};
+    for (const [chId, chSet] of Object.entries(channelMembers)) {
+      state.voiceMembersByChannel[roomId][chId] = [...(chSet as Set<string>)];
+    }
   }
 
   function applyRoomSnapshot(
@@ -9652,6 +9725,19 @@ export function useMessenger() {
       state.voiceMembersByRoom[id] = (
         state.voiceMembersByRoom[id] || []
       ).filter((member) => member !== user);
+      // Remove from per-channel lists
+      if (state.voiceMembersByChannel[id]) {
+        for (const chId of Object.keys(state.voiceMembersByChannel[id])) {
+          const chMembers = (state.voiceMembersByChannel[id][chId] || []).filter(
+            (m) => m !== user,
+          );
+          if (chMembers.length) {
+            state.voiceMembersByChannel[id][chId] = chMembers;
+          } else {
+            delete state.voiceMembersByChannel[id][chId];
+          }
+        }
+      }
     }
     if (removeCalls) {
       delete state.callClientsByRoom[id]?.[user];
@@ -9718,6 +9804,7 @@ export function useMessenger() {
       state.rooms = state.rooms.filter((room) => room.roomId !== roomId);
       delete state.usersByRoom[roomId];
       delete state.voiceMembersByRoom[roomId];
+      delete state.voiceMembersByChannel[roomId];
       delete state.callClientsByRoom[roomId];
       delete state.typingByRoom[roomId];
       delete state.unreadByRoom[roomId];

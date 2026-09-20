@@ -167,7 +167,8 @@
         "editSubtitle": "Channel name, topic and category.",
         "serverMenu": "Server options",
         "menuMoveUp": "Move up",
-        "menuMoveDown": "Move down"
+        "menuMoveDown": "Move down",
+        "toggleVoiceMembers": "Toggle voice members"
     },
     "members": {
         "presence": "Presence",

@@ -192,7 +192,8 @@
         "editSubtitle": "Название, тема и категория канала.",
         "serverMenu": "Настройки сервера",
         "menuMoveUp": "Выше",
-        "menuMoveDown": "Ниже"
+        "menuMoveDown": "Ниже",
+        "toggleVoiceMembers": "Показать участников голосового канала"
     },
     "members": {
         "presence": "Присутствие",

@@ -167,7 +167,8 @@
         "editSubtitle": "Nombre, tema y categoría del canal.",
         "serverMenu": "Opciones del servidor",
         "menuMoveUp": "Subir",
-        "menuMoveDown": "Bajar"
+        "menuMoveDown": "Bajar",
+        "toggleVoiceMembers": "Mostrar miembros en voz"
     },
     "members": {
         "presence": "Presencia",

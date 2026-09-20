@@ -33,6 +33,26 @@ const liveVoiceChannelId = computed(() => {
   return String(props.messenger.activeVoiceChannel?.(roomId.value)?.id || "");
 });
 
+// Voice members per channel: { channelId: [username, ...] }
+const voiceMembersByChannel = computed(() => {
+  return props.messenger.state.voiceMembersByChannel?.[roomId.value] || {};
+});
+
+// Expand state for voice channels
+const voiceExpanded = ref<Record<string, boolean>>({});
+
+function toggleVoiceExpand(channelId: string) {
+  voiceExpanded.value[channelId] = !voiceExpanded.value[channelId];
+}
+
+function voiceMembers(channelId: string): string[] {
+  return voiceMembersByChannel.value[channelId] || [];
+}
+
+function isVoiceExpanded(channelId: string): boolean {
+  return !!voiceExpanded.value[channelId];
+}
+
 const grouped = computed(() => {
   const cats = categories.value;
   const chans = channels.value;
@@ -78,6 +98,23 @@ function canSpeak(channelId) {
 function openChannel(channelId) {
   props.messenger.selectChannel?.(roomId.value, channelId);
   emit("channel-selected", channelId);
+}
+
+function displayUsername(username: string): string {
+  return props.messenger.profilesByUser?.[username]?.displayName
+    || props.messenger.profilesByUser?.[username]?.username
+    || username;
+}
+
+function initialsFor(username: string): string {
+  const name = displayUsername(username);
+  const parts = name.split(/[\s\-_]+/).slice(0, 2);
+  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase() || "?";
+}
+
+function accentForUser(username: string): string {
+  return props.messenger.activeConversation?.value?.accent || "slate";
 }
 
 // Drag & drop desktop uniquement (souris) : attraper un salon pour le
@@ -364,7 +401,8 @@ onBeforeUnmount(() => {
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
           </button>
         </div>
-        <button v-for="ch in group.channels" :key="ch.id"
+        <template v-for="ch in group.channels" :key="ch.id">
+        <button
           class="chanpanel__row"
           :class="{
             'is-active': ch.id === activeChannelId && ch.kind !== 'voice',
@@ -392,6 +430,15 @@ onBeforeUnmount(() => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg>
           </span>
           <span class="chanpanel__name" :title="ch.topic || ch.name">{{ ch.name }}</span>
+          <template v-if="ch.kind === 'voice'">
+            <span v-if="voiceMembers(ch.id).length" class="chanpanel__voice-count">{{ voiceMembers(ch.id).length }}</span>
+            <button v-if="voiceMembers(ch.id).length" type="button" class="chanpanel__voice-toggle"
+              :class="{ 'is-expanded': isVoiceExpanded(ch.id) }"
+              :aria-label="t('channels.toggleVoiceMembers')"
+              @click.stop="toggleVoiceExpand(ch.id)">
+              <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </template>
           <span v-if="isLiveVoice(ch.id)" class="chanpanel__live">{{ t("channels.live") }}</span>
           <span v-else-if="channelUnread(ch.id) > 0" class="chanpanel__badge">
             {{ channelUnread(ch.id) > 99 ? "99+" : channelUnread(ch.id) }}
@@ -400,6 +447,18 @@ onBeforeUnmount(() => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
           </span>
         </button>
+        <!-- Voice member sub-rows -->
+        <div v-if="ch.kind === 'voice' && voiceMembers(ch.id).length && isVoiceExpanded(ch.id)">
+          <div v-for="member in voiceMembers(ch.id)" :key="member"
+            class="chanpanel__voice-member"
+            @click="openChannel(ch.id)">
+            <span class="chanpanel__voice-avatar" :class="`avatar--${accentForUser(member)}`">
+              {{ initialsFor(member) }}
+            </span>
+            <span class="chanpanel__voice-name">{{ displayUsername(member) }}</span>
+          </div>
+        </div>
+        </template>
       </div>
     </div>
 
@@ -623,6 +682,81 @@ onBeforeUnmount(() => {
 .chanpanel__lock svg {
   width: 13px;
   height: 13px;
+}
+
+/* Voice channel member sub-rows (Discord-style) */
+.chanpanel__voice-count {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.chanpanel__voice-toggle {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+}
+.chanpanel__voice-toggle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.chanpanel__voice-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+.chanpanel__voice-toggle.is-expanded {
+  transform: rotate(90deg);
+}
+
+.chanpanel__voice-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px 4px 38px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.chanpanel__voice-member:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+}
+.chanpanel__voice-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--text);
+}
+.chanpanel__voice-avatar.avatar--emerald { background: color-mix(in srgb, #22c55e 25%, transparent); color: #22c55e; }
+.chanpanel__voice-avatar.avatar--rose { background: color-mix(in srgb, #f43f5e 25%, transparent); color: #f43f5e; }
+.chanpanel__voice-avatar.avatar--amber { background: color-mix(in srgb, #f59e0b 25%, transparent); color: #f59e0b; }
+.chanpanel__voice-avatar.avatar--sky { background: color-mix(in srgb, #0ea5e9 25%, transparent); color: #0ea5e9; }
+.chanpanel__voice-avatar.avatar--violet { background: color-mix(in srgb, #8b5cf6 25%, transparent); color: #8b5cf6; }
+.chanpanel__voice-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 760px) {
