@@ -38,11 +38,12 @@ const voiceMembersByChannel = computed(() => {
   return props.messenger.state.voiceMembersByChannel?.[roomId.value] || {};
 });
 
-// Expand state for voice channels
+// Expand state for voice channels (override utilisateur ; défaut = déplié
+// quand du monde est présent, façon Discord).
 const voiceExpanded = ref<Record<string, boolean>>({});
 
 function toggleVoiceExpand(channelId: string) {
-  voiceExpanded.value[channelId] = !voiceExpanded.value[channelId];
+  voiceExpanded.value[channelId] = !isVoiceExpanded(channelId);
 }
 
 function voiceMembers(channelId: string): string[] {
@@ -50,7 +51,9 @@ function voiceMembers(channelId: string): string[] {
 }
 
 function isVoiceExpanded(channelId: string): boolean {
-  return !!voiceExpanded.value[channelId];
+  const explicit = voiceExpanded.value[channelId];
+  if (explicit !== undefined) return explicit;
+  return voiceMembers(channelId).length > 0;
 }
 
 const grouped = computed(() => {
@@ -78,6 +81,37 @@ function isLiveVoice(channelId) {
   return !!channelId && channelId === liveVoiceChannelId.value;
 }
 
+// Membres visibles sous un salon vocal (sans ouvrir le panneau membres).
+// (Implémentation unique : avatar image + mute + accent par utilisateur.)
+function voiceAvatarSrc(username: string) {
+  return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
+}
+
+function voiceMuted(username: string) {
+  const me = String(props.messenger.state.username || "");
+  const media = username && username === me
+    ? props.messenger.state.localCallMedia
+    : props.messenger.state.remoteCallMediaByUser?.[username];
+  return !!media && media.audio === false;
+}
+
+function displayUsername(username: string): string {
+  return props.messenger.state.profilesByUser?.[username]?.displayName
+    || props.messenger.state.profilesByUser?.[username]?.username
+    || username;
+}
+
+function initialsFor(username: string): string {
+  const name = displayUsername(username);
+  const parts = name.split(/[\s\-_]+/).slice(0, 2);
+  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase() || "?";
+}
+
+function accentForUser(username: string): string {
+  return props.messenger.accentFor?.(username) || "slate";
+}
+
 function openCreate(presetCategoryId = "") {
   createPresetCategory.value = presetCategoryId;
   editChannel.value = null;
@@ -98,23 +132,6 @@ function canSpeak(channelId) {
 function openChannel(channelId) {
   props.messenger.selectChannel?.(roomId.value, channelId);
   emit("channel-selected", channelId);
-}
-
-function displayUsername(username: string): string {
-  return props.messenger.profilesByUser?.[username]?.displayName
-    || props.messenger.profilesByUser?.[username]?.username
-    || username;
-}
-
-function initialsFor(username: string): string {
-  const name = displayUsername(username);
-  const parts = name.split(/[\s\-_]+/).slice(0, 2);
-  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase() || "?";
-}
-
-function accentForUser(username: string): string {
-  return props.messenger.activeConversation?.value?.accent || "slate";
 }
 
 // Drag & drop desktop uniquement (souris) : attraper un salon pour le
@@ -430,14 +447,17 @@ onBeforeUnmount(() => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg>
           </span>
           <span class="chanpanel__name" :title="ch.topic || ch.name">{{ ch.name }}</span>
-          <template v-if="ch.kind === 'voice'">
-            <span v-if="voiceMembers(ch.id).length" class="chanpanel__voice-count">{{ voiceMembers(ch.id).length }}</span>
-            <button v-if="voiceMembers(ch.id).length" type="button" class="chanpanel__voice-toggle"
+          <template v-if="ch.kind === 'voice' && voiceMembers(ch.id).length">
+            <span class="chanpanel__voice-count">{{ voiceMembers(ch.id).length }}</span>
+            <span role="button" tabindex="0" class="chanpanel__voice-toggle"
               :class="{ 'is-expanded': isVoiceExpanded(ch.id) }"
               :aria-label="t('channels.toggleVoiceMembers')"
-              @click.stop="toggleVoiceExpand(ch.id)">
+              :aria-expanded="isVoiceExpanded(ch.id)"
+              @click.stop="toggleVoiceExpand(ch.id)"
+              @keydown.enter.stop.prevent="toggleVoiceExpand(ch.id)"
+              @keydown.space.stop.prevent="toggleVoiceExpand(ch.id)">
               <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></svg>
-            </button>
+            </span>
           </template>
           <span v-if="isLiveVoice(ch.id)" class="chanpanel__live">{{ t("channels.live") }}</span>
           <span v-else-if="channelUnread(ch.id) > 0" class="chanpanel__badge">
@@ -448,14 +468,21 @@ onBeforeUnmount(() => {
           </span>
         </button>
         <!-- Voice member sub-rows -->
-        <div v-if="ch.kind === 'voice' && voiceMembers(ch.id).length && isVoiceExpanded(ch.id)">
+        <div v-if="ch.kind === 'voice' && voiceMembers(ch.id).length && isVoiceExpanded(ch.id)" class="chanpanel__voice-users">
           <div v-for="member in voiceMembers(ch.id)" :key="member"
             class="chanpanel__voice-member"
+            :title="member"
             @click="openChannel(ch.id)">
-            <span class="chanpanel__voice-avatar" :class="`avatar--${accentForUser(member)}`">
+            <span v-if="voiceAvatarSrc(member)" class="chanpanel__voice-avatar chanpanel__voice-avatar--image">
+              <img :src="voiceAvatarSrc(member)" alt="" />
+            </span>
+            <span v-else class="chanpanel__voice-avatar" :class="`avatar--${accentForUser(member)}`">
               {{ initialsFor(member) }}
             </span>
             <span class="chanpanel__voice-name">{{ displayUsername(member) }}</span>
+            <span v-if="voiceMuted(member)" class="chanpanel__voice-muted" :title="t('members.muted')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
+            </span>
           </div>
         </div>
         </template>
@@ -707,9 +734,11 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   transition: transform 0.15s ease;
 }
-.chanpanel__voice-toggle:hover {
+.chanpanel__voice-toggle:hover,
+.chanpanel__voice-toggle:focus-visible {
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
 }
 .chanpanel__voice-toggle svg {
   width: 14px;
@@ -752,6 +781,29 @@ onBeforeUnmount(() => {
 .chanpanel__voice-avatar.avatar--amber { background: color-mix(in srgb, #f59e0b 25%, transparent); color: #f59e0b; }
 .chanpanel__voice-avatar.avatar--sky { background: color-mix(in srgb, #0ea5e9 25%, transparent); color: #0ea5e9; }
 .chanpanel__voice-avatar.avatar--violet { background: color-mix(in srgb, #8b5cf6 25%, transparent); color: #8b5cf6; }
+.chanpanel__voice-avatar--image {
+  overflow: hidden;
+  background: transparent;
+}
+.chanpanel__voice-avatar--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.chanpanel__voice-muted {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--red);
+}
+.chanpanel__voice-muted svg {
+  width: 14px;
+  height: 14px;
+}
 .chanpanel__voice-name {
   flex: 1;
   overflow: hidden;

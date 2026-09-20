@@ -5179,6 +5179,15 @@ export function useMessenger() {
     return (cid && channelById(id, cid)) || null;
   }
 
+  // Membres en vocal dans un salon précis (suivi via voiceChannelId des ops
+  // 98/110). Vide = personne ou serveur qui ne relaie pas le channel.
+  function voiceMembersInChannel(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    if (!id || !cid) return [];
+    return [...(state.voiceMembersByChannel?.[id]?.[cid] || [])];
+  }
+
   function roomMeta(roomId) {
     const id = sanitizeRoomId(roomId);
     return id
@@ -10373,6 +10382,7 @@ export function useMessenger() {
     reorderChannels,
     joinVoiceChannel,
     activeVoiceChannel,
+    voiceMembersInChannel,
     serverChannels,
     serverCategories,
     hasServerChannels,
