@@ -9,6 +9,7 @@ import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
 import { onTorStatus, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime } from "@/calls/tor";
 import MessengerSidebar from "@/components/MessengerSidebar.vue";
+import ServerChannelPanel from "@/components/ServerChannelPanel.vue";
 import MemberSidebar from "@/components/MemberSidebar.vue";
 import ThreadHeader from "@/components/ThreadHeader.vue";
 import MessageList from "@/components/MessageList.vue";
@@ -63,6 +64,10 @@ const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 type TitlebarAction = typeof TITLEBAR_ACTIONS[number];
 
 const mobileThreadOpen = ref(false);
+const mobileChannelsOpen = ref(false);
+// Sens de navigation mobile (liste ↔ salons ↔ conversation) pour orienter
+// l'animation de slide : 'forward' en descendant, 'back' en remontant.
+const mobileNavDir = ref<"forward" | "back">("forward");
 const showMobileMembers = ref(false);
 const spotlightOpen = ref(false);
 const spotlightProfile = ref("");
@@ -171,6 +176,13 @@ const isMobile = computed(() =>
 
 // Drag & drop files over the open conversation.
 const composerBarRef = ref<{ addFiles: (files: File[]) => void } | null>(null);
+const sidebarRef = ref<{ openRoomContextAt: (x: number, y: number, roomId: string) => void } | null>(null);
+
+function openServerMenu(pos: { x: number; y: number }) {
+  const id = String(messenger.state.activeRoom || "");
+  if (!id) return;
+  sidebarRef.value?.openRoomContextAt(Number(pos?.x) || 0, Number(pos?.y) || 0, id);
+}
 const fileDragDepth = ref(0);
 const isFileDrag = computed(() => fileDragDepth.value > 0);
 
@@ -225,9 +237,10 @@ function onThreadTouchEnd(event: TouchEvent) {
   else if (dx > 60 && showMobileMembers.value) {
     showMobileMembers.value = false;
   }
-  // Swipe right from thread → back to conversation list
+  // Swipe right from thread → back to channels (community rooms) or list
   else if (dx > 60) {
-    showConversationList();
+    if (showChannelPanel.value) showChannelView();
+    else showConversationList();
   }
 }
 
@@ -331,7 +344,20 @@ onBeforeUnmount(() => unsubTorSync?.());
 watch(
   () => messenger.state.activeRoom,
   (room) => {
-    mobileThreadOpen.value = !!room;
+    const id = String(room || "");
+    if (
+      isMobile.value && id
+      && messenger.isCommunityRoom?.(id) === true
+      && messenger.hasServerChannels?.(id) === true
+    ) {
+      mobileNavDir.value = "forward";
+      mobileChannelsOpen.value = true;
+      mobileThreadOpen.value = false;
+    } else {
+      mobileNavDir.value = id ? "forward" : "back";
+      mobileThreadOpen.value = !!room;
+      if (!room) mobileChannelsOpen.value = false;
+    }
   },
   { immediate: true },
 );
@@ -535,12 +561,51 @@ onBeforeUnmount(() => {
 });
 
 function showConversationList() {
+  mobileNavDir.value = "back";
+  mobileThreadOpen.value = false;
+  mobileChannelsOpen.value = false;
+}
+
+// Vue salons (rooms communautaires) : niveau intermédiaire entre la liste
+// et la conversation — cible du swipe droit depuis le thread.
+function showChannelView() {
+  if (!showChannelPanel.value) {
+    showConversationList();
+    return;
+  }
+  mobileNavDir.value = "back";
+  mobileChannelsOpen.value = true;
   mobileThreadOpen.value = false;
 }
 
-function showConversationThread() {
+function showConversationThread(roomId?: string) {
+  const id = String(roomId || messenger.state.activeRoom || "");
+  if (
+    isMobile.value && id
+    && messenger.isCommunityRoom?.(id) === true
+    && messenger.hasServerChannels?.(id) === true
+  ) {
+    mobileNavDir.value = "forward";
+    mobileChannelsOpen.value = true;
+    mobileThreadOpen.value = false;
+    return;
+  }
+  mobileNavDir.value = "forward";
   mobileThreadOpen.value = true;
 }
+
+function showChannelThread() {
+  mobileNavDir.value = "forward";
+  mobileChannelsOpen.value = false;
+  mobileThreadOpen.value = true;
+}
+
+const showChannelPanel = computed(() => {
+  const id = String(messenger.state.activeRoom || "");
+  return !!id
+    && messenger.isCommunityRoom?.(id) === true
+    && messenger.hasServerChannels?.(id) === true;
+});
 
 function goToCallRoom() {
   if (callRoom.value && callRoom.value !== messenger.state.activeRoom) {
@@ -701,7 +766,7 @@ async function lockClientNow() {
   </div>
 
   <div v-else class="app"
-    :class="{ 'app--desktop-titlebar': showDesktopTitlebar, 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
+    :class="{ 'app--desktop-titlebar': showDesktopTitlebar, 'is-thread': hasActive && mobileThreadOpen, 'is-channels': showChannelPanel && mobileChannelsOpen, 'is-nav-back': mobileNavDir === 'back', 'app--channels': showChannelPanel, 'app--mini': !!messenger.state.sideMini && !isMobile, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
     <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
@@ -861,7 +926,9 @@ async function lockClientNow() {
       </div>
     </header>
 
-    <MessengerSidebar :messenger="messenger" @conversation-selected="showConversationThread" @open-spotlight="spotlightOpen = !isMobile && messenger.state.spotlightSearchEnabled" />
+    <MessengerSidebar ref="sidebarRef" :messenger="messenger" @conversation-selected="showConversationThread" @open-spotlight="spotlightOpen = !isMobile && messenger.state.spotlightSearchEnabled" />
+
+    <ServerChannelPanel v-if="showChannelPanel" :messenger="messenger" @channel-selected="showChannelThread" @back="showConversationList" @open-room-menu="openServerMenu" />
 
     <Teleport to="body">
       <Transition name="toast">
@@ -897,7 +964,7 @@ async function lockClientNow() {
       @dragleave="onThreadDragLeave" @drop="onThreadDrop">
       <div class="thread__shell">
         <section class="thread__main">
-          <ThreadHeader :messenger="messenger" @back="showConversationList" />
+          <ThreadHeader :messenger="messenger" @back="showChannelView" />
           <template v-if="activeRoomBanned">
             <RoomBanOverlay :channel="activeRoomBannedLabel" />
           </template>
@@ -1012,7 +1079,7 @@ async function lockClientNow() {
 .app.app--lock-titlebar.is-web-titlebar,
 .app.app--onboarding-titlebar.is-tauri,
 .app.app--onboarding-titlebar.is-web-titlebar {
-  grid-template-rows: 30px minmax(0, 1fr);
+  grid-template-rows: 30px minmax(0, 1fr) auto;
   align-content: stretch;
 }
 
@@ -1031,6 +1098,8 @@ async function lockClientNow() {
 
 .app.app--desktop-titlebar.is-tauri>.side,
 .app.app--desktop-titlebar.is-web-titlebar>.side,
+.app.app--desktop-titlebar.is-tauri>.chanpanel,
+.app.app--desktop-titlebar.is-web-titlebar>.chanpanel,
 .app.app--desktop-titlebar.is-tauri>.thread,
 .app.app--desktop-titlebar.is-web-titlebar>.thread,
 .app.app--desktop-titlebar.is-tauri>.no-thread,
@@ -1040,6 +1109,24 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri>.onboarding,
 .app.app--onboarding-titlebar.is-web-titlebar>.onboarding {
   grid-row: 2;
+}
+
+/* NOTE : le placement de .side__foot vit dans styles.css (global) car le
+   footer est rendu par MessengerSidebar — un sélecteur scopé ici ne le
+   matcherait jamais. Voir .app...>.side__foot dans styles.css. */
+.app.app--desktop-titlebar.is-tauri>.thread,
+.app.app--desktop-titlebar.is-web-titlebar>.thread,
+.app.app--desktop-titlebar.is-tauri>.no-thread,
+.app.app--desktop-titlebar.is-web-titlebar>.no-thread {
+  grid-row: 2 / 4;
+}
+/* Mini sans panneau : le footer vit dans la colonne du rail, le thread
+   reprend toute la hauteur. */
+.app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels)>.thread,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini:not(.app--channels)>.thread,
+.app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels)>.no-thread,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini:not(.app--channels)>.no-thread {
+  grid-row: 2 / 4;
 }
 
 .app.app--auth>.lock-screen,
@@ -1401,7 +1488,7 @@ async function lockClientNow() {
 
 @media (min-width: 901px) {
   .app.app--desktop-titlebar.is-tauri {
-    grid-template-rows: 30px minmax(0, 1fr);
+    grid-template-rows: 30px minmax(0, 1fr) auto;
     align-content: stretch;
   }
 
@@ -1429,9 +1516,22 @@ async function lockClientNow() {
   }
 
   .app.app--desktop-titlebar.is-tauri>.side,
+  .app.app--desktop-titlebar.is-tauri>.chanpanel,
   .app.app--desktop-titlebar.is-tauri>.thread,
   .app.app--desktop-titlebar.is-tauri>.no-thread {
     grid-row: 2;
+  }
+
+  /* NOTE : .side__foot est placé via styles.css (global), voir plus haut. */
+  .app.app--desktop-titlebar.is-tauri>.thread,
+  .app.app--desktop-titlebar.is-tauri>.no-thread {
+    grid-row: 2 / 4;
+  }
+  /* Mini sans panneau : le footer vit dans la colonne du rail, le thread
+     reprend toute la hauteur. */
+  .app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels)>.thread,
+  .app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels)>.no-thread {
+    grid-row: 2 / 4;
   }
 
   .app.app--desktop-titlebar.is-tauri .desktop-titlebar,

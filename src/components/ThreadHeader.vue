@@ -22,6 +22,8 @@ const name = computed(() => {
   if (isFriendRoom.value) {
     return props.messenger.friendNameForRoom?.(props.messenger.state.activeRoom) || props.messenger.displayRoomNameBeautified(props.messenger.state.activeRoom);
   }
+  const ch = props.messenger.activeChannel?.value;
+  if (ch && isCommunity.value) return `# ${ch.name}`;
   return props.messenger.displayRoomNameBeautified(props.messenger.state.activeRoom);
 });
 const accent = computed(() => props.messenger.activeConversation.value?.accent || "slate");
@@ -53,7 +55,13 @@ const securityLabel = computed(() => roomHasKey.value ? t("thread.e2eeReady") : 
 const callsAvailable = computed(() => props.messenger.callsAvailable.value);
 const callsUnavailableReason = computed(() => props.messenger.callsUnavailableReason.value);
 const callsDisabledByTor = computed(() => Boolean(props.messenger.callsDisabledByTor?.value));
-const description = computed(() => props.messenger.roomDescription?.(props.messenger.state.activeRoom) || "");
+const description = computed(() => {
+  const id = String(props.messenger.state.activeRoom || "");
+  const ch = props.messenger.activeChannel?.value;
+  if (ch?.topic) return `#${ch.name} · ${ch.topic}`;
+  if (ch) return `#${ch.name}`;
+  return props.messenger.roomDescription?.(id) || "";
+});
 const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.messenger.state.activeRoom) === true);
 const roomCallsAllowed = computed(() => props.messenger.canCallInRoom?.(props.messenger.state.activeRoom) !== false);
 const callsTooltip = computed(() => {

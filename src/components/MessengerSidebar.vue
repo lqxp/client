@@ -6,6 +6,7 @@ import CreateRoomModal from "@/components/CreateRoomModal.vue";
 import AddServerModal from "@/components/AddServerModal.vue";
 import JoinRoomModal from "@/components/JoinRoomModal.vue";
 import RoomSettingsModal from "@/components/RoomSettingsModal.vue";
+import AddFriendModal from "@/components/AddFriendModal.vue";
 import PhantomFriendsPanel from "@/components/PhantomFriendsPanel.vue";
 import { currentWindowZoom } from "@/utils/windowZoom";
 
@@ -35,6 +36,7 @@ const addServerOpen = ref(false);
 const joinRoomOpen = ref(false);
 const roomSettingsOpen = ref(false);
 const roomSettingsRoomId = ref("");
+const addFriendOpen = ref(false);
 
 let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
@@ -132,6 +134,18 @@ const regularConversations = computed(() =>
 );
 const pinnedCollapsed = computed(() => props.messenger.state.pinnedCollapsed === true);
 const channelsCollapsed = computed(() => props.messenger.state.channelsCollapsed === true);
+// Mode miniature choisi par l'utilisateur (pas lié au mode communautaire).
+const miniMode = computed(() =>
+  props.messenger.state.sideMini === true && !isMobile.value,
+);
+
+function toggleSideMini() {
+  props.messenger.setSideMini?.(!(props.messenger.state.sideMini === true));
+}
+// Demandes d'ami entrantes : bulle de notification sur le bouton du rail.
+const pendingFriendCount = computed(
+  () => (phantom?.state?.pendingIncoming || []).length,
+);
 function togglePinnedCollapsed() {
   props.messenger.setPinnedCollapsed(!pinnedCollapsed.value);
 }
@@ -260,10 +274,20 @@ function positionSideListContext(clientX: number, clientY: number) {
 function onRoomContext(event, roomId) {
   event.preventDefault();
   event.stopPropagation();
-  roomContextRoomId.value = roomId;
-  roomContextOpen.value = true;
-  positionRoomContext(event.clientX, event.clientY);
+  openRoomContextAt(event.clientX, event.clientY, roomId);
 }
+
+// Ouvre le menu contextuel d'un serveur depuis un clic (ex : l'en-tête du
+// panneau salons) — même menu que le clic droit sur l'icône du rail.
+function openRoomContextAt(clientX: number, clientY: number, roomId: string) {
+  const id = String(roomId || "");
+  if (!id) return;
+  roomContextRoomId.value = id;
+  roomContextOpen.value = true;
+  positionRoomContext(clientX, clientY);
+}
+
+defineExpose({ openRoomContextAt });
 
 function onSideListContext(event) {
   event.preventDefault();
@@ -397,7 +421,46 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="side" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
+  <aside class="side" :class="{ 'side--mini': miniMode }" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
+    <!-- Rail miniature : petites icônes quand un serveur est ouvert -->
+    <div v-if="miniMode" class="side__mini" role="navigation" aria-label="Serveurs">
+      <div class="side__mini-list">
+        <button class="side__mini-btn side__mini-btn--search" type="button" :title="t('sidebar.searchAction')"
+          :aria-label="t('sidebar.searchAction')" @click="emit('open-spotlight')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        </button>
+        <button v-for="c in conversations" :key="c.roomId" class="side__mini-btn"
+          :class="{ 'is-active': c.active }" type="button"
+          :title="messenger.displayRoomNameBeautified(c.roomId)"
+          :aria-label="messenger.displayRoomNameBeautified(c.roomId)"
+          @click="openConversation(c.roomId)"
+          @keydown.enter.prevent="openConversation(c.roomId)"
+          @contextmenu="onRoomContext($event, c.roomId)">
+          <span class="avatar side__mini-icon"
+            :class="roomIconIsImage(c.roomId) ? 'side__mini-icon--image' : `avatar--${c.accent}`">
+            <img v-if="roomIconIsImage(c.roomId)" :src="roomIcon(c.roomId)" alt="" />
+            <template v-else>{{ initialsOf(c.name) }}</template>
+          </span>
+          <span v-if="c.unread > 0" class="side__mini-badge">{{ c.unread > 99 ? "99+" : c.unread }}</span>
+        </button>
+      </div>
+      <div class="side__mini-foot">
+        <button class="side__mini-btn side__mini-btn--expand" type="button" :title="t('sidebar.expandList')"
+          :aria-label="t('sidebar.expandList')" @click="toggleSideMini">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 17 5-5-5-5" /><path d="m6 17 5-5-5-5" /></svg>
+        </button>
+        <button class="side__mini-btn side__mini-btn--friend" type="button" :title="t('profile.addFriend')"
+          :aria-label="t('profile.addFriend')" @click="addFriendOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M16 11h6" /></svg>
+          <span v-if="pendingFriendCount > 0" class="side__mini-badge">{{ pendingFriendCount > 99 ? "99+" : pendingFriendCount }}</span>
+        </button>
+        <button class="side__mini-btn side__mini-btn--add" type="button" :title="t('sidebar.addServer')"
+          :aria-label="t('sidebar.addServer')" @click="addServerOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+      </div>
+    </div>
+    <template v-if="!miniMode">
     <div class="side__search">
       <label class="search">
         <svg viewBox="0 0 24 24">
@@ -411,6 +474,9 @@ onBeforeUnmount(() => {
         <svg viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14" />
         </svg>
+      </button>
+      <button class="icon-btn" type="button" :title="t('sidebar.collapseList')" :aria-label="t('sidebar.collapseList')" @click="toggleSideMini">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5" /><path d="m18 17-5-5 5-5" /></svg>
       </button>
     </div>
 
@@ -492,6 +558,7 @@ onBeforeUnmount(() => {
       </div>
       <PhantomFriendsPanel :messenger="messenger" :phantom="phantom" />
     </div>
+    </template>
 
     <Teleport to="body">
       <div v-if="roomContextOpen" class="room-context-backdrop" @click="closeRoomContext">
@@ -575,8 +642,10 @@ onBeforeUnmount(() => {
     <AddServerModal :open="addServerOpen" @close="addServerOpen = false" @create="createRoomFromAddServer" @join="joinRoomFromAddServer" />
     <JoinRoomModal :messenger="messenger" :open="joinRoomOpen" @close="joinRoomOpen = false" />
     <RoomSettingsModal :messenger="messenger" :open="roomSettingsOpen" :room-id="roomSettingsRoomId" @close="roomSettingsOpen = false" />
+    <AddFriendModal :messenger="messenger" :phantom="phantom" :open="addFriendOpen" @close="addFriendOpen = false" />
+  </aside>
 
-    <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
+  <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
       <button class="side-user" type="button" :title="messenger.state.username"
         :aria-expanded="accountMenuOpen" @click="toggleAccountMenu">
         <span v-if="meAvatar" class="side-user__avatar">
@@ -680,8 +749,7 @@ onBeforeUnmount(() => {
 
       <button v-if="!messenger.state.connected" class="btn--ghost side-foot__link" type="button"
         @click="messenger.connect">{{ t('sidebar.connect') }}</button>
-    </div>
-  </aside>
+  </div>
 </template>
 
 <style scoped>
@@ -756,6 +824,143 @@ onBeforeUnmount(() => {
 }
 .side__section-chevron.is-collapsed {
   transform: rotate(-90deg);
+}
+
+/* ── Mode miniature : rail de petites icônes quand un serveur est ouvert ── */
+.side--mini {
+  align-items: stretch;
+}
+.side__mini {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 0 8px;
+}
+.side__mini-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  scrollbar-width: none;
+}
+.side__mini-list::-webkit-scrollbar {
+  display: none;
+}
+.side__mini-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+.side__mini-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: currentColor;
+  opacity: 0;
+  transform: translateY(-50%) scaleY(0.4);
+  transition: opacity 140ms ease, transform 140ms ease, height 140ms ease;
+}
+.side__mini-btn:hover::before {
+  opacity: 0.6;
+  height: 20px;
+  transform: translateY(-50%) scaleY(1);
+}
+.side__mini-btn.is-active::before {
+  opacity: 1;
+  height: 36px;
+  transform: translateY(-50%) scaleY(1);
+  color: var(--text);
+}
+.side__mini-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 17px;
+  overflow: hidden;
+  transition: border-radius 140ms ease;
+  border-radius: 50%;
+}
+.side__mini-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.side__mini-icon--image {
+  background: transparent;
+}
+.side__mini-btn:hover .side__mini-icon,
+.side__mini-btn.is-active .side__mini-icon {
+  border-radius: 16px;
+}
+.side__mini-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f04747;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid var(--surface);
+}
+.side__mini-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+.side__mini-btn--add svg,
+.side__mini-btn--expand svg,
+.side__mini-btn--friend svg,
+.side__mini-btn--search svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.side__mini-btn--add,
+.side__mini-btn--expand,
+.side__mini-btn--friend,
+.side__mini-btn--search {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.side__mini-btn--add:hover,
+.side__mini-btn--expand:hover,
+.side__mini-btn--friend:hover,
+.side__mini-btn--search:hover {
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--text);
 }
 
 .side-user {

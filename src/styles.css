@@ -762,10 +762,183 @@ textarea {
   position: relative;
   display: grid;
   grid-template-columns: minmax(300px, var(--sidebar-w)) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   height: var(--app-viewport-height);
   min-height: 0;
   overflow: hidden;
   background: var(--bg);
+}
+
+.app > .side {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.app > .side__foot {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.app > .thread,
+.app > .no-thread {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.app > .chanpanel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/* Serveur communautaire : rail icônes / room list | channel list | thread,
+   footer en barre basse à cheval sur les deux premières colonnes */
+.app--channels {
+  grid-template-columns: minmax(300px, var(--sidebar-w)) 264px minmax(0, 1fr);
+}
+
+.app--channels > .thread,
+.app--channels > .no-thread {
+  grid-column: 3;
+}
+
+.app--channels:not(.app--mini) > .side__foot {
+  grid-column: 1 / 3;
+}
+
+/* Sidebar miniature (choix utilisateur) : rail 76px */
+.app--mini {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.app--mini.app--channels {
+  grid-template-columns: 76px 264px minmax(0, 1fr);
+}
+
+/* En mini, le footer vit dans la colonne du rail uniquement (jamais de
+   barre pleine largeur). Avec un panneau salons, celui-ci reprend toute
+   la hauteur pour ne pas laisser de trou. */
+.app--mini > .side__foot {
+  grid-column: 1;
+}
+.app--mini.app--channels > .chanpanel {
+  grid-row: 1 / 3;
+}
+
+/* Mini sans panneau : le thread reprend toute la hauteur (lignes 1 / 3),
+   le footer vivant dans la colonne du rail uniquement. */
+.app--mini:not(.app--channels) > .thread,
+.app--mini:not(.app--channels) > .no-thread {
+  grid-row: 1 / 3;
+}
+
+/* Mini : le footer s'intègre au rail 76px — avatar rond
+   comme les autres icônes, pas de barre pleine largeur. */
+.app--mini > .side__foot {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 0;
+  min-height: 0;
+  border-top: 0;
+  background: transparent;
+  overflow: visible;
+}
+.app--mini > .side__foot .side-user {
+  flex: none;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.app--mini > .side__foot .side-user:hover,
+.app--mini > .side__foot .side-user:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.app--mini > .side__foot .side-user__text {
+  display: none;
+}
+.app--mini > .side__foot .side-user__avatar {
+  width: 48px;
+  height: 48px;
+}
+.app--mini > .side__foot .side-foot__link {
+  display: none;
+}
+/* Les menus s'ouvrent à droite du rail plutôt que dans 76px. */
+.app--mini > .side__foot .account-menu {
+  left: 68px;
+  right: auto;
+  bottom: 8px;
+  width: 280px;
+}
+.app--mini > .side__foot .side-status__menu {
+  left: 60px;
+  right: auto;
+  bottom: 0;
+}
+
+/* NOTE : ces règles sont volontairement GLOBALES (pas scopées) car
+   .side est rendu par MessengerSidebar et .chanpanel par
+   ServerChannelPanel : un sélecteur scopé d'InboxView ne les matcherait
+   jamais (autre data-v-*). Sans ça, avec la titlebar desktop
+   (grid-template-rows: 30px minmax(0,1fr) auto), .side restait en
+   grid-row: 1 et se retrouvait écrasé à 30px de haut. */
+.app.app--desktop-titlebar.is-tauri > .side,
+.app.app--desktop-titlebar.is-web-titlebar > .side,
+.app.app--desktop-titlebar.is-tauri > .chanpanel,
+.app.app--desktop-titlebar.is-web-titlebar > .chanpanel,
+.app.app--desktop-titlebar.is-tauri > .thread,
+.app.app--desktop-titlebar.is-web-titlebar > .thread,
+.app.app--desktop-titlebar.is-tauri > .no-thread,
+.app.app--desktop-titlebar.is-web-titlebar > .no-thread {
+  grid-row: 2;
+}
+.app.app--desktop-titlebar.is-tauri > .thread,
+.app.app--desktop-titlebar.is-web-titlebar > .thread,
+.app.app--desktop-titlebar.is-tauri > .no-thread,
+.app.app--desktop-titlebar.is-web-titlebar > .no-thread {
+  grid-row: 2 / 4;
+}
+/* Mini sans panneau : le footer vit dans la colonne du rail, le thread
+   reprend toute la hauteur. */
+.app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels) > .thread,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini:not(.app--channels) > .thread,
+.app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels) > .no-thread,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini:not(.app--channels) > .no-thread {
+  grid-row: 2 / 4;
+}
+.app.app--desktop-titlebar.is-tauri > .side__foot,
+.app.app--desktop-titlebar.is-web-titlebar > .side__foot {
+  grid-row: 3;
+}
+/* Mini + panneau salons : le footer est dans le rail, le panneau reprend
+   toute la hauteur (même raison que pour le thread). */
+.app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .chanpanel,
+.app.app--desktop-titlebar.is-web-titlebar.app--mini.app--channels > .chanpanel {
+  grid-row: 2 / 4;
+}
+
+@media (min-width: 901px) {
+  .app.app--desktop-titlebar.is-tauri > .side,
+  .app.app--desktop-titlebar.is-tauri > .chanpanel {
+    grid-row: 2;
+  }
+  .app.app--desktop-titlebar.is-tauri > .thread,
+  .app.app--desktop-titlebar.is-tauri > .no-thread {
+    grid-row: 2 / 4;
+  }
+  .app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels) > .thread,
+  .app.app--desktop-titlebar.is-tauri.app--mini:not(.app--channels) > .no-thread {
+    grid-row: 2 / 4;
+  }
+  .app.app--desktop-titlebar.is-tauri.app--mini.app--channels > .chanpanel {
+    grid-row: 2 / 4;
+  }
+  .app.app--desktop-titlebar.is-tauri > .side__foot {
+    grid-row: 3;
+  }
 }
 
 .app.app--auth {
@@ -7644,6 +7817,79 @@ textarea {
 
   .app:not(.is-thread) .no-thread {
     display: none;
+  }
+
+  /* Panneau salons : caché sur mobile sauf en vue salons.
+     NOTE : sélecteurs renforcés car le `display: flex` scopé de
+     ServerChannelPanel (data-v-*, spécificité supérieure) écraserait
+     sinon le `display: none` — le panneau restait visible par-dessus
+     la liste et la conversation. */
+  .app:not(.is-channels) > .chanpanel {
+    display: none;
+  }
+
+  .chanpanel {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .app.is-channels .side {
+    display: none;
+  }
+
+  .app.is-channels > .chanpanel {
+    display: flex;
+  }
+
+  /* Footer : item de grille séparé, visible avec la room list uniquement */
+  .app--mini,
+  .app--channels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app > .side__foot {
+    display: none;
+  }
+
+  .app:not(.is-thread):not(.is-channels) > .side__foot {
+    display: flex;
+  }
+
+  /* Grille mobile à une seule colonne : les placements desktop
+     (thread en colonne 2/3, footer en 1/3) créeraient des colonnes
+     implicites et un overflow horizontal. Tout revient en colonne 1. */
+  .app > .side,
+  .app > .side__foot,
+  .app > .chanpanel,
+  .app > .thread,
+  .app > .no-thread {
+    grid-column: 1;
+  }
+
+  /* Double-slide mobile (liste ↔ salons ↔ conversation) : la vue qui
+     arrive glisse depuis le bord selon le sens de navigation. */
+  @keyframes mslide-fwd {
+    from { transform: translateX(48px); opacity: 0.3; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes mslide-back {
+    from { transform: translateX(-48px); opacity: 0.3; }
+    to { transform: none; opacity: 1; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .app.is-channels:not(.is-nav-back) > .chanpanel {
+      animation: mslide-fwd 200ms ease-out;
+    }
+    .app.is-channels.is-nav-back > .chanpanel {
+      animation: mslide-back 200ms ease-out;
+    }
+    .app.is-thread:not(.is-nav-back) > .thread {
+      animation: mslide-fwd 200ms ease-out;
+    }
+    .app.is-thread.is-nav-back > .thread {
+      animation: mslide-back 200ms ease-out;
+    }
   }
 
   .thread__shell {

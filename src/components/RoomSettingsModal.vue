@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 import ImageCropModal from "@/components/ImageCropModal.vue";
+import CreateChannelModal from "@/components/CreateChannelModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const dialog = useDialog();
 
 const props = defineProps({
   messenger: { type: Object, required: true },
@@ -34,29 +37,129 @@ const permissions = ref({
 
 const banned = computed(() => props.messenger.bannedMembers?.(props.roomId) || []);
 const canConfigurePermissions = computed(() => props.messenger.canConfigureModeratorPermissions?.(props.roomId) === true);
+const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.roomId) === true);
+const channels = computed(() => props.messenger.serverChannels?.(props.roomId) || []);
+const categories = computed(() => props.messenger.serverCategories?.(props.roomId) || []);
+const serverAvatar = computed(() => props.messenger.roomIcon?.(props.roomId) || avatarPreview.value || "");
+const serverTitle = computed(() => props.messenger.displayRoomName?.(props.roomId) || name.value || props.roomId);
+const myUsername = computed(() => String(props.messenger.state.username || ""));
+const isOwner = computed(() => props.messenger.isRoomOwner?.(props.roomId) === true);
+const canManage = computed(() => props.messenger.canManageRoom?.(props.roomId) === true);
+const ownerId = computed(() => String(props.messenger.roomOwnerId?.(props.roomId) || ""));
+
+const channelCreateOpen = ref(false);
+const channelCreatePreset = ref("");
+const channelEdit = ref<any | null>(null);
+
+const savedName = ref("");
+const savedDescription = ref("");
+const nameDirty = computed(() => name.value.trim() !== savedName.value.trim());
+const descriptionDirty = computed(() => description.value.trim() !== savedDescription.value.trim());
+const descriptionCount = computed(() => description.value.trim().length);
+
+function roleOf(username: string) {
+  return props.messenger.roleForUsername?.(props.roomId, username) || "member";
+}
+
+function userIdOf(username: string) {
+  return String(props.messenger.userIdForUsername?.(username) || "");
+}
+
+function isSelf(username: string) {
+  return !!username && username === myUsername.value;
+}
+
+function isUserOwner(username: string) {
+  const id = userIdOf(username);
+  return !!id && !!ownerId.value && id === ownerId.value;
+}
+
+const roleGroups = computed(() => {
+  const buckets: Record<string, string[]> = {
+    administrator: [],
+    subAdmin: [],
+    moderator: [],
+    member: [],
+  };
+  const roster = [...(props.messenger.memberRoster?.value || [])].sort((a, b) =>
+    String(a).localeCompare(String(b)),
+  );
+  for (const username of roster) {
+    const role = roleOf(username);
+    (buckets[role] || buckets.member).push(username);
+  }
+  // Le propriétaire toujours en tête des administrateurs.
+  buckets.administrator.sort((a, b) => Number(isUserOwner(b)) - Number(isUserOwner(a)));
+  return [
+    { id: "administrator", label: t("rooms.roleAdmin"), desc: t("rooms.roleDescAdmin"), members: buckets.administrator },
+    { id: "subAdmin", label: t("rooms.roleSubAdmin"), desc: t("rooms.roleDescSubAdmin"), members: buckets.subAdmin },
+    { id: "moderator", label: t("rooms.roleModerator"), desc: t("rooms.roleDescModerator"), members: buckets.moderator },
+    { id: "member", label: t("rooms.roleMember"), desc: t("rooms.roleDescMember"), members: buckets.member },
+  ];
+});
+
+const channelGroups = computed(() => {
+  const cats = categories.value;
+  const chans = channels.value;
+  const groups: Array<{ id: string; name: string; channels: any[] }> = [];
+  for (const cat of cats) {
+    groups.push({
+      id: cat.id,
+      name: cat.name,
+      channels: chans.filter((c) => c.categoryId === cat.id),
+    });
+  }
+  const orphans = chans.filter((c) => !c.categoryId || !cats.some((cat) => cat.id === c.categoryId));
+  if (orphans.length) groups.unshift({ id: "", name: "", channels: orphans });
+  return groups;
+});
 
 const sections = computed(() => [
-  { id: "general", label: t("rooms.sectionGeneral") },
-  { id: "moderation", label: t("rooms.sectionModeration") },
-  { id: "banned", label: t("rooms.sectionBanned") }
+  {
+    group: t("rooms.groupServer"),
+    items: [
+      { id: "general", label: t("rooms.sectionGeneral"), icon: "general", count: 0 },
+      ...(isCommunity.value
+        ? [{ id: "channels", label: t("rooms.sectionChannels"), icon: "channels", count: channels.value.length }]
+        : []),
+    ],
+  },
+  {
+    group: t("rooms.groupModeration"),
+    items: [
+      ...(isCommunity.value
+        ? [{ id: "roles", label: t("rooms.sectionRoles"), icon: "roles", count: 0 }]
+        : []),
+      { id: "moderation", label: t("rooms.sectionModeration"), icon: "moderation", count: 0 },
+      { id: "banned", label: t("rooms.sectionBanned"), icon: "banned", count: banned.value.length },
+    ],
+  },
 ]);
 
-const activeSectionLabel = computed(
-  () => sections.value.find((section) => section.id === activeSection.value)?.label || ""
-);
+const activeSectionLabel = computed(() => {
+  for (const group of sections.value) {
+    const found = group.items.find((section) => section.id === activeSection.value);
+    if (found) return found.label;
+  }
+  return "";
+});
 
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return;
     name.value = props.messenger.displayRoomName?.(props.roomId) || props.roomId;
+    savedName.value = name.value;
     description.value = props.messenger.roomDescription?.(props.roomId) || "";
+    savedDescription.value = description.value;
     chatLocked.value = props.messenger.roomChatLocked?.(props.roomId) === true;
     callsEnabled.value = props.messenger.roomCallsEnabled?.(props.roomId) !== false;
     avatarPreview.value = props.messenger.roomIcon?.(props.roomId) || "";
     avatarFile.value = null;
     activeSection.value = "general";
     mobileSectionOpen.value = false;
+    channelCreateOpen.value = false;
+    channelEdit.value = null;
     const perms = props.messenger.roomModPermissions?.(props.roomId) || {};
     permissions.value = {
       canBan: perms.canBan !== false,
@@ -82,11 +185,15 @@ function backToList() {
 }
 
 function saveName() {
+  if (!nameDirty.value || !name.value.trim()) return;
   props.messenger.setLocalRoomName?.(props.roomId, name.value);
+  savedName.value = name.value;
 }
 
 function saveDescription() {
+  if (!descriptionDirty.value) return;
   props.messenger.updateRoomDescription?.(props.roomId, description.value);
+  savedDescription.value = description.value;
 }
 
 function toggleChatLock() {
@@ -153,6 +260,97 @@ async function onCropConfirm(file: File) {
 function unban(userId: string) {
   props.messenger.unbanMember?.(props.roomId, userId);
 }
+
+function promoteMember(username: string, role: "moderator" | "subAdmin") {
+  const id = userIdOf(username);
+  if (!id || isSelf(username)) return;
+  props.messenger.setMemberRole?.(props.roomId, id, role);
+}
+
+function demoteMember(username: string) {
+  const id = userIdOf(username);
+  if (!id || isSelf(username)) return;
+  props.messenger.setMemberRole?.(props.roomId, id, "member");
+}
+
+async function transferTo(username: string) {
+  const id = userIdOf(username);
+  if (!id || isSelf(username)) return;
+  const ok = await dialog.showConfirm(t("rooms.transferConfirm", { name: username }));
+  if (!ok) return;
+  props.messenger.transferOwnership?.(props.roomId, id);
+}
+
+function channelKindLabel(kind: string) {
+  if (kind === "voice") return t("channels.typeVoice");
+  if (kind === "announce") return t("channels.typeAnnounce");
+  return t("channels.typeText");
+}
+
+function openChannelCreate(presetCategoryId = "") {
+  channelCreatePreset.value = presetCategoryId;
+  channelEdit.value = null;
+  channelCreateOpen.value = true;
+}
+
+function openChannelEdit(channel: any) {
+  if (!channel) return;
+  channelCreatePreset.value = "";
+  channelEdit.value = channel;
+  channelCreateOpen.value = true;
+}
+
+async function askDeleteChannel(channelId: string, name: string) {
+  const ok = await dialog.showConfirm(t("channels.menuDeleteConfirm", { name }));
+  if (!ok) return;
+  props.messenger.deleteChannel?.(props.roomId, channelId);
+}
+
+async function askNewCategory() {
+  const next = await dialog.showPrompt(t("channels.menuCategoryName"), "");
+  if (next === null) return;
+  const err = props.messenger.validateCategoryName?.(next);
+  if (err) {
+    props.messenger.state.lastError = err;
+    props.messenger.showToast?.(err);
+    return;
+  }
+  props.messenger.createCategory?.(props.roomId, String(next).trim());
+}
+
+async function askRenameCategory(categoryId: string, currentName: string) {
+  const next = await dialog.showPrompt(t("channels.menuRenameCategoryPrompt"), currentName || "");
+  if (next === null) return;
+  const err = props.messenger.validateCategoryName?.(next);
+  if (err) {
+    props.messenger.state.lastError = err;
+    props.messenger.showToast?.(err);
+    return;
+  }
+  props.messenger.renameCategory?.(props.roomId, categoryId, String(next).trim());
+}
+
+async function askDeleteCategory(categoryId: string, name: string) {
+  const ok = await dialog.showConfirm(t("channels.menuDeleteCategoryConfirm", { name }));
+  if (!ok) return;
+  props.messenger.deleteCategory?.(props.roomId, categoryId);
+}
+
+function channelNeighbor(channelId: string, direction: number) {
+  return props.messenger.neighborChannel?.(props.roomId, channelId, direction) || null;
+}
+
+function moveChannelRow(channelId: string, direction: number) {
+  props.messenger.moveChannel?.(props.roomId, channelId, direction);
+}
+
+function categoryNeighbor(categoryId: string, direction: number) {
+  return props.messenger.neighborCategory?.(props.roomId, categoryId, direction) || null;
+}
+
+function moveCategoryRow(categoryId: string, direction: number) {
+  props.messenger.moveCategory?.(props.roomId, categoryId, direction);
+}
 </script>
 
 <template>
@@ -172,28 +370,48 @@ function unban(userId: string) {
             </button>
           </header>
 
+          <div class="room-settings__server">
+            <span class="avatar avatar--md room-settings__server-avatar">
+              <img v-if="serverAvatar" :src="serverAvatar" alt="" />
+              <template v-else>{{ String(serverTitle || "?").trim().slice(0, 2).toUpperCase() }}</template>
+            </span>
+            <strong class="room-settings__server-name">{{ serverTitle }}</strong>
+          </div>
+
           <nav class="room-settings__nav" aria-label="Room settings sections">
-            <button
-              v-for="section in sections"
-              :key="section.id"
-              type="button"
-              class="room-settings__nav-item"
-              :class="{ 'is-active': activeSection === section.id }"
-              @click="selectSection(section.id)"
-            >
-              <svg v-if="section.id === 'general'" viewBox="0 0 24 24">
-                <path d="M4 6h16M4 12h16M4 18h10" />
-              </svg>
-              <svg v-else-if="section.id === 'moderation'" viewBox="0 0 24 24">
-                <path d="M12 3 5 6v5c0 4.4 2.9 8.3 7 9.5 4.1-1.2 7-5.1 7-9.5V6l-7-3Z" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24">
-                <circle cx="9" cy="8" r="4" />
-                <path d="M3 21a6 6 0 0 1 12 0M16 4l4 4M20 4l-4 4" />
-              </svg>
-              <span>{{ section.label }}</span>
-            </button>
+            <template v-for="group in sections" :key="group.group">
+              <div class="room-settings__nav-group">{{ group.group }}</div>
+              <button
+                v-for="section in group.items"
+                :key="section.id"
+                type="button"
+                class="room-settings__nav-item"
+                :class="{ 'is-active': activeSection === section.id }"
+                @click="selectSection(section.id)"
+              >
+                <svg v-if="section.icon === 'general'" viewBox="0 0 24 24">
+                  <path d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+                <svg v-else-if="section.icon === 'channels'" viewBox="0 0 24 24">
+                  <path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" />
+                </svg>
+                <svg v-else-if="section.icon === 'roles'" viewBox="0 0 24 24">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6M16 11h6" />
+                </svg>
+                <svg v-else-if="section.icon === 'moderation'" viewBox="0 0 24 24">
+                  <path d="M12 3 5 6v5c0 4.4 2.9 8.3 7 9.5 4.1-1.2 7-5.1 7-9.5V6l-7-3Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+                <span>{{ section.label }}</span>
+                <span v-if="section.count" class="room-settings__nav-count">{{ section.count > 99 ? "99+" : section.count }}</span>
+              </button>
+            </template>
           </nav>
         </aside>
 
@@ -210,18 +428,18 @@ function unban(userId: string) {
               <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
               <div class="room-settings__row">
                 <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
-                <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
+                <button type="button" class="btn--ghost" :disabled="!nameDirty || !name.trim()" @click="saveName">{{ t('rooms.save') }}</button>
               </div>
             </div>
 
             <div class="room-settings__field">
               <span class="room-settings__label">{{ t('rooms.avatar') }}</span>
               <div class="room-settings__avatar-row">
-                <span class="avatar avatar--lg room-settings__avatar">
+                <button type="button" class="avatar avatar--lg room-settings__avatar" :disabled="busy" @click="pickAvatar" :aria-label="t('rooms.chooseAvatar')">
                   <img v-if="avatarPreview" :src="avatarPreview" alt="" />
                   <template v-else>+</template>
-                </span>
-                <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ t('rooms.chooseAvatar') }}</button>
+                </button>
+                <button type="button" class="btn--ghost" :disabled="busy" @click="pickAvatar">{{ busy ? "…" : t('rooms.chooseAvatar') }}</button>
               </div>
               <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="room-settings__file-input" @change="onAvatarChange" />
             </div>
@@ -230,28 +448,99 @@ function unban(userId: string) {
               <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
               <textarea id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
               <div class="room-settings__actions">
-                <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
+                <span class="room-settings__counter">{{ descriptionCount }} / 140</span>
+                <button type="button" class="btn--ghost" :disabled="!descriptionDirty" @click="saveDescription">{{ t('rooms.save') }}</button>
               </div>
             </div>
           </section>
 
-          <section v-else-if="activeSection === 'moderation'" class="room-settings-page">
+          <section v-else-if="activeSection === 'channels'" class="room-settings-page">
             <div class="room-settings__field">
-              <span class="room-settings__label">{{ t('rooms.chat') }}</span>
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
-              </label>
+              <span class="room-settings__label">{{ t('rooms.channelsRules') }}</span>
+              <div class="room-settings__actions" style="margin-bottom: 8px">
+                <button type="button" class="btn--ghost" @click="() => openChannelCreate()">{{ t('rooms.addChannel') }}</button>
+                <button type="button" class="btn--ghost" @click="askNewCategory">{{ t('rooms.addCategory') }}</button>
+              </div>
+              <div v-for="group in channelGroups" :key="group.id || 'none'" class="room-settings__chan-group">
+                <div v-if="group.id" class="room-settings__chan-cat">
+                  <span>{{ group.name }}</span>
+                  <span class="room-settings__chan-cat-actions">
+                    <button type="button" class="btn--ghost btn--xs" :disabled="!categoryNeighbor(group.id, -1)" :aria-label="t('channels.menuMoveUp')" @click="moveCategoryRow(group.id, -1)">↑</button>
+                    <button type="button" class="btn--ghost btn--xs" :disabled="!categoryNeighbor(group.id, 1)" :aria-label="t('channels.menuMoveDown')" @click="moveCategoryRow(group.id, 1)">↓</button>
+                    <button type="button" class="btn--ghost btn--xs" @click="askRenameCategory(group.id, group.name)">{{ t('channels.menuRenameCategory') }}</button>
+                    <button type="button" class="btn--ghost btn--xs btn--danger" @click="askDeleteCategory(group.id, group.name)">{{ t('channels.menuDeleteCategory') }}</button>
+                  </span>
+                </div>
+                <div v-else-if="group.channels.length" class="room-settings__chan-cat">
+                  <span>{{ t('rooms.noCategoryLabel') }}</span>
+                </div>
+                <div v-if="group.channels.length" class="room-settings__banned">
+                  <div v-for="ch in group.channels" :key="ch.id" class="room-settings__banned-row">
+                    <span class="room-settings__banned-name room-settings__channel">
+                      <svg v-if="ch.kind === 'voice'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>
+                      <svg v-else-if="ch.kind === 'announce'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>
+                      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg>
+                      <span>{{ ch.name }} <small>({{ channelKindLabel(ch.kind) }})</small></span>
+                    </span>
+                    <span class="room-settings__row-actions">
+                      <button type="button" class="btn--ghost btn--xs" :disabled="!channelNeighbor(ch.id, -1)" :aria-label="t('channels.menuMoveUp')" @click="moveChannelRow(ch.id, -1)">↑</button>
+                      <button type="button" class="btn--ghost btn--xs" :disabled="!channelNeighbor(ch.id, 1)" :aria-label="t('channels.menuMoveDown')" @click="moveChannelRow(ch.id, 1)">↓</button>
+                      <button type="button" class="btn--ghost btn--xs" @click="openChannelEdit(ch)">{{ t('channels.menuEdit') }}</button>
+                      <button type="button" class="btn--ghost btn--xs btn--danger" @click="askDeleteChannel(ch.id, ch.name)">{{ t('channels.menuDelete') }}</button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="!channels.length" class="room-settings__empty">{{ t('rooms.noChannels') }}</div>
+              <div class="room-settings__hint">{{ t('rooms.channelsHint') }}</div>
             </div>
 
-            <div class="room-settings__field">
-              <span class="room-settings__label">{{ t('rooms.calls') }}</span>
-              <label class="room-settings__switch">
-                <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
-                <span class="room-settings__switch-track"></span>
-                <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
-              </label>
+            <CreateChannelModal
+              :messenger="messenger"
+              :open="channelCreateOpen"
+              :room-id="props.roomId"
+              :channel="channelEdit"
+              :preset-category-id="channelCreatePreset"
+              @close="channelCreateOpen = false"
+            />
+          </section>
+
+          <section v-else-if="activeSection === 'roles'" class="room-settings-page">
+            <p class="room-settings__hint">{{ t('rooms.rolesHint') }}</p>
+            <div v-for="group in roleGroups" :key="group.id" class="room-settings__role">
+              <header class="room-settings__role-head">
+                <strong>{{ group.label }}</strong>
+                <span class="room-settings__nav-count">{{ group.members.length }}</span>
+              </header>
+              <p class="room-settings__role-desc">{{ group.desc }}</p>
+              <div v-if="group.members.length" class="room-settings__banned">
+                <div v-for="username in group.members" :key="username" class="room-settings__banned-row">
+                  <span class="room-settings__banned-name">
+                    @{{ username }}
+                    <span v-if="isUserOwner(username)" class="room-settings__mini-badge is-owner">{{ t('rooms.ownerBadge') }}</span>
+                    <span v-else-if="isSelf(username)" class="room-settings__mini-badge">{{ t('rooms.youBadge') }}</span>
+                  </span>
+                  <span v-if="canManage && !isSelf(username) && group.id !== 'administrator'" class="room-settings__row-actions">
+                    <button
+                      v-if="group.id === 'member'"
+                      type="button" class="btn--ghost btn--xs" @click="promoteMember(username, 'moderator')"
+                    >{{ t('rooms.promoteModerator') }}</button>
+                    <button
+                      v-if="group.id === 'member' || group.id === 'moderator'"
+                      type="button" class="btn--ghost btn--xs" @click="promoteMember(username, 'subAdmin')"
+                    >{{ t('rooms.promoteSubAdmin') }}</button>
+                    <button
+                      v-if="group.id === 'moderator' || group.id === 'subAdmin'"
+                      type="button" class="btn--ghost btn--xs" @click="demoteMember(username)"
+                    >{{ t('rooms.demote') }}</button>
+                    <button
+                      v-if="isOwner && (group.id === 'moderator' || group.id === 'subAdmin')"
+                      type="button" class="btn--ghost btn--xs btn--danger" @click="transferTo(username)"
+                    >{{ t('rooms.transferOwnership') }}</button>
+                  </span>
+                </div>
+              </div>
+              <div v-else class="room-settings__empty">{{ t('rooms.noMembersInRole') }}</div>
             </div>
 
             <div v-if="canConfigurePermissions" class="room-settings__field">
@@ -278,6 +567,26 @@ function unban(userId: string) {
                   <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
                 </label>
               </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeSection === 'moderation'" class="room-settings-page">
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.chat') }}</span>
+              <label class="room-settings__switch">
+                <input type="checkbox" :checked="chatLocked" @change="toggleChatLock" />
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.lockChat') }}</span>
+              </label>
+            </div>
+
+            <div class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.calls') }}</span>
+              <label class="room-settings__switch">
+                <input type="checkbox" :checked="callsEnabled" @change="toggleCalls" />
+                <span class="room-settings__switch-track"></span>
+                <span class="room-settings__switch-label">{{ t('rooms.callsAllowLabel') }}</span>
+              </label>
             </div>
           </section>
 
@@ -409,6 +718,195 @@ function unban(userId: string) {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.room-settings__nav-item span:first-of-type {
+  flex: 1;
+}
+
+.room-settings__server {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.room-settings__server-avatar {
+  flex: none;
+  overflow: hidden;
+}
+
+.room-settings__server-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.room-settings__server-name {
+  min-width: 0;
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-settings__nav-group {
+  margin: 14px 6px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.room-settings__nav-group:first-of-type {
+  margin-top: 0;
+}
+
+.room-settings__nav-count {
+  flex: none !important;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.room-settings__hint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.room-settings__counter {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.room-settings .btn--ghost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.room-settings .btn--ghost.btn--xs {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.room-settings .btn--ghost.btn--danger {
+  color: var(--red);
+}
+
+.room-settings .btn--ghost.btn--danger:hover {
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red);
+}
+
+.room-settings__row-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+
+.room-settings__chan-group {
+  margin-top: 14px;
+}
+
+.room-settings__chan-group:first-of-type {
+  margin-top: 4px;
+}
+
+.room-settings__chan-cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.room-settings__chan-cat > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-settings__chan-cat-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.room-settings__role {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.room-settings__role:first-of-type {
+  margin-top: 4px;
+}
+
+.room-settings__role-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.room-settings__role-desc {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.room-settings__role .room-settings__banned {
+  margin-top: 10px;
+}
+
+.room-settings__mini-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.room-settings__mini-badge.is-owner {
+  background: color-mix(in srgb, #e4b231 30%, transparent);
+  color: #e4b231;
+}
+
 .room-settings__main {
   min-width: 0;
   min-height: 0;
@@ -502,6 +1000,14 @@ function unban(userId: string) {
   overflow: hidden;
   font-size: 22px;
   color: var(--muted);
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.room-settings__avatar:disabled {
+  cursor: default;
 }
 
 .room-settings__avatar img {
@@ -589,6 +1095,20 @@ function unban(userId: string) {
 
 .room-settings__banned-name {
   font-size: 14px;
+}
+
+.room-settings__channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.room-settings__channel svg {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+  flex: none;
 }
 
 .room-settings__empty {

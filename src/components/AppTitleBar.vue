@@ -73,8 +73,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="app-titlebar__controls" aria-label="Contrôles de fenêtre">
-      <button class="app-titlebar__button" type="button" aria-label="Minimiser" @click="minimizeWindow">
+    <div class="app-titlebar__controls" :aria-label="t('titlebar.windowControls')">
+      <button class="app-titlebar__button" type="button" :aria-label="t('titlebar.windowMinimize')" @click="minimizeWindow">
         <svg viewBox="0 0 12 12" aria-hidden="true">
           <path d="M2 8.5h8" />
         </svg>
@@ -83,7 +83,7 @@ onMounted(() => {
       <button
         class="app-titlebar__button"
         type="button"
-        :aria-label="isMaximized ? 'Restaurer' : 'Maximiser'"
+        :aria-label="isMaximized ? t('titlebar.windowRestore') : t('titlebar.windowMaximize')"
         @click="toggleMaximizeWindow"
       >
         <svg v-if="isMaximized" viewBox="0 0 12 12" aria-hidden="true">
@@ -98,7 +98,7 @@ onMounted(() => {
       <button
         class="app-titlebar__button app-titlebar__button--close"
         type="button"
-        aria-label="Fermer"
+        :aria-label="t('titlebar.windowClose')"
         @click="closeWindow"
       >
         <svg viewBox="0 0 12 12" aria-hidden="true">

@@ -7,13 +7,18 @@ const emit = defineEmits(["close"]);
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
-const tab = ref<"context" | "username">("context");
+const tab = ref<"context" | "username" | "requests">("context");
 const username = ref("");
 const roomId = ref("");
 const intro = ref("");
 const busy = ref(false);
 const error = ref("");
 const sent = ref(false);
+
+// Demandes entrantes en attente (bulle de notification du rail miniature).
+const requests = computed<any[]>(
+  () => props.phantom?.state?.pendingIncoming || [],
+);
 
 const mutualRooms = computed(() => {
   if (!username.value.trim()) return [];
@@ -68,6 +73,14 @@ async function send() {
   }
 }
 
+async function acceptRequest(id: string) {
+  await props.phantom?.acceptIncoming?.(id);
+}
+
+async function ignoreRequest(id: string) {
+  await props.phantom?.ignoreIncoming?.(id);
+}
+
 </script>
 
 <template>
@@ -86,10 +99,27 @@ async function send() {
           <button type="button" :class="{ 'is-active': tab === 'username' }" @click="tab = 'username'">
             {{ t("phantom.byUsername") }}
           </button>
+          <button type="button" :class="{ 'is-active': tab === 'requests' }" @click="tab = 'requests'">
+            {{ t("phantom.requests") }}<span v-if="requests.length"> ({{ requests.length }})</span>
+          </button>
         </nav>
 
         <div class="phantom-modal__body">
-          <div v-if="sent" class="phantom-sent">
+          <div v-if="tab === 'requests'" class="phantom-requests">
+            <div v-for="request in requests" :key="request.id" class="phantom-request">
+              <div class="phantom-request__info">
+                <strong class="phantom-request__name">{{ request.sender?.displayName || "…" }}</strong>
+                <span v-if="request.intro" class="phantom-request__intro">{{ request.intro }}</span>
+              </div>
+              <div class="phantom-request__actions">
+                <button type="button" class="is-primary" @click="acceptRequest(request.id)">{{ t("phantom.accept") }}</button>
+                <button type="button" @click="ignoreRequest(request.id)">{{ t("phantom.ignore") }}</button>
+              </div>
+            </div>
+            <p v-if="!requests.length" class="phantom-empty">{{ t("phantom.noRequests") }}</p>
+          </div>
+
+          <div v-else-if="sent" class="phantom-sent">
             <div class="phantom-sent__check" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             </div>
@@ -276,6 +306,71 @@ async function send() {
   margin: 0;
   font-size: 12.5px;
   color: var(--red);
+}
+.phantom-requests {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.phantom-request {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.phantom-request__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.phantom-request__name {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phantom-request__intro {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phantom-request__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.phantom-request__actions button {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.phantom-request__actions button:hover {
+  background: var(--surface-hover);
+}
+.phantom-request__actions button.is-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+.phantom-request__actions button.is-primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, black 15%);
+}
+.phantom-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
 }
 
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {

@@ -29,6 +29,28 @@ const permissions = ref({
 
 const descriptionLength = () => description.value.trim().length;
 
+const categories = ref<string[]>([]);
+const categoryDraft = ref("");
+
+function addCategory() {
+  const label = categoryDraft.value.trim().slice(0, 64);
+  if (label.length < 2) return;
+  if (categories.value.some((c) => c.toLowerCase() === label.toLowerCase())) return;
+  if (categories.value.length >= 10) return;
+  const err = props.messenger.validateCategoryName?.(label);
+  if (err) {
+    props.messenger.state.lastError = err;
+    props.messenger.showToast?.(err);
+    return;
+  }
+  categories.value.push(label);
+  categoryDraft.value = "";
+}
+
+function removeCategory(index: number) {
+  categories.value.splice(index, 1);
+}
+
 watch(
   () => props.open,
   (isOpen) => {
@@ -39,6 +61,8 @@ watch(
     avatarFile.value = null;
     avatarPreview.value = "";
     busy.value = false;
+    categories.value = [];
+    categoryDraft.value = "";
     permissions.value = { canBan: true, canKick: true, canMute: true, canDelete: true };
   }
 );
@@ -104,7 +128,8 @@ async function submit() {
     title: name.value,
     description: description.value,
     file: avatarFile.value,
-    modPermissions: permissions.value
+    modPermissions: permissions.value,
+    categories: categories.value
   });
   busy.value = false;
   if (result) emit("close");
@@ -218,6 +243,28 @@ async function submit() {
                     </label>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div class="create-room__field">
+              <span class="create-room__label">{{ t('rooms.serverCategories') }}</span>
+              <p class="create-room__hint">{{ t('rooms.serverCategoriesHint') }}</p>
+              <div class="create-room__cat-row">
+                <input
+                  v-model="categoryDraft"
+                  type="text"
+                  maxlength="64"
+                  :placeholder="t('channels.newCategoryPlaceholder')"
+                  autocomplete="off"
+                  @keydown.enter.prevent="addCategory"
+                />
+                <button type="button" class="create-room__btn create-room__btn--secondary" @click="addCategory">{{ t('rooms.addCategory') }}</button>
+              </div>
+              <div v-if="categories.length" class="create-room__chips">
+                <span v-for="(cat, i) in categories" :key="`${cat}-${i}`" class="create-room__chip">
+                  {{ cat }}
+                  <button type="button" :aria-label="t('message.cancel')" @click="removeCategory(i)">×</button>
+                </span>
               </div>
             </div>
           </template>
@@ -458,6 +505,65 @@ async function submit() {
   font-size: 13px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+.create-room__hint {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.create-room__cat-row {
+  display: flex;
+  gap: 8px;
+}
+
+.create-room__cat-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.create-room__cat-row .create-room__btn {
+  flex: none;
+  height: 40px;
+}
+
+.create-room__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.create-room__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.create-room__chip button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.create-room__chip button:hover {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+  color: var(--red);
 }
 
 .create-room__foot {

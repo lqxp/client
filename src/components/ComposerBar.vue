@@ -34,21 +34,35 @@ const muteNow = ref(Date.now());
 let muteTimer: ReturnType<typeof setInterval> | null = null;
 
 const hasPendingFiles = computed(() => pendingFiles.value.length > 0);
-const speakBlockReason = computed(() => props.messenger.speakBlockReason?.(props.messenger.state.activeRoom) || "");
+const channelReason = computed(() => {
+  const id = String(props.messenger.state.activeRoom || "");
+  const ch = props.messenger.activeChannel?.value;
+  if (!ch || !props.messenger.hasServerChannels?.(id)) return "";
+  return String(props.messenger.channelSpeakBlockReason?.(id, ch.id) || "");
+});
+const speakBlockReason = computed(() => channelReason.value || props.messenger.speakBlockReason?.(props.messenger.state.activeRoom) || "");
 const speakBlocked = computed(() => Boolean(speakBlockReason.value));
 const canSend = computed(() => !uploading.value && !speakBlocked.value && (props.messenger.state.messageInput.trim().length > 0 || hasPendingFiles.value) && !!props.messenger.state.activeRoom);
 const disabled = computed(() => !props.messenger.state.activeRoom || speakBlocked.value);
 const editing = computed(() => !!props.messenger.state.editingMessage);
 const composerPlaceholder = computed(() => {
   if (speakBlocked.value) {
+    const ch = props.messenger.activeChannel?.value;
+    const label = ch ? `#${ch.name}` : (props.messenger.displayRoomName?.(props.messenger.state.activeRoom) || "");
     switch (speakBlockReason.value) {
       case "banned": return t('rooms.cannotSpeakBanned');
       case "timeout": return t('rooms.cannotSpeakTimeout');
-      case "locked": return t('composer.cannotSpeakHere', { channel: props.messenger.displayRoomName?.(props.messenger.state.activeRoom) || "" });
+      case "announce": return t('composer.announceBlocked');
+      case "voice": return t('composer.voiceBlocked');
+      case "locked": return t('composer.cannotSpeakHere', { channel: label });
       default: return t('composer.placeholder');
     }
   }
   if (disabled.value) return t('composer.placeholder');
+  const ch = props.messenger.activeChannel?.value;
+  if (ch && props.messenger.hasServerChannels?.(props.messenger.state.activeRoom)) {
+    return editing.value ? t('composer.editing') : t('composer.writeInChannel', { channel: ch.name });
+  }
   return editing.value ? t('composer.editing') : t('composer.placeholder');
 });
 const mediaDisabled = computed(() => disabled.value || editing.value);

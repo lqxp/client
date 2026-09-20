@@ -957,6 +957,7 @@ function defaultPersisted(overrides: Record<string, unknown> = {}) {
     defaultRoomLeavedRoomId: "",
     pinnedCollapsed: false,
     channelsCollapsed: false,
+    sideMini: false,
     callUserVolumes: {},
     roomNotes: {},
     pinnedRooms: [],
@@ -1332,6 +1333,7 @@ function loadPersisted() {
       defaultRoomLeavedRoomId: String(raw.defaultRoomLeavedRoomId || ""),
       pinnedCollapsed: raw.pinnedCollapsed === true,
       channelsCollapsed: raw.channelsCollapsed === true,
+      sideMini: raw.sideMini === true,
       reconnectMinDelayMs: Math.max(
         250,
         Math.min(
@@ -1648,6 +1650,7 @@ function buildPersistedPayload(state) {
     username: sanitizeUsername(state.username),
     status: sanitizePresenceStatus(state.status),
     activeRoom: sanitizeRoomId(state.activeRoom),
+    activeChannelByRoom: { ...(state.activeChannelByRoom || {}) },
     rooms: state.rooms,
     joinedRooms: [
       ...new Set(
@@ -1730,6 +1733,7 @@ function buildPersistedPayload(state) {
     defaultRoomLeavedRoomId: state.defaultRoomLeavedRoomId,
     pinnedCollapsed: state.pinnedCollapsed,
     channelsCollapsed: state.channelsCollapsed,
+    sideMini: state.sideMini,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
     bannedRooms: sanitizeBannedRooms(state.bannedRooms),
@@ -2527,6 +2531,7 @@ function normalizeMessage(message, fallbackRoomId) {
   return {
     messageId: message.messageId,
     roomId: message.roomId || fallbackRoomId || "",
+    channelId: String(message.channelId || message.channel_id || ""),
     clientNonce: String(message.clientNonce || ""),
     user: message.system
       ? SYSTEM_USERNAME
@@ -2703,6 +2708,9 @@ export function useMessenger() {
     manualClose: false,
     reconnectTimer: null,
     reconnectAttempts: 0,
+    // Catégories à créer après le snapshot de création du serveur (op 40).
+    // Transitoire : jamais persisté.
+    pendingServerCategoriesByRoom: {},
 
     authToken: persisted.authToken,
     userId: persisted.userId,
@@ -2798,6 +2806,8 @@ export function useMessenger() {
     clientPlatformsByUser: {},
     callClientsByRoom: {},
     unreadByRoom: persisted.unreadByRoom,
+    activeChannelByRoom: (persisted as any).activeChannelByRoom || {},
+    activeVoiceChannelByRoom: {},
 
     messageInput: "",
     voiceEnabled: false,
@@ -2845,6 +2855,7 @@ export function useMessenger() {
     defaultRoomId: "",
     pinnedCollapsed: persisted.pinnedCollapsed,
     channelsCollapsed: persisted.channelsCollapsed,
+    sideMini: Boolean((persisted as any).sideMini),
     reconnectMinDelayMs: persisted.reconnectMinDelayMs,
     reconnectMaxDelayMs: Math.max(
       persisted.reconnectMinDelayMs,
@@ -2997,16 +3008,23 @@ export function useMessenger() {
   );
 
   const sortedMessages = computed(() => {
-    const arr = state.messagesByRoom[state.activeRoom] || [];
+    const key = activeMessageKey() || state.activeRoom;
+    const arr = (key && state.messagesByRoom[key]) || state.messagesByRoom[state.activeRoom] || [];
     return [...arr].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   });
 
-  const canSend = computed(
-    () =>
-      state.messageInput.trim().length > 0 &&
-      !!state.activeRoom &&
-      canSpeakInRoom(state.activeRoom),
-  );
+  const activeChannel = computed(() => {
+    const id = sanitizeRoomId(state.activeRoom);
+    if (!id || !hasServerChannels(id)) return null;
+    return channelById(id, activeChannelId(id));
+  });
+
+  const canSend = computed(() => {
+    if (!state.messageInput.trim().length || !state.activeRoom) return false;
+    const id = sanitizeRoomId(state.activeRoom);
+    if (hasServerChannels(id)) return canSpeakInChannel(id, activeChannelId(id));
+    return canSpeakInRoom(id);
+  });
 
   const conversations = computed(() => {
     const query = state.searchTerm.trim().toLowerCase();
@@ -3028,7 +3046,7 @@ export function useMessenger() {
           timestampLabel: formatSidebarTime(timestamp),
           timestamp,
           active: r.roomId === state.activeRoom,
-          unread: state.unreadByRoom[r.roomId] || 0,
+          unread: channelUnreadsTotal(r.roomId),
           joined: state.joinedRooms.includes(r.roomId),
         };
       })
@@ -3069,7 +3087,8 @@ export function useMessenger() {
   });
   const typingUsers = computed(() => {
     const roomId = sanitizeRoomId(state.activeRoom);
-    const roomTyping = state.typingByRoom[roomId] || {};
+    const key = activeMessageKey() || roomId;
+    const roomTyping = state.typingByRoom[key] || state.typingByRoom[roomId] || {};
     return Object.entries(roomTyping)
       .filter(([, at]) => Date.now() - Number(at || 0) <= TYPING_REMOTE_TTL_MS)
       .map(([username]) => username)
@@ -3185,6 +3204,8 @@ export function useMessenger() {
     };
     state.messagesByRoom = normalized.messagesByRoom;
     state.unreadByRoom = normalized.unreadByRoom;
+    state.activeChannelByRoom = (normalized as any).activeChannelByRoom || {};
+    if (!state.activeVoiceChannelByRoom) state.activeVoiceChannelByRoom = {};
     state.roomKeysByRoom = normalized.roomKeysByRoom;
     state.selectedAudioInputId = normalized.selectedAudioInputId;
     state.selectedAudioOutputId = normalized.selectedAudioOutputId;
@@ -3210,6 +3231,7 @@ export function useMessenger() {
     state.defaultRoomLeavedRoomId = normalized.defaultRoomLeavedRoomId;
     state.pinnedCollapsed = normalized.pinnedCollapsed;
     state.channelsCollapsed = normalized.channelsCollapsed;
+    state.sideMini = Boolean((normalized as any).sideMini);
     state.reconnectMinDelayMs = normalized.reconnectMinDelayMs;
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
@@ -4732,6 +4754,8 @@ export function useMessenger() {
         timeouts: {},
         modPermissions: normalizeModPermissions(null),
         callsEnabled: true,
+        channels: [],
+        categories: [],
       };
     }
     return {
@@ -4756,7 +4780,392 @@ export function useMessenger() {
           : {},
       modPermissions: normalizeModPermissions(meta.modPermissions),
       callsEnabled: meta.callsEnabled !== false,
+      channels: normalizeServerChannels(meta.channels),
+      categories: normalizeServerCategories(meta.categories),
     };
+  }
+
+  // ── Channels Discord-like (serveurs communautaires) ────────────────────────
+  function normalizeServerChannels(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((c) => c && typeof c === "object")
+      .map((c) => ({
+        id: String(c.id || "").trim(),
+        name: normalizeChannelName(String(c.name || "")),
+        kind: c.kind === "announce" ? "announce" : c.kind === "voice" ? "voice" : "text",
+        categoryId: c.categoryId ? String(c.categoryId) : null,
+        topic: String(c.topic || "").slice(0, 256),
+        position: Number(c.position) || 0,
+        createdBy: String(c.createdBy || ""),
+        createdAt: Number(c.createdAt) || 0,
+      }))
+      .filter((c) => c.id && c.name)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+  }
+
+  function normalizeServerCategories(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((c) => c && typeof c === "object")
+      .map((c) => ({
+        id: String(c.id || "").trim(),
+        name: String(c.name || "").trim().slice(0, 64),
+        position: Number(c.position) || 0,
+      }))
+      .filter((c) => c.id && c.name)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+  }
+
+  function normalizeChannelName(raw) {
+    let out = "";
+    for (const ch of String(raw || "").trim().toLowerCase()) {
+      if (ch === " " || ch === "_") out += "-";
+      else if (/[a-z0-9-]/.test(ch)) out += ch;
+      if (out.length >= 100) break;
+    }
+    out = out.replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+    return out;
+  }
+
+  function validateChannelName(raw) {
+    const name = normalizeChannelName(raw);
+    if (name.length < 2) return t("channels.nameTooShort");
+    if (name.length > 100) return t("channels.nameTooLong");
+    return "";
+  }
+
+  function validateCategoryName(raw) {
+    const name = String(raw || "").trim();
+    if (name.length < 2) return t("channels.categoryTooShort");
+    return "";
+  }
+
+  function serverChannels(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return [];
+    return roomMeta(id).channels || [];
+  }
+
+  function serverCategories(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return [];
+    return roomMeta(id).categories || [];
+  }
+
+  function hasServerChannels(roomId) {
+    return serverChannels(roomId).length > 0;
+  }
+
+  function textChannels(roomId) {
+    return serverChannels(roomId).filter((c) => c.kind !== "voice");
+  }
+
+  function voiceChannels(roomId) {
+    return serverChannels(roomId).filter((c) => c.kind === "voice");
+  }
+
+  function channelById(roomId, channelId) {
+    const cid = String(channelId || "").trim();
+    if (!cid) return null;
+    return serverChannels(roomId).find((c) => c.id === cid) || null;
+  }
+
+  function defaultChannelId(roomId) {
+    const list = textChannels(roomId);
+    if (list.length) return list[0].id;
+    const all = serverChannels(roomId);
+    return all.length ? all[0].id : "";
+  }
+
+  function activeChannelId(roomId) {
+    const id = sanitizeRoomId(roomId || state.activeRoom);
+    if (!id || !hasServerChannels(id)) return "";
+    const wanted = String(state.activeChannelByRoom?.[id] || "").trim();
+    if (wanted && channelById(id, wanted) && channelById(id, wanted).kind !== "voice") return wanted;
+    return defaultChannelId(id);
+  }
+
+  function messageKeyFor(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    if (id && cid && hasServerChannels(id)) return `${id}:${cid}`;
+    return id;
+  }
+
+  function activeMessageKey() {
+    const id = sanitizeRoomId(state.activeRoom);
+    if (!id) return "";
+    if (!hasServerChannels(id)) return id;
+    return messageKeyFor(id, activeChannelId(id));
+  }
+
+  // Total des non-lus d'un serveur = somme des salons (style Discord). Pour
+  // les salons classiques, c'est la clé room historique.
+  function channelUnreadsTotal(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !hasServerChannels(id)) return Number(state.unreadByRoom?.[id] || 0);
+    let total = 0;
+    for (const c of serverChannels(id)) {
+      total += Number(state.unreadByRoom?.[messageKeyFor(id, c.id)] || 0);
+    }
+    return total;
+  }
+
+  function canSpeakInChannel(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return true;
+    const meta = roomMeta(id);
+    if (meta.kind !== "community") return true;
+    const myId = String(state.userId || "");
+    if (meta.banned[myId]) return false;
+    if (meta.timeouts[myId] && Number(meta.timeouts[myId]) > Date.now()) return false;
+    const ch = channelId ? channelById(id, channelId) : null;
+    if (!ch && hasServerChannels(id)) {
+      // Sans salon précis : on se base sur le salon actif.
+      const active = channelById(id, activeChannelId(id));
+      if (active?.kind === "announce") {
+        const role = myRoleInRoom(id);
+        return role === "administrator" || role === "subAdmin";
+      }
+      if (meta.chatLocked) {
+        const role = myRoleInRoom(id);
+        return role === "administrator" || role === "subAdmin";
+      }
+      return true;
+    }
+    if (ch?.kind === "announce") {
+      const role = myRoleInRoom(id);
+      return role === "administrator" || role === "subAdmin";
+    }
+    if (ch?.kind === "voice") return false;
+    if (meta.chatLocked) {
+      const role = myRoleInRoom(id);
+      return role === "administrator" || role === "subAdmin";
+    }
+    return true;
+  }
+
+  function channelSpeakBlockReason(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return "";
+    if (!canSpeakInChannel(id, channelId)) {
+      const ch = channelById(id, channelId || activeChannelId(id));
+      if (ch?.kind === "announce") return "announce";
+      if (ch?.kind === "voice") return "voice";
+      return speakBlockReason(id) || "locked";
+    }
+    return "";
+  }
+
+  function ensureActiveChannel(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !hasServerChannels(id)) return "";
+    const current = String(state.activeChannelByRoom?.[id] || "").trim();
+    const ch = current ? channelById(id, current) : null;
+    if (ch && ch.kind !== "voice") return current;
+    const fallback = defaultChannelId(id);
+    if (fallback) {
+      if (!state.activeChannelByRoom) state.activeChannelByRoom = {};
+      state.activeChannelByRoom[id] = fallback;
+    }
+    return fallback;
+  }
+
+  function selectChannel(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    const ch = channelById(id, channelId);
+    if (!id || !ch) return;
+    if (!state.activeChannelByRoom) state.activeChannelByRoom = {};
+    if (ch.kind === "voice") {
+      // Les vocaux rejoignent l'appel au lieu de changer le fil de lecture.
+      joinVoiceChannel(id, ch.id);
+      return;
+    }
+    if (state.activeRoom !== id) {
+      selectConversation(id);
+    }
+    state.activeChannelByRoom[id] = ch.id;
+    state.unreadByRoom[messageKeyFor(id, ch.id)] = 0;
+    // Resynchronise la clé room historique (anciennes valeurs persistées)
+    // pour que le badge sidebar/rail s'éteigne vraiment.
+    if (hasServerChannels(id)) {
+      state.unreadByRoom[id] = channelUnreadsTotal(id);
+    }
+    persist();
+    fetchHistory(id);
+    scrollToBottom();
+  }
+
+  function fetchChannels(roomId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 60, d: { gameId: id } });
+  }
+
+  function createChannel(roomId, options: any = {}) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return "";
+    const err = validateChannelName(options?.name);
+    if (err) {
+      state.lastError = err;
+      showToast(err, { error: true });
+      return "";
+    }
+    const kind = options?.kind === "announce" ? "announce" : options?.kind === "voice" ? "voice" : "text";
+    const d: any = { gameId: id, name: normalizeChannelName(options?.name), kind };
+    if (options?.categoryId) d.categoryId = String(options.categoryId);
+    if (options?.topic) d.topic = String(options.topic).slice(0, 256);
+    send({ op: 61, d });
+    return "";
+  }
+
+  function renameChannel(roomId, channelId, patch: any = {}) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    if (!id || !cid) return;
+    const d: any = { gameId: id, channelId: cid };
+    if (patch?.name !== undefined) {
+      const err = validateChannelName(patch.name);
+      if (err) {
+        state.lastError = err;
+        showToast(err, { error: true });
+        return;
+      }
+      d.name = normalizeChannelName(patch.name);
+    }
+    if (patch?.topic !== undefined) d.topic = String(patch.topic).slice(0, 256);
+    if (patch?.categoryId !== undefined) d.categoryId = patch.categoryId;
+    if (patch?.position !== undefined) d.position = Number(patch.position) || 0;
+    send({ op: 62, d });
+  }
+
+  function deleteChannel(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    if (!id || !cid) return;
+    send({ op: 63, d: { gameId: id, channelId: cid } });
+  }
+
+  function createCategory(roomId, name) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    send({ op: 64, d: { gameId: id, name: String(name || "") } });
+  }
+
+  function renameCategory(roomId, categoryId, patch) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(categoryId || "").trim();
+    if (!id || !cid) return;
+    const d: any = { gameId: id, categoryId: cid };
+    const p = typeof patch === "string" ? { name: patch } : patch || {};
+    if (p.name !== undefined) d.name = String(p.name);
+    if (p.position !== undefined) d.position = Number(p.position) || 0;
+    send({ op: 65, d });
+  }
+
+  // Voisin d'un salon dans sa catégorie (ordre visible trié par position),
+  // pour réordonner avec Monter/Descendre.
+  function neighborChannel(roomId, channelId, direction) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    const list = serverChannels(id);
+    const ch = list.find((c) => c.id === cid);
+    if (!id || !ch) return null;
+    const key = (c) => String(c.categoryId || "");
+    const siblings = list.filter((c) => key(c) === key(ch));
+    const j = siblings.findIndex((c) => c.id === cid) + (direction < 0 ? -1 : 1);
+    return siblings[j] || null;
+  }
+
+  function moveChannel(roomId, channelId, direction) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    const ch = channelById(id, cid);
+    const other = neighborChannel(id, cid, direction);
+    if (!id || !ch || !other) return false;
+    const dir = direction < 0 ? -1 : 1;
+    renameChannel(id, cid, {
+      position: other.position === ch.position ? other.position + dir : other.position,
+    });
+    renameChannel(id, other.id, { position: ch.position });
+    return true;
+  }
+
+  // Voisin d'une catégorie (ordre visible trié par position).
+  function neighborCategory(roomId, categoryId, direction) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(categoryId || "").trim();
+    const list = serverCategories(id);
+    const idx = list.findIndex((c) => c.id === cid);
+    if (!id || idx < 0) return null;
+    return list[idx + (direction < 0 ? -1 : 1)] || null;
+  }
+
+  function moveCategory(roomId, categoryId, direction) {
+    const id = sanitizeRoomId(roomId);
+    const cid = String(categoryId || "").trim();
+    const cat = serverCategories(id).find((c) => c.id === cid);
+    const other = neighborCategory(id, cid, direction);
+    if (!id || !cat || !other) return false;
+    const dir = direction < 0 ? -1 : 1;
+    renameCategory(id, cid, {
+      position: other.position === cat.position ? other.position + dir : other.position,
+    });
+    renameCategory(id, other.id, { position: cat.position });
+    return true;
+  }
+
+  // Réordonne un groupe de salons (drag & drop) : renumérote 0..n et n'envoie
+  // que les salons réellement modifiés (catégorie et/ou position).
+  function reorderChannels(roomId, categoryId, orderedIds) {
+    const id = sanitizeRoomId(roomId);
+    const targetCat = categoryId ? String(categoryId) : null;
+    if (!id || !Array.isArray(orderedIds)) return false;
+    let changed = false;
+    orderedIds.forEach((rawCid, index) => {
+      const cid = String(rawCid || "").trim();
+      const ch = cid ? channelById(id, cid) : null;
+      if (!ch) return;
+      const patch: any = {};
+      if (String(ch.categoryId || "") !== String(targetCat || "")) {
+        patch.categoryId = targetCat;
+      }
+      if (Number(ch.position) !== index) {
+        patch.position = index;
+      }
+      if (Object.keys(patch).length) {
+        renameChannel(id, cid, patch);
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function deleteCategory(roomId, categoryId) {
+    const id = sanitizeRoomId(roomId);
+    if (!id) return;
+    send({ op: 66, d: { gameId: id, categoryId: String(categoryId || "") } });
+  }
+
+  function joinVoiceChannel(roomId, channelId) {
+    const id = sanitizeRoomId(roomId);
+    const ch = channelById(id, channelId);
+    if (!id || !ch) return;
+    if (state.activeRoom !== id) selectConversation(id);
+    if (!state.activeChannelByRoom) state.activeChannelByRoom = {};
+    state.activeVoiceChannelByRoom[id] = ch.id;
+    persist();
+    // Rejoint l'appel du serveur en mémorisant le salon vocal actif.
+    // Le mesh WebRTC existant est réutilisé (gameId = serveur).
+    startCall({ voiceChannelId: ch.id });
+  }
+
+  function activeVoiceChannel(roomId) {
+    const id = sanitizeRoomId(roomId || state.activeRoom);
+    if (!id) return null;
+    const cid = String(state.activeVoiceChannelByRoom?.[id] || "");
+    return (cid && channelById(id, cid)) || null;
   }
 
   function roomMeta(roomId) {
@@ -5184,7 +5593,35 @@ export function useMessenger() {
     }
 
     send({ op: 40, d });
+    // Catégories initiales : mises en file, créées dès que le snapshot du
+    // nouveau serveur arrive (réponse op 40) via flushPendingServerCategories.
+    const initialCategories = Array.isArray(options?.categories) ? options.categories : [];
+    const cleanCategories: string[] = [];
+    for (const raw of initialCategories) {
+      const label = String(raw || "").trim().slice(0, 64);
+      if (label.length < 2) continue;
+      if (cleanCategories.some((c) => c.toLowerCase() === label.toLowerCase())) continue;
+      cleanCategories.push(label);
+      if (cleanCategories.length >= 10) break;
+    }
+    if (cleanCategories.length) {
+      if (!state.pendingServerCategoriesByRoom) state.pendingServerCategoriesByRoom = {};
+      state.pendingServerCategoriesByRoom[id] = cleanCategories;
+    }
     return id;
+  }
+
+  function flushPendingServerCategories(roomId) {
+    const id = sanitizeRoomId(roomId);
+    const pending =
+      id && state.pendingServerCategoriesByRoom
+        ? state.pendingServerCategoriesByRoom[id]
+        : null;
+    if (!id || !Array.isArray(pending) || !pending.length) return;
+    delete state.pendingServerCategoriesByRoom[id];
+    for (const name of pending) {
+      createCategory(id, String(name));
+    }
   }
 
   function updateRoomDescription(roomId, description) {
@@ -5512,6 +5949,11 @@ export function useMessenger() {
 
   function setChannelsCollapsed(value) {
     state.channelsCollapsed = Boolean(value);
+    persist();
+  }
+
+  function setSideMini(value) {
+    state.sideMini = Boolean(value);
     persist();
   }
 
@@ -6272,13 +6714,14 @@ export function useMessenger() {
     persist();
   }
 
-  function markUserTyping(roomId, username, typing) {
+  function markUserTyping(roomId, username, typing, channelId = "") {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
-    if (!state.typingByRoom[id]) state.typingByRoom[id] = {};
+    const key = messageKeyFor(id, channelId);
+    if (!state.typingByRoom[key]) state.typingByRoom[key] = {};
 
-    const timerKey = `${id}:${user}`;
+    const timerKey = `${key}:${user}`;
     const prevTimer = typingExpiryTimers.get(timerKey);
     if (prevTimer) {
       clearTimeout(prevTimer);
@@ -6286,18 +6729,18 @@ export function useMessenger() {
     }
 
     if (!typing) {
-      delete state.typingByRoom[id][user];
-      if (!Object.keys(state.typingByRoom[id]).length)
-        delete state.typingByRoom[id];
+      delete state.typingByRoom[key][user];
+      if (!Object.keys(state.typingByRoom[key]).length)
+        delete state.typingByRoom[key];
       return;
     }
 
-    state.typingByRoom[id][user] = Date.now();
+    state.typingByRoom[key][user] = Date.now();
     const timer = setTimeout(() => {
-      if (!state.typingByRoom[id]) return;
-      delete state.typingByRoom[id][user];
-      if (!Object.keys(state.typingByRoom[id]).length)
-        delete state.typingByRoom[id];
+      if (!state.typingByRoom[key]) return;
+      delete state.typingByRoom[key][user];
+      if (!Object.keys(state.typingByRoom[key]).length)
+        delete state.typingByRoom[key];
       typingExpiryTimers.delete(timerKey);
     }, TYPING_REMOTE_TTL_MS);
     typingExpiryTimers.set(timerKey, timer);
@@ -6305,6 +6748,8 @@ export function useMessenger() {
 
   function setTyping(active) {
     const roomId = sanitizeRoomId(state.activeRoom);
+    const channelId = hasServerChannels(roomId) ? activeChannelId(roomId) : "";
+    const msgKey = messageKeyFor(roomId, channelId);
     const canBroadcast = Boolean(
       state.typingIndicatorsEnabled &&
       state.connected &&
@@ -6319,21 +6764,23 @@ export function useMessenger() {
         typingIdleTimer = null;
       }
       if (typingActiveRoomId)
-        send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
+        send({ op: 31, d: { gameId: sanitizeRoomId(typingActiveRoomId), typing: false } });
       typingActiveRoomId = "";
       typingLastSentAt = 0;
       return;
     }
 
     if (typingActiveRoomId && typingActiveRoomId !== roomId) {
-      send({ op: 31, d: { gameId: typingActiveRoomId, typing: false } });
+      send({ op: 31, d: { gameId: sanitizeRoomId(typingActiveRoomId), typing: false } });
       typingActiveRoomId = "";
       typingLastSentAt = 0;
     }
 
     const now = Date.now();
     if (!typingActiveRoomId || now - typingLastSentAt >= TYPING_HEARTBEAT_MS) {
-      send({ op: 31, d: { gameId: roomId, typing: true } });
+      const d: any = { gameId: roomId, typing: true };
+      if (channelId) d.channelId = channelId;
+      send({ op: 31, d });
       typingActiveRoomId = roomId;
       typingLastSentAt = now;
     }
@@ -6473,7 +6920,12 @@ export function useMessenger() {
   function fetchHistory(roomId) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
-    send({ op: 18, d: { gameId: id } });
+    const d: any = { gameId: id };
+    if (hasServerChannels(id)) {
+      const cid = activeChannelId(id);
+      if (cid) d.channelId = cid;
+    }
+    send({ op: 18, d });
   }
 
   function selectConversation(roomId) {
@@ -6486,6 +6938,9 @@ export function useMessenger() {
     }
     if (state.activeRoom && state.activeRoom !== id) setTyping(false);
     state.activeRoom = id;
+    ensureActiveChannel(id);
+    const msgKey = activeMessageKey() || id;
+    state.unreadByRoom[msgKey] = 0;
     state.unreadByRoom[id] = 0;
     if (state.editingMessage?.roomId !== id) cancelEditMessage();
     if (!state.rooms.some((room) => room.roomId === id)) {
@@ -6819,13 +7274,21 @@ export function useMessenger() {
       state.identified &&
       state.joinedRooms.includes(roomId)
     ) {
+      const channelId = hasServerChannels(roomId) ? activeChannelId(roomId) : "";
+      if (channelId && !canSpeakInChannel(roomId, channelId)) {
+        state.lastError = "Salon en lecture seule.";
+        showToast(state.lastError, { error: true });
+        return;
+      }
       buildEncryptedOutgoingMessage(roomId, {
         text: text.slice(0, MESSAGE_LIMIT),
         attachment: null,
         replyToMessageId: state.replyingTo?.messageId || "",
       })
         .then((encrypted) => {
-          send({ op: 7, d: { gameId: roomId, encrypted } });
+          const d: any = { gameId: roomId, encrypted };
+          if (channelId) d.channelId = channelId;
+          send({ op: 7, d });
           state.messageInput = "";
           state.replyingTo = null;
           setTyping(false);
@@ -6887,10 +7350,12 @@ export function useMessenger() {
         },
         replyToMessageId: state.replyingTo?.messageId || "",
       });
+      const channelId = hasServerChannels(roomId) ? activeChannelId(roomId) : "";
       const optimisticMessage = normalizeMessage(
         {
           messageId: crypto.randomUUID(),
           roomId,
+          channelId,
           clientNonce,
           user: state.username || "You",
           username: state.username || "You",
@@ -6908,11 +7373,13 @@ export function useMessenger() {
         },
         roomId,
       );
-      pushMessageToRoom(roomId, optimisticMessage);
+      pushMessageToRoom(messageKeyFor(roomId, channelId) || roomId, optimisticMessage);
       touchRoom(roomId, optimisticMessage);
       if (roomId === state.activeRoom) scrollToBottom();
 
-      send({ op: 7, d: { gameId: roomId, encrypted } });
+      const d7: any = { gameId: roomId, encrypted };
+      if (channelId) d7.channelId = channelId;
+      send({ op: 7, d: d7 });
       state.replyingTo = null;
       persist();
     } catch (err) {
@@ -7389,6 +7856,10 @@ export function useMessenger() {
       state.audioDevicesPermission = "granted";
       state.callStream = stream;
       state.callRoom = roomId;
+      if (options?.voiceChannelId) {
+        if (!state.activeVoiceChannelByRoom) state.activeVoiceChannelByRoom = {};
+        state.activeVoiceChannelByRoom[roomId] = String(options.voiceChannelId);
+      }
       state.inCall = true;
       state.callMuted = false;
       state.callDeafened = false;
@@ -7757,6 +8228,7 @@ export function useMessenger() {
     state.inCall = false;
     state.voiceEnabled = false;
     state.callRoom = "";
+    if (roomId && state.activeVoiceChannelByRoom) delete state.activeVoiceChannelByRoom[roomId];
     state.callElapsed = 0;
     state.callMuted = false;
     state.callDeafened = false;
@@ -8077,6 +8549,7 @@ export function useMessenger() {
     if (!message?.messageId) return;
     const gameId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!gameId) return;
+    const channelId = String(message.channelId || activeChannelId(gameId) || "");
     if (state.editingMessage?.messageId === message.messageId)
       cancelEditMessage();
     // Optimistic local delete: mark the message as deleted right away so the
@@ -8093,7 +8566,9 @@ export function useMessenger() {
       room.lastTimestamp = Number(latest?.timestamp || 0);
     }
     if (state.connected && state.identified) {
-      send({ op: 21, d: { messageId: message.messageId, gameId } });
+      const d: any = { messageId: message.messageId, gameId };
+      if (channelId && hasServerChannels(gameId)) d.channelId = channelId;
+      send({ op: 21, d });
     }
   }
 
@@ -8117,6 +8592,7 @@ export function useMessenger() {
     state.editingMessage = {
       messageId: message.messageId,
       roomId,
+      channelId: String(message.channelId || ""),
       text: message.rawText || message.text || "",
     };
     state.messageInput = message.rawText || message.text || "";
@@ -8158,14 +8634,17 @@ export function useMessenger() {
 
     buildEncryptedOutgoingMessage(roomId, { text: nextText, attachment: null })
       .then((encrypted) => {
+        const d29: any = {
+          messageId: draft.messageId,
+          gameId: roomId,
+          text: "",
+          encrypted,
+        };
+        const cid = String((draft as any).channelId || activeChannelId(roomId) || "");
+        if (cid && hasServerChannels(roomId)) d29.channelId = cid;
         send({
           op: 29,
-          d: {
-            messageId: draft.messageId,
-            gameId: roomId,
-            text: "",
-            encrypted,
-          },
+          d: d29,
         });
         state.messageInput = "";
         state.editingMessage = null;
@@ -8376,8 +8855,17 @@ export function useMessenger() {
     }
   }
 
-  function pushMessageToRoom(roomId, normalized) {
+  function messageStorageKey(roomId, channelId = "") {
     const id = sanitizeRoomId(roomId);
+    const cid = String(channelId || "").trim();
+    if (id && cid && hasServerChannels(id)) return `${id}:${cid}`;
+    return id;
+  }
+
+  function pushMessageToRoom(roomId, normalized) {
+    // roomId peut déjà être une clé composite `room:channel`.
+    const raw = String(roomId || "");
+    const id = raw.includes(":") ? raw : messageStorageKey(raw, normalized?.channelId);
     if (!id) return false;
     if (!state.messagesByRoom[id]) state.messagesByRoom[id] = [];
     const arr = state.messagesByRoom[id];
@@ -8394,7 +8882,8 @@ export function useMessenger() {
   }
 
   function replaceOptimisticMessageByClientNonce(roomId, normalized) {
-    const id = sanitizeRoomId(roomId);
+    const raw = String(roomId || "");
+    const id = raw.includes(":") ? raw : messageStorageKey(raw, normalized?.channelId);
     const clientNonce = String(normalized?.clientNonce || "").trim();
     if (!id || !clientNonce) return false;
     const arr = state.messagesByRoom[id];
@@ -8419,8 +8908,10 @@ export function useMessenger() {
   }
 
   async function upsertMessage(message) {
-    const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
-    const normalized = await hydrateIncomingMessage(message, roomId);
+    const roomId = sanitizeRoomId(message.roomId || message.gameId || state.activeRoom);
+    const channelId = String(message.channelId || message.channel_id || "");
+    const key = messageStorageKey(roomId, channelId);
+    const normalized = await hydrateIncomingMessage({ ...message, channelId }, roomId);
     const me = sanitizeUsername(state.username);
     if (me && !isOwnMessage(normalized)) {
       normalized.mentioned = new RegExp(
@@ -8430,10 +8921,11 @@ export function useMessenger() {
     }
     const replacedOptimistic =
       isOwnMessage(normalized) &&
-      replaceOptimisticMessageByClientNonce(roomId, normalized);
+      (replaceOptimisticMessageByClientNonce(key, normalized) ||
+        replaceOptimisticMessageByClientNonce(roomId, normalized));
     const added = replacedOptimistic
       ? false
-      : pushMessageToRoom(roomId, normalized);
+      : pushMessageToRoom(key, normalized);
     touchRoom(roomId, normalized);
 
     const mine = isOwnMessage(normalized);
@@ -8443,8 +8935,14 @@ export function useMessenger() {
       playMessageNotificationSound();
     if (added && !mine && !isDnd && !isSilentSystem)
       showAndroidMessageNotification(normalized, roomId);
-    if (!mine && roomId !== state.activeRoom) {
-      state.unreadByRoom[roomId] = (state.unreadByRoom[roomId] || 0) + 1;
+    const activeKey = activeMessageKey() || state.activeRoom;
+    if (!mine && key !== activeKey) {
+      state.unreadByRoom[key] = (state.unreadByRoom[key] || 0) + 1;
+      // Rooms à salons : le badge sidebar est la somme des salons, la clé
+      // room historique ne doit pas gonfler en double.
+      if (key === roomId) {
+        state.unreadByRoom[roomId] = (state.unreadByRoom[roomId] || 0) + 1;
+      }
     }
 
     if (roomId === state.activeRoom) scrollToBottom();
@@ -8665,7 +9163,7 @@ export function useMessenger() {
         break;
       case 31:
         if (d?.gameId && d?.username) {
-          markUserTyping(d.gameId, d.username, Boolean(d.typing));
+          markUserTyping(d.gameId, d.username, Boolean(d.typing), String(d.channelId || ""));
         }
         break;
       case 32:
@@ -8692,6 +9190,7 @@ export function useMessenger() {
           applyRoomSnapshot(d, d?.gameId);
           const createdId = sanitizeRoomId(d?.gameId);
           if (createdId && isValidRoomId(createdId)) {
+            flushPendingServerCategories(createdId);
             selectConversation(createdId);
           }
         }
@@ -8707,11 +9206,22 @@ export function useMessenger() {
       case 49:
       case 50:
       case 52:
+      case 60:
+      case 61:
+      case 62:
+      case 63:
+      case 64:
+      case 65:
+      case 66:
         if (d?.error) {
           state.lastError = d.error;
           showToast(d.error, { error: true });
         } else {
-          applyRoomSnapshot(d, d?.gameId);
+          const rid = applyRoomSnapshot(d, d?.gameId);
+          if (rid) {
+            ensureActiveChannel(rid);
+            if (rid === state.activeRoom) fetchHistory(rid);
+          }
         }
         break;
       case 51:
@@ -8855,6 +9365,7 @@ export function useMessenger() {
     }
     const roomId = applyRoomSnapshot(d, d?.gameId);
     if (!roomId) return;
+    ensureActiveChannel(roomId);
 
     if (d?.system && d?.joined && !isCommunityRoom(roomId)) {
       showTransientSystemRoomEvent(roomId, d.joined, "join");
@@ -9255,7 +9766,7 @@ export function useMessenger() {
 
   async function handleHistoryOp(d) {
     if (!d?.ok) return;
-    const roomId = sanitizeRoomId(d.roomId);
+    const roomId = sanitizeRoomId(d.roomId || d.gameId);
     if (!roomId) return;
     if (
       !state.joinedRooms.includes(roomId) &&
@@ -9266,12 +9777,14 @@ export function useMessenger() {
     if (d?.profiles && typeof d.profiles === "object") {
       applyProfiles(d.profiles);
     }
+    const channelId = String(d.channelId || activeChannelId(roomId) || "");
+    const key = messageStorageKey(roomId, channelId);
     const serverMessages = Array.isArray(d.messages)
       ? await Promise.all(
-          d.messages.map((m) => hydrateIncomingMessage(m, roomId)),
+          d.messages.map((m) => hydrateIncomingMessage({ ...m, channelId: String(m.channelId || m.channel_id || channelId) }, roomId)),
         )
       : [];
-    const localMessages = state.messagesByRoom[roomId] || [];
+    const localMessages = state.messagesByRoom[key] || state.messagesByRoom[roomId] || [];
     const serverMessageIds = new Set(
       serverMessages
         .map((message) => String(message?.messageId || ""))
@@ -9289,7 +9802,15 @@ export function useMessenger() {
       serverMessages,
       roomId,
     );
-    state.messagesByRoom[roomId] = messages;
+    state.messagesByRoom[key] = messages;
+    if (key !== roomId) {
+      // Garde aussi une vue agrégée pour la sidebar (dernier message global).
+      const agg = Object.entries(state.messagesByRoom)
+        .filter(([k]) => k === roomId || k.startsWith(`${roomId}:`))
+        .flatMap(([, arr]) => (Array.isArray(arr) ? arr : []) as any[]);
+      agg.sort((a: any, b: any) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+      state.messagesByRoom[roomId] = agg.slice(-MAX_HISTORY_PER_ROOM);
+    }
     requestPublicProfilesForUsers(messages);
     const last = messages[messages.length - 1];
     touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
@@ -9682,6 +10203,7 @@ export function useMessenger() {
     setAllowServerDefaultRoom,
     setPinnedCollapsed,
     setChannelsCollapsed,
+    setSideMini,
     setAutoArchiveUploads,
     setRenameUploadsRandomly,
     setStripImageExif,
@@ -9698,6 +10220,40 @@ export function useMessenger() {
     connect,
     disconnect,
     selectConversation,
+    selectChannel,
+    fetchChannels,
+    createChannel,
+    renameChannel,
+    deleteChannel,
+    createCategory,
+    renameCategory,
+    deleteCategory,
+    neighborChannel,
+    moveChannel,
+    neighborCategory,
+    moveCategory,
+    reorderChannels,
+    joinVoiceChannel,
+    activeVoiceChannel,
+    serverChannels,
+    serverCategories,
+    hasServerChannels,
+    textChannels,
+    voiceChannels,
+    channelById,
+    defaultChannelId,
+    activeChannelId,
+    activeChannel,
+    activeMessageKey,
+    messageKeyFor,
+    messageStorageKey,
+    channelUnreadsTotal,
+    canSpeakInChannel,
+    channelSpeakBlockReason,
+    ensureActiveChannel,
+    normalizeChannelName,
+    validateChannelName,
+    validateCategoryName,
     leaveRoom,
     leaveAllRooms,
     sendChat,
