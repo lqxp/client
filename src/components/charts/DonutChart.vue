@@ -13,8 +13,11 @@ const props = withDefaults(
     title: string;
     caption?: string;
     valueLabel: string;
+    centreValue?: string;
+    centreLabel?: string;
+    lastIsRemainder?: boolean;
   }>(),
-  { caption: "" }
+  { caption: "", centreValue: "", centreLabel: "", lastIsRemainder: false }
 );
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -44,7 +47,9 @@ const arcs = computed(() => {
   let offset = 0;
   return grouped.value.map((slice, index) => {
     const share = total.value ? slice.value / total.value : 0;
-    const length = Math.max(0, share * CIRCUMFERENCE - GAP);
+    // A single arc closes on itself: taking the gap out of it would notch
+    // the ring for a division that does not exist.
+    const length = Math.max(0, share * CIRCUMFERENCE - (grouped.value.length > 1 ? GAP : 0));
     const arc = {
       ...slice,
       index,
@@ -57,7 +62,15 @@ const arcs = computed(() => {
   });
 });
 
-const active = computed(() => (hovered.value >= 0 ? arcs.value[hovered.value] : null));
+const active = computed(() =>
+  hovered.value >= 0 && arcs.value.length > 1 ? arcs.value[hovered.value] : null
+);
+
+function arcClass(index: number): string {
+  return props.lastIsRemainder && index === arcs.value.length - 1
+    ? "donut__arc--rest"
+    : `donut__arc--${index}`;
+}
 
 function pct(share: number): string {
   const value = share * 100;
@@ -92,7 +105,10 @@ function compact(value: number): string {
             <circle class="donut__track" :cx="SIZE / 2" :cy="SIZE / 2" :r="R"
               :stroke-width="STROKE" />
             <circle v-for="arc in arcs" :key="arc.label" class="donut__arc"
-              :class="[`donut__arc--${arc.index}`, { 'is-dim': hovered >= 0 && hovered !== arc.index }]"
+              :class="[arcClass(arc.index), {
+                'is-dim': arcs.length > 1 && hovered >= 0 && hovered !== arc.index,
+                'is-hot': arcs.length > 1 && hovered === arc.index
+              }]"
               :cx="SIZE / 2" :cy="SIZE / 2" :r="R" :stroke-width="STROKE"
               :stroke-dasharray="arc.dash" :stroke-dashoffset="arc.offset"
               :style="{ '--i': arc.index }" tabindex="0"
@@ -103,8 +119,12 @@ function compact(value: number): string {
 
         <!-- The hole is not decoration: it holds the figure the ring is of. -->
         <div class="donut__centre">
-          <strong>{{ active ? pct(active.share) : compact(total) }}</strong>
-          <span>{{ active ? active.label : valueLabel }}</span>
+          <Transition name="donut-figure" mode="out-in">
+            <div :key="active ? active.label : 'whole'" class="donut__figure">
+              <strong>{{ active ? pct(active.share) : centreValue || compact(total) }}</strong>
+              <span>{{ active ? active.label : centreLabel || valueLabel }}</span>
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -112,7 +132,7 @@ function compact(value: number): string {
         <li v-for="arc in arcs" :key="arc.label" class="donut__key"
           :class="{ 'is-hovered': hovered === arc.index }" @pointerenter="hovered = arc.index"
           @pointerleave="hovered = -1">
-          <span class="donut__swatch" :class="`donut__arc--${arc.index}`"></span>
+          <span class="donut__swatch" :class="arcClass(arc.index)"></span>
           <span class="donut__key-label">{{ arc.label }}</span>
           <span class="donut__key-value">{{ arc.value }}</span>
         </li>
@@ -176,7 +196,7 @@ function compact(value: number): string {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .donut__toggle:hover {
@@ -208,6 +228,7 @@ function compact(value: number): string {
   display: block;
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
 .donut__track {
@@ -218,24 +239,27 @@ function compact(value: number): string {
 .donut__arc {
   fill: none;
   stroke-linecap: butt;
+  transform-box: fill-box;
   transform-origin: center;
-  animation: donut-sweep 720ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: donut-sweep 720ms var(--ease-out) both;
   animation-delay: calc(var(--i) * 90ms);
-  transition: opacity 160ms ease-out, stroke-width 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* Thickening the stroke pushed the arc past the box and jumped the ring.
+     Leaning the arc outward a little says the same thing and stays round. */
+  transition: opacity var(--dur-base) var(--ease-out), scale var(--dur-base) var(--ease-out);
   cursor: pointer;
 }
 
 .donut__arc:focus-visible {
   outline: none;
-  stroke-width: 22;
+  scale: 1.05;
 }
 
 .donut__arc.is-dim {
-  opacity: .38;
+  opacity: .34;
 }
 
-.donut__arc:not(.is-dim):hover {
-  stroke-width: 22;
+.donut__arc.is-hot {
+  scale: 1.05;
 }
 
 /* The four validated categorical marks live in styles.css, once. */
@@ -261,6 +285,15 @@ function compact(value: number): string {
 .donut__swatch.donut__arc--3 {
   stroke: var(--chart-4);
   background: var(--chart-4);
+}
+
+.donut__arc--rest {
+  stroke: var(--chart-track);
+}
+
+/* The arc may sit on the track and vanish into it; a 9px legend square may not. */
+.donut__swatch.donut__arc--rest {
+  background: color-mix(in srgb, var(--text) 24%, transparent);
 }
 
 .donut__centre {
@@ -303,7 +336,7 @@ function compact(value: number): string {
   align-items: center;
   gap: 8px;
   font-size: 12.5px;
-  transition: opacity 140ms ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .donut__legend:hover .donut__key:not(.is-hovered) {
@@ -358,6 +391,22 @@ function compact(value: number): string {
   to { opacity: 1; transform: rotate(0) scale(1); }
 }
 
+.donut__figure {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+}
+
+.donut-figure-enter-active,
+.donut-figure-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.donut-figure-enter-from,
+.donut-figure-leave-to {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .donut__arc {
@@ -365,9 +414,14 @@ function compact(value: number): string {
     transition: opacity 120ms linear;
   }
 
-  .donut__arc:hover,
+  .donut__arc.is-hot,
   .donut__arc:focus-visible {
-    stroke-width: 18;
+    scale: 1;
+  }
+
+  .donut-figure-enter-active,
+  .donut-figure-leave-active {
+    transition: none;
   }
 }
 </style>

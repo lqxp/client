@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import Icon from "@/components/Icon.vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "@/composables/useI18n";
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -113,8 +117,14 @@ async function loadText() {
   }
 }
 
+/**
+ * Leaving starts the exit and the parent hears about it only once the exit
+ * has played, so it can unmount us without cutting the motion off.
+ */
+const visible = ref(true);
+
 function close() {
-  emit("close");
+  visible.value = false;
 }
 
 function downloadFile() {
@@ -148,33 +158,195 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="text-viewer" role="dialog" aria-modal="true" :aria-label="`Text file preview: ${filename}`">
-      <button class="text-viewer__scrim" type="button" aria-label="Close text preview" @click="close"></button>
+    <Transition name="qx-viewer" :duration="{ enter: 340, leave: 220 }" appear
+      @after-leave="emit('close')">
+    <div v-if="visible" class="text-viewer" role="dialog" aria-modal="true" :aria-label="t('textPreview.dialogLabel', { name: filename })">
+      <button class="text-viewer__scrim" type="button" :aria-label="t('textPreview.close')" @click="close"></button>
 
-      <div class="text-viewer__toolbar" role="toolbar" aria-label="Text file preview controls">
+      <div class="text-viewer__toolbar" role="toolbar" :aria-label="t('textPreview.controls')">
         <span class="text-viewer__badge">{{ languageLabel }}</span>
-        <button type="button" aria-label="Download text file" @click="downloadFile">
-          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        <button type="button" :aria-label="t('textPreview.download')" @click="downloadFile">
+          <Icon name="download" viewBox="0 0 24 24" />
         </button>
-        <button type="button" aria-label="Open text file in new tab" @click="openInNewTab">
-          <svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+        <button type="button" :aria-label="t('textPreview.openTab')" @click="openInNewTab">
+          <Icon name="open-external" viewBox="0 0 24 24" />
         </button>
-        <button class="text-viewer__close" type="button" aria-label="Close text preview" @click="close">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <button class="text-viewer__close" type="button" :aria-label="t('textPreview.close')" @click="close">
+          <Icon name="close" viewBox="0 0 24 24" />
         </button>
       </div>
 
-      <figure class="text-viewer__stage" @click.self="close">
+      <figure class="text-viewer__stage" data-viewer-stage @click.self="close">
         <figcaption class="text-viewer__titlebar">
           <span class="text-viewer__title">{{ filename }}</span>
           <span class="text-viewer__size" v-if="sizeLabel">{{ sizeLabel }}</span>
         </figcaption>
-        <div class="text-viewer__editor" role="region" :aria-label="`Text file content: ${filename}`">
-          <div v-if="loading" class="text-viewer__state">Loading preview…</div>
+        <div class="text-viewer__editor" role="region" :aria-label="t('textPreview.contentLabel', { name: filename })">
+          <div v-if="loading" class="text-viewer__state">{{ t('textPreview.loading') }}</div>
           <div v-else-if="error" class="text-viewer__state">{{ error }}</div>
           <pre v-else class="text-viewer__code"><code v-html="highlightedContent"></code></pre>
         </div>
       </figure>
     </div>
+    </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+.text-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: calc(76px + var(--app-safe-top)) 28px 32px;
+  isolation: isolate;
+}
+
+.text-viewer__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(42, 42, 48, 0.72), rgba(0, 0, 0, 0.92) 62%),
+    rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(5px);
+}
+
+.text-viewer__toolbar {
+  position: absolute;
+  top: calc(18px + var(--app-safe-top) + var(--app-chrome-top, 0px));
+  right: 20px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(32, 30, 38, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
+}
+
+.text-viewer__toolbar button,
+.text-viewer__badge {
+  min-width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.text-viewer__toolbar button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.text-viewer__toolbar svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.text-viewer__close {
+  margin-left: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.text-viewer__stage {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 1100px);
+  height: min(calc(var(--app-viewport-height) - 130px), 760px);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(18, 18, 22, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
+}
+
+.text-viewer__titlebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 10px 0 14px;
+  background: linear-gradient(180deg, rgba(49, 49, 55, 0.96), rgba(31, 31, 36, 0.96));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 12.5px;
+}
+
+.text-viewer__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.text-viewer__size {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.text-viewer__editor {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: rgba(10, 11, 14, 0.94);
+}
+
+.text-viewer__code {
+  margin: 0;
+  padding: 16px 18px;
+  color: rgba(244, 247, 251, 0.9);
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.text-viewer__state {
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12.5px;
+}
+
+@media (max-width: 760px) {
+  .text-viewer {
+      padding: calc(82px + var(--app-safe-top)) 14px 24px;
+    }
+
+  .text-viewer__toolbar {
+      top: calc(12px + var(--app-safe-top) + var(--app-chrome-top, 0px));
+      right: 12px;
+      left: 12px;
+      justify-content: flex-end;
+      overflow-x: auto;
+    }
+
+  .text-viewer__stage {
+      width: calc(100vw - 28px);
+      height: calc(var(--app-viewport-height) - 150px - var(--app-safe-top));
+    }
+}
+</style>

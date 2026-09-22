@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "@/composables/useI18n";
 import { apiUrl } from "@/config/runtime";
 import { solveVdf } from "@/crypto/vdf";
 import { computeNullifier } from "@/crypto/rln";
 import { encapsulatePqcSecret } from "@/crypto/pqc";
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -54,8 +57,8 @@ async function startSolve() {
 
   try {
     const query = new URLSearchParams({
-      scope: props.scope,
-      target: props.target,
+      scope: String(props.scope || ""),
+      target: String(props.target || ""),
     });
     const challengeRes = await fetch(apiUrl(`/api/auth/cap/challenge?${query.toString()}`), {
       method: "GET",
@@ -83,7 +86,7 @@ async function startSolve() {
     const nullifier = await computeNullifier(
       challengeData.quotaToken.ticket,
       challengeData.quotaToken.epoch,
-      props.scope
+      String(props.scope || "")
     );
 
     const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
@@ -126,7 +129,7 @@ async function startSolve() {
     emit("solve", { token: redeemData.capToken });
   } catch (err) {
     state.value = "error";
-    errorMessage.value = err?.message || "Error. Try again.";
+    errorMessage.value = err instanceof Error ? err.message : t("cap.error");
     emit("error", { message: errorMessage.value });
   }
 }
@@ -153,7 +156,7 @@ defineExpose({
     class="captcha"
     :data-state="state !== 'idle' ? state : undefined"
     role="group"
-    aria-label="Cap verification"
+    :aria-label="t('cap.label')"
   >
     <div
       class="captcha-trigger"
@@ -162,12 +165,12 @@ defineExpose({
       tabindex="0"
       :aria-label="
         state === 'idle'
-          ? 'Click to verify you\'re a human'
+          ? t('cap.ariaIdle')
           : state === 'verifying'
-          ? 'Verifying you\'re a human, please wait'
+          ? t('cap.ariaVerifying')
           : state === 'done'
-          ? 'We verified you\'re human'
-          : 'An error occurred, please try again'
+          ? t('cap.ariaDone')
+          : t('cap.ariaError')
       "
       aria-live="polite"
       @pointerdown="onPointerDown"
@@ -189,20 +192,20 @@ defineExpose({
       </div>
 
       <p part="label" class="label-wrapper">
-        <span v-if="state === 'idle'" class="label active">Verify you're human</span>
-        <span v-else-if="state === 'verifying'" class="label active">Verifying ({{ progress }}%)...</span>
-        <span v-else-if="state === 'done'" class="label active">You're human</span>
-        <span v-else class="label active">{{ errorMessage || 'Error. Try again.' }}</span>
+        <span v-if="state === 'idle'" class="label active">{{ t('cap.verify') }}</span>
+        <span v-else-if="state === 'verifying'" class="label active">{{ t('cap.verifying', { progress: String(progress) }) }}</span>
+        <span v-else-if="state === 'done'" class="label active">{{ t('cap.done') }}</span>
+        <span v-else class="label active">{{ errorMessage || t('cap.error') }}</span>
       </p>
     </div>
 
     <a
       class="credits"
-      aria-label="Secured by Cap"
+      :aria-label="t('cap.securedBy')"
       href="https://trycap.dev"
       target="_blank"
       rel="noopener noreferrer"
-      title="Secured by Cap: The self-hosted CAPTCHA for the modern web."
+      :title="t('cap.securedByTitle')"
       @click.stop
     >
       Cap
@@ -228,11 +231,11 @@ defineExpose({
   user-select: none;
   cursor: pointer;
   transition:
-    filter 0.2s,
-    transform 0.2s,
-    height 0.2s,
-    border-color 0.2s,
-    background-color 0.2s;
+    filter var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    height var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
   overflow: hidden;
   color: var(--cap-color, #f4f4f5);
@@ -277,7 +280,7 @@ defineExpose({
   padding: 14px 16px;
   gap: 15px;
   border-radius: inherit;
-  transition: inset 0.2s;
+  transition: inset var(--dur-base) var(--ease-out);
 }
 
 .captcha-trigger:focus-visible {
@@ -292,7 +295,7 @@ defineExpose({
   border-radius: 6px;
   background-color: #27272a;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition: opacity 0.2s, transform 0.2s, border-color 0.2s, background-color 0.2s;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), background-color var(--dur-base) var(--ease-out);
   flex-shrink: 0;
 }
 
@@ -366,9 +369,9 @@ defineExpose({
   opacity: 0;
   transform: translateY(100%);
   transition:
-    transform 0.5s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.5s ease,
-    filter 0.5s ease;
+    transform 0.5s var(--ease-out),
+    opacity 0.5s var(--ease-out),
+    filter 0.5s var(--ease-out);
   filter: blur(2px);
 }
 
@@ -408,7 +411,7 @@ defineExpose({
   stroke-linecap: round;
   stroke-dasharray: 87.96;
   stroke-dashoffset: 87.96;
-  transition: stroke-dashoffset 0.3s ease;
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-out);
 }
 
 :global(:root[data-theme="light"] .checkbox .progress-ring-circle) {

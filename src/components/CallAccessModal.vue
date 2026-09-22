@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import ModalShell from "@/components/ModalShell.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   open: { type: Boolean, default: false },
   roomId: { type: String, default: "" }
 });
@@ -23,12 +27,12 @@ function close() {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="call-access-backdrop" @click.self="close">
+    <ModalShell :open="open" backdrop-class="call-access-backdrop" @close="close">
       <div class="call-access" role="dialog" :aria-label="t('rooms.callAccessTitle')">
         <header class="call-access__head">
           <h2 class="call-access__title">{{ t('rooms.callAccessTitle') }}</h2>
           <button class="icon-btn call-access__close" type="button" :aria-label="t('message.cancel')" @click="close">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </header>
 
@@ -47,7 +51,7 @@ function close() {
           </button>
         </footer>
       </div>
-    </div>
+    </ModalShell>
   </Teleport>
 </template>
 
@@ -55,7 +59,7 @@ function close() {
 .call-access-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,7 +124,7 @@ function close() {
   font-weight: 500;
   border: 0;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .call-access__btn--secondary {

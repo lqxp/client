@@ -1,8 +1,10 @@
-import { computed, inject, nextTick, reactive } from "vue";import type { TurnServerConfig } from "@/config/runtime";
+import { computed, inject, nextTick, reactive, toRaw } from "vue";
+import type { TurnServerConfig } from "@/config/runtime";
 
 import type {
   ActiveRecording,
   AdminOverview,
+  AdminUser,
   ByRoom,
   SocketFrame,
   IncomingModPermissions,
@@ -80,6 +82,8 @@ import {
 import { useI18n } from "./useI18n";
 import { dispatchPhantomMessage } from "./phantomBridge";
 import { dedupeBadgeArtwork } from "@/config/badges";
+import { createNoticeFence } from "@/utils/noticeFence";
+import { usableImage } from "@/utils/brokenImages";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -145,6 +149,8 @@ const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const E2EE_MESSAGE_PLACEHOLDER = "Encrypted message";
 const LINK_PREVIEW_URL_RE = /https?:\/\/[^\s<>"'`\\]+/i;
 const pendingLinkPreviewRequests = new Set<string>();
+// Paced under the server's per-account budget so a burst of history never trips it.
+const LINK_PREVIEW_SPACING_MS = 900;
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
@@ -443,11 +449,30 @@ function _normalizeProfileImageRaw(
   return { mimeType, size, width, height, dataB64 };
 }
 
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
+const MAX_PROFILE_LINKS = 4;
+
+function normalizeProfileLinks(value: unknown): ProfileLink[] {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => ({
+      label: sanitizeProfileText(String(item?.label || ""), 32),
+      url: String(item?.url || "").trim(),
+    }))
+    .filter((link) => /^https:\/\/[^\s]{3,197}$/.test(link.url))
+    .slice(0, MAX_PROFILE_LINKS);
+}
+
 function normalizeProfile(profile: unknown): {
   avatar: ReturnType<typeof normalizeProfileImage>;
   banner: ReturnType<typeof normalizeProfileImage>;
   description: string;
   pronouns: string;
+  links: ProfileLink[];
+  customStatus: string;
 } {
   const source =
     profile && typeof profile === "object"
@@ -465,6 +490,8 @@ function normalizeProfile(profile: unknown): {
       String(source.pronouns || ""),
       MAX_PROFILE_PRONOUNS_LENGTH,
     ),
+    links: normalizeProfileLinks(source.links),
+    customStatus: sanitizeProfileText(String(source.customStatus || ""), 60),
   };
 }
 function mergeProfiles(base: unknown, incoming: unknown) {
@@ -475,6 +502,8 @@ function mergeProfiles(base: unknown, incoming: unknown) {
     banner: right.banner || left.banner,
     description: right.description || left.description,
     pronouns: right.pronouns || left.pronouns,
+    links: right.links.length ? right.links : left.links,
+    customStatus: right.customStatus || left.customStatus,
   });
 }
 
@@ -507,6 +536,10 @@ function normalizeProfilePatch(profile: unknown) {
       String(source.pronouns || ""),
       MAX_PROFILE_PRONOUNS_LENGTH,
     );
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "links")) patch.links = normalizeProfileLinks(source.links);
+  if (Object.prototype.hasOwnProperty.call(source, "customStatus")) {
+    patch.customStatus = sanitizeProfileText(String(source.customStatus || ""), 60);
   }
   return patch;
 }
@@ -554,9 +587,9 @@ function profileImageSrc(
     kind === "banner" ? MAX_PROFILE_BANNER_BYTES : MAX_PROFILE_AVATAR_BYTES;
   const normalized = normalizeProfileImage(image, maxBytes);
   if (!normalized) return "";
-  if ("url" in normalized && normalized.url) return normalized.url;
+  if ("url" in normalized && normalized.url) return usableImage(normalized.url);
   return normalized.dataB64
-    ? `data:${normalized.mimeType};base64,${normalized.dataB64}`
+    ? usableImage(`data:${normalized.mimeType};base64,${normalized.dataB64}`)
     : "";
 }
 
@@ -761,7 +794,7 @@ function isValidRoomId(value: unknown) {
 function generateRandomRoomId() {
   const cryptoApi = globalThis.crypto;
   if (!cryptoApi?.getRandomValues) {
-    throw new Error("Browser crypto API is unavailable.");
+    throw new Error(t("errors.cryptoUnavailable"));
   }
 
   let id = "";
@@ -794,7 +827,7 @@ async function copyTextToClipboard(text: string) {
   textarea.select();
   const copied = document.execCommand("copy");
   textarea.remove();
-  if (!copied) throw new Error("Clipboard copy failed.");
+  if (!copied) throw new Error(t("errors.clipboardFailed"));
 }
 
 function formatTime(timestamp: number) {
@@ -1006,6 +1039,7 @@ function persistedDefaults() {
     messageStyle: "bubble",
     spotlightSearchEnabled: true,
     androidNotificationsEnabled: true,
+    notificationPrivacy: "hidden" as NotificationPrivacy,
     serverClearsLocalMessages: false,
     autoReconnectEnabled: RECONNECT_DEFAULTS.enabled,
     reconnectMinDelayMs: RECONNECT_DEFAULTS.minDelayMs,
@@ -1065,7 +1099,7 @@ interface LegacyAudioWindow {
   webkitAudioContext?: typeof AudioContext;
 }
 
-function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   const bag = error as { message?: unknown } | null | undefined;
   return typeof bag?.message === "string" ? bag.message : "";
@@ -1413,6 +1447,7 @@ function loadPersisted() {
         : "bubble",
       spotlightSearchEnabled: raw.spotlightSearchEnabled !== false,
       androidNotificationsEnabled: raw.androidNotificationsEnabled !== false,
+      notificationPrivacy: sanitizeNotificationPrivacy(raw.notificationPrivacy),
       serverClearsLocalMessages:
         typeof raw.serverClearsLocalMessages === "boolean"
           ? raw.serverClearsLocalMessages
@@ -1569,7 +1604,7 @@ function sanitizeCustomTurnServers(raw: unknown) {
     const label =
       String(item.label || "")
         .trim()
-        .slice(0, 64) || "Custom TURN";
+        .slice(0, 64) || t("labels.customTurn");
     const urls = Array.isArray(item.urls)
       ? item.urls
           .map((u: string) => String(u || "").trim())
@@ -1810,6 +1845,7 @@ function buildPersistedPayload(state: ReturnType<typeof defaultPersisted>) {
     messageStyle: state.messageStyle,
     spotlightSearchEnabled: state.spotlightSearchEnabled,
     androidNotificationsEnabled: state.androidNotificationsEnabled,
+    notificationPrivacy: state.notificationPrivacy,
     serverClearsLocalMessages: state.serverClearsLocalMessages,
     autoReconnectEnabled: state.autoReconnectEnabled,
     reconnectMinDelayMs: state.reconnectMinDelayMs,
@@ -2018,6 +2054,63 @@ function savePersistedProfile(profile: unknown) {
   } catch {
     /* browser storage can be smaller than the protocol image limits */
   }
+}
+
+export const MAX_POLL_OPTIONS = 10;
+const MAX_POLL_QUESTION = 200;
+const MAX_POLL_OPTION = 80;
+
+export interface PollData {
+  question: string;
+  options: string[];
+  multi: boolean;
+}
+
+function toBase64Url(text: string) {
+  let binary = "";
+  for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(value: string) {
+  const binary = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
+  return new TextDecoder().decode(Uint8Array.from(binary, (ch) => ch.charCodeAt(0)));
+}
+
+function sanitizePoll(question: unknown, options: unknown, multi: unknown): PollData | null {
+  const q = String(question || "").trim().slice(0, MAX_POLL_QUESTION);
+  const list = (Array.isArray(options) ? options : [])
+    .map((option) => String(option || "").trim().slice(0, MAX_POLL_OPTION))
+    .filter(Boolean)
+    .slice(0, MAX_POLL_OPTIONS);
+  return q && list.length >= 2 ? { question: q, options: list, multi: Boolean(multi) } : null;
+}
+
+// Polls travel as ordinary end-to-end encrypted text; votes are keycap reactions.
+function parsePollLabel(text: string): PollData | null {
+  const match = /^\[poll:([A-Za-z0-9_-]+)\]$/.exec(String(text || "").trim());
+  if (!match) return null;
+  try {
+    const data = JSON.parse(fromBase64Url(match[1]));
+    return sanitizePoll(data?.q, data?.o, data?.m);
+  } catch {
+    return null;
+  }
+}
+
+function encodePollLabel(poll: PollData) {
+  return `[poll:${toBase64Url(JSON.stringify({ q: poll.question, o: poll.options, m: poll.multi }))}]`;
+}
+
+export interface PollState {
+  total: number;
+  voted: boolean;
+  counts: number[];
+}
+
+function normalizePollState(raw: IncomingMessage["pollState"]): PollState {
+  const counts = Array.isArray(raw?.counts) ? raw.counts.map((n) => Math.max(0, Number(n) || 0)).slice(0, MAX_POLL_OPTIONS) : [];
+  return { total: Math.max(0, Number(raw?.total) || 0), voted: Boolean(raw?.voted), counts };
 }
 
 function parseVoiceLabel(text: string) {
@@ -2505,14 +2598,20 @@ async function stripImageExif(file: File) {
   }
 }
 
+export type NotificationPrivacy = "hidden" | "sender" | "full";
+
+function sanitizeNotificationPrivacy(value: unknown): NotificationPrivacy {
+  return value === "sender" || value === "full" ? value : "hidden";
+}
+
 function messagePreviewLabel(message: PreviewMessage | null | undefined) {
   if (!message || message.deleted) return "";
-  if (message.kind === "image") return "Photo";
-  if (message.kind === "video") return "Video";
-  if (message.kind === "audio" || message.kind === "voice")
-    return "Voice message";
+  if (message.kind === "image") return t("labels.photo");
+  if (message.kind === "video") return t("labels.video");
+  if (message.kind === "audio" || message.kind === "voice") return t("labels.voiceMessage");
+  if (message.kind === "poll") return t("labels.poll");
   if (message.kind === "file")
-    return message.attachment?.filename || "File attachment";
+    return message.attachment?.filename || t("labels.fileAttachment");
   return String(message.text || "").trim();
 }
 
@@ -2559,12 +2658,13 @@ function isOnlyEmoji(text: string) {
   return graphemes.every((g) => EMOJI_CHAR_REGEX.test(g));
 }
 
-type ChatMessage = ReturnType<typeof normalizeMessage>;
+export type ChatMessage = ReturnType<typeof normalizeMessage>;
 
 function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
   const voiceInfo = parseVoiceLabel(message.text || "");
   const voiceDuration = voiceInfo.duration;
   const voiceWaveform = voiceInfo.waveform;
+  const poll = message.attachment ? null : parsePollLabel(message.text || "");
   const attachment =
     message.attachment && typeof message.attachment === "object"
       ? {
@@ -2603,10 +2703,11 @@ function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
     else kind = attachmentKindFromFilename(attachment.filename) || "file";
   } else if (voiceDuration) kind = "voice";
+  else if (poll) kind = "poll";
 
   const rawText = message.text || "";
   const jumboEmoji =
-    !attachment && !voiceDuration && !message.deleted && isOnlyEmoji(rawText);
+    !attachment && !voiceDuration && !poll && !message.deleted && isOnlyEmoji(rawText);
 
   const preview =
     message.preview && typeof message.preview === "object"
@@ -2630,7 +2731,7 @@ function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
       ? SYSTEM_USERNAME
       : message.username || extractUsername(message.user || ""),
     userId: String(message.userId || ""),
-    text: voiceDuration ? "" : rawText,
+    text: voiceDuration || poll ? "" : rawText,
     rawText,
     timestamp: message.timestamp || Date.now(),
     profile: normalizeProfile(message.profile),
@@ -2641,12 +2742,15 @@ function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
     deletedByModerator: Boolean(message.deletedByModerator),
     reactions: Array.isArray(message.reactions) ? message.reactions : [],
     replyToMessageId: String(message.replyToMessageId || ""),
+    threadRootId: String(message.threadRootId || ""),
     attachment,
     encrypted,
     preview,
     kind,
     voiceDuration,
     voiceWaveform,
+    poll,
+    pollState: normalizePollState(message.pollState),
     jumboEmoji,
     locked: Boolean(message.locked),
     editedAt: Number(message.editedAt) || 0,
@@ -2882,6 +2986,8 @@ function createMessenger() {
     pinnedRooms: persisted.pinnedRooms,
     accounts: loadAccountsVault(),
     pendingJoinRooms: [] as string[],
+    historyPendingRooms: [] as string[],
+    unreadAnchor: null as { roomId: string; count: number } | null,
     roomMetaByRoom: {} as ByRoom<ReturnType<typeof normalizeRoomMeta>>,
     myRoleByRoom: {} as ByRoom<string>,
     callAccessOpenByRoom: {} as ByRoom<boolean>,
@@ -2943,6 +3049,7 @@ function createMessenger() {
     messageStyle: persisted.messageStyle,
     spotlightSearchEnabled: persisted.spotlightSearchEnabled,
     androidNotificationsEnabled: persisted.androidNotificationsEnabled,
+    notificationPrivacy: persisted.notificationPrivacy,
     serverClearsLocalMessages: persisted.serverClearsLocalMessages,
     autoReconnectEnabled: persisted.autoReconnectEnabled,
     allowServerDefaultRoom: persisted.allowServerDefaultRoom,
@@ -2963,6 +3070,10 @@ function createMessenger() {
     micTestLoading: false,
     micTestLevel: 0,
 
+    recoveryNotice: null as "register" | "recover" | null,
+    pollCreatorOpen: false,
+    openThread: null as { roomId: string; rootId: string } | null,
+    whiteboardRoom: "",
     recording: null as ActiveRecording | null, // { recorder, stream, startedAt, roomId } while recording voice memo
     recordingElapsed: 0,
 
@@ -2994,7 +3105,7 @@ function createMessenger() {
     adminLoading: false,
     adminOverview: null as AdminOverview | null,
     adminError: "",
-    adminSearchResults: [] as Record<string, unknown>[],
+    adminSearchResults: [] as AdminUser[],
     adminSearchLoading: false,
     adminSearchSearched: false,
   });
@@ -3105,9 +3216,55 @@ function createMessenger() {
   );
 
   const sortedMessages = computed(() => {
-    const arr = state.messagesByRoom[state.activeRoom] || [];
+    const arr = (state.messagesByRoom[state.activeRoom] || []).filter((m) => !m.threadRootId);
     return [...arr].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   });
+
+  const threadSummaries = computed(() => {
+    const out = new Map<string, { count: number; last: number; users: string[] }>();
+    for (const m of state.messagesByRoom[state.activeRoom] || []) {
+      if (!m.threadRootId || m.deleted) continue;
+      const entry = out.get(m.threadRootId) || { count: 0, last: 0, users: [] };
+      entry.count += 1;
+      entry.last = Math.max(entry.last, m.timestamp || 0);
+      if (!entry.users.includes(m.username)) entry.users.push(m.username);
+      out.set(m.threadRootId, entry);
+    }
+    return out;
+  });
+
+  function threadMessages(roomId: string, rootId: string) {
+    return (state.messagesByRoom[sanitizeRoomId(roomId)] || [])
+      .filter((m) => m.threadRootId === rootId)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  }
+
+  function openThread(message: ChatMessage) {
+    const rootId = String(message.threadRootId || message.messageId || "");
+    if (!rootId) return;
+    state.openThread = { roomId: sanitizeRoomId(message.roomId || state.activeRoom), rootId };
+  }
+
+  function sendThreadReply(text: string) {
+    const thread = state.openThread;
+    const body = String(text || "").trim().slice(0, MESSAGE_LIMIT);
+    if (!thread || !body) return Promise.resolve(false);
+    if (!state.connected || !state.identified || !state.joinedRooms.includes(thread.roomId)) {
+      state.lastError = t("errors.notJoined");
+      showToast(state.lastError);
+      return Promise.resolve(false);
+    }
+    return buildEncryptedOutgoingMessage(thread.roomId, { text: body, attachment: null, replyToMessageId: "", threadRootId: thread.rootId })
+      .then((encrypted) => {
+        send({ op: 7, d: { gameId: thread.roomId, encrypted } });
+        return true;
+      })
+      .catch((error) => {
+        state.lastError = errorMessage(error) || t("errors.encryptFailed");
+        showToast(state.lastError);
+        return false;
+      });
+  }
 
   const canSend = computed(
     () =>
@@ -3132,7 +3289,7 @@ function createMessenger() {
           name: displayRoomName(r.roomId),
           accent: accentFor(r.roomId),
           icon: roomIcon(r.roomId),
-          preview: preview || "No messages yet",
+          preview: preview || t("labels.noMessagesYet"),
           timestampLabel: formatSidebarTime(timestamp),
           timestamp,
           active: r.roomId === state.activeRoom,
@@ -3313,6 +3470,7 @@ function createMessenger() {
     state.appAccent = normalized.appAccent;
     state.messageStyle = normalized.messageStyle;
     state.androidNotificationsEnabled = normalized.androidNotificationsEnabled;
+    state.notificationPrivacy = normalized.notificationPrivacy;
     state.serverClearsLocalMessages = normalized.serverClearsLocalMessages;
     state.autoReconnectEnabled = normalized.autoReconnectEnabled;
     state.allowServerDefaultRoom = normalized.allowServerDefaultRoom;
@@ -3482,7 +3640,7 @@ function createMessenger() {
       return false;
     }
     if (!crypto?.subtle) {
-      state.lastError = "Client lock requires Web Crypto.";
+      state.lastError = t("errors.lockNeedsCrypto");
       showToast(state.lastError);
       return false;
     }
@@ -3500,10 +3658,10 @@ function createMessenger() {
       );
       markClientActivity();
       await persist();
-      showToast("Client lock enabled.");
+      showToast(t("notices.lockEnabled"));
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Could not enable client lock.";
+      state.lastError = errorMessage(error) || t("errors.lockEnableFailed");
       showToast(state.lastError);
       return false;
     } finally {
@@ -3718,7 +3876,8 @@ function createMessenger() {
     state.activeRoom = "";
     state.joinedRooms = [];
     state.pendingJoinRooms = [];
-    state.lastError = "QxChat reset after too many invalid PIN attempts.";
+    state.historyPendingRooms = [];
+    state.lastError = t("errors.lockWiped");
     showToast(state.lastError);
   }
 
@@ -3795,7 +3954,7 @@ function createMessenger() {
         await resetAfterClientLockFailures();
         return false;
       }
-      state.lastError = "Invalid PIN.";
+      state.lastError = t("errors.invalidPin");
       showToast(state.lastError);
       return false;
     } finally {
@@ -3870,7 +4029,7 @@ function createMessenger() {
       lockedPayload.opsecHideLockIdentity !== false;
     state.clientLockLocked = true;
     state.settingsOpen = false;
-    showToast("QxChat locked.");
+    showToast(t("notices.locked"));
     return true;
   }
 
@@ -3930,7 +4089,7 @@ function createMessenger() {
       return false;
     }
     if (!crypto?.subtle) {
-      state.lastError = "OpSec requires Web Crypto.";
+      state.lastError = t("errors.opsecNeedsCrypto");
       showToast(state.lastError);
       return false;
     }
@@ -3939,7 +4098,7 @@ function createMessenger() {
     state.opsecDuressHash = result.hash;
     state.opsecDuressEnabled = true;
     await persist();
-    showToast("Duress PIN enabled.");
+    showToast(t("notices.duressEnabled"));
     return true;
   }
 
@@ -4004,7 +4163,7 @@ function createMessenger() {
     activeClientLockKey = null;
     await deleteClientLockPayload();
     await persist();
-    showToast("Client lock disabled.");
+    showToast(t("notices.lockDisabled"));
     return true;
   }
 
@@ -4038,7 +4197,7 @@ function createMessenger() {
     const response = await fetch(apiUrl(path), { ...options, headers });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.ok === false) {
-      throw new Error(data?.error || `Request failed (${response.status})`);
+      throw new Error(data?.error || t("errors.requestFailed", { status: String(response.status) }));
     }
     return data;
   }
@@ -4054,14 +4213,14 @@ function createMessenger() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.ok === false) {
-      throw new Error(data?.error || `Request failed (${response.status})`);
+      throw new Error(data?.error || t("errors.requestFailed", { status: String(response.status) }));
     }
     return data;
   }
 
   function applyAuthenticatedPayload(data: Record<string, unknown>) {
     const authUser = (data.user ?? {}) as Record<string, unknown>;
-    if (!data?.user) throw new Error("Malformed account response.");
+    if (!data?.user) throw new Error(t("errors.malformedAccount"));
     // Re-login into a previously saved account: restore its local state
     // (rooms, keys, messages) so the fresh auth payload does not wipe the cache.
     // Only restore when the authenticated account differs from the one already
@@ -4094,6 +4253,7 @@ function createMessenger() {
       messageSoundEnabled: state.messageSoundEnabled,
       callSoundsEnabled: state.callSoundsEnabled,
       androidNotificationsEnabled: state.androidNotificationsEnabled,
+      notificationPrivacy: state.notificationPrivacy,
       selectedAudioInputId: state.selectedAudioInputId,
       selectedAudioOutputId: state.selectedAudioOutputId,
       selectedVideoInputId: state.selectedVideoInputId,
@@ -4143,6 +4303,14 @@ function createMessenger() {
     ].join("\n");
   }
 
+  function recoveryFileName() {
+    return `qxp-recovery-${state.username || "account"}.txt`;
+  }
+
+  function dismissRecoveryNotice() {
+    state.recoveryNotice = null;
+  }
+
   function downloadRecoveryWords() {
     if (!state.recoveryWords?.length) {
       state.lastError = t("settings.security.recoveryNote");
@@ -4155,7 +4323,7 @@ function createMessenger() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `qxp-recovery-${state.username || "account"}.txt`;
+    a.download = recoveryFileName();
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -4182,7 +4350,7 @@ function createMessenger() {
     return true;
   }
 
-  async function registerAccount(username: string, password: string, capToken = null) {
+  async function registerAccount(username: string, password: string, capToken: string | null = null) {
     const validation = validateRegistrationUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -4207,7 +4375,7 @@ function createMessenger() {
           },
         );
         if (!challengeData) {
-          throw new Error("Unable to obtain security challenge.");
+          throw new Error(t("errors.challengeFailed"));
         }
 
         let vdfProof = null;
@@ -4239,15 +4407,11 @@ function createMessenger() {
             vdfChallenge.modulus,
           );
         } else {
-          throw new Error(
-            "Invalid VDF security challenge received from server.",
-          );
+          throw new Error(t("errors.vdfInvalid"));
         }
 
         if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.ekHex) {
-          throw new Error(
-            "Post-quantum security challenge missing from server.",
-          );
+          throw new Error(t("errors.pqcMissing"));
         }
 
         let pqcCiphertext = null;
@@ -4255,9 +4419,7 @@ function createMessenger() {
           const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
           pqcCiphertext = pqcRes.ciphertext;
         } catch {
-          throw new Error(
-            "Your browser does not support post-quantum lattice cryptography (Ring-LWE). Please update your browser.",
-          );
+          throw new Error(t("errors.pqcUnsupported"));
         }
 
         payload.vdfChallenge = vdfChallenge;
@@ -4272,11 +4434,11 @@ function createMessenger() {
         body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
-      downloadRecoveryWords();
+      if (downloadRecoveryWords()) state.recoveryNotice = "register";
       connect();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Registration failed.";
+      state.lastError = errorMessage(error) || t("errors.registerFailed");
       showToast(state.lastError);
       return false;
     } finally {
@@ -4284,7 +4446,7 @@ function createMessenger() {
     }
   }
 
-  async function loginAccount(username: string, password: string, capToken = null) {
+  async function loginAccount(username: string, password: string, capToken: string | null = null) {
     const validation = validateUsername(username);
     if (validation) {
       state.lastError = validation;
@@ -4326,7 +4488,7 @@ function createMessenger() {
       connect();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Login failed.";
+      state.lastError = errorMessage(error) || t("errors.loginFailed");
       showToast(state.lastError);
       return false;
     } finally {
@@ -4363,11 +4525,11 @@ function createMessenger() {
       applyAuthenticatedPayload(data);
       state.recoveryWords = normalizeRecoveryWords(recoveryWords);
       persist();
-      downloadRecoveryWords();
+      if (downloadRecoveryWords()) state.recoveryNotice = "recover";
       connect();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Recovery failed.";
+      state.lastError = errorMessage(error) || t("errors.recoveryFailed");
       showToast(state.lastError);
       return false;
     } finally {
@@ -4401,7 +4563,7 @@ function createMessenger() {
       state.adminError = "";
       return data;
     } catch (error) {
-      state.adminError = errorMessage(error) || "Admin overview failed.";
+      state.adminError = errorMessage(error) || t("errors.adminOverviewFailed");
       return null;
     } finally {
       state.adminLoading = false;
@@ -4415,9 +4577,18 @@ function createMessenger() {
    */
   function applyAdminUser(user: Record<string, unknown>) {
     const id = String(user?.id || "");
+    const username = String(user?.username || "");
     if (!id) return;
-    const index = state.adminSearchResults.findIndex((entry) => String(entry?.id || "") === id);
-    if (index >= 0) state.adminSearchResults[index] = user;
+    const index = state.adminSearchResults.findIndex((entry: AdminUser) => String(entry?.id || "") === id);
+    if (index >= 0) {
+      const previous = state.adminSearchResults[index];
+      state.adminSearchResults[index] = {
+        ...previous,
+        ...(user as Partial<AdminUser>),
+        id,
+        username: username || previous.username,
+      };
+    }
   }
 
   // Server-side admin username search: the server ranks the top matches
@@ -4458,7 +4629,7 @@ function createMessenger() {
       return state.adminSearchResults;
     } catch (error) {
       if (!isCurrent()) return [];
-      state.lastError = errorMessage(error) || "Admin user search failed.";
+      state.lastError = errorMessage(error) || t("errors.adminSearchFailed");
       showToast(state.lastError);
       state.adminSearchResults = [];
       state.adminSearchSearched = true;
@@ -4478,7 +4649,7 @@ function createMessenger() {
       if (state.adminOverview) state.adminOverview.features = data.features;
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Feature update failed.";
+      state.lastError = errorMessage(error) || t("errors.featureUpdateFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4490,7 +4661,7 @@ function createMessenger() {
     if (!id || !isValidRoomId(id)) return false;
     const roomKey = roomKeyFor(id);
     if (!roomKey) {
-      state.lastError = "This room has no local key.";
+      state.lastError = t("errors.noLocalRoomKey");
       showToast(state.lastError);
       return false;
     }
@@ -4505,7 +4676,7 @@ function createMessenger() {
         state.adminOverview.defaultRoom = data.defaultRoom;
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Default room update failed.";
+      state.lastError = errorMessage(error) || t("errors.defaultRoomUpdateFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4522,7 +4693,7 @@ function createMessenger() {
         state.adminOverview.defaultRoom = data.defaultRoom;
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Default room clear failed.";
+      state.lastError = errorMessage(error) || t("errors.defaultRoomClearFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4542,7 +4713,7 @@ function createMessenger() {
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "User update failed.";
+      state.lastError = errorMessage(error) || t("errors.userUpdateFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4562,7 +4733,7 @@ function createMessenger() {
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "User update failed.";
+      state.lastError = errorMessage(error) || t("errors.userUpdateFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4579,12 +4750,12 @@ function createMessenger() {
       );
       const id = String(userId || "");
       state.adminSearchResults = state.adminSearchResults.filter(
-        (entry) => String(entry?.id || "") !== id,
+        (entry: AdminUser) => String(entry?.id || "") !== id,
       );
       await loadAdminOverview();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "User delete failed.";
+      state.lastError = errorMessage(error) || t("errors.userDeleteFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4604,7 +4775,7 @@ function createMessenger() {
       applyAdminUser(data?.user);
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Badge update failed.";
+      state.lastError = errorMessage(error) || t("errors.badgeUpdateFailed");
       showToast(state.lastError);
       return false;
     }
@@ -4652,11 +4823,11 @@ function createMessenger() {
 
   function ensureRoomKey(roomId: string) {
     const id = sanitizeRoomId(roomId);
-    if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
+    if (!id || !isValidRoomId(id)) throw new Error(t("errors.invalidRoomId"));
     const current = roomKeyFor(id);
     if (current) return current;
     if (!cryptoAvailable())
-      throw new Error("Web Crypto is unavailable in this browser.");
+      throw new Error(t("errors.webCryptoUnavailable"));
     const next = generateRoomKey();
     state.roomKeysByRoom[id] = next;
     persist();
@@ -4665,13 +4836,13 @@ function createMessenger() {
 
   function importRoomKey(roomId: string, roomKey: string) {
     const id = sanitizeRoomId(roomId);
-    if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
+    if (!id || !isValidRoomId(id)) throw new Error(t("errors.invalidRoomId"));
     const normalized = normalizeRoomKey(roomKey);
     state.roomKeysByRoom[id] = normalized;
     touchRoom(id);
     persist();
     if (!state.roomKeysByRoom[id] || state.roomKeysByRoom[id] !== normalized) {
-      throw new Error("Failed to store room key.");
+      throw new Error(t("errors.roomKeyStoreFailed"));
     }
     return normalized;
   }
@@ -4694,9 +4865,9 @@ function createMessenger() {
 
   async function copyRoomInvite(roomId: string, { createIfMissing = true } = {}) {
     const id = sanitizeRoomId(roomId);
-    if (!id || !isValidRoomId(id)) throw new Error("Invalid room ID.");
+    if (!id || !isValidRoomId(id)) throw new Error(t("errors.invalidRoomId"));
     const key = roomKeyFor(id) || (createIfMissing ? ensureRoomKey(id) : "");
-    if (!key) throw new Error("No room key available.");
+    if (!key) throw new Error(t("errors.noRoomKey"));
     const token = roomAccessToken(id);
     await copyTextToClipboard(token);
     return token;
@@ -4761,6 +4932,7 @@ function createMessenger() {
           clientNonce: String(
             decrypted?.clientNonce || message.clientNonce || "",
           ),
+          threadRootId: String(decrypted?.threadRootId || ""),
           replyToMessageId: String(
             decrypted?.replyToMessageId || message.replyToMessageId || "",
           ),
@@ -4810,9 +4982,7 @@ function createMessenger() {
     const id = sanitizeRoomId(roomId);
     const roomKey = roomKeyFor(id);
     if (!roomKey) {
-      throw new Error(
-        "This room needs its room token key before you can send encrypted messages.",
-      );
+      throw new Error(t("errors.roomKeyRequired"));
     }
     const nextCounter =
       Math.max(0, Math.floor(Number(state.roomRatchetsByRoom[id]) || 0)) + 1;
@@ -4828,10 +4998,49 @@ function createMessenger() {
     return encrypted;
   }
 
+  // Ephemeral encrypted room channel (whiteboard): relayed by the server, never stored.
+  type RoomSignalListener = (roomId: string, data: Record<string, unknown>, from: string) => void;
+  const roomSignalListeners = new Set<RoomSignalListener>();
+
+  function onRoomSignal(listener: RoomSignalListener) {
+    roomSignalListeners.add(listener);
+    return () => roomSignalListeners.delete(listener);
+  }
+
+  async function sendRoomSignal(roomId: string, data: Record<string, unknown>) {
+    const id = sanitizeRoomId(roomId);
+    const roomKey = roomKeyFor(id);
+    if (!roomKey || !state.connected || !state.identified || !state.joinedRooms.includes(id)) return false;
+    const counter = Math.max(1, Math.floor(Number(state.roomRatchetsByRoom[id]) || 0));
+    try {
+      const encrypted = await encryptRoomPayload(roomKey, id, data, counter, await ensureDeviceSigner());
+      send({ op: 55, d: { gameId: id, encrypted } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function applyRoomSignal(d: Record<string, unknown>) {
+    const roomId = sanitizeRoomId(d?.roomId || "");
+    const roomKey = roomKeyFor(roomId);
+    if (!roomKey || !d?.encrypted || typeof d.encrypted !== "object") return;
+    const senderDeviceId = String((d.encrypted as { senderDeviceId?: unknown }).senderDeviceId || "");
+    const trusted = senderDeviceId ? state.trustedSenderKeysByRoom[roomId]?.[senderDeviceId] || null : null;
+    try {
+      const data = await decryptRoomPayload(roomKey, roomId, d.encrypted as unknown as EncryptedEnvelope, trusted);
+      if (!data || typeof data !== "object") return;
+      const from = sanitizeUsername(d?.from || "");
+      for (const listener of roomSignalListeners) listener(roomId, data as Record<string, unknown>, from);
+    } catch {
+      // Unverifiable signal: dropped.
+    }
+  }
+
   function displayRoomName(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
-    if (state.streamerMode) return "Hidden channel";
+    if (state.streamerMode) return t("labels.hiddenChannel");
     const room = state.rooms.find((entry) => entry.roomId === id);
     const persistedTitle = String(room?.title || "").trim();
     if (persistedTitle) return persistedTitle;
@@ -4866,7 +5075,7 @@ function createMessenger() {
     const id = sanitizeRoomId(roomId);
     if (!id) return "";
     const room = state.rooms.find((entry) => entry.roomId === id);
-    return sanitizeHttpUrl(room?.iconUrl);
+    return usableImage(sanitizeHttpUrl(room?.iconUrl));
   }
 
   function normalizeModPermissions(perms: IncomingModPermissions | null | undefined) {
@@ -5247,12 +5456,12 @@ function createMessenger() {
     if (!id || !isValidRoomId(id)) return false;
     if (!file) return false;
     if (!String(file.type || "").startsWith("image/")) {
-      state.lastError = "Room icon must be an image.";
+      state.lastError = t("errors.roomIconNotImage");
       showToast(state.lastError);
       return false;
     }
     if (Number(file.size) > 5 * 1024 * 1024) {
-      state.lastError = "Room icon must be under 5 MB.";
+      state.lastError = t("errors.roomIconTooLarge");
       showToast(state.lastError);
       return false;
     }
@@ -5271,7 +5480,7 @@ function createMessenger() {
           payload?.icon?.file?.url,
       );
       if (!iconUrl) {
-        state.lastError = "Invalid room icon URL returned by server.";
+        state.lastError = t("errors.roomIconBadUrl");
         showToast(state.lastError);
         return false;
       }
@@ -5283,7 +5492,7 @@ function createMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Could not upload room icon.";
+      state.lastError = errorMessage(error) || t("errors.roomIconUploadFailed");
       showToast(state.lastError);
       return false;
     }
@@ -5296,7 +5505,7 @@ function createMessenger() {
       id = token.roomId;
       importRoomKey(token.roomId, token.roomKey);
     } catch (error) {
-      state.lastError = errorMessage(error) || "Could not generate a secure room.";
+      state.lastError = errorMessage(error) || t("errors.roomGenerateFailed");
       showToast(state.lastError);
       return null;
     }
@@ -5323,7 +5532,7 @@ function createMessenger() {
       try {
         const file = iconFile;
         if (Number(file.size) > 5 * 1024 * 1024) {
-          state.lastError = "Room icon must be under 5 MB.";
+          state.lastError = t("errors.roomIconTooLarge");
           showToast(state.lastError);
           return null;
         }
@@ -5334,7 +5543,7 @@ function createMessenger() {
           filename: String(file.name || "room-icon").slice(0, 128),
         };
       } catch (error) {
-        state.lastError = errorMessage(error) || "Could not prepare room icon.";
+        state.lastError = errorMessage(error) || t("errors.roomIconPrepareFailed");
         showToast(state.lastError);
         return null;
       }
@@ -5519,7 +5728,7 @@ function createMessenger() {
     if (!stream) return null;
 
     const videoTrack = stream.getVideoTracks()[0];
-    if (!videoTrack) throw new Error("Screen share has no video track.");
+    if (!videoTrack) throw new Error(t("errors.screenNoVideo"));
 
     return stream;
   }
@@ -5622,6 +5831,11 @@ function createMessenger() {
         playMessageNotificationSound();
         break;
     }
+  }
+
+  function setNotificationPrivacy(value: unknown) {
+    state.notificationPrivacy = sanitizeNotificationPrivacy(value);
+    persist();
   }
 
   function setAndroidNotificationsEnabled(value: unknown) {
@@ -5742,6 +5956,15 @@ function createMessenger() {
     syncClientSettings();
   }
 
+  function setProfileExtras(payload: { links?: ProfileLink[]; customStatus?: string }) {
+    state.profile = normalizeProfile({ ...state.profile, ...payload });
+    persist();
+    syncClientSettings(true, {
+      ...(payload.links !== undefined ? { links: state.profile.links } : {}),
+      ...(payload.customStatus !== undefined ? { customStatus: state.profile.customStatus } : {}),
+    });
+  }
+
   function setProfileText(payload: Record<string, unknown> = {}) {
     const { description, pronouns } = payload;
     state.profile = normalizeProfile({
@@ -5769,21 +5992,21 @@ function createMessenger() {
       : MAX_PROFILE_AVATAR_BYTES;
     if (!file) return false;
     if (file.size > limit) {
-      state.lastError = `${isBanner ? "Banner" : "Profile image"} too large: ${formatSize(file.size)} > ${formatSize(limit)}`;
+      state.lastError = t("errors.imageTooLarge", { what: isBanner ? t("labels.banner") : t("labels.profileImage"), size: formatSize(file.size), limit: formatSize(limit) });
       showToast(state.lastError);
       return false;
     }
 
     const mimeType = mimeFromProfileFile(file);
     if (!mimeType) {
-      state.lastError = "Profile images support PNG, APNG, GIF, JPEG and WEBP.";
+      state.lastError = t("errors.profileImageFormat");
       showToast(state.lastError);
       return false;
     }
 
     try {
       const { width, height } = await imageDimensions(file);
-      if (!width || !height) throw new Error("Invalid image dimensions.");
+      if (!width || !height) throw new Error(t("errors.imageDimensions"));
       const form = new FormData();
       form.append("kind", kind);
       form.append("file", file, String(file.name || kind));
@@ -5793,7 +6016,7 @@ function createMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Could not read profile image.";
+      state.lastError = errorMessage(error) || t("errors.profileImageRead");
       showToast(state.lastError);
       return false;
     }
@@ -5890,8 +6113,13 @@ function createMessenger() {
     if (document.visibilityState === "visible" && roomId === state.activeRoom)
       return;
     if (!state.androidNotificationsEnabled) return;
-    const title = `${message.username || "New message"} in ${displayRoomName(roomId) || "QxChat"}`;
-    const body = messagePreviewLabel(message) || "New message";
+    // By default a notification says only that something arrived: no sender, room or text on the lock screen.
+    const privacy = state.notificationPrivacy;
+    const title = privacy === "hidden"
+      ? "QxChat"
+      : t("notifications.titleIn", { user: message.username || t("notifications.newMessage"), room: displayRoomName(roomId) || "QxChat" });
+    const body = privacy === "full" ? messagePreviewLabel(message) || t("notifications.newMessage") : t("notifications.newMessage");
+    const tag = privacy === "hidden" ? "qxchat" : `qxchat-${roomId}`;
     if (isTauriRuntime()) {
       isPermissionGranted()
         .then((granted) => {
@@ -5899,7 +6127,7 @@ function createMessenger() {
             sendNotification({
               title,
               body,
-              group: `qxchat-${roomId}`,
+              group: tag,
               autoCancel: true,
               silent: !state.messageSoundEnabled,
             });
@@ -5916,7 +6144,7 @@ function createMessenger() {
     try {
       const notification = new Notification(title, {
         body,
-        tag: `qxchat-${roomId}`,
+        tag,
         silent: !state.messageSoundEnabled,
       });
       notification.onclick = () => {
@@ -5979,7 +6207,7 @@ function createMessenger() {
 
   async function unlockAudioDevices() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      state.lastError = "Audio devices are not available in this browser.";
+      state.lastError = t("errors.audioDevicesUnavailable");
       showToast(state.lastError);
       return false;
     }
@@ -6325,7 +6553,7 @@ function createMessenger() {
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      state.lastError = "Audio devices are not available in this browser.";
+      state.lastError = t("errors.audioDevicesUnavailable");
       showToast(state.lastError);
       return;
     }
@@ -6374,7 +6602,7 @@ function createMessenger() {
       tick();
     } catch {
       state.audioDevicesPermission = "denied";
-      state.lastError = "Microphone permission is required to test audio.";
+      state.lastError = t("errors.micPermissionTest");
       showToast(state.lastError);
       stopMicTest();
     } finally {
@@ -6589,6 +6817,7 @@ function createMessenger() {
     state.uuid = null;
     state.joinedRooms = [];
     state.pendingJoinRooms = [];
+    state.historyPendingRooms = [];
     state.usersByRoom = {};
     state.profilesByUser = {};
     state.createdAtByUser = {};
@@ -6657,6 +6886,7 @@ function createMessenger() {
   function fetchHistory(roomId: string) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
+    if (!state.historyPendingRooms.includes(id)) state.historyPendingRooms.push(id);
     send({ op: 18, d: { gameId: id } });
   }
 
@@ -6670,6 +6900,7 @@ function createMessenger() {
     }
     if (state.activeRoom && state.activeRoom !== id) setTyping(false);
     state.activeRoom = id;
+    state.unreadAnchor = { roomId: id, count: state.unreadByRoom[id] || 0 };
     state.unreadByRoom[id] = 0;
     if (state.editingMessage?.roomId !== id) cancelEditMessage();
     if (!state.rooms.some((room) => room.roomId === id)) {
@@ -6861,7 +7092,7 @@ function createMessenger() {
       importRoomKey(token.roomId, token.roomKey);
     } catch (error) {
       state.lastError = errorMessage(error);
-      showToast("Could not generate a secure room.");
+      showToast(t("errors.roomGenerateFailed"));
       return;
     }
 
@@ -6870,9 +7101,9 @@ function createMessenger() {
     selectConversation(id);
     try {
       await copyRoomInvite(id);
-      showToast("Room token copied.");
+      showToast(t("notices.tokenCopied"));
     } catch {
-      showToast("Room opened. Token copy failed.");
+      showToast(t("errors.tokenCopyFailed"));
     }
   }
 
@@ -6888,16 +7119,21 @@ function createMessenger() {
     state.lastError = "";
     state.manualClose = false;
     clearReconnectTimer();
+    let socket: WebSocket;
     try {
-      state.ws = new WebSocket(inferWebSocketUrl());
+      socket = new WebSocket(inferWebSocketUrl());
+      state.ws = socket;
     } catch (error) {
-      state.lastError = `Connection failed: ${errorMessage(error)}`;
+      state.lastError = t("errors.connectionFailed", { reason: errorMessage(error) });
       showToast(state.lastError);
       state.ws = null;
       scheduleReconnect();
       return;
     }
-    state.ws.addEventListener("open", () => {
+    // A replaced socket still fires its own events; only the current one counts.
+    const current = () => toRaw(state.ws) === socket;
+    socket.addEventListener("open", () => {
+      if (!current()) return;
       state.connected = true;
       state.reconnectAttempts = 0;
       send({
@@ -6917,22 +7153,25 @@ function createMessenger() {
         },
       });
     });
-    state.ws.addEventListener("message", ({ data }) => {
+    socket.addEventListener("message", ({ data }) => {
+      if (!current()) return;
       try {
         handleMessage(JSON.parse(data));
       } catch {
         const raw = typeof data === "string" ? data.trim() : "";
-        state.lastError = raw || "Malformed payload.";
+        state.lastError = raw || t("errors.malformedPayload");
         showToast(state.lastError);
       }
     });
-    state.ws.addEventListener("close", () => {
+    socket.addEventListener("close", () => {
+      if (!current()) return;
       const shouldReconnect = !state.manualClose;
-      teardownConnection(shouldReconnect ? "Connection lost" : "");
+      teardownConnection(shouldReconnect ? t("errors.connectionLost") : "");
       if (shouldReconnect) scheduleReconnect();
     });
-    state.ws.addEventListener("error", () => {
-      state.lastError = "WebSocket error.";
+    socket.addEventListener("error", () => {
+      if (!current()) return;
+      state.lastError = t("errors.websocket");
       showToast(state.lastError);
     });
   }
@@ -6990,6 +7229,47 @@ function createMessenger() {
     teardownConnection("");
   }
 
+  function sendPoll(question: string, options: string[], multi: boolean) {
+    const roomId = state.activeRoom;
+    const poll = sanitizePoll(question, options, multi);
+    if (!poll || !roomId) return false;
+    const text = encodePollLabel(poll);
+    if (text.length > MESSAGE_LIMIT || !state.connected || !state.identified || !state.joinedRooms.includes(roomId)) {
+      state.lastError = t(text.length > MESSAGE_LIMIT ? "errors.pollTooLong" : "errors.notJoined");
+      showToast(state.lastError);
+      return false;
+    }
+    buildEncryptedOutgoingMessage(roomId, { text, attachment: null, replyToMessageId: "" })
+      .then((encrypted) => send({ op: 7, d: { gameId: roomId, encrypted } }))
+      .catch((error) => {
+        state.lastError = errorMessage(error) || t("errors.encryptFailed");
+        showToast(state.lastError);
+      });
+    return true;
+  }
+
+  // Own choices are kept for this session only, to highlight them; the server never says which.
+  const pollChoices = reactive(new Map<string, number[]>());
+
+  function votePoll(message: ChatMessage, choices: number[]) {
+    const messageId = String(message.messageId || "");
+    const picked = [...new Set(choices)].filter((i) => i >= 0 && i < (message.poll?.options.length || 0));
+    if (!message.poll || !messageId || !picked.length || message.pollState.voted) return;
+    if (!message.poll.multi) picked.splice(1);
+    pollChoices.set(messageId, picked);
+    send({ op: 53, d: { gameId: message.roomId || state.activeRoom, messageId, choices: picked } });
+  }
+
+  function applyPollState(d: Record<string, unknown>) {
+    const roomId = sanitizeRoomId(d?.roomId || "");
+    const messageId = String(d?.messageId || "");
+    const list = state.messagesByRoom[roomId];
+    if (!list || !messageId) return;
+    const index = list.findIndex((m) => m.messageId === messageId);
+    if (index === -1) return;
+    list[index] = { ...list[index], pollState: normalizePollState(d?.pollState as IncomingMessage["pollState"]) };
+  }
+
   function sendChat() {
     const text = state.messageInput.trim();
     const roomId = state.activeRoom;
@@ -7015,11 +7295,11 @@ function createMessenger() {
           setTyping(false);
         })
         .catch((error) => {
-          state.lastError = errorMessage(error) || "Message encryption failed.";
+          state.lastError = errorMessage(error) || t("errors.encryptFailed");
           showToast(state.lastError);
         });
     } else {
-      state.lastError = "Not joined to this room yet.";
+      state.lastError = t("errors.notJoined");
       showToast(state.lastError);
     }
   }
@@ -7028,12 +7308,12 @@ function createMessenger() {
     const roomId = state.activeRoom;
     if (!file || !roomId) return;
     if (!state.connected || !state.identified) {
-      state.lastError = "Not connected.";
+      state.lastError = t("errors.notConnected");
       showToast(state.lastError);
       return;
     }
     if (!state.joinedRooms.includes(roomId)) {
-      state.lastError = "Not joined to this room yet.";
+      state.lastError = t("errors.notJoined");
       showToast(state.lastError);
       return;
     }
@@ -7044,7 +7324,7 @@ function createMessenger() {
     //   return;
     // }
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      state.lastError = `File too large: ${file.name} (${formatSize(file.size)} > ${formatSize(MAX_ATTACHMENT_BYTES)})`;
+      state.lastError = t("errors.fileTooLarge", { name: file.name, size: formatSize(file.size), limit: formatSize(MAX_ATTACHMENT_BYTES) });
       showToast(state.lastError);
       return;
     }
@@ -7100,7 +7380,7 @@ function createMessenger() {
       state.replyingTo = null;
       persist();
     } catch (err) {
-      state.lastError = `Upload failed: ${errorMessage(err) || err}`;
+      state.lastError = t("errors.uploadFailed", { reason: errorMessage(err) || String(err) });
       showToast(state.lastError);
     }
   }
@@ -7112,7 +7392,7 @@ function createMessenger() {
     if (state.recording) return;
     const roomId = state.activeRoom;
     if (!roomId || !state.joinedRooms.includes(roomId)) {
-      state.lastError = "Join a room first.";
+      state.lastError = t("errors.joinRoomFirst");
       showToast(state.lastError);
       return;
     }
@@ -7134,7 +7414,7 @@ function createMessenger() {
         if (e.data && e.data.size) chunks.push(e.data);
       };
       recorder.onerror = () => {
-        state.lastError = "Recording error.";
+        state.lastError = t("errors.recording");
         showToast(state.lastError);
       };
       recorder.start(100);
@@ -7188,7 +7468,7 @@ function createMessenger() {
       };
       tickRecording();
     } catch (err) {
-      state.lastError = "Mic access denied.";
+      state.lastError = t("errors.micDenied");
       showToast(state.lastError);
     }
   }
@@ -7538,7 +7818,7 @@ function createMessenger() {
     const allowMembers = options.allowMembers === true;
     if (state.inCall) return;
     if (sanitizePresenceStatus(state.status) === "invisible") {
-      state.lastError = "Switch out of invisible mode before joining a call.";
+      state.lastError = t("errors.invisibleNoCall");
       showToast(state.lastError);
       return;
     }
@@ -7551,7 +7831,7 @@ function createMessenger() {
     }
     const roomId = state.activeRoom;
     if (!roomId || !state.joinedRooms.includes(roomId)) {
-      state.lastError = "Join a room first.";
+      state.lastError = t("errors.joinRoomFirst");
       showToast(state.lastError);
       return;
     }
@@ -7619,7 +7899,7 @@ function createMessenger() {
       tickCall(Date.now());
       playJoinSound();
     } catch (error) {
-      state.lastError = mediaErrorMessage("Mic access denied", error);
+      state.lastError = mediaErrorMessage(t("errors.micDeniedLabel"), error);
       showToast(state.lastError);
       endCall();
     }
@@ -7704,7 +7984,7 @@ function createMessenger() {
     const label =
       String(server.label || "")
         .trim()
-        .slice(0, 64) || "Custom TURN";
+        .slice(0, 64) || t("labels.customTurn");
     const username = String(server.username || "")
       .trim()
       .slice(0, 128);
@@ -7751,7 +8031,7 @@ function createMessenger() {
       state.cameraStream = stream;
       state.callCameraEnabled = true;
       const [track] = stream.getVideoTracks();
-      if (!track) throw new Error("Camera has no video track.");
+      if (!track) throw new Error(t("errors.cameraNoVideo"));
       callManager.setLocalTrack("camera", track, stream);
       playCameraOnSound();
       track.onended = () => {
@@ -7767,7 +8047,7 @@ function createMessenger() {
       }
       publishCallState(true);
     } catch {
-      state.lastError = "Camera access denied.";
+      state.lastError = t("errors.cameraDenied");
       showToast(state.lastError);
     }
   }
@@ -7804,7 +8084,7 @@ function createMessenger() {
       state.screenStream = stream;
       state.callScreenEnabled = true;
       const [track] = stream.getVideoTracks();
-      if (!track) throw new Error("Screen share has no video track.");
+      if (!track) throw new Error(t("errors.screenNoVideo"));
       callManager.setLocalTrack("screen", track, stream);
       // Attach a browser-provided audio track if the WebView produced one.
       for (const audioTrack of stream.getAudioTracks()) {
@@ -7835,7 +8115,7 @@ function createMessenger() {
       };
       publishCallState(true);
     } catch {
-      state.lastError = "Screen sharing was cancelled.";
+      state.lastError = t("errors.screenCancelled");
       showToast(state.lastError);
     }
   }
@@ -7851,7 +8131,7 @@ function createMessenger() {
       const stream = await acquireScreenShareStream();
       if (!stream) return; // picker dismissed
       const [track] = stream.getVideoTracks();
-      if (!track) throw new Error("Screen share has no video track.");
+      if (!track) throw new Error(t("errors.screenNoVideo"));
       const previousStream = state.screenStream;
       callManager.setLocalTrack("screen", track, stream);
       // Replace the system-audio sender, or tear it down when the new source
@@ -7986,7 +8266,11 @@ function createMessenger() {
       state.callRoom === roomId &&
       !state.callDeafened;
     if (d.isVoiceChat === true) {
+      // Read before the set is touched: this is the only moment that tells a
+      // call being opened apart from somebody joining one already running.
+      const openedTheCall = members.size === 0;
       members.add(user);
+      if (openedTheCall) announceCallStarted(roomId, user);
       if (clientId) {
         const clients = new Set(state.callClientsByRoom[roomId][user] || []);
         clients.add(clientId);
@@ -8206,7 +8490,7 @@ function createMessenger() {
       persist();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Username change failed.";
+      state.lastError = errorMessage(error) || t("errors.usernameChangeFailed");
       showToast(state.lastError);
       return false;
     }
@@ -8242,6 +8526,7 @@ function createMessenger() {
     state.activeRoom = "";
     state.joinedRooms = [];
     state.pendingJoinRooms = [];
+    state.historyPendingRooms = [];
     persist();
   }
 
@@ -8336,7 +8621,7 @@ function createMessenger() {
       !state.identified ||
       !state.joinedRooms.includes(roomId)
     ) {
-      state.lastError = "Not joined to this room yet.";
+      state.lastError = t("errors.notJoined");
       showToast(state.lastError);
       return;
     }
@@ -8356,7 +8641,7 @@ function createMessenger() {
         state.editingMessage = null;
       })
       .catch((error) => {
-        state.lastError = errorMessage(error) || "Message edit failed.";
+        state.lastError = errorMessage(error) || t("errors.editFailed");
         showToast(state.lastError);
       });
   }
@@ -8395,7 +8680,7 @@ function createMessenger() {
   }
 
   async function deleteAccount(password: string) {
-    if (!state.authToken) throw new Error("Not authenticated.");
+    if (!state.authToken) throw new Error(t("errors.notAuthenticated"));
     await apiRequest("/api/auth/delete", {
       method: "POST",
       body: JSON.stringify({ password }),
@@ -8406,7 +8691,7 @@ function createMessenger() {
   async function renewSession(password: string, capToken?: string | null) {
     const username = sanitizeUsername(state.username);
     if (!username) {
-      state.lastError = "Missing username.";
+      state.lastError = t("errors.missingUsername");
       showToast(state.lastError);
       return false;
     }
@@ -8428,7 +8713,7 @@ function createMessenger() {
       connect();
       return true;
     } catch (error) {
-      state.lastError = errorMessage(error) || "Session renewal failed.";
+      state.lastError = errorMessage(error) || t("errors.sessionRenewFailed");
       showToast(state.lastError);
       return false;
     } finally {
@@ -8461,11 +8746,11 @@ function createMessenger() {
       username: message.username || "",
       text:
         message.kind === "image"
-          ? "Photo"
+          ? t("labels.photo")
           : message.kind === "video"
-            ? "Video"
+            ? t("labels.video")
             : message.kind === "file"
-              ? "File attachment"
+              ? t("labels.fileAttachment")
               : message.text || "",
     };
   }
@@ -8518,15 +8803,24 @@ function createMessenger() {
     const key = `${roomId}:${messageId}:${url}`;
     if (pendingLinkPreviewRequests.has(key)) return;
     pendingLinkPreviewRequests.add(key);
+    linkPreviewQueue.push({ gameId: roomId, messageId, url });
+    drainLinkPreviewQueue();
+  }
 
-    send({
-      op: 28,
-      d: {
-        gameId: roomId,
-        messageId,
-        url,
-      },
-    });
+  const linkPreviewQueue: { gameId: string; messageId: string; url: string }[] = [];
+  let linkPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function drainLinkPreviewQueue() {
+    if (linkPreviewTimer) return;
+    const next = linkPreviewQueue.shift();
+    if (!next) return;
+    if (state.connected && state.identified && state.joinedRooms.includes(next.gameId)) {
+      send({ op: 28, d: next });
+    }
+    linkPreviewTimer = setTimeout(() => {
+      linkPreviewTimer = null;
+      drainLinkPreviewQueue();
+    }, LINK_PREVIEW_SPACING_MS);
   }
 
   function applyDeletion(payload: Record<string, unknown>) {
@@ -8579,7 +8873,10 @@ function createMessenger() {
         arr.splice(0, arr.length - MAX_HISTORY_PER_ROOM);
       return true;
     } else {
-      arr[index] = normalized;
+      const previous = arr[index];
+      arr[index] = previous.pollState.total && !normalized.pollState.total
+        ? { ...normalized, pollState: previous.pollState }
+        : normalized;
       return false;
     }
   }
@@ -8730,6 +9027,7 @@ function createMessenger() {
         }
         state.joinedRooms = [];
         state.pendingJoinRooms = [];
+        state.historyPendingRooms = [];
         state.usersByRoom = {};
         state.voiceMembersByRoom = {};
         state.callClientsByRoom = {};
@@ -8793,7 +9091,7 @@ function createMessenger() {
         } else if (d?.messageId && typeof d?.timestamp === "number") {
           // Full broadcast frame ({messageId, text, username, timestamp, ...}).
           upsertMessage(d as IncomingMessage).catch(() => {
-            state.lastError = "Could not process encrypted message.";
+            state.lastError = t("errors.decryptMessageFailed");
             showToast(state.lastError);
           });
         }
@@ -8807,9 +9105,23 @@ function createMessenger() {
         break;
       case 18:
         handleHistoryOp(d).catch(() => {
-          state.lastError = "Could not decrypt room history.";
+          state.lastError = t("errors.decryptHistoryFailed");
           showToast(state.lastError);
         });
+        break;
+      case 53:
+        if (d?.error) {
+          const messageId = String(d?.messageId || "");
+          if (messageId) pollChoices.delete(messageId);
+          state.lastError = d.error === "Already voted" ? t("poll.alreadyVoted") : t("poll.voteFailed");
+          showToast(state.lastError, { error: true });
+        }
+        break;
+      case 54:
+        applyPollState(d);
+        break;
+      case 56:
+        void applyRoomSignal(d);
         break;
       case 20:
         applyReactions(d);
@@ -8837,10 +9149,6 @@ function createMessenger() {
         applyPresenceStatus(d);
         break;
       case 28:
-        if (d?.error) {
-          state.lastError = String(d.error || "");
-          showToast(String(d.error || ""));
-        }
         break;
       case 29:
         if (d?.error) {
@@ -8851,7 +9159,7 @@ function createMessenger() {
       case 30:
         if (d?.messageId && typeof d?.timestamp === "number") {
           upsertMessage(d as IncomingMessage).catch(() => {
-            state.lastError = "Could not process edited message.";
+            state.lastError = t("errors.editedMessageFailed");
             showToast(state.lastError);
           });
         }
@@ -8978,6 +9286,7 @@ function createMessenger() {
     state.rooms = [];
     state.joinedRooms = [];
     state.pendingJoinRooms = [];
+    state.historyPendingRooms = [];
     state.messagesByRoom = {};
     state.usersByRoom = {};
     state.profilesByUser = {};
@@ -9039,6 +9348,7 @@ function createMessenger() {
 
     upsertCurrentAccount();
     clearActiveSession();
+    linkPreviewQueue.length = 0;
     applyPersistedPayload(target);
     state.sessionExpired = false;
     persist();
@@ -9093,11 +9403,7 @@ function createMessenger() {
   }
 
   function applyPublicProfileLookup(d: Record<string, unknown>) {
-    if (d?.error) {
-      state.lastError = String(d.error || "");
-      showToast(String(d.error || ""));
-      return;
-    }
+    if (d?.error) return;
     const now = Date.now();
     applyProfiles(d?.profiles);
     for (const [username, badges] of Object.entries(d?.badges || {})) {
@@ -9455,9 +9761,9 @@ function createMessenger() {
   }
 
   async function handleHistoryOp(d: Record<string, unknown>) {
-    if (!d?.ok) return;
-    const roomId = sanitizeRoomId(d.roomId);
-    if (!roomId) return;
+    const roomId = sanitizeRoomId(d.roomId || d.gameId);
+    if (roomId) state.historyPendingRooms = state.historyPendingRooms.filter((r) => r !== roomId);
+    if (!d?.ok || !roomId) return;
     if (
       !state.joinedRooms.includes(roomId) &&
       !state.pendingJoinRooms.includes(roomId) &&
@@ -9499,10 +9805,54 @@ function createMessenger() {
     persist();
   }
 
-  function showTransientSystemRoomEvent(roomId: string, username: string, eventKind: string) {
+  /** Quiet for a minute and a half per room, four notices a half minute overall. */
+  const callNoticeFence = createNoticeFence(90_000, 4, 30_000);
+  /** Five minutes per person per room, six lines per room per twenty seconds. */
+  const presenceNoticeFence = createNoticeFence(300_000, 6, 20_000);
+
+  function announceCallStarted(roomId: string, username: string) {
     const id = sanitizeRoomId(roomId);
     const user = sanitizeUsername(username);
     if (!id || !user) return;
+    const now = Date.now();
+    if (!callNoticeFence(id, "", now)) return;
+    const isMe = user === sanitizeUsername(state.username);
+    pushMessageToRoom(
+      id,
+      normalizeMessage(
+        {
+          messageId: `system-call-${id}-${user}-${now}`,
+          roomId: id,
+          user: SYSTEM_USERNAME,
+          username: SYSTEM_USERNAME,
+          text: isMe ? t("thread.callStartedSelf") : t("thread.callStarted", { user }),
+          timestamp: now,
+          system: true,
+          systemKind: "call",
+          deleted: false,
+          reactions: [],
+          replyToMessageId: "",
+          attachment: null,
+          encrypted: null,
+          preview: null,
+          editedAt: 0,
+        },
+        id,
+      ),
+    );
+    touchRoom(id);
+    persist();
+  }
+
+  function showTransientSystemRoomEvent(
+    roomId: string,
+    username: string,
+    eventKind: string,
+  ) {
+    const id = sanitizeRoomId(roomId);
+    const user = sanitizeUsername(username);
+    if (!id || !user) return;
+    if (!presenceNoticeFence(`${id}|${user}|${eventKind}`, id, Date.now())) return;
     const text =
       eventKind === "leave"
         ? t("thread.roomLeft", { user })
@@ -9580,6 +9930,7 @@ function createMessenger() {
       appAccent: state.appAccent,
       messageStyle: state.messageStyle,
       androidNotificationsEnabled: state.androidNotificationsEnabled,
+      notificationPrivacy: state.notificationPrivacy,
       serverClearsLocalMessages: state.serverClearsLocalMessages,
       autoReconnectEnabled: state.autoReconnectEnabled,
       reconnectMinDelayMs: state.reconnectMinDelayMs,
@@ -9599,7 +9950,7 @@ function createMessenger() {
     a.remove();
     URL.revokeObjectURL(url);
     state.settingsOpen = false;
-    showToast("Backup exported.");
+    showToast(t("notices.backupExported"));
   }
 
   function importData(file: File) {
@@ -9607,13 +9958,13 @@ function createMessenger() {
     if (!file) return;
     const reader = new FileReader();
     reader.onerror = () => {
-      state.lastError = "Couldn't read file.";
+      state.lastError = t("errors.fileRead");
       showToast(state.lastError);
     };
     reader.onload = (e) => {
       try {
         const data = JSON.parse(String(e.target?.result ?? ""));
-        if (!data || typeof data !== "object") throw new Error("Not an object");
+        if (!data || typeof data !== "object") throw new Error(t("errors.backupInvalid"));
         if (Array.isArray(data.rooms)) {
           // Object.fromEntries widens tuple values to {}, so the shape is stated.
           const previousRooms: Record<string, { title: string; iconUrl: string; members: string[] }> =
@@ -9716,6 +10067,8 @@ function createMessenger() {
           setMessageStyle(data.messageStyle);
         if (typeof data.androidNotificationsEnabled === "boolean")
           state.androidNotificationsEnabled = data.androidNotificationsEnabled;
+        if (typeof data.notificationPrivacy === "string")
+          state.notificationPrivacy = sanitizeNotificationPrivacy(data.notificationPrivacy);
         if (typeof data.autoArchiveUploads === "boolean")
           state.autoArchiveUploads = data.autoArchiveUploads;
         if (typeof data.renameUploadsRandomly === "boolean")
@@ -9732,11 +10085,11 @@ function createMessenger() {
 
         persist();
         state.lastError = "";
-        showToast("Backup imported.");
+        showToast(t("notices.backupImported"));
 
         window.location.reload();
       } catch (err) {
-        state.lastError = `Import failed: ${errorMessage(err)}`;
+        state.lastError = t("errors.importFailed", { reason: errorMessage(err) });
         showToast(state.lastError);
       }
     };
@@ -9837,6 +10190,8 @@ function createMessenger() {
     MAX_ACCOUNTS,
     deleteAccount,
     downloadRecoveryWords,
+    recoveryFileName,
+    dismissRecoveryNotice,
     setRecoveryWords,
     enableClientLock,
     unlockClientLock,
@@ -9886,6 +10241,7 @@ function createMessenger() {
     setSoundEnabled,
     previewSound,
     setAndroidNotificationsEnabled,
+    setNotificationPrivacy,
     setThemeMode,
     setClientLockThemeMode,
     setAppAccent,
@@ -9904,6 +10260,7 @@ function createMessenger() {
     notificationPermission,
     setPresenceStatus,
     setProfileText,
+    setProfileExtras,
     setProfileImageFromFile,
     clearProfileImage,
     callUserVolume,
@@ -9934,6 +10291,15 @@ function createMessenger() {
     remoteCallStream,
     remoteVideoStream,
     toggleReaction,
+    sendPoll,
+    onRoomSignal,
+    sendRoomSignal,
+    threadSummaries,
+    threadMessages,
+    openThread,
+    sendThreadReply,
+    votePoll,
+    pollChoices,
     deleteMessage,
     canDeleteMessage,
     canEditMessage,

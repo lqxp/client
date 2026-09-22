@@ -116,7 +116,7 @@ function widthPct(value: number): number {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .rank__toggle:hover {
@@ -146,7 +146,7 @@ function widthPct(value: number): number {
   gap: 10px;
   padding: 2px 4px;
   border-radius: 7px;
-  transition: background-color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .rank__row:focus-visible {
@@ -180,9 +180,9 @@ function widthPct(value: number): number {
   border-radius: 0 4px 4px 0;
   background: var(--chart-1);
   transform-origin: left;
-  animation: rank-grow 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: rank-grow 620ms var(--ease-out) both;
   animation-delay: calc(var(--i) * 45ms);
-  transition: filter 140ms ease-out;
+  transition: filter var(--dur-fast) var(--ease-out);
 }
 
 .rank__row.is-hovered .rank__bar {

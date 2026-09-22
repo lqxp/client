@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import PresenceDot, { type Presence } from "@/components/PresenceDot.vue";
+import Avatar from "@/components/Avatar.vue";
+import { initialsOf } from "@/utils/initials";
+import type { Phantom } from "@/composables/usePhantom";
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
@@ -11,10 +18,10 @@ import { currentWindowZoom } from "@/utils/windowZoom";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
-const phantom = inject<any>("phantom");
+const phantom = inject<Phantom>("phantom")!;
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object as PropType<Messenger>, required: true }
 });
 const emit = defineEmits(["conversation-selected", "open-spotlight"]);
 
@@ -73,17 +80,19 @@ function onSideListTouchEnd(event: TouchEvent) {
   }
 }
 
-const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.username || "you"));
 const meAvatar = computed(() => props.messenger.profileImageSrc(props.messenger.myProfile.value.avatar, "avatar"));
 const accounts = computed(() => props.messenger.localAccounts?.value || []);
 const currentUserId = computed(() => String(props.messenger.state.userId || ""));
 
-function accountAccent(username) {
+/** A saved account, as the messenger keeps them for the switcher. */
+type StoredAccount = Messenger["state"]["accounts"][number];
+
+function accountAccent(username: string) {
   return props.messenger.accentFor(String(username || "you"));
 }
 
-function accountAvatar(account) {
+function accountAvatar(account: StoredAccount | null | undefined) {
   return props.messenger.profileImageSrc(account?.profile?.avatar, "avatar");
 }
 
@@ -97,10 +106,16 @@ const statusLabel = computed(() => {
       return t("sidebar.online");
   }
 });
-const statusOptions = computed(() => [
-  { value: "online", label: t('sidebar.online') },
-  { value: "invisible", label: t('sidebar.invisible') },
-  { value: "dnd", label: t('sidebar.dnd') }
+const footPresence = computed<Presence>(() => {
+  if (props.messenger.state.connected && !props.messenger.state.identified) return "connecting";
+  const status = props.messenger.state.status;
+  return status === "dnd" || status === "invisible" ? status : "online";
+});
+
+const statusOptions = computed<{ value: Presence; label: string; hint: string }[]>(() => [
+  { value: "online", label: t('sidebar.online'), hint: t('sidebar.onlineHint') },
+  { value: "invisible", label: t('sidebar.invisible'), hint: t('sidebar.invisibleHint') },
+  { value: "dnd", label: t('sidebar.dnd'), hint: t('sidebar.dndHint') }
 ]);
 
 const desktopRoomContextStyle = computed(() => ({
@@ -142,20 +157,15 @@ const roomContextIsPinned = computed(() =>
   props.messenger.isRoomPinned?.(roomContextRoomId.value) === true,
 );
 
-function initialsOf(name) {
-  const trimmed = String(name || "?").trim();
-  if (!trimmed) return "?";
-  const parts = trimmed.split(/[\s\-_]+/).slice(0, 2);
-  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
-}
 
 async function leaveRoomFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
   const label = props.messenger.displayRoomName(roomId);
   const suffix = props.messenger.state.deleteMessagesOnLeave ? ` ${t("thread.leaveRoomDeletesLocal")}` : "";
-  const confirmed = await dialog.showConfirm(t("thread.leaveRoomConfirm", { room: label, suffix }));
+  const confirmed = await dialog.showConfirm(t("thread.leaveRoomConfirm", { room: label, suffix }), "", {
+    confirmLabel: t("thread.leaveRoom"),
+  });
   if (!confirmed) return;
   props.messenger.leaveRoom(roomId);
   closeRoomContext();
@@ -164,7 +174,11 @@ async function leaveRoomFromContext() {
 async function clearLocalMessagesFromContext() {
   const roomId = roomContextRoomId.value;
   if (!roomId) return;
-  const confirmed = await dialog.showConfirm(t("thread.clearLocalMessagesConfirm", { room: props.messenger.displayRoomName(roomId) }));
+  const confirmed = await dialog.showConfirm(
+    t("thread.clearLocalMessagesConfirm", { room: props.messenger.displayRoomName(roomId) }),
+    "",
+    { danger: true, confirmLabel: t("dialog.clear") },
+  );
   if (!confirmed) return;
   props.messenger.clearLocalRoomMessages?.(roomId);
   props.messenger.showToast?.(t("thread.clearLocalMessagesSuccess"));
@@ -193,11 +207,11 @@ function togglePinRoomFromContext() {
   closeRoomContext();
 }
 
-function roomIcon(roomId) {
+function roomIcon(roomId: string) {
   return props.messenger.roomIcon?.(roomId) || "";
 }
 
-function roomIconIsImage(roomId) {
+function roomIconIsImage(roomId: string) {
   const icon = roomIcon(roomId);
   return !!icon && !icon.startsWith("data:");
 }
@@ -257,7 +271,7 @@ function positionSideListContext(clientX: number, clientY: number) {
   return positionContextMenu(sideListContextMenuRef, sideListContextPos, clientX, clientY);
 }
 
-function onRoomContext(event, roomId) {
+function onRoomContext(event: MouseEvent, roomId: string) {
   event.preventDefault();
   event.stopPropagation();
   roomContextRoomId.value = roomId;
@@ -265,7 +279,7 @@ function onRoomContext(event, roomId) {
   positionRoomContext(event.clientX, event.clientY);
 }
 
-function onSideListContext(event) {
+function onSideListContext(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
   sideListContextOpen.value = true;
@@ -287,7 +301,9 @@ async function leaveAllRoomsFromContext(deleteMessages: boolean) {
     return;
   }
   const confirmed = await dialog.showConfirm(
-    t(deleteMessages ? "sidebar.leaveAllRoomsDeleteConfirm" : "sidebar.leaveAllRoomsConfirm")
+    t(deleteMessages ? "sidebar.leaveAllRoomsDeleteConfirm" : "sidebar.leaveAllRoomsConfirm"),
+    "",
+    { danger: deleteMessages, confirmLabel: t("dialog.leaveAll") },
   );
   if (!confirmed) return;
   props.messenger.leaveAllRooms(deleteMessages);
@@ -317,7 +333,7 @@ function pickRoomImageFromContext() {
   roomIconInputRef.value?.click();
 }
 
-async function onRoomIconFileChange(event) {
+async function onRoomIconFileChange(event: Event) {
   const input = event.target as HTMLInputElement | null;
   const file = input?.files?.[0];
   const roomId = roomIconUploadRoomId.value || roomContextRoomId.value;
@@ -328,7 +344,7 @@ async function onRoomIconFileChange(event) {
   closeRoomContext();
 }
 
-function openConversation(roomId) {
+function openConversation(roomId: string) {
   props.messenger.selectConversation(roomId);
   emit("conversation-selected", roomId);
 }
@@ -352,27 +368,27 @@ function joinRoomFromAddServer() {
   joinRoomOpen.value = true;
 }
 
-function toggleStatusMenu(event) {
+function toggleStatusMenu(event: MouseEvent) {
   event.stopPropagation();
   statusMenuOpen.value = !statusMenuOpen.value;
 }
 
-function setStatus(value) {
+function setStatus(value: string) {
   props.messenger.setPresenceStatus(value);
   statusMenuOpen.value = false;
 }
 
-function toggleAccountMenu(event) {
+function toggleAccountMenu(event: MouseEvent) {
   event.stopPropagation();
   accountMenuOpen.value = !accountMenuOpen.value;
 }
 
-function switchAccount(userId) {
+function switchAccount(userId: string) {
   props.messenger.switchAccount?.(userId);
   accountMenuOpen.value = false;
 }
 
-function removeAccount(userId) {
+function removeAccount(userId: string) {
   props.messenger.removeAccount?.(userId);
 }
 
@@ -400,17 +416,12 @@ onBeforeUnmount(() => {
   <aside class="side" @touchstart="onSidebarTouchStart" @touchend="onSidebarTouchEnd">
     <div class="side__search">
       <label class="search">
-        <svg viewBox="0 0 24 24">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
+        <Icon name="search-lg" viewBox="0 0 24 24" />
         <input v-model="messenger.state.searchTerm" type="search" :placeholder="t('sidebar.searchPlaceholder')"
           :aria-label="t('sidebar.searchPlaceholder')" @focus="emit('open-spotlight')" />
       </label>
       <button class="icon-btn side__compose" type="button" :aria-label="t('sidebar.addServer')" @click="addServerOpen = true">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        <Icon name="plus" viewBox="0 0 24 24" />
       </button>
     </div>
 
@@ -418,7 +429,7 @@ onBeforeUnmount(() => {
       <template v-if="conversations.length">
         <div v-if="pinnedConversations.length" class="side__pinned">
           <button class="side__pinned-label" type="button" :aria-expanded="!pinnedCollapsed" @click="togglePinnedCollapsed">
-            <svg class="side__section-chevron" :class="{ 'is-collapsed': pinnedCollapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+            <Icon name="chevron-down" class="side__section-chevron" :class="{ 'is-collapsed': pinnedCollapsed }" viewBox="0 0 24 24" />
             <span>{{ t('sidebar.pinnedRooms') }}</span>
           </button>
           <template v-if="!pinnedCollapsed">
@@ -449,7 +460,7 @@ onBeforeUnmount(() => {
         </div>
 
         <button v-if="regularConversations.length" class="side__channels-label" type="button" :aria-expanded="!channelsCollapsed" @click="toggleChannelsCollapsed">
-          <svg class="side__section-chevron" :class="{ 'is-collapsed': channelsCollapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          <Icon name="chevron-down" class="side__section-chevron" :class="{ 'is-collapsed': channelsCollapsed }" viewBox="0 0 24 24" />
           <span>{{ t('sidebar.channels') }}</span>
         </button>
         <template v-if="!channelsCollapsed">
@@ -494,78 +505,82 @@ onBeforeUnmount(() => {
     </div>
 
     <Teleport to="body">
-      <div v-if="roomContextOpen" class="room-context-backdrop" @click="closeRoomContext">
-        <div ref="roomContextMenuRef" class="room-context context-menu-base" role="menu"
-          :style="desktopRoomContextStyle" @click.stop>
-          <!-- Header (mobile only) -->
-          <div class="room-context__header">
-            <strong class="room-context__header-name">{{ messenger.displayRoomNameBeautified(roomContextRoomId) }}</strong>
+      <Transition name="qx-pop">
+        <div v-if="roomContextOpen" class="room-context-backdrop" @click="closeRoomContext">
+          <div ref="roomContextMenuRef" v-sheet-dismiss="closeRoomContext" class="room-context context-menu-base" role="menu"
+            :style="desktopRoomContextStyle" @click.stop>
+            <!-- Header (mobile only) -->
+            <div class="room-context__header">
+              <strong class="room-context__header-name">{{ messenger.displayRoomNameBeautified(roomContextRoomId) }}</strong>
+            </div>
+            <button type="button" role="menuitem" @click="togglePinRoomFromContext">
+              <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+              <span>{{ roomContextIsPinned ? t('sidebar.unpinRoom') : t('sidebar.pinRoom') }}</span>
+            </button>
+            <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="pickRoomImageFromContext">
+              <Icon name="image" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('sidebar.contextChangeImage') }}</span>
+            </button>
+            <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="renameRoomFromContext">
+              <Icon name="edit" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('sidebar.contextRenameRoom') }}</span>
+            </button>
+            <button v-if="roomContextIsCommunity && roomContextCanManage" type="button" role="menuitem" @click="openRoomSettings">
+              <Icon name="settings" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('rooms.settings') }}</span>
+            </button>
+            <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
+              <Icon name="trash" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('thread.clearLocalMessages') }}</span>
+            </button>
+            <button type="button" role="menuitem" @click="shareRoomTokenFromContext">
+              <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span>{{ t('thread.shareToken') }}</span>
+            </button>
+            <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+              @click="leaveRoomFromContext">
+              <Icon name="log-out" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('thread.leaveRoom') }}</span>
+            </button>
+            <!-- Cancel (mobile only) -->
+            <div class="room-context__separator" aria-hidden="true"></div>
+            <button type="button" class="room-context__cancel" role="menuitem" @click="closeRoomContext">
+              <Icon name="close" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('message.cancel') }}</span>
+            </button>
           </div>
-          <button type="button" role="menuitem" @click="togglePinRoomFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
-            <span>{{ roomContextIsPinned ? t('sidebar.unpinRoom') : t('sidebar.pinRoom') }}</span>
-          </button>
-          <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="pickRoomImageFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>{{ t('sidebar.contextChangeImage') }}</span>
-          </button>
-          <button v-if="!roomContextIsCommunity" type="button" role="menuitem" @click="renameRoomFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            <span>{{ t('sidebar.contextRenameRoom') }}</span>
-          </button>
-          <button v-if="roomContextIsCommunity && roomContextCanManage" type="button" role="menuitem" @click="openRoomSettings">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9c.23.62.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05A1.7 1.7 0 0 0 19.4 15Z"/></svg>
-            <span>{{ t('rooms.settings') }}</span>
-          </button>
-          <button type="button" role="menuitem" @click="clearLocalMessagesFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            <span>{{ t('thread.clearLocalMessages') }}</span>
-          </button>
-          <button type="button" role="menuitem" @click="shareRoomTokenFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span>{{ t('thread.shareToken') }}</span>
-          </button>
-          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
-            @click="leaveRoomFromContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <span>{{ t('thread.leaveRoom') }}</span>
-          </button>
-          <!-- Cancel (mobile only) -->
-          <div class="room-context__separator" aria-hidden="true"></div>
-          <button type="button" class="room-context__cancel" role="menuitem" @click="closeRoomContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-            <span>{{ t('message.cancel') }}</span>
-          </button>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="sideListContextOpen" class="room-context-backdrop" @click="closeSideListContext">
-        <div ref="sideListContextMenuRef" class="room-context context-menu-base" role="menu"
-          :style="desktopSideListContextStyle" @click.stop>
-          <!-- Header (mobile only) -->
-          <div class="room-context__header">
-            <strong class="room-context__header-name">{{ t('sidebar.listOptions') }}</strong>
+      <Transition name="qx-pop">
+        <div v-if="sideListContextOpen" class="room-context-backdrop" @click="closeSideListContext">
+          <div ref="sideListContextMenuRef" v-sheet-dismiss="closeSideListContext" class="room-context context-menu-base" role="menu"
+            :style="desktopSideListContextStyle" @click.stop>
+            <!-- Header (mobile only) -->
+            <div class="room-context__header">
+              <strong class="room-context__header-name">{{ t('sidebar.listOptions') }}</strong>
+            </div>
+            <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+              @click="leaveAllRoomsFromContext(false)">
+              <Icon name="log-out" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('sidebar.leaveAllRooms') }}</span>
+            </button>
+            <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
+              @click="leaveAllRoomsFromContext(true)">
+              <Icon name="trash" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('sidebar.leaveAllRoomsDelete') }}</span>
+            </button>
+            <!-- Cancel (mobile only) -->
+            <div class="room-context__separator" aria-hidden="true"></div>
+            <button type="button" class="room-context__cancel" role="menuitem" @click="closeSideListContext">
+              <Icon name="close" class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('message.cancel') }}</span>
+            </button>
           </div>
-          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
-            @click="leaveAllRoomsFromContext(false)">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <span>{{ t('sidebar.leaveAllRooms') }}</span>
-          </button>
-          <button class="room-context__danger context-menu-danger" type="button" role="menuitem"
-            @click="leaveAllRoomsFromContext(true)">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            <span>{{ t('sidebar.leaveAllRoomsDelete') }}</span>
-          </button>
-          <!-- Cancel (mobile only) -->
-          <div class="room-context__separator" aria-hidden="true"></div>
-          <button type="button" class="room-context__cancel" role="menuitem" @click="closeSideListContext">
-            <svg class="room-context__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-            <span>{{ t('message.cancel') }}</span>
-          </button>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
     <input ref="roomIconInputRef" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
@@ -579,19 +594,11 @@ onBeforeUnmount(() => {
     <div class="side__foot" @click.stop @touchstart="onSideListTouchStart" @touchend="onSideListTouchEnd">
       <button class="side-user" type="button" :title="messenger.state.username"
         :aria-expanded="accountMenuOpen" @click="toggleAccountMenu">
-        <span v-if="meAvatar" class="side-user__avatar">
-          <img :src="meAvatar" alt="" />
-        </span>
-        <span v-else class="avatar avatar--md" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
+        <Avatar :name="messenger.state.username" :src="meAvatar" :accent="meAccent" size="md" />
         <span class="side-user__text">
           <strong>{{ messenger.state.username || t('sidebar.anonymous') }}</strong>
           <small>
-            <span class="dot" :class="{
-              'is-online': messenger.state.status === 'online',
-              'is-dnd': messenger.state.status === 'dnd',
-              'is-invisible': messenger.state.status === 'invisible',
-              'is-connecting': messenger.state.connected && !messenger.state.identified
-            }"></span>
+            <PresenceDot :status="footPresence" :size="7" />
             <span v-if="messenger.state.connected && messenger.state.identified">{{ statusLabel }}</span>
             <span v-else-if="messenger.state.connected">{{ t('sidebar.connecting') }}</span>
             <span v-else>{{ t('sidebar.offline') }}</span>
@@ -599,65 +606,74 @@ onBeforeUnmount(() => {
         </span>
       </button>
 
-      <div v-if="accountMenuOpen" class="account-menu-backdrop" @click="accountMenuOpen = false"></div>
-      <div v-if="accountMenuOpen" class="account-menu" role="menu" @click.stop>
-        <div class="account-menu__header">
-          <strong>{{ t('sidebar.accounts') }}</strong>
-          <span>{{ accounts.length }} / {{ messenger.MAX_ACCOUNTS }}</span>
-        </div>
-        <div v-for="account in accounts" :key="account.userId" class="account-menu__row"
-          :class="{ 'is-active': account.userId === currentUserId }">
-          <button type="button" class="account-menu__switch" role="menuitem"
-            :aria-label="t('sidebar.switchAccount')" @click="switchAccount(account.userId)">
-            <span v-if="accountAvatar(account)" class="account-menu__avatar">
-              <img :src="accountAvatar(account)" alt="" />
+      <Transition name="qx-fade">
+        <div v-if="accountMenuOpen" class="account-menu-backdrop" @click="accountMenuOpen = false"></div>
+      </Transition>
+      <Transition name="qx-sheet">
+        <div v-if="accountMenuOpen" v-sheet-dismiss="() => (accountMenuOpen = false)" class="account-menu" role="menu" @click.stop>
+          <div class="account-menu__header">
+            <strong>{{ t('sidebar.accounts') }}</strong>
+            <span>{{ accounts.length }} / {{ messenger.MAX_ACCOUNTS }}</span>
+          </div>
+          <div v-for="account in accounts" :key="account.userId" class="account-menu__row"
+            :class="{ 'is-active': account.userId === currentUserId }">
+            <button type="button" class="account-menu__switch" role="menuitem"
+              :aria-label="t('sidebar.switchAccount')" @click="switchAccount(account.userId)">
+              <Avatar :name="account.username" :src="accountAvatar(account)" :accent="accountAccent(account.username)"
+                size="sm" />
+              <span class="account-menu__name">@{{ account.username }}</span>
+              <span v-if="account.userId === currentUserId" class="account-menu__check">✓</span>
+            </button>
+            <button v-if="account.userId !== currentUserId" type="button" class="account-menu__remove"
+              :aria-label="t('sidebar.removeAccount')" @click="removeAccount(account.userId)">×</button>
+          </div>
+          <button type="button" class="account-menu__add" role="menuitem" @click="addAccount">
+            <span class="account-menu__add-icon">
+              <Icon name="plus" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </span>
-            <span v-else class="avatar avatar--sm" :class="`avatar--${accountAccent(account.username)}`">{{ initialsOf(account.username) }}</span>
-            <span class="account-menu__name">@{{ account.username }}</span>
-            <span v-if="account.userId === currentUserId" class="account-menu__check">✓</span>
+            <span>{{ t('sidebar.addAccount') }}</span>
           </button>
-          <button v-if="account.userId !== currentUserId" type="button" class="account-menu__remove"
-            :aria-label="t('sidebar.removeAccount')" @click="removeAccount(account.userId)">×</button>
         </div>
-        <button type="button" class="account-menu__add" role="menuitem" @click="addAccount">
-          <span class="account-menu__add-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          </span>
-          <span>{{ t('sidebar.addAccount') }}</span>
-        </button>
-      </div>
+      </Transition>
 
       <div class="side-status">
         <button class="icon-btn side-status__toggle" type="button" :aria-label="t('sidebar.changeStatus')"
           :aria-expanded="statusMenuOpen" @click="toggleStatusMenu">
-          <svg viewBox="0 0 24 24">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+          <Icon name="chevron-down" viewBox="0 0 24 24" />
         </button>
-        <div v-if="statusMenuOpen" class="status-menu-backdrop" @click="statusMenuOpen = false">
-          <div class="side-status__menu" role="menu" @click.stop>
-            <!-- Header (mobile only) -->
-            <div class="status-menu__header">
-              <strong>{{ t('sidebar.statusOptions') }}</strong>
+        <Transition name="qx-pop">
+          <div v-if="statusMenuOpen" class="status-menu-backdrop" @click="statusMenuOpen = false">
+            <div v-sheet-dismiss="() => (statusMenuOpen = false)" class="side-status__menu" role="menu" @click.stop>
+              <!-- Header (mobile only) -->
+              <div class="status-menu__header">
+                <strong>{{ t('sidebar.statusOptions') }}</strong>
+              </div>
+              <!-- A menu item, not a toggle: the current status carries a check,
+                   and the row under the pointer takes the accent, the way the
+                   platform's own menus highlight. -->
+              <button v-for="option in statusOptions" :key="option.value" type="button" role="menuitemradio"
+                class="status-option" :aria-checked="messenger.state.status === option.value"
+                :class="{ 'is-active': messenger.state.status === option.value }" @click="setStatus(option.value)">
+                <PresenceDot :status="option.value" :size="9" />
+                <span class="status-option__text">
+                  <span class="status-option__label">{{ option.label }}</span>
+                  <span class="status-option__hint">{{ option.hint }}</span>
+                </span>
+                <svg v-if="messenger.state.status === option.value" class="status-option__check" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+              </button>
+              <!-- Cancel (mobile only) -->
+              <div class="status-menu__separator" aria-hidden="true"></div>
+              <button type="button" class="status-menu__cancel" role="menuitem" @click="statusMenuOpen = false">
+                <Icon name="close" class="status-menu__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <span>{{ t('message.cancel') }}</span>
+              </button>
             </div>
-            <button v-for="option in statusOptions" :key="option.value" type="button" role="menuitemradio"
-              :aria-checked="messenger.state.status === option.value"
-              :class="{ 'is-active': messenger.state.status === option.value }" @click="setStatus(option.value)">
-              <span class="dot" :class="{
-                'is-online': option.value === 'online',
-                'is-dnd': option.value === 'dnd',
-                'is-invisible': option.value === 'invisible'
-              }"></span>
-              {{ option.label }}
-            </button>
-            <!-- Cancel (mobile only) -->
-            <div class="status-menu__separator" aria-hidden="true"></div>
-            <button type="button" class="status-menu__cancel" role="menuitem" @click="statusMenuOpen = false">
-              <svg class="status-menu__item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              <span>{{ t('message.cancel') }}</span>
-            </button>
           </div>
-        </div>
+        </Transition>
       </div>
 
       <button v-if="messenger.state.clientLockEnabled && !messenger.state.clientLockLocked"
@@ -671,11 +687,7 @@ onBeforeUnmount(() => {
 
       <button class="icon-btn side-foot__settings" type="button" :aria-label="t('sidebar.settings')"
         @click="openSettings">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-          <path
-            d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9c.23.62.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05A1.7 1.7 0 0 0 19.4 15Z" />
-        </svg>
+        <Icon name="settings" viewBox="0 0 24 24" />
       </button>
 
       <button v-if="!messenger.state.connected" class="btn--ghost side-foot__link" type="button"
@@ -752,7 +764,7 @@ onBeforeUnmount(() => {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .side__section-chevron.is-collapsed {
   transform: rotate(-90deg);
@@ -775,11 +787,11 @@ onBeforeUnmount(() => {
   right: 8px;
   z-index: 46;
   padding: 6px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
+  border-radius: var(--context-menu-radius);
+  background: var(--context-menu-bg);
+  border: var(--context-menu-border);
+  box-shadow: var(--context-menu-shadow);
+  backdrop-filter: var(--context-menu-blur);
 }
 
 .account-menu__header {
@@ -825,21 +837,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.account-menu__avatar {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--surface-2);
-}
 
-.account-menu__avatar img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
 
 .account-menu__name {
   flex: 1;
@@ -965,7 +963,6 @@ onBeforeUnmount(() => {
     justify-content: center;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: room-context-backdrop-in 160ms ease-out;
   }
 
   .room-context {
@@ -985,7 +982,6 @@ onBeforeUnmount(() => {
     border-radius: 22px 22px 0 0;
     background: var(--surface);
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -1029,7 +1025,7 @@ onBeforeUnmount(() => {
     gap: 14px;
     width: 100%;
     text-align: left;
-    transition: background 120ms ease;
+    transition: background var(--dur-fast) var(--ease-out);
   }
 
   .room-context button:hover,
@@ -1047,7 +1043,7 @@ onBeforeUnmount(() => {
     width: 20px;
     height: 20px;
     color: var(--muted);
-    transition: color 120ms ease;
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
   .room-context button:hover .room-context__item-icon,
@@ -1094,7 +1090,6 @@ onBeforeUnmount(() => {
     justify-content: center;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: room-context-backdrop-in 160ms ease-out;
   }
 
   .side-status__menu {
@@ -1115,7 +1110,6 @@ onBeforeUnmount(() => {
     border-radius: 22px 22px 0 0;
     background: var(--surface);
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -1195,7 +1189,6 @@ onBeforeUnmount(() => {
     z-index: 45;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: room-context-backdrop-in 160ms ease-out;
   }
 
   .account-menu {
@@ -1212,7 +1205,6 @@ onBeforeUnmount(() => {
     border-radius: 22px 22px 0 0;
     border: 0;
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: room-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -1259,13 +1251,5 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes room-context-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
-@keyframes room-context-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
 </style>

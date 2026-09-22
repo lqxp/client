@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 140ms ease-out, box-shadow 140ms ease-out;
+  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .smenu:hover:not(:disabled) {
@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
   width: 14px;
   height: 14px;
   color: var(--muted);
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .smenu.is-open .smenu__chevron {
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
 /* Unscoped: the list lives in `body`, outside this component's subtree. */
 .smenu__list {
   position: fixed;
-  z-index: 9999998;
+  z-index: var(--z-select);
   max-height: 18rem;
   margin: 0;
   padding: 5px;
@@ -323,7 +323,7 @@ onBeforeUnmount(() => {
   font-size: 13px;
   line-height: 1.3;
   cursor: pointer;
-  transition: background 100ms ease-out;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .smenu__option.is-active:not(.is-disabled) {
@@ -350,12 +350,12 @@ onBeforeUnmount(() => {
 /* Grows out of the edge it is anchored to. */
 .smenu-down-enter-active,
 .smenu-up-enter-active {
-  transition: opacity .16s ease-out, transform .24s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .smenu-down-leave-active,
 .smenu-up-leave-active {
-  transition: opacity .12s ease-in, transform .16s ease-in;
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in);
 }
 
 .smenu-down-enter-from,

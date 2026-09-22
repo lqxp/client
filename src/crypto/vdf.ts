@@ -120,6 +120,22 @@ export interface VdfSolvedProof {
   pi: string;
 }
 
+const SLICE_MS = 12;
+
+function nextTask(): Promise<void> {
+  if (typeof MessageChannel === "undefined") {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+}
+
 export async function solveVdf(
   xHex: string,
   t: number,
@@ -130,16 +146,15 @@ export async function solveVdf(
   const modulus = hexToBigInt(modulusHex);
 
   let y = x % modulus;
-  const yieldInterval = 1500;
+  let sliceStart = performance.now();
 
   for (let i = 0; i < t; i++) {
     y = (y * y) % modulus;
 
-    if (i % yieldInterval === 0) {
-      if (onProgress) {
-        onProgress(Math.round((i / t) * 100));
-      }
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    if ((i & 255) === 0 && performance.now() - sliceStart >= SLICE_MS) {
+      onProgress?.(Math.round((i / t) * 100));
+      await nextTask();
+      sliceStart = performance.now();
     }
   }
 

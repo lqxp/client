@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import PresenceDot, { type Presence } from "@/components/PresenceDot.vue";
+import Avatar from "@/components/Avatar.vue";
+import { initialsOf } from "@/utils/initials";
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ImageViewer from "@/components/ImageViewer.vue";
@@ -9,7 +15,7 @@ import { currentWindowZoom } from "@/utils/windowZoom";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   showMobile: { type: Boolean, default: false }
 });
 
@@ -32,11 +38,11 @@ function onSidebarTouchEnd(event: TouchEvent) {
   if (dx > 60) emit("close-mobile");
 }
 
-function initialsFor(name: string) {
-  const clean = String(name || "?").trim();
-  const parts = clean.split(/[\s\-_]+/).filter(Boolean).slice(0, 2);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return clean.slice(0, 2).toUpperCase() || "?";
+
+function presenceOf(username: string): Presence {
+  if (voiceMembers.value.has(username)) return "call";
+  const status = statusFor(username);
+  return status === "dnd" || status === "invisible" ? status : "online";
 }
 
 function accentFor(name: string) {
@@ -76,6 +82,11 @@ function platformsFor(username: string) {
 const members = computed(() =>
   [...(props.messenger.memberRoster.value || [])].sort((a, b) => a.localeCompare(b))
 );
+
+const membersLoading = computed(() =>
+  !members.value.length && props.messenger.state.pendingJoinRooms.includes(props.messenger.state.activeRoom)
+);
+const skeletonWidths = [[58, 34], [44, 28], [66, 38], [50, 30], [38, 26], [62, 36]];
 
 const voiceMembers = computed(() => new Set(props.messenger.state.voiceMembersByRoom[props.messenger.state.activeRoom] || []));
 const isCommunity = computed(() => props.messenger.isCommunityRoom?.(props.messenger.state.activeRoom) === true);
@@ -357,7 +368,7 @@ onBeforeUnmount(() => {
       </div>
       <button v-if="showMobile" class="icon-btn members__close-mobile" type="button"
         :aria-label="t('profile.close')" @click="emit('close-mobile')">
-        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        <Icon name="close" viewBox="0 0 24 24" />
       </button>
     </div>
 
@@ -377,16 +388,11 @@ onBeforeUnmount(() => {
             @keydown.enter.prevent="selectedProfile = username"
             @keydown.space.prevent="selectedProfile = username"
           >
-            <span v-if="avatarFor(username)" class="members__avatar-image">
-              <img :src="avatarFor(username)" alt="" />
-            </span>
-            <span v-else class="avatar avatar--sm" :class="`avatar--${accentFor(username)}`">
-              {{ initialsFor(username) }}
-            </span>
+            <Avatar :name="username" :src="avatarFor(username)" :accent="accentFor(username)" size="sm" />
             <div class="members__meta">
               <div class="members__name">
                 {{ username }}
-                <span class="platforms" :aria-label="`Platforms: ${platformsFor(username).map((p: string) => messenger.platformLabel(p)).join(', ') || 'unknown'}`">
+                <span class="platforms" :aria-label="t('members.platformsLabel', { list: platformsFor(username).map((p: string) => messenger.platformLabel(p)).join(', ') || t('members.platformsUnknown') })">
                   <span
                     v-for="platform in platformsFor(username)"
                     :key="platform"
@@ -396,14 +402,7 @@ onBeforeUnmount(() => {
                 </span>
               </div>
               <div class="members__status">
-                <span
-                  class="members__dot"
-                  :class="{
-                    'is-call': voiceMembers.has(username),
-                    'is-dnd': statusFor(username) === 'dnd',
-                    'is-invisible': statusFor(username) === 'invisible'
-                  }"
-                ></span>
+                <PresenceDot :status="presenceOf(username)" />
                 {{ voiceMembers.has(username) ? t('call.live') : statusLabel(username) }}
                 <span v-if="roleBadge(username)" class="members__role">{{ roleBadge(username) }}</span>
                 <span v-if="isMuted(username)" class="members__muted">{{ t('members.muted') }}</span>
@@ -414,86 +413,99 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
+    <div v-else-if="membersLoading" class="members__skeleton" role="status" :aria-label="t('members.loading')">
+      <div v-for="(widths, index) in skeletonWidths" :key="index" class="members__skeleton-row" :style="{ '--row': index }">
+        <span class="members__skeleton-avatar"></span>
+        <span class="members__skeleton-lines">
+          <span class="members__skeleton-line" :style="{ width: `${widths[0]}%` }"></span>
+          <span class="members__skeleton-line members__skeleton-line--small" :style="{ width: `${widths[1]}%` }"></span>
+        </span>
+      </div>
+    </div>
+
     <div v-else class="members__empty">{{ t('members.online') }}</div>
 
     <Teleport to="body">
-      <div v-if="memberContextOpen" class="members__context-backdrop" @click="closeMemberContext" @contextmenu.prevent>
-        <div
-          ref="memberContextMenuRef"
-          class="members__context-menu context-menu-base"
-          role="menu"
-          :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
-          @click.stop
-        >
-          <!-- Header (mobile only) -->
-          <div class="members__context-header">
-            <span v-if="avatarFor(memberContextUser)" class="members__context-header-avatar">
-              <img :src="avatarFor(memberContextUser)" alt="" />
-            </span>
-            <span v-else class="members__context-header-avatar" :class="`avatar--${accentFor(memberContextUser)}`">{{ initialsFor(memberContextUser) }}</span>
-            <strong class="members__context-header-name">@{{ memberContextUser }}</strong>
-          </div>
-          <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">
-            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>{{ t('members.seeAvatar') }}</span>
-          </button>
-          <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">
-            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01"/></svg>
-            <span>{{ t('members.seeBanner') }}</span>
-          </button>
-          <button type="button" role="menuitem" @click="openProfileFromContext">
-            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>{{ t('members.viewProfile') }}</span>
-          </button>
-          <button type="button" role="menuitem" @click="copyUserIdFromContext">
-            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>{{ t('members.copyUserId') }}</span>
-          </button>
+      <Transition name="qx-pop">
+        <div v-if="memberContextOpen" class="members__context-backdrop" @click="closeMemberContext" @contextmenu.prevent>
+          <div
+            ref="memberContextMenuRef"
+            v-sheet-dismiss="closeMemberContext"
+            class="members__context-menu context-menu-base"
+            role="menu"
+            :style="{ left: `${memberContextPos.x}px`, top: `${memberContextPos.y}px` }"
+            @click.stop
+          >
+            <!-- Header (mobile only) -->
+            <div class="members__context-header">
+              <span v-if="avatarFor(memberContextUser)" class="members__context-header-avatar">
+                <img :src="avatarFor(memberContextUser)" alt="" />
+              </span>
+              <span v-else class="members__context-header-avatar" :class="`avatar--${accentFor(memberContextUser)}`">{{ initialsOf(memberContextUser) }}</span>
+              <strong class="members__context-header-name">@{{ memberContextUser }}</strong>
+            </div>
+            <button v-if="avatarFor(memberContextUser)" type="button" role="menuitem" @click="openAvatarFromContext">
+              <Icon name="image" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('members.seeAvatar') }}</span>
+            </button>
+            <button v-if="bannerFor(memberContextUser)" type="button" role="menuitem" @click="openBannerFromContext">
+              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01"/></svg>
+              <span>{{ t('members.seeBanner') }}</span>
+            </button>
+            <button type="button" role="menuitem" @click="openProfileFromContext">
+              <Icon name="person" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('members.viewProfile') }}</span>
+            </button>
+            <button type="button" role="menuitem" @click="copyUserIdFromContext">
+              <Icon name="copy" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('members.copyUserId') }}</span>
+            </button>
 
-          <template v-if="isCommunity && !contextIsSelf && contextRole !== 'administrator'">
+            <template v-if="isCommunity && !contextIsSelf && contextRole !== 'administrator'">
+              <div class="members__context-separator" aria-hidden="true"></div>
+              <button v-if="canModerate" type="button" role="menuitem" class="context-menu-danger" @click="doBan">
+                <Icon name="ban" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <span>{{ t('rooms.ban') }}</span>
+              </button>
+              <button v-if="canModerate" type="button" role="menuitem" @click="doKick">
+                <Icon name="log-out" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <span>{{ t('rooms.kick') }}</span>
+              </button>
+              <button v-if="canModerate && !contextIsMuted" type="button" role="menuitem" @click="doMute">
+                <Icon name="volume-off" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <span>{{ t('rooms.mute') }}</span>
+              </button>
+              <button v-if="canModerate && contextIsMuted" type="button" role="menuitem" @click="doUnmute">
+                <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.34v4.32a2 2 0 0 0 4 0V10l4-4"/><path d="m19 5 3 3"/></svg>
+                <span>{{ t('rooms.unmute') }}</span>
+              </button>
+              <button v-if="canManage" type="button" role="menuitem" @click="doPromoteModerator">
+                <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/></svg>
+                <span>{{ t('rooms.promoteModerator') }}</span>
+              </button>
+              <button v-if="canManage" type="button" role="menuitem" @click="doPromoteSubAdmin">
+                <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+                <span>{{ t('rooms.promoteSubAdmin') }}</span>
+              </button>
+              <button v-if="canManage && contextRole !== 'member'" type="button" role="menuitem" @click="doDemote">
+                <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+                <span>{{ t('rooms.demote') }}</span>
+              </button>
+              <button v-if="isOwner && (contextRole === 'moderator' || contextRole === 'subAdmin')" type="button" role="menuitem" @click="doTransferOwnership">
+                <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M12 8v8M8 12h8"/></svg>
+                <span>{{ t('rooms.transferOwnership') }}</span>
+              </button>
+            </template>
+
+            <!-- Cancel (mobile only) -->
             <div class="members__context-separator" aria-hidden="true"></div>
-            <button v-if="canModerate" type="button" role="menuitem" class="context-menu-danger" @click="doBan">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-              <span>{{ t('rooms.ban') }}</span>
+            <button type="button" class="members__context-cancel" role="menuitem" @click="closeMemberContext">
+              <Icon name="close" class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <span>{{ t('message.cancel') }}</span>
             </button>
-            <button v-if="canModerate" type="button" role="menuitem" @click="doKick">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              <span>{{ t('rooms.kick') }}</span>
-            </button>
-            <button v-if="canModerate && !contextIsMuted" type="button" role="menuitem" @click="doMute">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-              <span>{{ t('rooms.mute') }}</span>
-            </button>
-            <button v-if="canModerate && contextIsMuted" type="button" role="menuitem" @click="doUnmute">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.34v4.32a2 2 0 0 0 4 0V10l4-4"/><path d="m19 5 3 3"/></svg>
-              <span>{{ t('rooms.unmute') }}</span>
-            </button>
-            <button v-if="canManage" type="button" role="menuitem" @click="doPromoteModerator">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/></svg>
-              <span>{{ t('rooms.promoteModerator') }}</span>
-            </button>
-            <button v-if="canManage" type="button" role="menuitem" @click="doPromoteSubAdmin">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-              <span>{{ t('rooms.promoteSubAdmin') }}</span>
-            </button>
-            <button v-if="canManage && contextRole !== 'member'" type="button" role="menuitem" @click="doDemote">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-              <span>{{ t('rooms.demote') }}</span>
-            </button>
-            <button v-if="isOwner && (contextRole === 'moderator' || contextRole === 'subAdmin')" type="button" role="menuitem" @click="doTransferOwnership">
-              <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.4-3 7.9-7 9-4-1.1-7-4.6-7-9V5l7-3z"/><path d="M12 8v8M8 12h8"/></svg>
-              <span>{{ t('rooms.transferOwnership') }}</span>
-            </button>
-          </template>
-
-          <!-- Cancel (mobile only) -->
-          <div class="members__context-separator" aria-hidden="true"></div>
-          <button type="button" class="members__context-cancel" role="menuitem" @click="closeMemberContext">
-            <svg class="members__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-            <span>{{ t('message.cancel') }}</span>
-          </button>
+          </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
     <Teleport to="body">
@@ -511,12 +523,14 @@ onBeforeUnmount(() => {
         size-label="Banner"
         @close="closeBannerViewer"
       />
-      <ProfileCard
-        v-if="selectedProfile"
-        :messenger="messenger"
-        :username="selectedProfile"
-        @close="closeProfile"
-      />
+      <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
+        <ProfileCard
+          v-if="selectedProfile"
+          :messenger="messenger"
+          :username="selectedProfile"
+          @close="closeProfile"
+        />
+      </Transition>
     </Teleport>
 
     <MuteMemberModal
@@ -610,7 +624,6 @@ onBeforeUnmount(() => {
     justify-content: center;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: members-context-backdrop-in 160ms ease-out;
   }
 
   .members__context-menu {
@@ -630,7 +643,6 @@ onBeforeUnmount(() => {
     border-radius: 22px 22px 0 0;
     background: var(--surface);
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: members-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -692,7 +704,7 @@ onBeforeUnmount(() => {
     gap: 14px;
     width: 100%;
     text-align: left;
-    transition: background 120ms ease;
+    transition: background var(--dur-fast) var(--ease-out);
     display: flex;
     align-items: center;
   }
@@ -708,7 +720,7 @@ onBeforeUnmount(() => {
     width: 20px;
     height: 20px;
     color: var(--muted);
-    transition: color 120ms ease;
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
   .members__context-menu button:hover .members__context-item-icon {
@@ -740,13 +752,71 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes members-context-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.members__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
 }
 
-@keyframes members-context-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+.members__skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  animation: members-skeleton-rise var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--row) * 50ms);
+}
+
+.members__skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.members__skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.members__skeleton-line {
+  display: block;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.members__skeleton-line--small {
+  height: 7px;
+}
+
+.members__skeleton-avatar,
+.members__skeleton-line {
+  background: linear-gradient(90deg,
+      color-mix(in srgb, var(--text) 8%, transparent) 0%,
+      color-mix(in srgb, var(--text) 15%, transparent) 50%,
+      color-mix(in srgb, var(--text) 8%, transparent) 100%);
+  background-size: 200% 100%;
+  animation: members-skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes members-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes members-skeleton-rise {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .members__skeleton-row,
+  .members__skeleton-avatar,
+  .members__skeleton-line {
+    animation: none;
+  }
 }
 </style>

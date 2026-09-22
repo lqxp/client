@@ -64,6 +64,8 @@ export interface RoomSummary {
  */
 export interface IncomingMessage {
   messageId?: string;
+  threadRootId?: string;
+  pollState?: { total?: number; voted?: boolean; counts?: number[] };
   roomId?: string;
   user?: string;
   username?: string;
@@ -184,6 +186,13 @@ export interface AdminOverview {
   };
   roomTotals?: { known?: number; active?: number; bufferedMessages?: number; voice?: number };
   server?: { version?: string; uptimeMs?: number };
+  runtime?: {
+    messagesRelayed?: number;
+    sessionsOpened?: number;
+    peakSessions?: number;
+    sinceMs?: number;
+  };
+  signupsPerDay?: { day?: number; count?: number }[];
   features?: Record<string, boolean>;
   defaultRoom?: { roomId?: string; title?: string } | null;
   rooms?: {

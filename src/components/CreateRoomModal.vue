@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import ModalShell from "@/components/ModalShell.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ImageCropModal from "@/components/ImageCropModal.vue";
@@ -6,7 +10,7 @@ import ImageCropModal from "@/components/ImageCropModal.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   open: { type: Boolean, default: false }
 });
 const emit = defineEmits(["close"]);
@@ -113,15 +117,15 @@ async function submit() {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="create-room-backdrop" @click.self="close">
-      <div class="create-room" role="dialog" :aria-label="t('rooms.createTitle')">
+    <ModalShell :open="open" backdrop-class="create-room-backdrop" @close="close">
+      <div v-sheet-dismiss="close" class="create-room" role="dialog" :aria-label="t('rooms.createTitle')">
         <header class="create-room__head">
           <div>
             <h2 class="create-room__title">{{ t('rooms.createTitle') }}</h2>
             <p class="create-room__subtitle">{{ t('rooms.createSubtitle') }}</p>
           </div>
           <button class="icon-btn create-room__close" type="button" :aria-label="t('message.cancel')" @click="close">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </header>
 
@@ -155,7 +159,7 @@ async function submit() {
               <div class="create-room__col">
                 <div class="create-room__field">
                   <label class="create-room__label" for="create-room-name">{{ t('rooms.name') }}</label>
-                  <input
+                  <input class="qx-field"
                     id="create-room-name"
                     v-model="name"
                     type="text"
@@ -185,7 +189,7 @@ async function submit() {
 
                 <div class="create-room__field">
                   <label class="create-room__label" for="create-room-description">{{ t('rooms.description') }}</label>
-                  <textarea
+                  <textarea class="qx-field"
                     id="create-room-description"
                     v-model="description"
                     rows="4"
@@ -232,7 +236,7 @@ async function submit() {
           </button>
         </footer>
       </div>
-    </div>
+    </ModalShell>
   </Teleport>
 
   <ImageCropModal
@@ -252,7 +256,7 @@ async function submit() {
 .create-room-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -352,7 +356,7 @@ async function submit() {
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .create-room__segment strong {
@@ -371,27 +375,7 @@ async function submit() {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.create-room input[type="text"],
-.create-room textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--text);
-  padding: 12px 14px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: none;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
 
-.create-room input[type="text"]:focus,
-.create-room textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
 
 .create-room input[type="checkbox"] {
   accent-color: var(--accent);
@@ -446,7 +430,7 @@ async function submit() {
   background: var(--surface-2);
   font-size: 14px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .create-room__perm:hover {
@@ -476,7 +460,7 @@ async function submit() {
   font-weight: 500;
   border: 0;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 
 .create-room__btn--secondary {
@@ -503,15 +487,7 @@ async function submit() {
   cursor: not-allowed;
 }
 
-@keyframes create-room-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
-@keyframes create-room-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
 
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {
   .create-room-backdrop {
@@ -519,7 +495,6 @@ async function submit() {
     align-items: flex-end;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: create-room-backdrop-in 160ms ease-out;
   }
 
   .create-room {
@@ -531,7 +506,6 @@ async function submit() {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    animation: create-room-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
   }
 
   .create-room::before {
@@ -565,11 +539,6 @@ async function submit() {
     margin-top: 18px;
   }
 
-  .create-room input[type="text"],
-  .create-room textarea {
-    font-size: 16px;
-    padding: 14px 16px;
-  }
 
   .create-room__segment {
     padding: 16px;

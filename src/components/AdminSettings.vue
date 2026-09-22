@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
 /**
  * Server administration.
  *
@@ -8,6 +10,7 @@
  * from `/api/admin/overview`. Nothing is estimated here, and no write is
  * applied optimistically: a row changes only once the server confirms it.
  */
+import type { PropType } from "vue";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { AdminOverview, AdminRoom, AdminUser } from "@/types/messenger";
 import type { LineSeries } from "@/components/charts/LineChart.vue";
@@ -30,7 +33,7 @@ import {
 } from "@/config/badges";
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object as PropType<Messenger>, required: true }
 });
 
 const { t, locale } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
@@ -74,11 +77,45 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const allRoomRows = computed(() => overview.value?.rooms ?? []);
 
+/**
+ * Chart labels for rooms. A raw room id tells the reader nothing, so the
+ * room's own title wins and a short opening of the id stands in when there is
+ * no title. Charts key their rows on the label, so where two rooms would
+ * collide the id settles it, except under streamer mode, where nothing of the
+ * id may reach the screen and a plain ordinal is used instead.
+ */
+const roomLabels = computed<Map<string, string>>(() => {
+  const ids = allRoomRows.value.map((room) => String(room.roomId || "")).filter(Boolean);
+  const hidden = Boolean(state.value.streamerMode);
+  const preferred = new Map<string, string>();
+  const counts = new Map<string, number>();
+  ids.forEach((id, order) => {
+    const title = String(props.messenger.displayRoomName?.(id) || "").trim();
+    const label = hidden ? `${title || t("settings.admin.rooms")} ${order + 1}` : title && title !== id ? title : id.slice(0, 8);
+    preferred.set(id, label);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  });
+  const used = new Set<string>();
+  const labels = new Map<string, string>();
+  for (const [id, label] of preferred) {
+    let unique = !hidden && (counts.get(label) ?? 0) > 1 ? `${label} · ${id.slice(0, 6)}` : label;
+    while (used.has(unique)) unique = `${unique} ·`;
+    used.add(unique);
+    labels.set(id, unique);
+  }
+  return labels;
+});
+
+function roomLabel(roomId: unknown): string {
+  const id = String(roomId || "");
+  return roomLabels.value.get(id) ?? id;
+}
+
 /** Rooms actually holding messages, largest first. */
 const roomMessageRows = computed(() =>
   allRoomRows.value
     .filter((room) => Number(room.messageCount) > 0)
-    .map((room) => ({ label: String(room.roomId || ""), value: Number(room.messageCount) || 0 }))
+    .map((room) => ({ label: roomLabel(room.roomId), value: Number(room.messageCount) || 0 }))
 );
 
 const messageCounts = computed(() => roomMessageRows.value.map((row) => row.value));
@@ -159,7 +196,7 @@ const presenceSlices = computed(() => {
   if (!sessions) return [];
   return [
     { label: t("settings.admin.connectionVoice"), value: Math.min(voice, sessions) },
-    { label: t("settings.admin.stateIdle"), value: Math.max(0, sessions - voice) },
+    { label: t("settings.admin.connectionNotVoice"), value: Math.max(0, sessions - voice) },
   ];
 });
 
@@ -169,7 +206,41 @@ const roomStateSlices = computed(() => {
   if (!known) return [];
   return [
     { label: t("settings.admin.roomsActive"), value: Math.min(active, known) },
-    { label: t("settings.admin.stateIdle"), value: Math.max(0, known - active) },
+    { label: t("settings.admin.roomsQuiet"), value: Math.max(0, known - active) },
+  ];
+});
+
+/** Rooms with someone in a call, busiest first. */
+const roomVoiceRows = computed(() =>
+  allRoomRows.value
+    .filter((room) => Number(room.voiceCount) > 0)
+    .map((room) => ({ label: roomLabel(room.roomId), value: Number(room.voiceCount) || 0 }))
+);
+
+/**
+ * Sessions set against the people holding them. A ratio above one says only
+ * one thing: somebody is signed in from more than one place.
+ */
+const connectionStats = computed(() => {
+  const sessions = Number(connections.value?.sessions) || 0;
+  const users = Number(connections.value?.users) || 0;
+  const total = Number(accounts.value?.total) || 0;
+  return {
+    sessions,
+    users,
+    perAccount: users ? Math.round((sessions / users) * 10) / 10 : 0,
+    shareOnline: total ? Math.round((users / total) * 100) : 0,
+  };
+});
+
+/** Who is connected right now, against every account the server holds. */
+const onlineSlices = computed(() => {
+  const total = Number(accounts.value?.total) || 0;
+  if (!total) return [];
+  const online = Math.min(Number(connections.value?.users) || 0, total);
+  return [
+    { label: t("settings.admin.stateOnline"), value: online },
+    { label: t("settings.admin.stateOffline"), value: Math.max(0, total - online) },
   ];
 });
 
@@ -177,26 +248,33 @@ const roomStateSlices = computed(() => {
 const LAST_MESSAGE_DAYS = 14;
 
 /**
- * The account total at the only three moments the server actually pins down:
- * now, and that same total less each of the two windows it reports. Nothing
- * between them is filled in, which is why this is three points and not thirty.
+ * Accounts created per day, straight from the server's aggregate over
+ * `users.created_at`. Every day in the window is present, so a quiet day is a
+ * zero rather than a gap the line would have to invent a path across.
  */
-const accountGrowth = computed<LineSeries[]>(() => {
-  const total = Number(accounts.value?.total) || 0;
-  if (!total) return [];
-  const now = Number(overview.value?.generatedAt) || Date.now();
-  const day = Number(accounts.value?.newLastDay) || 0;
-  const week = Number(accounts.value?.newLastWeek) || 0;
-  return [
-    {
-      label: t("settings.admin.accountsTotal"),
-      points: [
-        { at: now - 7 * DAY_MS, value: Math.max(0, total - week) },
-        { at: now - DAY_MS, value: Math.max(0, total - day) },
-        { at: now, value: total },
-      ],
-    },
-  ];
+const signupSeries = computed<LineSeries[]>(() => {
+  const days = overview.value?.signupsPerDay ?? [];
+  const points = days
+    .map((entry) => ({ at: Number(entry.day) || 0, value: Number(entry.count) || 0 }))
+    .filter((point) => point.at > 0);
+  if (!points.length) return [];
+  return [{ label: t("settings.admin.accounts"), points }];
+});
+
+/**
+ * What the process has handled since it came up. Three integers held in
+ * memory with nothing attached to them, so they say how busy the server is
+ * without recording anything about anyone.
+ */
+const runtimeStats = computed(() => {
+  const runtime = overview.value?.runtime;
+  if (!runtime) return null;
+  return {
+    messages: Number(runtime.messagesRelayed) || 0,
+    sessions: Number(runtime.sessionsOpened) || 0,
+    peak: Number(runtime.peakSessions) || 0,
+    since: Number(runtime.sinceMs) || 0,
+  };
 });
 
 /**
@@ -230,7 +308,7 @@ const lastMessageSeries = computed<LineSeries[]>(() => {
 
 const platformRows = computed(() =>
   (connections.value?.platforms ?? []).map((entry) => ({
-    label: props.messenger.platformLabel?.(entry.platform) || String(entry.platform || ""),
+    label: props.messenger.platformLabel?.(String(entry.platform || "")) || String(entry.platform || ""),
     value: Number(entry.count) || 0,
   }))
 );
@@ -239,7 +317,7 @@ const platformRows = computed(() =>
 const roomAudienceRows = computed(() =>
   allRoomRows.value
     .filter((room) => Number(room.onlineCount) > 0)
-    .map((room) => ({ label: String(room.roomId || ""), value: Number(room.onlineCount) || 0 }))
+    .map((room) => ({ label: roomLabel(room.roomId), value: Number(room.onlineCount) || 0 }))
 );
 
 /** Real daily counts from the server; never filled in when absent. */
@@ -264,7 +342,7 @@ const matchingRooms = computed<AdminRoom[]>(() => {
   if (!needle) return allRooms.value;
   return allRooms.value.filter((room: AdminRoom) => {
     const id = String(room?.roomId || "").toLowerCase();
-    const name = String(props.messenger.displayRoomName?.(room?.roomId) || "").toLowerCase();
+    const name = String(props.messenger.displayRoomName?.(String(room?.roomId || "")) || "").toLowerCase();
     return id.includes(needle) || name.includes(needle);
   });
 });
@@ -300,6 +378,11 @@ function formatTime(value: unknown) {
 
 function formatCount(value: unknown) {
   return new Intl.NumberFormat(locale.value).format(Number(value) || 0);
+}
+
+function formatStamp(value: unknown) {
+  const ms = Number(value) || 0;
+  return ms > 0 ? stampFormatter.value.format(new Date(ms)) : t("settings.admin.never");
 }
 
 const dayFormatter = computed(() => new Intl.DateTimeFormat(locale.value, { month: "short", day: "numeric" }));
@@ -631,9 +714,11 @@ function isSelf(user: AdminUser) {
 }
 
 function confirmAction(key: string, user: AdminUser) {
+  // Every action behind this prompt bans, locks or deletes an account.
   return dialog.showConfirm(
     t(`settings.admin.${key}`, { username: String(user?.username || user?.id || "") }),
-    t("settings.admin.confirmTitle")
+    t("settings.admin.confirmTitle"),
+    { danger: true }
   );
 }
 
@@ -697,10 +782,8 @@ async function clearDefaultRoom() {
         <!-- ─────────────────────────────── Detail ─────────────────────────── -->
         <div v-if="detailUser" key="detail" class="pane">
           <button type="button" class="back" @click="closeUser">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-              stroke-linejoin="round" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
+            <Icon name="caret-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true" />
             {{ viewLabel('users') }}
           </button>
 
@@ -774,7 +857,7 @@ async function clearDefaultRoom() {
                     </p>
                   </div>
                   <div class="field">
-                    <input v-model="customBadgeDraft" class="field__input" type="text" maxlength="32"
+                    <input v-model="customBadgeDraft" class="qx-field field__input" type="text" maxlength="32"
                       autocomplete="off" spellcheck="false" :placeholder="t('settings.admin.customBadge')"
                       :aria-label="t('settings.admin.customBadge')" :disabled="isPending() || atBadgeLimit(detailUser)"
                       @keydown.enter.prevent="addCustomBadge(detailUser)" />
@@ -842,10 +925,8 @@ async function clearDefaultRoom() {
         <!-- ──────────────────────────────── Root ──────────────────────────── -->
         <div v-else-if="statsOpen" key="stats" class="pane">
           <button type="button" class="back" @click="closeStats">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
+            <Icon name="caret-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
             {{ viewLabel('overview') }}
           </button>
 
@@ -876,7 +957,30 @@ async function clearDefaultRoom() {
               <p class="grp__note">{{ t('settings.admin.statMessagesNote') }}</p>
             </section>
 
-            <section style="--n: 1" v-if="roomMessageRows.length" class="grp">
+            <section style="--n: 1" v-if="runtimeStats" class="grp">
+              <p class="grp__label">{{ t('settings.admin.statRuntime') }}</p>
+              <div class="grp__box">
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statMessagesRelayed') }}</span>
+                  <span class="row__value row__value--lead">{{ formatCount(runtimeStats.messages) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statSessionsOpened') }}</span>
+                  <span class="row__value">{{ formatCount(runtimeStats.sessions) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statPeakSessions') }}</span>
+                  <span class="row__value">{{ formatCount(runtimeStats.peak) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statRuntimeSince') }}</span>
+                  <span class="row__value">{{ formatStamp(runtimeStats.since) }}</span>
+                </div>
+              </div>
+              <p class="grp__note">{{ t('settings.admin.statRuntimeNote') }}</p>
+            </section>
+
+            <section style="--n: 2" v-if="roomMessageRows.length" class="grp">
               <div class="grp__box grp__box--chart">
                 <RankChart :rows="roomMessageRows" :title="t('settings.admin.chartMessages')"
                   :caption="t('settings.admin.chartMessagesNote')"
@@ -884,7 +988,7 @@ async function clearDefaultRoom() {
               </div>
             </section>
 
-            <section style="--n: 2" v-if="lastMessageSeries.length" class="grp">
+            <section style="--n: 3" v-if="lastMessageSeries.length" class="grp">
               <div class="grp__box grp__box--chart">
                 <LineChart :series="lastMessageSeries" :title="t('settings.admin.chartLastMessage')"
                   :caption="t('settings.admin.chartLastMessageNote')"
@@ -893,7 +997,7 @@ async function clearDefaultRoom() {
               </div>
             </section>
 
-            <section style="--n: 3" v-if="activityBuckets.length" class="grp">
+            <section style="--n: 4" v-if="activityBuckets.length" class="grp">
               <div class="grp__box grp__box--chart">
                 <RankChart :rows="activityBuckets" :title="t('settings.admin.chartActivity')"
                   :caption="t('settings.admin.chartActivityNote')"
@@ -901,42 +1005,48 @@ async function clearDefaultRoom() {
               </div>
             </section>
 
-            <section style="--n: 4" v-if="roomStateSlices.length" class="grp">
+            <section style="--n: 5" v-if="roomStateSlices.length" class="grp">
               <div class="grp__box grp__box--chart">
                 <StackChart :slices="roomStateSlices" :title="t('settings.admin.chartRooms')"
                   :value-label="t('settings.admin.roomsKnown')" />
               </div>
             </section>
 
-            <section style="--n: 5" v-if="roomAudienceRows.length" class="grp">
+            <section style="--n: 6" v-if="roomAudienceRows.length" class="grp">
               <div class="grp__box grp__box--chart">
                 <RankChart :rows="roomAudienceRows" :title="t('settings.admin.chartAudience')"
                   :value-label="t('settings.admin.connectionUsers')" />
               </div>
             </section>
 
-            <section style="--n: 6" v-if="accountGrowth.length" class="grp">
+            <section style="--n: 7" v-if="roomVoiceRows.length" class="grp">
               <div class="grp__box grp__box--chart">
-                <LineChart :series="accountGrowth" :title="t('settings.admin.chartSignups')"
-                  :caption="t('settings.admin.chartSignupsNote')" :value-label="t('settings.admin.accounts')"
-                  :format-x="formatDay" :format-value="formatPlain" />
+                <RankChart :rows="roomVoiceRows" :title="t('settings.admin.chartRoomVoice')"
+                  :value-label="t('settings.admin.connectionUsers')" />
               </div>
             </section>
 
-            <section style="--n: 7" v-if="accountStateSlices.length" class="grp">
-              <div class="grp__box grp__box--chart">
-                <DonutChart :slices="accountStateSlices" :title="t('settings.admin.chartAccountState')"
-                  :caption="t('settings.admin.chartAccountStateNote')"
-                  :value-label="t('settings.admin.accounts')" />
+            <section style="--n: 8" class="grp">
+              <p class="grp__label">{{ t('settings.admin.statConnections') }}</p>
+              <div class="grp__box">
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.connectionSessions') }}</span>
+                  <span class="row__value row__value--lead">{{ formatCount(connectionStats.sessions) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.connectionUsers') }}</span>
+                  <span class="row__value">{{ formatCount(connectionStats.users) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statSessionsPerAccount') }}</span>
+                  <span class="row__value">{{ formatCount(connectionStats.perAccount) }}</span>
+                </div>
+                <div class="row">
+                  <span class="row__label">{{ t('settings.admin.statShareOnline') }}</span>
+                  <span class="row__value">{{ connectionStats.shareOnline }}%</span>
+                </div>
               </div>
-            </section>
-
-            <section style="--n: 8" v-if="accountAgeSlices.length" class="grp">
-              <div class="grp__box grp__box--chart">
-                <StackChart :slices="accountAgeSlices" :title="t('settings.admin.chartAccountAge')"
-                  :caption="t('settings.admin.chartAccountAgeNote')"
-                  :value-label="t('settings.admin.accounts')" />
-              </div>
+              <p class="grp__note">{{ t('settings.admin.statConnectionsNote') }}</p>
             </section>
 
             <section style="--n: 9" v-if="presenceSlices.length" class="grp">
@@ -951,6 +1061,39 @@ async function clearDefaultRoom() {
                 <PieChart :slices="platformRows" :title="t('settings.admin.chartPlatforms')"
                   :caption="t('settings.admin.chartPlatformsNote')"
                   :value-label="t('settings.admin.connectionSessions')" />
+              </div>
+            </section>
+
+            <section style="--n: 11" v-if="signupSeries.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <LineChart :series="signupSeries" :title="t('settings.admin.chartSignups')"
+                  :caption="t('settings.admin.chartSignupsNote')" :value-label="t('settings.admin.accounts')"
+                  :format-x="formatDay" :format-value="formatPlain" />
+              </div>
+            </section>
+
+            <section style="--n: 12" v-if="onlineSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <DonutChart :slices="onlineSlices" :title="t('settings.admin.chartOnline')"
+                  :caption="t('settings.admin.chartOnlineNote')" :value-label="t('settings.admin.accounts')"
+                  :centre-value="`${connectionStats.shareOnline}%`"
+                  :centre-label="t('settings.admin.stateOnline')" last-is-remainder />
+              </div>
+            </section>
+
+            <section style="--n: 13" v-if="accountStateSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <DonutChart :slices="accountStateSlices" :title="t('settings.admin.chartAccountState')"
+                  :caption="t('settings.admin.chartAccountStateNote')"
+                  :value-label="t('settings.admin.accounts')" />
+              </div>
+            </section>
+
+            <section style="--n: 14" v-if="accountAgeSlices.length" class="grp">
+              <div class="grp__box grp__box--chart">
+                <StackChart :slices="accountAgeSlices" :title="t('settings.admin.chartAccountAge')"
+                  :caption="t('settings.admin.chartAccountAgeNote')"
+                  :value-label="t('settings.admin.accounts')" />
               </div>
             </section>
           </template>
@@ -1079,10 +1222,8 @@ async function clearDefaultRoom() {
                     <span class="row__label">{{ t('settings.admin.openStats') }}</span>
                     <span class="row__value row__value--lead">
                       {{ t('settings.admin.openStatsHint') }}
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m9 5 7 7-7 7" />
-                      </svg>
+                      <Icon name="caret-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
                     </span>
                   </button>
                 </div>
@@ -1093,11 +1234,8 @@ async function clearDefaultRoom() {
           <!-- Users -->
           <template v-else-if="view === 'users'">
             <label class="search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                aria-hidden="true">
-                <circle cx="11" cy="11" r="6.5" />
-                <path d="m16 16 4 4" />
-              </svg>
+              <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                aria-hidden="true" />
               <input v-model="userQuery" type="search" autocomplete="off" spellcheck="false"
                 :placeholder="t('settings.admin.searchUsers')" :aria-label="t('settings.admin.searchUsers')" />
             </label>
@@ -1120,10 +1258,8 @@ async function clearDefaultRoom() {
                       <i aria-hidden="true"></i>{{ accountStateLabel(user) }}
                     </span>
                   </span>
-                  <svg class="row__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="m9 5 7 7-7 7" />
-                  </svg>
+                  <Icon name="caret-right" class="row__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
                 </button>
               </div>
             </section>
@@ -1132,11 +1268,8 @@ async function clearDefaultRoom() {
           <!-- Rooms -->
           <template v-else-if="view === 'rooms'">
             <label class="search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                aria-hidden="true">
-                <circle cx="11" cy="11" r="6.5" />
-                <path d="m16 16 4 4" />
-              </svg>
+              <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                aria-hidden="true" />
               <input v-model="roomQuery" type="search" autocomplete="off" spellcheck="false"
                 :placeholder="t('settings.admin.filterRooms')" :aria-label="t('settings.admin.filterRooms')" />
             </label>
@@ -1266,7 +1399,7 @@ async function clearDefaultRoom() {
   border-radius: 7px;
   background: var(--surface);
   box-shadow: 0 1px 2px rgba(0, 0, 0, .28), 0 0 0 .5px rgba(0, 0, 0, .12);
-  transition: transform .32s var(--ease);
+  transition: transform var(--dur-slow) var(--ease) var(--ease-out);
 }
 
 .seg__item {
@@ -1284,7 +1417,7 @@ async function clearDefaultRoom() {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  transition: color .32s var(--ease);
+  transition: color var(--dur-slow) var(--ease) var(--ease-out);
 }
 
 .seg__item.is-on {
@@ -1303,7 +1436,7 @@ async function clearDefaultRoom() {
   background: var(--field);
   color: var(--muted);
   cursor: pointer;
-  transition: color .2s var(--ease), background .2s var(--ease);
+  transition: color var(--dur-base) var(--ease) var(--ease-out), background var(--dur-base) var(--ease) var(--ease-out);
 }
 
 .ax__refresh:hover:not(:disabled) {
@@ -1364,7 +1497,7 @@ async function clearDefaultRoom() {
 .forward-leave-active,
 .back-enter-active,
 .back-leave-active {
-  transition: transform .34s var(--ease), opacity .26s ease-out;
+  transition: transform var(--dur-slow) var(--ease) var(--ease-out), opacity var(--dur-base) var(--ease-out);
 }
 
 .push-leave-active,
@@ -1445,7 +1578,7 @@ async function clearDefaultRoom() {
 
 /* The stats pane assembles itself top to bottom rather than landing whole. */
 .pane .grp[style*="--n"] {
-  animation: stat-in 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: stat-in 520ms var(--ease-out) both;
   animation-delay: calc(min(var(--n), 8) * 55ms);
 }
 
@@ -1469,7 +1602,7 @@ async function clearDefaultRoom() {
   margin-left: 6px;
   vertical-align: -3px;
   color: var(--muted);
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .row--enter:hover svg {
@@ -1538,7 +1671,7 @@ async function clearDefaultRoom() {
 .row--action,
 .row--control {
   cursor: pointer;
-  transition: background .12s ease-out;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .row--nav:hover,
@@ -1713,12 +1846,12 @@ async function clearDefaultRoom() {
   background: transparent;
   color: var(--red);
   cursor: pointer;
-  transition: transform .34s cubic-bezier(.34, 1.4, .64, 1), opacity .15s ease-out;
+  transition: transform var(--dur-slow) cubic-bezier(.34, 1.4, .64, 1), opacity var(--dur-fast) var(--ease-out);
 }
 
 .row__remove:active:not(:disabled) {
   transform: scale(.82);
-  transition-duration: .09s;
+  transition-duration: var(--dur-fast);
 }
 
 .row__remove:disabled {
@@ -1736,7 +1869,7 @@ async function clearDefaultRoom() {
   width: 20px;
   height: 20px;
   color: var(--accent);
-  transition: transform .32s var(--ease);
+  transition: transform var(--dur-slow) var(--ease) var(--ease-out);
 }
 
 .row__plus.is-open {
@@ -1745,11 +1878,11 @@ async function clearDefaultRoom() {
 
 /* One acknowledgement for a ban or a lockout, then the panel goes quiet. */
 .grp__box.is-flash-danger {
-  animation: ax-flash-danger .9s ease-out;
+  animation: ax-flash-danger .9s var(--ease-out);
 }
 
 .grp__box.is-flash-restore {
-  animation: ax-flash-restore .9s ease-out;
+  animation: ax-flash-restore .9s var(--ease-out);
 }
 
 @keyframes ax-flash-danger {
@@ -1785,7 +1918,7 @@ async function clearDefaultRoom() {
   position: relative;
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows .32s var(--ease);
+  transition: grid-template-rows var(--dur-slow) var(--ease) var(--ease-out);
 }
 
 .reveal.is-open {
@@ -1826,7 +1959,7 @@ async function clearDefaultRoom() {
   font-family: inherit;
   font-size: 12.5px;
   cursor: pointer;
-  transition: background .15s ease-out, transform .15s var(--ease);
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease) var(--ease-out);
 }
 
 .opt:hover:not(:disabled) {
@@ -1854,23 +1987,10 @@ async function clearDefaultRoom() {
 }
 
 .field__input {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1;
   height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: var(--field);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 13px;
-  outline: none;
-  transition: box-shadow .15s ease-out;
 }
 
-.field__input:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
-}
 
 .field__btn,
 .btn-plain,
@@ -1886,7 +2006,7 @@ async function clearDefaultRoom() {
   font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
-  transition: background .15s ease-out, transform .15s var(--ease);
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease) var(--ease-out);
 }
 
 .btn-filled,
@@ -1949,7 +2069,7 @@ async function clearDefaultRoom() {
 .save {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows .32s var(--ease);
+  transition: grid-template-rows var(--dur-slow) var(--ease) var(--ease-out);
 }
 
 .save.is-open {
@@ -1994,7 +2114,7 @@ async function clearDefaultRoom() {
   inset: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text) 16%, transparent);
-  transition: background .28s var(--ease);
+  transition: background var(--dur-base) var(--ease) var(--ease-out);
   pointer-events: none;
 }
 
@@ -2007,7 +2127,7 @@ async function clearDefaultRoom() {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
-  transition: transform .28s var(--ease);
+  transition: transform var(--dur-base) var(--ease) var(--ease-out);
 }
 
 .sw input:checked ~ .sw__track {
@@ -2040,7 +2160,7 @@ async function clearDefaultRoom() {
   font-family: inherit;
   font-size: 13.5px;
   cursor: pointer;
-  transition: opacity .15s ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .back:hover {

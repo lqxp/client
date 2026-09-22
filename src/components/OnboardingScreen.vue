@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { initialsOf } from "@/utils/initials";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ThemeToggleButton from "./ThemeToggleButton.vue";
@@ -7,7 +10,7 @@ import CapWidget from "./CapWidget.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object as PropType<Messenger>, required: true }
 });
 
 const mode = ref("login");
@@ -18,7 +21,8 @@ const recoveryWords = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
 const themeSwitchVisible = ref(false);
 const capToken = ref<string | null>(null);
-const capWidgetRef = ref<any>(null);
+/** Only its reset is used from here. */
+const capWidgetRef = ref<{ reset: () => void } | null>(null);
 
 function showThemeSwitch() {
   themeSwitchVisible.value = true;
@@ -93,10 +97,6 @@ const cardSubtitle = computed(() => mode.value === "register"
     ? t("onboarding.recoverAccountSubtitle")
     : t("onboarding.welcomeBackSubtitle"));
 
-function initialsOf(name: string) {
-  const trimmed = String(name || "?").trim();
-  return (trimmed.slice(0, 2) || "?").toUpperCase();
-}
 
 const savedAccounts = computed(() => props.messenger.localAccounts || []);
 
@@ -162,7 +162,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </div>
         </div>
 
-        <div class="onboarding__tabs" role="tablist" aria-label="Authentication mode">
+        <div class="onboarding__tabs" role="tablist" :aria-label="t('onboarding.modeLabel')">
           <button type="button" :class="{ 'is-active': mode === 'login' }" @click="setMode('login')">{{ t('onboarding.login') }}</button>
           <button type="button" :class="{ 'is-active': mode === 'register' }" @click="setMode('register')">{{ t('onboarding.register') }}</button>
           <button type="button" :class="{ 'is-active': mode === 'recover' }" @click="setMode('recover')">{{ t('onboarding.recover') }}</button>
@@ -180,20 +180,20 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           </label>
 
           <label v-if="mode !== 'recover'" class="onboarding__field" for="onboarding-password">
-            <span>Password</span>
+            <span>{{ t('onboarding.password') }}</span>
             <input id="onboarding-password" v-model="password" type="password" maxlength="128"
               :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
               :placeholder="t('onboarding.passwordPlaceholder')" @focus="onFieldFocus" />
           </label>
 
           <label v-if="mode === 'recover'" class="onboarding__field onboarding__field--stacked" for="onboarding-recovery">
-            <span>Recovery words</span>
+            <span>{{ t('onboarding.recoveryWords') }}</span>
             <textarea id="onboarding-recovery" v-model="recoveryWords" rows="4" autocomplete="off" spellcheck="false"
               :placeholder="t('onboarding.recoveryPlaceholder')" @focus="onFieldFocus"></textarea>
           </label>
 
           <label v-if="mode === 'recover'" class="onboarding__field" for="onboarding-new-password">
-            <span>New password</span>
+            <span>{{ t('onboarding.newPassword') }}</span>
             <input id="onboarding-new-password" v-model="newPassword" type="password" maxlength="128"
               autocomplete="new-password" :placeholder="t('onboarding.passwordPlaceholder')" @focus="onFieldFocus" />
           </label>
@@ -210,7 +210,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
           <p v-if="errorMessage" class="onboarding__error">{{ errorMessage }}</p>
 
           <button class="btn btn--primary onboarding__submit" type="submit" :disabled="!canSubmit || messenger.state.authLoading">
-            {{ messenger.state.authLoading ? "Please wait..." : title }}
+            {{ messenger.state.authLoading ? t('onboarding.pleaseWait') : title }}
           </button>
         </form>
 
@@ -467,7 +467,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.81rem;
   font-weight: 700;
-  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .onboarding__tabs button.is-active {
@@ -520,7 +520,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
     inset 0 1px 1px rgba(255, 255, 255, 0.16),
     0 8px 24px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(18px) saturate(1.16);
-  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 
 .onboarding__field input {
@@ -549,7 +549,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   -webkit-box-shadow: 0 0 0 1000px transparent inset;
   box-shadow: 0 0 0 1000px transparent inset;
   caret-color: #fff;
-  transition: background-color 9999s ease-out 0s;
+  transition: background-color 9999s var(--ease-out) 0s;
 }
 
 .onboarding__field input:focus,
@@ -661,7 +661,7 @@ onMounted(() => nextTick(() => inputRef.value?.focus()));
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .onboarding__account:hover {
   background: rgba(255, 255, 255, 0.26);

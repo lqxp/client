@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { renderMarkdown } from "@/utils/markdown";
+import { initialsOf } from "@/utils/initials";
+import Icon from "@/components/Icon.vue";
+import Avatar from "@/components/Avatar.vue";
+import type { ChatMessage, Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
@@ -10,31 +16,30 @@ import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
 import { TEXT_ATTACHMENT_EXTENSIONS } from "@/composables/useMessenger";
 import { currentWindowZoom } from "@/utils/windowZoom";
-import { escapeHtml, renderEmojiHtml } from "@/utils/twemoji";
+import { renderEmojiHtml } from "@/utils/twemoji";
+import { isBrokenImage } from "@/utils/brokenImages";
 
-const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const { t, locale } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 
 const props = defineProps({
-  message: { type: Object, required: true },
-  messenger: { type: Object, required: true },
+  message: { type: Object as PropType<ChatMessage>, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   position: { type: String, default: "single" },
   showAuthor: { type: Boolean, default: true },
-  showAvatar: { type: Boolean, default: true }
+  showAvatar: { type: Boolean, default: true },
+  inThread: { type: Boolean, default: false }
 });
 
-function initialsFor(username) {
-  const name = String(username || "?").trim();
-  const parts = name.split(/[\s\-_]+/).slice(0, 2);
-  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
+/** A reaction as the normaliser stores it on a message. */
+type MessageReaction = NonNullable<ChatMessage["reactions"]>[number];
 
-function messageDomId(messageId) {
+
+function messageDomId(messageId: string) {
   return `msg-${String(messageId || "")}`;
 }
 
-function previewTextFor(target, fallbackId = "") {
+function previewTextFor(target: ChatMessage | null | undefined, fallbackId = "") {
   if (!target) return fallbackId ? t("message.originalNotLoaded") : "";
   if (target.deleted) return target.deletedByModerator ? t("message.deletedByModerator") : t("message.messageDeleted");
   if (target.kind === "image") return t("message.photo");
@@ -47,9 +52,33 @@ function previewTextFor(target, fallbackId = "") {
 const isOwn = computed(() => props.messenger.isOwnMessage(props.message));
 const canDelete = computed(() => Boolean(props.messenger.canDeleteMessage?.(props.message)));
 const isSystem = computed(() => Boolean(props.message.system));
+const isSystemCall = computed(() => String(props.message.systemKind || "") === "call");
+
+/**
+ * The call line split around the name, so the name can be a button.
+ *
+ * The split is taken from the translation itself rather than from a regular
+ * expression over the sentence: rendering the template with a sentinel in
+ * place of the name gives the exact prefix and suffix for whichever language
+ * is loaded, and word order changes between them. The line about your own
+ * call has no name in it, and falls back to plain text.
+ */
+const callParts = computed(() => {
+  if (!isSystemCall.value) return null;
+  const SENTINEL = "\u0000";
+  const template = t("thread.callStarted", { user: SENTINEL });
+  const cut = template.indexOf(SENTINEL);
+  if (cut < 0) return null;
+  const before = template.slice(0, cut);
+  const after = template.slice(cut + SENTINEL.length);
+  const text = String(props.message.text || "");
+  if (!text.startsWith(before) || !text.endsWith(after)) return null;
+  const user = text.slice(before.length, text.length - (after.length || 0)).trim();
+  return user ? { before, user, after } : null;
+});
 const isSystemPresenceEvent = computed(() =>
-  String(props.message.systemKind || "") === "presence" ||
-  /^msg-system-(join|leave)-/.test(String(props.message.id || props.message.messageId || "")) ||
+  ["presence", "call"].includes(String(props.message.systemKind || "")) ||
+  /^msg-system-(join|leave)-/.test(String(props.message.messageId || "")) ||
   /^system-(join|leave)-/.test(String(props.message.messageId || ""))
 );
 const isDiscordStyle = computed(() => props.messenger.state.messageStyle === "discord");
@@ -59,7 +88,6 @@ const streamerBlur = computed(() =>
   !isSystem.value
 );
 const showTimestamp = computed(() => props.position === "end" || props.position === "single");
-const keepBubbleReactions = computed(() => isDiscordStyle.value && props.position === "mid");
 const discordActionsStyle = computed(() => (
   isDiscordStyle.value
     ? { left: "auto", right: "12px" }
@@ -75,7 +103,7 @@ const runClass = computed(() => {
   }
 });
 
-const avatarInitials = computed(() => initialsFor(props.message.username));
+const avatarInitials = computed(() => initialsOf(props.message.username));
 const avatarAccent = computed(() => props.messenger.accentFor(props.message.username || ""));
 const avatarSrc = computed(() => {
   const messageAvatar = props.messenger.profileImageSrc?.(props.message.profile?.avatar, "avatar") || "";
@@ -127,7 +155,6 @@ const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
 const contextMenuRef = ref<HTMLElement | null>(null);
-const showReactionsSubmenu = ref(false);
 const contextMenuStyle = ref<Record<string, string>>({ top: "0px", left: "0px" });
 
 // Long-press to open context menu on touch devices
@@ -141,10 +168,49 @@ function isTouchDevice() {
   return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 }
 
-const isDesktopContext = typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches;
+// Starting within the screen edge belongs to the back gesture, not to reply.
+const SWIPE_EDGE_GUARD = 24;
+const SWIPE_REPLY_THRESHOLD = 64;
+const swipeX = ref(0);
+const swipeArmed = ref(false);
+const swipeReleasing = ref(false);
+let swipeTracking = false;
+let swipeEngaged = false;
+let swipeDecided = false;
+let suppressClick = false;
+
+const swipeStyle = computed(() =>
+  swipeX.value || swipeReleasing.value
+    ? { "--swipe-x": `${swipeX.value}px`, "--swipe-p": String(Math.min(1, swipeX.value / SWIPE_REPLY_THRESHOLD)) }
+    : undefined
+);
+
+function releaseSwipe() {
+  swipeTracking = false;
+  swipeDecided = false;
+  if (!swipeEngaged && !swipeX.value) return;
+  swipeEngaged = false;
+  swipeReleasing.value = true;
+  swipeX.value = 0;
+  swipeArmed.value = false;
+  setTimeout(() => (swipeReleasing.value = false), 260);
+}
+
+function onMessageClickCapture(event: MouseEvent) {
+  if (suppressClick) {
+    suppressClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  onStreamerReveal(event);
+}
 
 function onMessagePointerDown(event: PointerEvent) {
   if (!isTouchDevice()) return;
+  swipeTracking = !deleted.value && !isSystem.value && event.clientX > SWIPE_EDGE_GUARD;
+  swipeEngaged = false;
+  swipeDecided = false;
   longPressStartX = event.clientX;
   longPressStartY = event.clientY;
   if (longPressTimer) clearTimeout(longPressTimer);
@@ -156,13 +222,24 @@ function onMessagePointerDown(event: PointerEvent) {
 }
 
 function onMessagePointerMove(event: PointerEvent) {
-  if (!longPressTimer) return;
   const dx = event.clientX - longPressStartX;
   const dy = event.clientY - longPressStartY;
-  if (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD) {
+  if (longPressTimer && (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD)) {
     clearTimeout(longPressTimer);
     longPressTimer = null;
   }
+  if (!swipeTracking) return;
+  if (!swipeDecided && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    swipeDecided = true;
+    swipeEngaged = dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.5;
+    if (!swipeEngaged) swipeTracking = false;
+  }
+  if (!swipeEngaged) return;
+  const pull = Math.max(0, dx);
+  swipeX.value = pull < SWIPE_REPLY_THRESHOLD ? pull : SWIPE_REPLY_THRESHOLD + (pull - SWIPE_REPLY_THRESHOLD) * 0.25;
+  const armed = pull >= SWIPE_REPLY_THRESHOLD;
+  if (armed && !swipeArmed.value) navigator.vibrate?.(8);
+  swipeArmed.value = armed;
 }
 
 function onMessagePointerUp() {
@@ -170,10 +247,19 @@ function onMessagePointerUp() {
     clearTimeout(longPressTimer);
     longPressTimer = null;
   }
+  if (swipeEngaged) {
+    suppressClick = true;
+    if (swipeArmed.value) props.messenger.startReply(props.message);
+  }
+  releaseSwipe();
 }
 
 function onMessagePointerCancel() {
-  onMessagePointerUp();
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  releaseSwipe();
 }
 const reactionTooltip = ref<{
   emoji: string;
@@ -198,7 +284,7 @@ const replyAvatarSrc = computed(() => {
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 });
 const replyAvatarAccent = computed(() => props.messenger.accentFor(repliedMessage.value?.username || replyLabel.value || ""));
-const replyAvatarInitials = computed(() => initialsFor(repliedMessage.value?.username || replyLabel.value || "?"));
+const replyAvatarInitials = computed(() => initialsOf(repliedMessage.value?.username || replyLabel.value || "?"));
 const replyHasVisual = computed(() => {
   const kind = repliedMessage.value?.kind;
   return kind === "image" || kind === "video" || kind === "audio" || kind === "voice" || kind === "file";
@@ -210,13 +296,13 @@ const isTextCollapsible = computed(() =>
   && ["text", "file", "audio", "video", "image"].includes(String(attachmentKind.value || "text"))
 );
 
-function reactionUsers(reaction) {
+function reactionUsers(reaction: MessageReaction | null | undefined) {
   return (Array.isArray(reaction?.users) ? reaction.users : [])
-    .map((user) => String(user || "").trim())
+    .map((user: unknown) => String(user || "").trim())
     .filter(Boolean);
 }
 
-function showReactionTooltip(event: MouseEvent, reaction) {
+function showReactionTooltip(event: MouseEvent, reaction: MessageReaction) {
   const users = reactionUsers(reaction);
   if (!users.length) return;
   if (reactionTooltipHideTimer) {
@@ -276,7 +362,140 @@ function keepReactionTooltip() {
   }, 3000);
 }
 
-function onReactionClick(reaction) {
+const myName = computed(() => String(props.messenger.state.username || "").trim().toLowerCase());
+
+function isMine(reaction: MessageReaction) {
+  return reactionUsers(reaction).some((user) => user.toLowerCase() === myName.value);
+}
+
+const myReactions = computed(() => new Set(props.message.reactions.filter(isMine).map((reaction) => reaction.emoji)));
+
+const visibleReactions = computed(() => props.message.reactions);
+const threadInfo = computed(() =>
+  props.inThread || props.message.threadRootId ? undefined : props.messenger.threadSummaries.value.get(String(props.message.messageId || ""))
+);
+
+function threadLabel(count: number) {
+  const key = `threads.replies.${new Intl.PluralRules(locale.value).select(count)}`;
+  const value = t(key, { count: String(count) });
+  return value === key ? t("threads.replies.other", { count: String(count) }) : value;
+}
+
+function onOpenThread() {
+  closeContextMenu();
+  props.messenger.openThread(props.message);
+}
+const pollSelection = ref<number[]>([]);
+const pollMine = computed(() => props.messenger.pollChoices.get(String(props.message.messageId || "")) || []);
+const pollVoted = computed(() => props.message.pollState.voted);
+
+function pollShare(index: number) {
+  const state = props.message.pollState;
+  return state.total ? Math.min(1, (state.counts[index] || 0) / state.total) : 0;
+}
+
+function togglePollOption(index: number) {
+  if (pollVoted.value) return;
+  const selected = pollSelection.value;
+  if (!props.message.poll?.multi) pollSelection.value = selected[0] === index ? [] : [index];
+  else pollSelection.value = selected.includes(index) ? selected.filter((i) => i !== index) : [...selected, index];
+}
+
+function submitPollVote() {
+  if (!pollSelection.value.length) return;
+  props.messenger.votePoll(props.message, pollSelection.value);
+  pollSelection.value = [];
+}
+
+function pollVotesLabel(count: number) {
+  const key = `poll.votes.${new Intl.PluralRules(locale.value).select(count)}`;
+  const value = t(key, { count: String(count) });
+  return value === key ? t("poll.votes.other", { count: String(count) }) : value;
+}
+
+const bumped = ref(new Set<string>());
+
+watch(
+  () => props.message.reactions.map((reaction) => `${reaction.emoji}\u0000${reaction.count}`).join("|"),
+  (_next, previous) => {
+    const before = new Map<string, number>();
+    for (const entry of String(previous || "").split("|")) {
+      const [emoji, count] = entry.split("\u0000");
+      if (emoji) before.set(emoji, Number(count) || 0);
+    }
+    const grown = props.message.reactions
+      .filter((reaction) => before.has(reaction.emoji) && reaction.count > (before.get(reaction.emoji) || 0))
+      .map((reaction) => reaction.emoji);
+    if (!grown.length) return;
+    bumped.value = new Set([...bumped.value, ...grown]);
+    setTimeout(() => {
+      const remaining = new Set(bumped.value);
+      for (const emoji of grown) remaining.delete(emoji);
+      bumped.value = remaining;
+    }, 520);
+  }
+);
+
+let chipPressTimer: ReturnType<typeof setTimeout> | null = null;
+let chipPressFired = false;
+
+function clearChipPress() {
+  if (chipPressTimer) {
+    clearTimeout(chipPressTimer);
+    chipPressTimer = null;
+  }
+}
+
+function onReactionPointerDown(event: PointerEvent, reaction: MessageReaction) {
+  chipPressFired = false;
+  clearChipPress();
+  if (event.pointerType === "mouse") return;
+  chipPressTimer = setTimeout(() => {
+    chipPressFired = true;
+    openReactionsViewer(reaction.emoji);
+  }, LONG_PRESS_MS);
+}
+
+function onReactionContextMenu(event: MouseEvent) {
+  if (isTouchDevice()) {
+    event.preventDefault();
+    return;
+  }
+  onMessageContextMenu(event);
+}
+
+const reactionsViewer = ref<string | null>(null);
+const reactionsTotal = computed(() => props.message.reactions.reduce((sum, reaction) => sum + reaction.count, 0));
+const reactionsViewerRows = computed(() =>
+  props.message.reactions
+    .filter((reaction) => !reactionsViewer.value || reaction.emoji === reactionsViewer.value)
+    .flatMap((reaction) => reactionUsers(reaction).map((user) => ({ user, emoji: reaction.emoji })))
+);
+
+function openReactionsViewer(emoji = "") {
+  closeContextMenu();
+  reactionTooltip.value = null;
+  reactionsViewer.value = emoji;
+}
+
+function closeReactionsViewer() {
+  reactionsViewer.value = null;
+}
+
+function reactorAvatar(username: string) {
+  return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
+}
+
+function openReactorProfile(username: string) {
+  reactionsViewer.value = null;
+  selectedProfile.value = username;
+}
+
+function onReactionClick(reaction: MessageReaction) {
+  if (chipPressFired) {
+    chipPressFired = false;
+    return;
+  }
   props.messenger.toggleReaction(props.message, reaction.emoji);
   if (reactionTooltipHideTimer) {
     window.clearTimeout(reactionTooltipHideTimer);
@@ -285,130 +504,20 @@ function onReactionClick(reaction) {
   reactionTooltip.value = null;
 }
 
-function safeHref(value) {
-  const raw = String(value || "").trim();
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (["http:", "https:", "mailto:"].includes(parsed.protocol)) return escapeHtml(raw);
-  } catch {
-    return "";
-  }
-  return "";
-}
-
-function codeBlockLabel(value) {
-  const label = String(value || "").trim().replace(/^```+/, "").replace(/[`<>]/g, "");
-  return label.slice(0, 40);
-}
-
 const renderDiscordEmoji = renderEmojiHtml;
 
-function isKnownMention(username) {
+function isKnownMention(username: string) {
   return validMentionUsers.value.has(String(username || "").trim().toLowerCase());
 }
 
-function renderMarkdownLists(value) {
-  const lines = String(value || "").split("\n");
-  const stack = [];
-  let html = "";
-
-  const openList = (level) => {
-    if (!stack.length && html && !html.endsWith("\n")) html += "\n";
-    html += '<ul class="markdown__list">';
-    stack.push({ level, liOpen: false });
-  };
-  const closeItem = (entry) => {
-    if (!entry?.liOpen) return;
-    html += "</li>";
-    entry.liOpen = false;
-  };
-  const closeList = () => {
-    const entry = stack.pop();
-    closeItem(entry);
-    html += "</ul>";
-  };
-  const appendTextLine = (line) => {
-    while (stack.length) closeList();
-    if (html) html += "\n";
-    html += line;
-  };
-
-  for (const line of lines) {
-    const match = /^([ \t]*)-\s+(.+)$/.exec(line);
-    if (!match) {
-      appendTextLine(line);
-      continue;
-    }
-
-    let level = Math.floor(match[1].replace(/\t/g, "  ").length / 2);
-    if (!stack.length) openList(0);
-
-    let top = stack[stack.length - 1];
-    if (level > top.level && !top.liOpen) level = top.level;
-    if (level > top.level + 1) level = top.level + 1;
-
-    while (stack.length && level < stack[stack.length - 1].level) closeList();
-    while (level > stack[stack.length - 1].level) openList(stack[stack.length - 1].level + 1);
-
-    top = stack[stack.length - 1];
-    closeItem(top);
-    html += `<li>${match[2].trim()}`;
-    top.liOpen = true;
-  }
-
-  while (stack.length) closeList();
-  return html;
+function markdown(value: unknown) {
+  return renderMarkdown(value, {
+    isKnownMention,
+    labels: { copyCode: t("message.copyCode"), copy: t("message.copy"), spoilerHidden: t("message.spoilerHidden") },
+  });
 }
 
-function markdown(value) {
-  const tokens = [];
-  const hold = (html) => {
-    const token = `@@md-${tokens.length}@@`;
-    tokens.push([token, html]);
-    return token;
-  };
-
-  let html = escapeHtml(value);
-  html = html.replace(/```([^\n`]*)\n?([\s\S]*?)```/g, (_, rawLabel, code) => {
-    const label = codeBlockLabel(rawLabel);
-    const title = label ? `<span class="codeblock__label">${escapeHtml(label)}</span>` : "<span></span>";
-    const copyIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    const copyButton = `<button class="codeblock__copy" type="button" data-code-copy aria-label="Copy code">${copyIcon}<span>Copy</span></button>`;
-    return hold(`<div class="codeblock"><div class="codeblock__head">${title}${copyButton}</div><pre><code>${code.replace(/\n$/, "")}</code></pre></div>`);
-  });
-  html = html.replace(/^(#{1,4})[ \t]+(.+)$/gm, (_, marks, title) => (
-    `<h${marks.length} class="markdown__h markdown__h${marks.length}">${title.trim()}</h${marks.length}>`
-  ));
-  html = renderMarkdownLists(html);
-  html = html.replace(/``([^`\n]*)``/g, (_, code) => hold(`<code>${code}</code>`));
-  html = html.replace(/`([^`\n]*)`/g, (_, code) => hold(`<code>${code}</code>`));
-  html = html.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
-    const safe = safeHref(href);
-    if (!safe) return match;
-    return hold(`<a href="${safe}" target="_blank" rel="noopener noreferrer">${label}</a>`);
-  });
-  html = html
-    .replace(/(^|[^a-zA-Z0-9_.])@([a-z0-9_.]{2,32})(?=$|[^a-zA-Z0-9_.])/gi, (match, prefix, username) => (
-      isKnownMention(username) ? `${prefix}<span class="mention" data-mention="${escapeHtml(username)}" role="button" tabindex="0">@${username}</span>` : match
-    ))
-    .replace(
-      /\|\|([^\n|]+)\|\|/g,
-      // The label keeps a screen reader from reading out what the spoiler is
-      // hiding; revealCover drops it once the text is open.
-      `<span class="spoiler" data-spoiler role="button" tabindex="0" aria-label="${escapeHtml(t('message.spoilerHidden'))}">$1</span>`
-    )
-    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
-    .replace(/~~([^~\n]+)~~/g, "<del>$1</del>")
-    .replace(/(^|[^\*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
-    .replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>")
-    .replace(/\n/g, "<br>");
-
-  for (const [token, value] of tokens) html = html.replaceAll(token, value);
-  return renderDiscordEmoji(html, { assumeHtml: true });
-}
-
-async function copyText(text) {
+async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
     return true;
@@ -426,7 +535,7 @@ async function copyText(text) {
   return copied;
 }
 
-async function onCodeCopyClick(event) {
+async function onCodeCopyClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
   const button = target?.closest?.("[data-code-copy]") as HTMLElement | null;
   if (!button) return false;
@@ -547,7 +656,7 @@ function onSpoilerKeydown(event: KeyboardEvent) {
   onSpoilerActivate(event);
 }
 
-async function onMarkdownClick(event) {
+async function onMarkdownClick(event: MouseEvent) {
   if (onSpoilerActivate(event)) return;
   const target = event.target as HTMLElement | null;
   const mention = target?.closest?.("[data-mention]") as HTMLElement | null;
@@ -576,12 +685,29 @@ watch(
 
 const reactionPickerOpen = ref(false);
 const reactionPickerStyle = ref<Record<string, string>>({});
+/**
+ * Narrow screens get a sheet, not a popover.
+ *
+ * A grid anchored to a 24px button is a pointer idea: on a phone the finger
+ * covers the anchor, there is nowhere to flip to, and the grid ends up
+ * against an edge whichever way it opens. The platform's answer at this width
+ * is a sheet from the bottom, so that is what this is.
+ */
+const reactionSheet = ref(false);
 
 /**
  * Anchors the grid to the button that opened it, flipping above when there is
  * no room below, and clamping so it never hangs off the side.
  */
+const SHEET_MEDIA = "(max-width: 760px), (hover: none) and (pointer: coarse)";
+
 function openReactionPicker(event: MouseEvent) {
+  reactionSheet.value = window.matchMedia?.(SHEET_MEDIA).matches ?? false;
+  if (reactionSheet.value) {
+    reactionPickerStyle.value = {};
+    reactionPickerOpen.value = true;
+    return;
+  }
   const button = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect();
   if (!button) return;
   const width = 360;
@@ -595,6 +721,13 @@ function openReactionPicker(event: MouseEvent) {
   reactionPickerOpen.value = true;
 }
 
+function onMoreReactions() {
+  closeContextMenu();
+  reactionSheet.value = true;
+  reactionPickerStyle.value = {};
+  reactionPickerOpen.value = true;
+}
+
 function onReactionPicked(emoji: string) {
   reactionPickerOpen.value = false;
   props.messenger.toggleReaction(props.message, emoji);
@@ -604,7 +737,7 @@ function closeProfile() {
   selectedProfile.value = "";
 }
 
-function jumpToMessage(messageId) {
+function jumpToMessage(messageId: string) {
   const targetId = messageDomId(messageId);
   const element = document.getElementById(targetId);
   if (!element) return;
@@ -642,7 +775,6 @@ function openImageViewer() {
 
 function closeContextMenu() {
   contextMenuOpen.value = false;
-  showReactionsSubmenu.value = false;
 }
 
 async function positionContextMenu(clientX: number, clientY: number) {
@@ -760,7 +892,10 @@ function onToggleReaction(emoji: string) {
 
 async function onDelete() {
   if (!canDelete.value || deleted.value) return;
-  const confirmed = await dialog.showConfirm(t("message.deleteConfirm"));
+  const confirmed = await dialog.showConfirm(t("message.deleteConfirm"), "", {
+    danger: true,
+    confirmLabel: t("message.delete"),
+  });
   if (!confirmed) return;
   props.messenger.deleteMessage(props.message);
   closeContextMenu();
@@ -776,6 +911,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
   if (reactionTooltipHideTimer) window.clearTimeout(reactionTooltipHideTimer);
   if (reactionTooltipFallbackTimer) window.clearTimeout(reactionTooltipFallbackTimer);
+  clearChipPress();
 });
 </script>
 
@@ -784,16 +920,22 @@ onBeforeUnmount(() => {
     { 'is-own': isOwn, 'is-jumbo': jumbo, 'is-deleted': deleted, 'is-system': isSystem },
     { 'is-mentioned': effectiveMentioned, 'is-discord': isDiscordStyle, 'is-streamer-blur': streamerBlur, 'is-streamer-leaving': messenger.state.streamerLeaving },
     {
-      'has-reactions': message.reactions.length && !deleted,
+      'has-reactions': visibleReactions.length && !deleted,
       'has-discord-reply': message.replyToMessageId && isDiscordStyle
     },
-    runClass
-  ]" @contextmenu.prevent.stop="onMessageContextMenu" @click.capture="onStreamerReveal"
+    runClass,
+    { 'is-swiping': swipeX > 0, 'is-swipe-release': swipeReleasing }
+  ]" :style="swipeStyle" @contextmenu.prevent.stop="onMessageContextMenu" @click.capture="onMessageClickCapture"
     @pointermove.passive="onCoverPointerMove" @pointerleave.passive="onCoverPointerLeave"
     @pointerdown="onMessagePointerDown" @pointermove="onMessagePointerMove"
     @pointerup="onMessagePointerUp" @pointercancel="onMessagePointerCancel">
+    <span class="msg__time-reveal" aria-hidden="true">{{ messenger.formatTime(message.timestamp) }}</span>
+    <span v-if="swipeX > 0 || swipeReleasing" class="msg__swipe-reply" :class="{ 'is-armed': swipeArmed }" aria-hidden="true">
+      <Icon name="reply" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </span>
     <span v-if="showAvatar && !isSystem" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
-      <img v-if="avatarSrc" :src="avatarSrc" :alt="`${message.username} avatar`" />
+      <img v-if="avatarSrc" :src="avatarSrc" :alt="t('message.avatarOf', { name: message.username })" />
       <template v-else>{{ avatarInitials }}</template>
     </span>
     <span v-else class="msg__spacer"></span>
@@ -805,17 +947,14 @@ onBeforeUnmount(() => {
         @contextmenu.prevent.stop="onMessageContextMenu">
         <span class="reply-ref__hook" aria-hidden="true"></span>
         <span v-if="replyAvatarSrc" class="reply-ref__avatar reply-ref__avatar--image">
-          <img :src="replyAvatarSrc" :alt="`${replyLabel} avatar`" />
+          <img :src="replyAvatarSrc" :alt="t('message.avatarOf', { name: replyLabel })" />
         </span>
         <span v-else class="reply-ref__avatar" :class="`avatar--${replyAvatarAccent}`">
           {{ replyAvatarInitials }}
         </span>
         <span class="reply-ref__username">{{ replyLabel }}</span>
         <span v-if="replyHasVisual" class="reply-ref__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-            <circle cx="12" cy="13" r="3.5" />
-          </svg>
+          <Icon name="camera" viewBox="0 0 24 24" />
         </span>
         <span class="reply-ref__text" v-html="renderDiscordEmoji(replyText)"></span>
         <span v-if="replyEdited" class="reply-ref__edited">(edited)</span>
@@ -835,48 +974,48 @@ onBeforeUnmount(() => {
       <span v-if="showTimestamp && !isDiscordStyle" class="jumbo__time">
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
-      <div v-if="message.reactions.length" class="reactions reactions--standalone"
-        @contextmenu.prevent.stop="onMessageContextMenu">
-        <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
-          @mouseleave="scheduleHideReactionTooltip">
-          <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
-          <span v-if="reaction.count > 1">{{ reaction.count }}</span>
-        </button>
-      </div>
+      <Transition name="reactions-row">
+        <div v-if="visibleReactions.length" class="reactions reactions--standalone"
+          @contextmenu.prevent.stop="onMessageContextMenu">
+          <TransitionGroup name="reaction-bloom">
+            <button v-for="reaction in visibleReactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
+              :class="{ 'is-mine': myReactions.has(reaction.emoji), 'is-bumped': bumped.has(reaction.emoji) }" type="button" :aria-pressed="myReactions.has(reaction.emoji)"
+              @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
+              @mouseleave="scheduleHideReactionTooltip" @pointerdown.stop="onReactionPointerDown($event, reaction)"
+              @pointerup="clearChipPress" @pointercancel="clearChipPress" @pointerleave="clearChipPress"
+              @contextmenu.stop="onReactionContextMenu">
+              <span class="reaction__emoji" v-html="renderDiscordEmoji(reaction.emoji)"></span>
+              <span>{{ reaction.count }}</span>
+            </button>
+          </TransitionGroup>
+          <button type="button" class="reaction reaction--add" :aria-label="t('message.addReaction')"
+            :title="t('message.addReaction')" @click.stop="openReactionPicker">
+            <Icon name="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </button>
+        </div>
+      </Transition>
       <div class="bubble-actions" :style="discordActionsStyle" @contextmenu.prevent.stop="onMessageContextMenu">
         <div class="pick">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
           <button type="button" class="pick__more" :aria-label="t('message.moreReactions')"
             :title="t('message.moreReactions')" :aria-expanded="reactionPickerOpen" @click.stop="openReactionPicker">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8.5v7M8.5 12h7" />
-            </svg>
+            <Icon name="plus-circle" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 17 4 12l5-5" />
-              <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-            </svg>
+          <button v-if="!deleted" type="button" :aria-label="t('message.reply')" @click="messenger.startReply(message)">
+            <Icon name="reply" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="canEdit" type="button" class="pick__edit" aria-label="Edit"
+          <button v-if="canEdit" type="button" class="pick__edit" :aria-label="t('message.edit')"
             @click="messenger.startEditMessage(message)">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
+            <Icon name="edit" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="canDelete" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
+          <button v-if="canDelete" type="button" class="pick__delete" :aria-label="t('message.delete')" @click="onDelete">
+            <Icon name="trash" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
         </div>
       </div>
@@ -886,38 +1025,26 @@ onBeforeUnmount(() => {
       'bubble--deleted': deleted
     }" @contextmenu.prevent.stop="onMessageContextMenu">
       <div class="bubble-actions" :style="discordActionsStyle" @contextmenu.prevent.stop="onMessageContextMenu">
-        <div class="pick" role="group" aria-label="React">
+        <div class="pick" role="group" :aria-label="t('message.react')">
           <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`pick-${emoji}`" type="button"
             @click="messenger.toggleReaction(message, emoji)" v-html="renderDiscordEmoji(emoji)"></button>
           <button type="button" class="pick__more" :aria-label="t('message.moreReactions')"
             :title="t('message.moreReactions')" :aria-expanded="reactionPickerOpen" @click.stop="openReactionPicker">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8.5v7M8.5 12h7" />
-            </svg>
+            <Icon name="plus-circle" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="!deleted" type="button" aria-label="Reply" @click="messenger.startReply(message)">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 17 4 12l5-5" />
-              <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-            </svg>
+          <button v-if="!deleted" type="button" :aria-label="t('message.reply')" @click="messenger.startReply(message)">
+            <Icon name="reply" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="canEdit" type="button" class="pick__edit" aria-label="Edit"
+          <button v-if="canEdit" type="button" class="pick__edit" :aria-label="t('message.edit')"
             @click="messenger.startEditMessage(message)">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
+            <Icon name="edit" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
-          <button v-if="canDelete" type="button" class="pick__delete" aria-label="Delete" @click="onDelete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
+          <button v-if="canDelete" type="button" class="pick__delete" :aria-label="t('message.delete')" @click="onDelete">
+            <Icon name="trash" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </button>
         </div>
       </div>
@@ -927,17 +1054,14 @@ onBeforeUnmount(() => {
         @contextmenu.prevent.stop="onMessageContextMenu">
         <span class="reply-ref__hook" aria-hidden="true"></span>
         <span v-if="replyAvatarSrc" class="reply-ref__avatar reply-ref__avatar--image">
-          <img :src="replyAvatarSrc" :alt="`${replyLabel} avatar`" />
+          <img :src="replyAvatarSrc" :alt="t('message.avatarOf', { name: replyLabel })" />
         </span>
         <span v-else class="reply-ref__avatar" :class="`avatar--${replyAvatarAccent}`">
           {{ replyAvatarInitials }}
         </span>
         <span class="reply-ref__username">{{ replyLabel }}</span>
         <span v-if="replyHasVisual" class="reply-ref__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-            <circle cx="12" cy="13" r="3.5" />
-          </svg>
+          <Icon name="camera" viewBox="0 0 24 24" />
         </span>
         <span class="reply-ref__text" v-html="renderDiscordEmoji(replyText)"></span>
         <span v-if="replyEdited" class="reply-ref__edited">(edited)</span>
@@ -954,9 +1078,12 @@ onBeforeUnmount(() => {
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
 
-      <div v-else-if="isSystem" class="bubble__system">
+      <div v-else-if="isSystem" class="bubble__system" :class="{ 'is-call': isSystemCall }">
         <button v-if="!isSystemPresenceEvent" type="button" class="bubble__system-author" @click="selectedProfile = 'system'">@system</button>
-        <span class="bubble__system-line">{{ message.text }}</span>
+        <span v-if="callParts" class="bubble__system-line">{{ callParts.before
+          }}<button type="button" class="bubble__system-user"
+            @click="selectedProfile = callParts.user.toLowerCase()">{{ callParts.user }}</button>{{ callParts.after }}</span>
+        <span v-else class="bubble__system-line">{{ message.text }}</span>
         <span class="bubble__system-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
 
@@ -966,9 +1093,54 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
+      <div v-else-if="attachmentKind === 'poll' && message.poll" class="poll" :class="{ 'is-voted': pollVoted }"
+        role="group" :aria-label="message.poll.question">
+        <div class="poll__head">
+          <span class="poll__badge">{{ t('poll.label') }}</span>
+        </div>
+        <p class="poll__question">{{ message.poll.question }}</p>
+        <template v-if="pollVoted">
+          <div v-for="(option, index) in message.poll.options" :key="index" class="poll__option poll__option--result"
+            :class="{ 'is-mine': pollMine.includes(index) }">
+            <span class="poll__fill" :style="{ transform: `scaleX(${pollShare(index)})` }" aria-hidden="true"></span>
+            <span class="poll__text">{{ option }}</span>
+            <span class="poll__pct">{{ Math.round(pollShare(index) * 100) }}%</span>
+          </div>
+          <p class="poll__foot">{{ t('poll.youVoted') }} · {{ pollVotesLabel(message.pollState.total) }}</p>
+        </template>
+        <template v-else>
+          <button v-for="(option, index) in message.poll.options" :key="index" type="button" class="poll__option"
+            :class="{ 'is-selected': pollSelection.includes(index), 'is-multi': message.poll.multi }"
+            :aria-pressed="pollSelection.includes(index)" @click="togglePollOption(index)">
+            <span class="poll__check" aria-hidden="true"></span>
+            <span class="poll__text">{{ option }}</span>
+          </button>
+          <div class="poll__actions">
+            <span class="poll__foot">{{ pollVotesLabel(message.pollState.total) }} · {{ t('poll.final') }}</span>
+            <button type="button" class="poll__vote" :disabled="!pollSelection.length" @click="submitPollVote">
+              {{ t('poll.vote') }}
+            </button>
+          </div>
+        </template>
+      </div>
+
       <template v-else-if="attachmentKind === 'image'">
-        <button v-if="attachmentUrl" type="button" class="att-image-link"
-          :aria-label="`Open image preview: ${message.attachment.filename}`" @click="openImageViewer"
+        <div v-if="attachmentUrl && isBrokenImage(attachmentUrl)" class="att-image-missing" role="img"
+          :aria-label="t('message.imageUnavailable')" @contextmenu.prevent.stop="onMessageContextMenu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="3" />
+            <circle cx="9" cy="10" r="1.6" />
+            <path d="m21 16-4.5-4.5L8 20" />
+            <path d="M3 3l18 18" />
+          </svg>
+          <span class="att-image-missing__text">
+            <strong>{{ t('message.imageUnavailable') }}</strong>
+            <small>{{ message.attachment.filename }}</small>
+          </span>
+        </div>
+        <button v-else-if="attachmentUrl" type="button" class="att-image-link"
+          :aria-label="t('imageViewer.openLabel', { name: String(message.attachment.filename || '') })" @click="openImageViewer"
           @contextmenu.prevent.stop="onMessageContextMenu">
           <img :src="attachmentUrl" :alt="message.attachment.filename" class="att-image" />
         </button>
@@ -1010,6 +1182,7 @@ onBeforeUnmount(() => {
           :mime-type="message.attachment.mimeType"
           :size-label="messenger.formatSize(message.attachment.size)" :fallback-duration="message.voiceDuration || ''"
           :waveform="message.voiceWaveform || []"
+          :resume-key="message.messageId || ''" :chain="attachmentKind === 'voice'"
           :messenger="messenger" />
         <div v-if="message.text && !message.text.startsWith('[voice:')" class="bubble__body">
           <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
@@ -1048,12 +1221,8 @@ onBeforeUnmount(() => {
             </span>
           </span>
           <span v-if="attachmentUrl" class="att-file-dl">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            <Icon name="download" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
           </span>
         </button>
         <TextFilePreview v-if="textViewerOpen && attachmentUrl" :src="attachmentUrl"
@@ -1086,7 +1255,7 @@ onBeforeUnmount(() => {
 
       <a v-if="preview && preview.url && !deleted" :href="preview.url" target="_blank" rel="noopener noreferrer"
         class="embed" @contextmenu.prevent.stop="onMessageContextMenu">
-        <div v-if="preview.image" class="embed__media">
+        <div v-if="preview.image && !isBrokenImage(preview.image)" class="embed__media">
           <img :src="preview.image" :alt="preview.title || preview.url" loading="lazy" referrerpolicy="no-referrer" />
         </div>
         <div class="embed__body">
@@ -1100,117 +1269,176 @@ onBeforeUnmount(() => {
         {{ messenger.formatTime(message.timestamp) }}<span v-if="edited"> · edited</span>
       </span>
 
-      <div v-if="message.reactions.length && !deleted" class="reactions"
-        :class="{ 'reactions--bubble-mode': keepBubbleReactions }" @contextmenu.prevent.stop="onMessageContextMenu">
-        <button v-for="reaction in message.reactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
-          type="button" @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
-          @mouseleave="scheduleHideReactionTooltip">
-          <span v-html="renderDiscordEmoji(reaction.emoji)"></span>
-          <span v-if="reaction.count > 1">{{ reaction.count }}</span>
-        </button>
-      </div>
+      <button v-if="threadInfo && !deleted" type="button" class="thread-pill" @click="onOpenThread">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+        <span>{{ threadLabel(threadInfo.count) }}</span>
+        <span class="thread-pill__time">{{ messenger.formatTime(threadInfo.last) }}</span>
+      </button>
+      <Transition name="reactions-row">
+        <div v-if="visibleReactions.length && !deleted" class="reactions" @contextmenu.prevent.stop="onMessageContextMenu">
+          <TransitionGroup name="reaction-bloom">
+            <button v-for="reaction in visibleReactions" :key="`${message.messageId}-${reaction.emoji}`" class="reaction"
+              :class="{ 'is-mine': myReactions.has(reaction.emoji), 'is-bumped': bumped.has(reaction.emoji) }" type="button" :aria-pressed="myReactions.has(reaction.emoji)"
+              @click="onReactionClick(reaction)" @mouseenter="showReactionTooltip($event, reaction)"
+              @mouseleave="scheduleHideReactionTooltip" @pointerdown.stop="onReactionPointerDown($event, reaction)"
+              @pointerup="clearChipPress" @pointercancel="clearChipPress" @pointerleave="clearChipPress"
+              @contextmenu.stop="onReactionContextMenu">
+              <span class="reaction__emoji" v-html="renderDiscordEmoji(reaction.emoji)"></span>
+              <span>{{ reaction.count }}</span>
+            </button>
+          </TransitionGroup>
+          <button type="button" class="reaction reaction--add" :aria-label="t('message.addReaction')"
+            :title="t('message.addReaction')" @click.stop="openReactionPicker">
+            <Icon name="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </button>
+        </div>
+      </Transition>
     </div>
   </article>
 
   <Teleport to="body">
-    <div v-if="reactionPickerOpen" class="react-pop__backdrop" @click="reactionPickerOpen = false"
-      @contextmenu.prevent="reactionPickerOpen = false"></div>
-    <div v-if="reactionPickerOpen" class="react-pop" :style="reactionPickerStyle" @click.stop>
-      <EmojiPicker @pick="onReactionPicked" />
-    </div>
+    <Transition name="qx-fade">
+      <div v-if="reactionPickerOpen" class="react-pop__backdrop"
+        :class="{ 'is-sheet': reactionSheet }" @click="reactionPickerOpen = false"
+        @contextmenu.prevent="reactionPickerOpen = false"></div>
+    </Transition>
+    <Transition name="qx-sheet">
+      <div v-if="reactionPickerOpen" v-sheet-dismiss="() => (reactionPickerOpen = false)" class="react-pop" :class="{ 'is-sheet': reactionSheet }"
+        :style="reactionPickerStyle" @click.stop>
+        <span v-if="reactionSheet" class="react-pop__grabber" aria-hidden="true"></span>
+        <EmojiPicker @pick="onReactionPicked" />
+      </div>
+    </Transition>
   </Teleport>
 
   <Teleport to="body">
-    <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
-      <div ref="contextMenuRef" class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
-        <!-- Header: user info + message preview (mobile only) -->
-        <div class="msg__context-header">
-          <span v-if="avatarSrc" class="msg__context-header-avatar msg__context-header-avatar--image">
-            <img :src="avatarSrc" :alt="message.username" />
-          </span>
-          <span v-else class="msg__context-header-avatar" :class="`avatar--${avatarAccent}`">{{ avatarInitials }}</span>
-          <div class="msg__context-header-text">
-            <strong class="msg__context-header-name">@{{ message.username }}</strong>
-            <span v-if="!deleted" class="msg__context-header-preview">{{ previewTextFor(message, message.messageId) }}</span>
-            <span v-else class="msg__context-header-preview msg__context-header-preview--deleted">{{ previewTextFor(message, message.messageId) }}</span>
+    <Transition name="qx-pop">
+      <div v-if="contextMenuOpen" class="msg__context" @click="closeContextMenu" @contextmenu.prevent>
+        <div ref="contextMenuRef" v-sheet-dismiss="closeContextMenu" class="msg__context-menu context-menu-base" :style="contextMenuStyle" role="menu" :aria-label="t('message.actions')" @click.stop>
+          <!-- Header: user info + message preview (mobile only) -->
+          <div class="msg__context-header">
+            <span v-if="avatarSrc" class="msg__context-header-avatar msg__context-header-avatar--image">
+              <img :src="avatarSrc" :alt="message.username" />
+            </span>
+            <span v-else class="msg__context-header-avatar" :class="`avatar--${avatarAccent}`">{{ avatarInitials }}</span>
+            <div class="msg__context-header-text">
+              <strong class="msg__context-header-name">@{{ message.username }}</strong>
+              <span v-if="!deleted" class="msg__context-header-preview">{{ previewTextFor(message, message.messageId) }}</span>
+              <span v-else class="msg__context-header-preview msg__context-header-preview--deleted">{{ previewTextFor(message, message.messageId) }}</span>
+            </div>
           </div>
+          <!-- Quick reactions row -->
+          <div v-if="!deleted" class="msg__context-reactions" role="group" :aria-label="t('message.react')">
+            <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-reaction-${emoji}`" type="button"
+              class="msg__context-reaction" :class="{ 'is-mine': myReactions.has(emoji) }"
+              @click="onToggleReaction(emoji)" v-html="renderDiscordEmoji(emoji)"></button>
+            <button type="button" class="msg__context-reaction msg__context-reaction--more"
+              :aria-label="t('message.moreReactions')" :title="t('message.moreReactions')" @click="onMoreReactions">
+              <Icon name="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </button>
+          </div>
+          <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
+          <button v-if="message.reactions.length && !deleted" type="button" class="msg__context-item" role="menuitem"
+            @click="openReactionsViewer()">
+            <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.3 1.8 3.5 1.8 3.5-1.8 3.5-1.8"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
+            <span>{{ t('message.viewReactions') }}</span>
+            <span class="msg__context-item-count">{{ reactionsTotal }}</span>
+          </button>
+          <!-- Actions -->
+          <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
+            <Icon name="reply" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.reply') }}</span>
+          </button>
+          <button v-if="!deleted && !inThread && !message.threadRootId && !isSystem" type="button" class="msg__context-item"
+            role="menuitem" @click="onOpenThread">
+            <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+            <span>{{ t('threads.open') }}</span>
+          </button>
+          <button v-if="canEdit" type="button" class="msg__context-item" role="menuitem" @click="onStartEdit">
+            <Icon name="edit" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.edit') }}</span>
+          </button>
+          <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
+            <Icon name="person" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.viewProfile') }}</span>
+          </button>
+          <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onCopyMessageText">
+            <Icon name="copy" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.copyMessage') }}</span>
+          </button>
+          <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
+            <Icon name="copy" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.copyUserId') }}</span>
+          </button>
+          <button v-if="canDelete" type="button" class="msg__context-item is-danger" role="menuitem"
+            @click="onDelete">
+            <Icon name="trash" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.deleteMessage') }}</span>
+          </button>
+          <!-- Cancel button (mobile only) -->
+          <div class="msg__context-separator" aria-hidden="true"></div>
+          <button type="button" class="msg__context-item msg__context-cancel" role="menuitem" @click="closeContextMenu">
+            <Icon name="close" class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <span>{{ t('message.cancel') }}</span>
+          </button>
         </div>
-        <!-- Quick reactions row -->
-        <div v-if="!deleted" class="msg__context-reactions" role="group" aria-label="React">
-          <button v-for="emoji in messenger.QUICK_REACTIONS" :key="`context-reaction-${emoji}`" type="button"
-            class="msg__context-reaction" @click="onToggleReaction(emoji)" v-html="renderDiscordEmoji(emoji)"></button>
-        </div>
-        <div v-if="!deleted" class="msg__context-separator" aria-hidden="true"></div>
-        <!-- Reactions submenu entry -->
-        <button v-if="message.reactions.length && !isDesktopContext" type="button" class="msg__context-item" role="menuitem" @click="showReactionsSubmenu = true">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
-          <span>{{ t('message.reactions') }}</span>
-          <svg class="msg__context-item-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-        <!-- Actions -->
-        <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onStartReply">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 4 12l5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-          <span>{{ t('message.reply') }}</span>
-        </button>
-        <button v-if="canEdit" type="button" class="msg__context-item" role="menuitem" @click="onStartEdit">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          <span>{{ t('message.edit') }}</span>
-        </button>
-        <button type="button" class="msg__context-item" role="menuitem" @click="onOpenProfile">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span>{{ t('message.viewProfile') }}</span>
-        </button>
-        <button v-if="!deleted" type="button" class="msg__context-item" role="menuitem" @click="onCopyMessageText">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          <span>{{ t('message.copyMessage') }}</span>
-        </button>
-        <button type="button" class="msg__context-item" role="menuitem" @click="onCopyUserId">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          <span>{{ t('message.copyUserId') }}</span>
-        </button>
-        <button v-if="canDelete" type="button" class="msg__context-item is-danger" role="menuitem"
-          @click="onDelete">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          <span>{{ t('message.deleteMessage') }}</span>
-        </button>
-        <!-- Cancel button (mobile only) -->
-        <div class="msg__context-separator" aria-hidden="true"></div>
-        <button type="button" class="msg__context-item msg__context-cancel" role="menuitem" @click="closeContextMenu">
-          <svg class="msg__context-item-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-          <span>{{ t('message.cancel') }}</span>
-        </button>
       </div>
-    </div>
+    </Transition>
     <div v-if="reactionTooltip" class="reaction-tooltip" :class="`is-${reactionTooltip.placement}`"
       :style="{ left: `${reactionTooltip.left}px`, top: `${reactionTooltip.top}px` }" role="tooltip"
       @mouseenter="keepReactionTooltip" @mouseleave="scheduleHideReactionTooltip">
       <div class="reaction-tooltip__head">
         <span v-html="renderDiscordEmoji(reactionTooltip.emoji)"></span>
-        <strong>{{ reactionTooltip.count }}</strong>
+        <span class="reaction-tooltip__count">{{ reactionTooltip.count }}</span>
       </div>
       <div class="reaction-tooltip__list">
         <span v-for="user in reactionTooltip.users" :key="user" class="reaction-tooltip__user">{{ user }}</span>
       </div>
     </div>
-    <!-- Reactions submenu -->
-    <div v-if="showReactionsSubmenu" class="msg__context" @click.stop="showReactionsSubmenu = false" @contextmenu.prevent>
-      <div class="msg__context-menu context-menu-base msg__context-submenu" role="menu" :aria-label="t('message.reactions')" @click.stop>
-        <div class="msg__context-submenu-head">
-          <button type="button" class="msg__context-back" :aria-label="t('message.back')"
-            :title="t('message.back')" @click="showReactionsSubmenu = false">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
+    <Transition name="qx-fade">
+      <div v-if="reactionsViewer !== null" class="reactions-sheet__backdrop" @click="closeReactionsViewer"
+        @contextmenu.prevent="closeReactionsViewer"></div>
+    </Transition>
+    <Transition name="qx-sheet">
+      <div v-if="reactionsViewer !== null" v-sheet-dismiss="closeReactionsViewer" class="reactions-sheet" role="dialog"
+        aria-modal="true" :aria-label="t('message.reactions')" @click.stop>
+        <span class="reactions-sheet__grabber" aria-hidden="true"></span>
+        <header class="reactions-sheet__head">
           <strong>{{ t('message.reactions') }}</strong>
+          <button type="button" class="reactions-sheet__close" :aria-label="t('message.close')" @click="closeReactionsViewer">
+            <Icon name="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </button>
+        </header>
+        <div class="reactions-sheet__tabs" role="tablist">
+          <button type="button" role="tab" class="reactions-sheet__tab" :class="{ 'is-active': reactionsViewer === '' }"
+            :aria-selected="reactionsViewer === ''" @click="reactionsViewer = ''">
+            {{ t('message.reactionsAll') }}<span class="reactions-sheet__tab-count">{{ reactionsTotal }}</span>
+          </button>
+          <button v-for="reaction in message.reactions" :key="`tab-${reaction.emoji}`" type="button" role="tab"
+            class="reactions-sheet__tab" :class="{ 'is-active': reactionsViewer === reaction.emoji }"
+            :aria-selected="reactionsViewer === reaction.emoji" @click="reactionsViewer = reaction.emoji">
+            <span v-html="renderDiscordEmoji(reaction.emoji)"></span><span class="reactions-sheet__tab-count">{{ reaction.count }}</span>
+          </button>
         </div>
-        <div class="msg__context-reactions-detail">
-          <div v-for="reaction in message.reactions" :key="`sub-${reaction.emoji}`" class="msg__context-reaction-detail">
-            <span class="msg__context-reaction-detail-emoji" v-html="renderDiscordEmoji(reaction.emoji)"></span>
-            <span class="msg__context-reaction-detail-users">{{ reactionUsers(reaction).join(', ') }}</span>
-          </div>
-        </div>
+        <TransitionGroup tag="ul" name="reactions-row" class="reactions-sheet__list">
+          <li v-for="row in reactionsViewerRows" :key="`${row.emoji}-${row.user}`">
+            <button type="button" class="reactions-sheet__row" @click="openReactorProfile(row.user)">
+              <Avatar :name="row.user" :src="reactorAvatar(row.user)" :accent="messenger.accentFor(row.user)" size="md" />
+              <span class="reactions-sheet__name">{{ row.user }}</span>
+              <span class="reactions-sheet__emoji" v-html="renderDiscordEmoji(row.emoji)"></span>
+            </button>
+          </li>
+        </TransitionGroup>
       </div>
-    </div>
-    <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
+    </Transition>
+    <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
+      <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
+    </Transition>
   </Teleport>
 </template>
 
@@ -1314,26 +1542,6 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.msg__context-reactions-detail {
-  display: none;
-}
-
-.msg__context-item-chevron {
-  display: none;
-}
-
-.msg__context-submenu {
-  display: none;
-}
-
-.msg__context-submenu-head {
-  display: none;
-}
-
-.msg__context-back {
-  display: none;
-}
-
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {
   .bubble-actions {
     display: none;
@@ -1345,7 +1553,6 @@ onBeforeUnmount(() => {
     justify-content: center;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: msg-context-backdrop-in 160ms ease-out;
   }
 
   .msg__context-menu {
@@ -1368,7 +1575,6 @@ onBeforeUnmount(() => {
     border-radius: 22px 22px 0 0;
     background: var(--surface);
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: msg-context-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
@@ -1476,7 +1682,7 @@ onBeforeUnmount(() => {
     font-size: 24px;
     line-height: 1;
     background: var(--surface-2);
-    transition: transform 120ms ease, background 120ms ease;
+    transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
     scroll-snap-align: start;
     flex-shrink: 0;
   }
@@ -1489,6 +1695,20 @@ onBeforeUnmount(() => {
 
   .msg__context-reaction:active {
     transform: scale(0.94);
+  }
+
+  .msg__context-reaction.is-mine {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+
+  .msg__context-reaction--more {
+    color: var(--muted);
+  }
+
+  .msg__context-reaction--more svg {
+    width: 22px;
+    height: 22px;
   }
 
   /* ---- Separator ---- */
@@ -1509,7 +1729,7 @@ onBeforeUnmount(() => {
     padding: 0 18px;
     gap: 14px;
     width: 100%;
-    transition: background 120ms ease;
+    transition: background var(--dur-fast) var(--ease-out);
   }
 
   .msg__context-item:hover,
@@ -1537,7 +1757,7 @@ onBeforeUnmount(() => {
     width: 20px;
     height: 20px;
     color: var(--muted);
-    transition: color 120ms ease;
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
   .msg__context-item:hover .msg__context-item-icon,
@@ -1567,92 +1787,10 @@ onBeforeUnmount(() => {
     background: var(--surface-hover);
   }
 
-  /* ---- Chevron for submenu items ---- */
-  .msg__context-item-chevron {
-    display: block;
-    flex: none;
-    margin-left: auto;
-    color: var(--dim);
-  }
-
-  /* ---- Submenu ---- */
-  .msg__context-submenu {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .msg__context-submenu-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 18px 14px;
-    flex: none;
-  }
-
-  .msg__context-submenu-head strong {
-    font-size: 17px;
-    font-weight: 750;
-    color: var(--text);
-  }
-
-  .msg__context-back {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-    flex: none;
-  }
-
-  .msg__context-back:hover {
-    background: var(--surface-hover);
-  }
-
-  /* ---- Reactions detail (inside submenu) ---- */
-  .msg__context-reactions-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 6px 18px 12px;
-  }
-
-  .msg__context-reaction-detail {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    font-size: 14px;
-    line-height: 1.4;
-  }
-
-  .msg__context-reaction-detail-emoji {
-    font-size: 20px;
-    flex: none;
-    margin-top: 1px;
-  }
-
-  .msg__context-reaction-detail-users {
-    color: var(--muted);
-    word-break: break-word;
-  }
-
   /* ---- Hide hover tooltip on mobile ---- */
   .reaction-tooltip {
     display: none !important;
   }
-}
-
-@keyframes msg-context-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes msg-context-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
 }
 
 .msg__avatar--image,
@@ -1778,7 +1916,7 @@ onBeforeUnmount(() => {
   border-left: 0;
   background: transparent;
   color: #dcddde;
-  transition: background-color 50ms ease-out;
+  transition: background-color 50ms var(--ease-out);
 }
 
 :global(:root[data-message-style="discord"] .msg.is-run-mid),
@@ -1817,7 +1955,6 @@ onBeforeUnmount(() => {
   background-color: rgba(88, 101, 242, 0.16);
 }
 
-
 /* Streamer mode blurs the elements themselves rather than covering them with a
    box. An overlay always draws the element's rectangle, which on a block of
    text is the whole bubble width and reads as a grey slab; a filter follows
@@ -1831,13 +1968,13 @@ onBeforeUnmount(() => {
 .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
   filter: blur(var(--redact-blur)) saturate(0.85);
   cursor: pointer;
-  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: filter 460ms var(--ease-out);
 }
 
 .msg.is-streamer-blur :is(.att-image-link, .audio-player, .video-player, .embed__media) {
   filter: blur(14px) saturate(0.7);
   cursor: pointer;
-  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: filter 460ms var(--ease-out);
 }
 
 /* The avatar tint is derived from the username, so the hue has to go with the
@@ -1853,7 +1990,7 @@ onBeforeUnmount(() => {
    itself would soften its outline into a blob. */
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) > * {
   filter: blur(6px) grayscale(1);
-  transition: filter 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: filter 460ms var(--ease-out);
 }
 
 .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media):is(.is-revealed, .is-peeking),
@@ -2048,7 +2185,7 @@ onBeforeUnmount(() => {
   background-color: hsla(235, 85.6%, 64.7%, 0.3);
   color: #e3e7f8;
   font-weight: 500;
-  transition: background-color 50ms ease-out, color 50ms ease-out;
+  transition: background-color 50ms var(--ease-out), color 50ms var(--ease-out);
 }
 
 :global(:root[data-message-style="discord"] .mention:hover) {
@@ -2135,23 +2272,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-:global(:root[data-message-style="discord"] .reactions) {
-  position: static;
-  width: fit-content;
-  margin-top: 6px;
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-
-:global(:root[data-message-style="discord"] .reactions.reactions--bubble-mode) {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--line-strong);
-}
-
 :global(:root[data-message-style="discord"] .jumbo) {
   position: static;
   min-width: 0;
@@ -2161,11 +2281,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-}
-
-:global(:root[data-message-style="discord"] .msg:not(.is-own) .jumbo .reactions.reactions--standalone) {
-  align-self: flex-start;
-  margin-top: 6px;
 }
 
 :global(:root[data-message-style="discord"] .jumbo__glyph) {
@@ -2311,11 +2426,534 @@ onBeforeUnmount(() => {
 }
 
 .msg.is-jump-highlight {
-  animation: msg-jump-highlight 2s ease-out;
+  animation: msg-jump-highlight 2s var(--ease-out);
 }
 
 @keyframes msg-jump-highlight {
   0% { background: color-mix(in srgb, var(--accent) 25%, transparent); }
   100% { background: transparent; }
+}
+
+.msg__context-item-count {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.reactions-sheet__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.reactions-sheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: calc(var(--z-sheet) + 1);
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--line-strong);
+}
+
+.reactions-sheet__grabber {
+  display: none;
+}
+
+.reactions-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 10px 18px;
+  flex: none;
+}
+
+.reactions-sheet__head strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reactions-sheet__close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--muted);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.reactions-sheet__close:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text);
+}
+
+.reactions-sheet__close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.reactions-sheet__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: none;
+}
+
+.reactions-sheet__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.reactions-sheet__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--reaction-bg);
+  box-shadow: inset 0 0 0 1px var(--reaction-edge);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-spring);
+}
+
+.reactions-sheet__tab:active {
+  transform: scale(.94);
+}
+
+.reactions-sheet__tab.is-active {
+  background: var(--accent);
+  box-shadow: none;
+  color: #fff;
+}
+
+.reactions-sheet__tab-count {
+  font-variant-numeric: tabular-nums;
+  opacity: .8;
+}
+
+.reactions-sheet__list {
+  position: relative;
+  margin: 0;
+  padding: 0 8px 10px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--line);
+}
+
+.reactions-sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--text);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.reactions-sheet__row:active {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reactions-sheet__row:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+}
+
+.reactions-sheet__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.reactions-sheet__emoji {
+  flex: none;
+  font-size: 20px;
+}
+
+.reactions-row-enter-active,
+.reactions-row-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.reactions-row-leave-active {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+}
+
+.reactions-row-move {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.reactions-row-enter-from,
+.reactions-row-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  .reactions-sheet {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    translate: none;
+    width: 100%;
+    max-height: min(75vh, 620px);
+    padding-bottom: max(10px, var(--app-safe-bottom));
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.45), 0 -1px 0 var(--line-strong);
+  }
+
+  .reactions-sheet__grabber {
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 5px;
+    margin: 10px auto 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 48%, transparent);
+  }
+
+  .reactions-sheet__head {
+    padding: 10px 16px 12px 20px;
+  }
+
+  .reactions-sheet__head strong {
+    font-size: 17px;
+  }
+
+  .reactions-sheet__tabs {
+    padding: 0 16px 14px;
+  }
+
+  .reactions-sheet__tab {
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .reactions-sheet__row {
+    min-height: 58px;
+  }
+
+  .reactions-sheet__name {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reactions-row-enter-active,
+  .reactions-row-leave-active,
+  .reactions-row-move {
+    transition: none;
+  }
+}
+
+.msg.is-swiping > :not(.msg__swipe-reply),
+.msg.is-swipe-release > :not(.msg__swipe-reply) {
+  transform: translateX(var(--swipe-x, 0px));
+}
+
+.msg.is-swipe-release > :not(.msg__swipe-reply) {
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+
+.msg__swipe-reply {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: -15px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--muted);
+  opacity: var(--swipe-p, 0);
+  transform: scale(calc(0.5 + 0.5 * var(--swipe-p, 0)));
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  pointer-events: none;
+}
+
+.msg__swipe-reply.is-armed {
+  background: var(--accent);
+  color: #fff;
+}
+
+.msg__swipe-reply svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .msg {
+    touch-action: pan-y;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.is-swipe-release > :not(.msg__swipe-reply) {
+    transition: none;
+  }
+}
+
+.msg__time-reveal {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 10px);
+  translate: 0 -50%;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: var(--reveal-p, 0);
+  pointer-events: none;
+}
+
+.msg.is-swiping > .msg__time-reveal,
+.msg.is-swipe-release > .msg__time-reveal {
+  transform: none;
+}
+
+.poll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(320px, 72vw);
+  padding: 2px 0;
+}
+
+.poll__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.poll__badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.poll__meta {
+  font-size: 11.5px;
+  opacity: 0.6;
+}
+
+.poll__question {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.poll__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 12px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  box-shadow: inset 0 0 0 1px transparent;
+  color: inherit;
+  text-align: left;
+  transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+button.poll__option:active {
+  transform: scale(.98);
+}
+
+.poll__option.is-selected {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.poll__fill {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  transform-origin: left center;
+  animation: poll-fill var(--dur-slow) var(--ease-out) both;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.poll__option.is-mine .poll__fill {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.poll__check {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent);
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.poll__option.is-multi .poll__check {
+  border-radius: 5px;
+}
+
+.poll__option.is-selected .poll__check {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.poll__option.is-selected .poll__check::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.poll__text {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.poll__option.is-mine .poll__text {
+  font-weight: 650;
+}
+
+.poll__pct {
+  position: relative;
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.poll__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.poll__foot {
+  margin: 2px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.poll__vote {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out);
+}
+
+.poll__vote:disabled {
+  opacity: 0.4;
+}
+
+.poll__vote:active {
+  filter: brightness(.9);
+}
+
+:global(:root:not([data-message-style="discord"]) .msg.is-own .poll__vote) {
+  background: #fff;
+  color: var(--accent);
+}
+
+:global(:root:not([data-message-style="discord"]) .msg.is-own .poll__option.is-selected) {
+  background: rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 0 0 1.5px #fff;
+}
+
+@keyframes poll-fill {
+  from { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poll__fill {
+    animation: none;
+    transition: none;
+  }
+}
+
+.thread-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.thread-pill:hover {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.thread-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.thread-pill__time {
+  font-weight: 500;
+  opacity: 0.65;
 }
 </style>

@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   visible: { type: Boolean, default: false },
   lock: { type: Boolean, default: false }
 });
@@ -52,13 +55,8 @@ function toggleTheme() {
       :title="isLightTheme ? t('settings.ui.dark') : t('settings.ui.light')"
       @click="toggleTheme"
     >
-      <svg v-if="isLightTheme" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-      </svg>
-      <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-      </svg>
+      <Icon name="moon" v-if="isLightTheme" viewBox="0 0 24 24" aria-hidden="true" />
+      <Icon name="sun" v-else viewBox="0 0 24 24" aria-hidden="true" />
     </button>
   </Transition>
 </template>
@@ -80,7 +78,7 @@ function toggleTheme() {
   cursor: pointer;
   backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .theme-toggle:hover {
@@ -110,7 +108,7 @@ function toggleTheme() {
 
 .theme-toggle-enter-active,
 .theme-toggle-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .theme-toggle-enter-from,

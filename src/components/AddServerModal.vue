@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import ModalShell from "@/components/ModalShell.vue";
 import { inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
@@ -24,19 +26,19 @@ function join() {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="add-server-backdrop" @click.self="close">
-      <div class="add-server" role="dialog" :aria-label="t('sidebar.addServer')">
+    <ModalShell :open="open" backdrop-class="add-server-backdrop" @close="close">
+      <div v-sheet-dismiss="close" class="add-server" role="dialog" :aria-label="t('sidebar.addServer')">
         <header class="add-server__head">
           <h2 class="add-server__title">{{ t('sidebar.addServer') }}</h2>
           <button class="icon-btn add-server__close" type="button" :aria-label="t('message.cancel')" @click="close">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </header>
 
         <div class="add-server__body">
           <button type="button" class="add-server__action" @click="create">
             <span class="add-server__action-icon add-server__action-icon--create">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+              <Icon name="plus" viewBox="0 0 24 24" />
             </span>
             <span class="add-server__action-text">
               <strong>{{ t('rooms.createTitle') }}</strong>
@@ -46,11 +48,7 @@ function join() {
 
           <button type="button" class="add-server__action" @click="join">
             <span class="add-server__action-icon add-server__action-icon--join">
-              <svg viewBox="0 0 24 24">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M19 8v6M16 11h6" />
-              </svg>
+              <Icon name="user-plus" viewBox="0 0 24 24" />
             </span>
             <span class="add-server__action-text">
               <strong>{{ t('sidebar.addServerJoin') }}</strong>
@@ -59,7 +57,7 @@ function join() {
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   </Teleport>
 </template>
 
@@ -67,7 +65,7 @@ function join() {
 .add-server-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,7 +124,7 @@ function join() {
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .add-server__action:hover,

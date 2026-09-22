@@ -1,4 +1,135 @@
 {
+    "errors": {
+        "cryptoUnavailable": "Browser crypto API is unavailable.",
+        "clipboardFailed": "Clipboard copy failed.",
+        "lockNeedsCrypto": "Client lock requires Web Crypto.",
+        "lockEnableFailed": "Could not enable client lock.",
+        "lockWiped": "QxChat reset after too many invalid PIN attempts.",
+        "invalidPin": "Invalid PIN.",
+        "opsecNeedsCrypto": "OpSec requires Web Crypto.",
+        "malformedAccount": "Malformed account response.",
+        "challengeFailed": "Unable to obtain security challenge.",
+        "registerFailed": "Registration failed.",
+        "loginFailed": "Login failed.",
+        "recoveryFailed": "Recovery failed.",
+        "adminOverviewFailed": "Admin overview failed.",
+        "adminSearchFailed": "Admin user search failed.",
+        "featureUpdateFailed": "Feature update failed.",
+        "noLocalRoomKey": "This room has no local key.",
+        "defaultRoomUpdateFailed": "Default room update failed.",
+        "defaultRoomClearFailed": "Default room clear failed.",
+        "userUpdateFailed": "User update failed.",
+        "userDeleteFailed": "User delete failed.",
+        "badgeUpdateFailed": "Badge update failed.",
+        "invalidRoomId": "Invalid room ID.",
+        "webCryptoUnavailable": "Web Crypto is unavailable in this browser.",
+        "roomKeyStoreFailed": "Failed to store room key.",
+        "noRoomKey": "No room key available.",
+        "roomIconNotImage": "Room icon must be an image.",
+        "roomIconTooLarge": "Room icon must be under 5 MB.",
+        "roomIconBadUrl": "Invalid room icon URL returned by server.",
+        "roomIconUploadFailed": "Could not upload room icon.",
+        "roomGenerateFailed": "Could not generate a secure room.",
+        "roomIconPrepareFailed": "Could not prepare room icon.",
+        "screenNoVideo": "Screen share has no video track.",
+        "profileImageFormat": "Profile images support PNG, APNG, GIF, JPEG and WEBP.",
+        "imageDimensions": "Invalid image dimensions.",
+        "profileImageRead": "Could not read profile image.",
+        "audioDevicesUnavailable": "Audio devices are not available in this browser.",
+        "micPermissionTest": "Microphone permission is required to test audio.",
+        "tokenCopyFailed": "Room opened. Token copy failed.",
+        "malformedPayload": "Malformed payload.",
+        "websocket": "Live connection error.",
+        "encryptFailed": "Message encryption failed.",
+        "notJoined": "Not joined to this room yet.",
+        "notConnected": "Not connected.",
+        "joinRoomFirst": "Join a room first.",
+        "recording": "Recording error.",
+        "micDenied": "Mic access denied.",
+        "micDeniedLabel": "Mic access denied",
+        "invisibleNoCall": "Switch out of invisible mode before joining a call.",
+        "cameraNoVideo": "Camera has no video track.",
+        "cameraDenied": "Camera access denied.",
+        "screenCancelled": "Screen sharing was cancelled.",
+        "usernameChangeFailed": "Username change failed.",
+        "editFailed": "Message edit failed.",
+        "notAuthenticated": "Not authenticated.",
+        "missingUsername": "Missing username.",
+        "sessionRenewFailed": "Session renewal failed.",
+        "decryptMessageFailed": "Could not process encrypted message.",
+        "decryptHistoryFailed": "Could not decrypt room history.",
+        "editedMessageFailed": "Could not process edited message.",
+        "fileRead": "Couldn't read file.",
+        "backupInvalid": "This file is not a valid backup.",
+        "requestFailed": "Request failed ({status})",
+        "imageTooLarge": "{what}: file too large ({size} > {limit})",
+        "connectionFailed": "Connection failed: {reason}",
+        "fileTooLarge": "File too large: {name} ({size} > {limit})",
+        "uploadFailed": "Upload failed: {reason}",
+        "importFailed": "Import failed: {reason}",
+        "captchaRequired": "Please complete the CAPTCHA first.",
+        "vdfInvalid": "Invalid security challenge received from the server.",
+        "pqcMissing": "The server did not send its post-quantum security challenge.",
+        "pqcUnsupported": "Your browser does not support post-quantum cryptography. Please update it.",
+        "roomKeyRequired": "This room needs its room token key before you can send encrypted messages.",
+        "connectionLost": "Connection lost. Reconnecting…",
+        "pollTooLong": "This poll is too long. Shorten the question or the answers."
+    },
+    "labels": {
+        "customTurn": "Custom TURN",
+        "fileAttachment": "File attachment",
+        "noMessagesYet": "No messages yet",
+        "banner": "Banner",
+        "profileImage": "Profile image",
+        "anonymous": "anonymous",
+        "photo": "Photo",
+        "video": "Video",
+        "voiceMessage": "Voice message",
+        "poll": "Poll",
+        "hiddenChannel": "Hidden channel"
+    },
+    "notices": {
+        "lockEnabled": "Client lock enabled.",
+        "locked": "QxChat locked.",
+        "duressEnabled": "Duress PIN enabled.",
+        "lockDisabled": "Client lock disabled.",
+        "tokenCopied": "Room token copied.",
+        "backupExported": "Backup exported.",
+        "backupImported": "Backup imported."
+    },
+    "notifications": {
+        "titleIn": "{user} in {room}",
+        "newMessage": "New message"
+    },
+    "cap": {
+        "label": "Cap verification",
+        "verify": "Verify you're human",
+        "verifying": "Verifying ({progress}%)",
+        "done": "You're human",
+        "error": "Error. Try again.",
+        "ariaIdle": "Click to verify you're human",
+        "ariaVerifying": "Verifying you're human, please wait",
+        "ariaDone": "We verified you're human",
+        "ariaError": "An error occurred, please try again",
+        "securedBy": "Secured by Cap",
+        "securedByTitle": "Secured by Cap, the self-hosted CAPTCHA for the modern web."
+    },
+    "textPreview": {
+        "loading": "Loading preview",
+        "close": "Close text preview",
+        "controls": "Text file preview controls",
+        "download": "Download text file",
+        "openTab": "Open text file in new tab",
+        "dialogLabel": "Text file preview: {name}",
+        "contentLabel": "Text file content: {name}"
+    },
+    "audio": {
+        "play": "Play",
+        "pause": "Pause",
+        "progress": "Audio progress",
+        "speed": "Playback speed",
+        "save": "Save voice message"
+    },
     "chart": {
         "graph": "Graph",
         "table": "Table",
@@ -22,7 +153,13 @@
         "disableStreamer": "Disable streamer mode",
         "moveToTray": "Move {action} to tray",
         "moveFromTray": "Move {action} out of tray",
-        "rightClickHint": "Right-click a title bar icon to move it to the tray."
+        "rightClickHint": "Right-click a title bar icon to move it to the tray.",
+        "desktopTitleBar": "Title bar",
+        "windowControls": "Window controls",
+        "minimize": "Minimize",
+        "maximize": "Maximize",
+        "restore": "Restore",
+        "close": "Close"
     },
     "onboarding": {
         "register": "Register",
@@ -42,7 +179,12 @@
         "submit": "Continue",
         "usernamePlaceholder": "e.g. echo",
         "passwordPlaceholder": "Password",
-        "recoveryPlaceholder": "Recovery words"
+        "recoveryPlaceholder": "Recovery words",
+        "modeLabel": "Authentication mode",
+        "password": "Password",
+        "recoveryWords": "Recovery words",
+        "newPassword": "New password",
+        "pleaseWait": "Please wait"
     },
     "sessionExpired": {
         "title": "Session expired",
@@ -113,7 +255,10 @@
         "leaveAllRoomsDelete": "Leave all rooms and delete messages",
         "leaveAllRoomsConfirm": "Leave all rooms?",
         "leaveAllRoomsDeleteConfirm": "Leave all rooms and delete their local messages?",
-        "statusOptions": "Status"
+        "statusOptions": "Status",
+        "onlineHint": "Visible to everyone",
+        "invisibleHint": "Appear offline to others",
+        "dndHint": "Mute every notification"
     },
     "members": {
         "presence": "Presence",
@@ -124,7 +269,10 @@
         "seeAvatar": "See Avatar",
         "seeBanner": "See Banner",
         "viewProfile": "View Profile",
-        "copyUserId": "Copy User ID"
+        "copyUserId": "Copy User ID",
+        "platformsLabel": "Platforms: {list}",
+        "platformsUnknown": "unknown",
+        "loading": "Loading members"
     },
     "profile": {
         "close": "Close profile",
@@ -177,7 +325,12 @@
         "today": "Today",
         "yesterday": "Yesterday",
         "typingOne": "{user} is typing…",
-        "typingMany": "{count} people are typing…"
+        "typingMany": "{count} people are typing…",
+        "callStarted": "{user} started a call",
+        "callStartedSelf": "You started a call",
+        "newMessages": "New messages",
+        "loadingHistory": "Loading messages",
+        "unreadPill": {"one": "{count} new message", "other": "{count} new messages"}
     },
     "composer": {
         "placeholder": "Message",
@@ -207,7 +360,10 @@
             "flags": "Flags"
         },
         "emojiSuggestions": "Emoji suggestions",
-        "emojiNoResult": "No emoji found"
+        "emojiNoResult": "No emoji found",
+        "attachBlocked": "You cannot send anything in this room.",
+        "moreActions": "More message actions",
+        "mentionSuggestions": "Mention suggestions"
     },
     "message": {
         "deleted": "Message deleted",
@@ -243,7 +399,15 @@
         "reactions": "Reactions",
         "back": "Back",
         "spoilerHidden": "Hidden text, click to reveal",
-        "moreReactions": "More reactions"
+        "moreReactions": "More reactions",
+        "react": "React",
+        "avatarOf": "{name} avatar",
+        "copyCode": "Copy code",
+        "viewReactions": "View reactions",
+        "reactionsAll": "All",
+        "addReaction": "Add a reaction",
+        "close": "Close",
+        "imageUnavailable": "Image unavailable"
     },
     "call": {
         "live": "Live",
@@ -322,7 +486,17 @@
             "deleteAccountConfirm": "Are you sure you want to delete your account? This action cannot be undone.",
             "deleteAccountPrompt": "Enter your password to confirm deletion:",
             "deleteAccountError": "Could not delete account. Check your password.",
-            "revert": "Revert"
+            "revert": "Revert",
+            "richTitle": "Status and links",
+            "customStatus": "Custom status",
+            "customStatusPlaceholder": "What’s on your mind",
+            "links": "Links",
+            "linkLabel": "Label",
+            "linkUrl": "Link address",
+            "removeLink": "Remove link",
+            "addLink": "Add a link",
+            "linksNote": "Up to 4 links, https only. They open in a new tab without sending where you came from.",
+            "linkInvalid": "Each link must start with https://"
         },
         "ui": {
             "theme": "Theme",
@@ -403,7 +577,8 @@
             "autolockOneHour": "1 hour",
             "autolockTwoHours": "2 hours",
             "autolockFiveHours": "5 hours",
-            "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted."
+            "clientLockNote": "When enabled, QxChat local data is encrypted on this device with a key derived from the PIN. Without the PIN, it cannot be decrypted.",
+            "autolockMinutes": "{count} min"
         },
         "opsec": {
             "duressTitle": "Duress password",
@@ -452,7 +627,13 @@
             "soundCameraOn": "Camera On",
             "soundCameraOff": "Camera Off",
             "soundScreenOn": "Screen Share On",
-            "soundScreenOff": "Screen Share Off"
+            "soundScreenOff": "Screen Share Off",
+            "privacy": "Notification content",
+            "privacyHidden": "Hidden",
+            "privacySender": "Sender only",
+            "privacyFull": "Full",
+            "privacyNote": "Hidden shows only “QxChat, New message”: nothing about who wrote or what, even on the lock screen.",
+            "localOnlyNote": "Notifications are created on this device. No Google or Apple push service is used and nothing passes through a third party; QxChat must stay open in the background to receive them."
         },
         "calls": {
             "calling": "Calling",
@@ -495,7 +676,13 @@
             "turnHints": {
                 "qxp-turn": "Self-hosted relay on our infrastructure, may be unstable under load. No IP exposed, everything goes through our relay.",
                 "google-stun": "Google public STUN, very stable and fast, but ⚠️ your IPs are exposed (no anonymous relay). Only useful on local networks or for testing."
-            }
+            },
+            "micGateIdle": "Start the test to watch your level against the threshold.",
+            "micGateOpen": "Your voice is getting through.",
+            "micGateClosed": "Under the threshold, so nothing is sent.",
+            "cameraPreviewHint": "Nothing leaves this machine. The preview runs locally.",
+            "inputLevel": "Input level",
+            "turnLabelPlaceholder": "My TURN"
         },
         "tor": {
             "title": "Tor connectivity",
@@ -546,7 +733,8 @@
             "details": "Details",
             "desktopOnly": "Tor routing is only available in the QxChat desktop app, which embeds the Tor client and routes your traffic locally. On the web version, your connection depends on your browser and cannot be routed through Tor.",
             "downloadDesktop": "Download the desktop app",
-            "relaysConfirmTitle": "Relay directory"
+            "relaysConfirmTitle": "Relay directory",
+            "ourServer": "Our server"
         },
         "advanced": {
             "connection": "Connection",
@@ -662,8 +850,8 @@
             "deleteAccount": "Delete this account",
             "roomsLegend": "Each row shows people online, then messages held in memory.",
             "none": "None",
-            "chartSignups": "Accounts over the last week",
-            "chartSignupsNote": "Rebuilt from the 24 hour and 7 day counts, so accounts deleted since are not visible.",
+            "chartSignups": "Accounts created per day",
+            "chartSignupsNote": "The last 30 days, counted from the accounts that exist now, so deleted ones are not in it.",
             "chartMessages": "Buffered messages per room",
             "chartMessagesNote": "Currently held in memory; the server keeps no history.",
             "chartPlatforms": "Sessions by platform",
@@ -677,7 +865,6 @@
             "ageWeekAccounts": "2 to 7 days",
             "ageOlderAccounts": "Over a week",
             "stateActive": "Active",
-            "stateIdle": "Idle",
             "statMessages": "Messages",
             "statMessagesTotal": "Held in memory",
             "statMessagesRooms": "Rooms holding messages",
@@ -697,7 +884,24 @@
             "chartLastMessage": "Rooms by day of last message",
             "chartLastMessageNote": "Counts the rooms whose most recent buffered message falls on each day.",
             "chartPlatformsNote": "Share of the live sessions, by client.",
-            "chartAccountStateNote": "Every account the server holds, split by state."
+            "chartAccountStateNote": "Every account the server holds, split by state.",
+            "connectionNotVoice": "Not in voice",
+            "roomsQuiet": "No one online",
+            "statConnections": "Connections",
+            "statSessionsPerAccount": "Sessions per account",
+            "statConnectionsNote": "More sessions than accounts means people are signed in from more than one place.",
+            "statShareOnline": "Share of accounts online",
+            "chartOnline": "Accounts online now",
+            "chartOnlineNote": "Distinct accounts connected, against every account the server holds.",
+            "stateOnline": "Online",
+            "stateOffline": "Offline",
+            "chartRoomVoice": "People in voice per room",
+            "statRuntime": "Since the server started",
+            "statMessagesRelayed": "Messages relayed",
+            "statSessionsOpened": "Sessions opened",
+            "statPeakSessions": "Most sessions at once",
+            "statRuntimeSince": "Counting since",
+            "statRuntimeNote": "Counters held in memory only. Nothing is written down and they reset when the server restarts."
         },
         "backups": {
             "title": "Backups",
@@ -751,7 +955,35 @@
             "turnPassword": "TURN password",
             "userAgent": "User-Agent",
             "yes": "Yes",
-            "no": "No"
+            "no": "No",
+            "integrity": "Integrity",
+            "integrityNote": "Compare these fingerprints with the ones published for this version. If they differ, this copy of the app has been modified.",
+            "appFingerprint": "Application (SHA-256)",
+            "uiFingerprint": "Interface (SHA-256)",
+            "fingerprintCopied": "Fingerprint copied.",
+            "fingerprintUnavailable": "Unavailable",
+            "fingerprintComputing": "Computing…",
+            "copyFingerprint": "Copy fingerprint"
+        },
+        "sectionsNav": "Settings sections",
+        "theme": {
+            "title": "Custom theme",
+            "enable": "Use custom colors",
+            "accent": "Accent",
+            "tint": "Background",
+            "copyCode": "Copy theme code",
+            "copied": "Theme code copied.",
+            "codePlaceholder": "Paste a theme code (QXT1.…)",
+            "import": "Import",
+            "imported": "Theme applied.",
+            "invalidCode": "This theme code is not valid.",
+            "note": "Share your colors with a short code. Only colors are shared, nothing about you.",
+            "previewIn": "Hey, what do you think?",
+            "previewOut": "Looks great",
+            "previewChip": "Preview",
+            "presets": "Palettes",
+            "preset": "Palette {n}",
+            "reset": "Back to default"
         }
     },
     "camera": {
@@ -780,6 +1012,7 @@
         "roomMessage": "You've been banned from {channel}."
     },
     "rooms": {
+        "settingsSections": "Room settings sections",
         "roleAdmin": "Administrator",
         "roleSubAdmin": "Sub-Administrator",
         "roleModerator": "Moderator",
@@ -862,7 +1095,8 @@
         "checkUpdates": "Check for updates",
         "availableTitle": "Update available",
         "skipTitle": "Skip update?",
-        "skipHint": "Click here to skip update"
+        "skipHint": "Click here to skip update",
+        "close": "Close"
     },
     "phantom": {
         "title": "Friends",
@@ -932,6 +1166,158 @@
         "openTab": "Open in a new tab",
         "resetZoom": "Reset zoom",
         "zoomIn": "Zoom in",
-        "zoomOut": "Zoom out"
+        "zoomOut": "Zoom out",
+        "controls": "Image preview controls",
+        "dialogLabel": "Image preview: {name}",
+        "openLabel": "Open image preview: {name}"
+    },
+    "dialog": {
+        "clear": "Clear",
+        "leaveAll": "Leave all",
+        "clearDataConfirm": "Clear all local data? Every conversation, message and reaction is removed from this device. Nothing on the server is touched."
+    },
+    "recoveryNotice": {
+        "title": "Keep your recovery words safe",
+        "titleRecover": "Your recovery words were saved again",
+        "lead": "This file was just saved to your Downloads folder. It holds the 12 words that give access to your account.",
+        "folder": "Downloads",
+        "onlyWayTitle": "The only way back into your account",
+        "onlyWay": "If you forget your password, these words are all that can recover it. Nobody, not even QxChat, can reset them.",
+        "offlineTitle": "Copy them somewhere offline",
+        "offline": "On paper or in a password manager, then delete the file from your Downloads.",
+        "neverShareTitle": "Never share them",
+        "neverShare": "Anyone with these words can take over your account. QxChat will never ask for them.",
+        "wordsLabel": "Recovery words",
+        "reveal": "Show the words",
+        "hide": "Hide the words",
+        "confirm": "I have stored my recovery words somewhere safe",
+        "download": "Download again",
+        "done": "Continue",
+        "verifyTitle": "Let’s check your words",
+        "verifyLead": "Type the words asked below to confirm you copied them correctly.",
+        "wordNumber": "Word #{n}",
+        "verify": "Check",
+        "back": "See my words again",
+        "wrong": "One of the words does not match.",
+        "doneTitle": "All set",
+        "doneLead": "Your recovery words are safely stored. Keep them away from your devices.",
+        "finish": "Done"
+    },
+    "spotlight": {
+        "dnd": "Turn on Do Not Disturb",
+        "online": "Go back online",
+        "statusGroup": "Status",
+        "call": "Start a call in {room}",
+        "hangUp": "Hang up",
+        "callGroup": "Call",
+        "switchAccount": "Switch to {name}",
+        "accountGroup": "Account",
+        "mute": "Mute microphone",
+        "unmute": "Unmute microphone",
+        "deafen": "Deafen",
+        "undeafen": "Undeafen",
+        "camera": "Turn camera on or off",
+        "screen": "Share screen",
+        "roomGroup": "Room",
+        "newPoll": "Create a poll",
+        "pin": "Pin this room",
+        "unpin": "Unpin this room",
+        "copyInvite": "Copy room invite",
+        "securityGroup": "Security",
+        "lockNow": "Lock now",
+        "downloadRecovery": "Download my recovery words",
+        "streamerOn": "Turn on streamer mode",
+        "streamerOff": "Turn off streamer mode",
+        "appearanceGroup": "Appearance",
+        "lightTheme": "Switch to light theme",
+        "darkTheme": "Switch to dark theme",
+        "bubbleStyle": "Use bubble messages",
+        "discordStyle": "Use Discord-style messages",
+        "openSettings": "Settings › {section}",
+        "settingsGroup": "Settings",
+        "filters": "Filters",
+        "filter": {"from": "From", "room": "In", "has": "Contains", "before": "Before", "after": "After"},
+        "kind": {"text": "Message", "image": "Photo", "video": "Video", "file": "File", "voice": "Voice message", "audio": "Audio", "poll": "Poll"}
+    },
+    "securityTour": {
+        "eyebrow": "Your security, step by step",
+        "lock": {
+            "title": "Lock the app",
+            "body": "Protect QxChat with a PIN that encrypts your local data, with automatic locking after a delay."
+        },
+        "duress": {
+            "title": "Duress code",
+            "body": "A second PIN that, entered under pressure, wipes your data or opens a harmless decoy account."
+        },
+        "ramOnly": {
+            "title": "RAM-only mode",
+            "body": "Nothing is written to this device: everything disappears when the app closes."
+        },
+        "configure": "Set up",
+        "next": "Next",
+        "finish": "Got it",
+        "later": "Later"
+    },
+    "poll": {
+        "label": "Poll",
+        "multiple": "Multiple choice",
+        "create": "New poll",
+        "question": "Question",
+        "questionPlaceholder": "Ask something",
+        "options": "Options",
+        "optionN": "Option {n}",
+        "removeOption": "Remove option",
+        "addOption": "Add an option",
+        "allowMultiple": "Allow multiple answers",
+        "visibilityNote": "Encrypted end to end. Votes are anonymous and final, and results appear once you have voted.",
+        "send": "Send poll",
+        "votes": {
+            "one": "{count} vote",
+            "other": "{count} votes"
+        },
+        "single": "Single choice",
+        "anonymous": "Anonymous",
+        "vote": "Vote",
+        "final": "Final vote",
+        "youVoted": "You voted",
+        "alreadyVoted": "You already voted in this poll.",
+        "voteFailed": "Your vote could not be recorded."
+    },
+    "threads": {
+        "title": "Thread",
+        "open": "Reply in thread",
+        "empty": "No replies yet.",
+        "placeholder": "Reply in thread",
+        "replies": {
+            "one": "{count} reply",
+            "other": "{count} replies"
+        }
+    },
+    "whiteboard": {
+        "title": "Whiteboard",
+        "subtitle": "End-to-end encrypted, nothing is saved",
+        "tools": "Drawing tools",
+        "thin": "Thin line",
+        "thick": "Thick line",
+        "eraser": "Eraser",
+        "undo": "Undo my last line",
+        "export": "Save as image",
+        "clear": "Clear board",
+        "clearConfirm": "Clear the board for everyone?",
+        "lockedNote": "Read-only for members",
+        "readonly": "Only moderators can draw here",
+        "lock": "Make read-only for members",
+        "unlock": "Let everyone draw",
+        "redo": "Redo",
+        "size": "Line size",
+        "customColor": "Custom color",
+        "colorN": "Color {n}",
+        "tool": {"pen": "Pen", "marker": "Highlighter", "line": "Line", "arrow": "Arrow", "rect": "Rectangle", "ellipse": "Ellipse", "eraser": "Eraser (your drawings only)"},
+        "clearShort": "Clear"
+    },
+    "colorPicker": {
+        "shade": "Shade",
+        "hue": "Hue",
+        "hex": "Hex code"
     }
 }

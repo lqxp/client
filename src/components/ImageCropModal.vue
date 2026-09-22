@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
 /**
  * Framing a picture before it becomes an avatar or a banner.
  *
@@ -408,9 +409,7 @@ const frameStyle = computed(() => ({
           <span class="crop__title">{{ title }}</span>
           <button type="button" class="crop__chip" :aria-label="t('message.cancel')"
             :title="t('message.cancel')" @click="cancel">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <Icon name="close" viewBox="0 0 24 24" aria-hidden="true" />
           </button>
         </header>
 
@@ -452,7 +451,7 @@ const frameStyle = computed(() => ({
 .crop {
   position: fixed;
   inset: 0;
-  z-index: 240;
+  z-index: var(--z-sheet);
   display: grid;
   background: #000;
   color: #fff;
@@ -534,7 +533,7 @@ const frameStyle = computed(() => ({
   background: rgba(0, 0, 0, .45);
   color: #fff;
   cursor: pointer;
-  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .crop__chip--sm {
@@ -619,7 +618,7 @@ const frameStyle = computed(() => ({
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .crop__slider::-moz-range-thumb {
@@ -655,7 +654,7 @@ const frameStyle = computed(() => ({
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .crop__ghost {
@@ -691,16 +690,16 @@ const frameStyle = computed(() => ({
 }
 
 .crop-enter-active {
-  transition: opacity 200ms ease-out;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 
 .crop-leave-active {
-  transition: opacity 160ms ease-in;
+  transition: opacity var(--dur-fast) var(--ease-in);
 }
 
 .crop-enter-active .crop__bar,
 .crop-enter-active .crop__top {
-  transition: transform 340ms cubic-bezier(0.34, 1.26, 0.64, 1), opacity 220ms ease-out;
+  transition: transform var(--dur-slow) cubic-bezier(0.34, 1.26, 0.64, 1), opacity var(--dur-base) var(--ease-out);
 }
 
 .crop-enter-from,

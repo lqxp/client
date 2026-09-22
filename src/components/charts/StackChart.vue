@@ -40,6 +40,8 @@ const parts = computed(() =>
   })
 );
 
+const drawn = computed(() => parts.value.filter((part) => part.value > 0));
+
 function pct(share: number): string {
   return `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
 }
@@ -60,7 +62,7 @@ function pct(share: number): string {
 
     <template v-else-if="!showTable">
       <div class="stack__bar" role="img" :aria-label="`${title}: ${total} ${valueLabel}`">
-        <span v-for="part in parts" :key="part.label" class="stack__seg"
+        <span v-for="part in drawn" :key="part.label" class="stack__seg"
           :class="[`stack__seg--${part.index % 3}`, { 'is-hovered': hovered === part.index }]"
           :style="{ width: `${part.share}%`, '--i': part.index }" tabindex="0"
           :aria-label="`${part.label}: ${part.value}`" @pointerenter="hovered = part.index"
@@ -139,7 +141,7 @@ function pct(share: number): string {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .stack__toggle:hover {
@@ -168,9 +170,9 @@ function pct(share: number): string {
   place-items: center;
   min-width: 3px;
   transform-origin: left;
-  animation: stack-grow 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: stack-grow 620ms var(--ease-out) both;
   animation-delay: calc(var(--i) * 70ms);
-  transition: filter 140ms ease-out;
+  transition: filter var(--dur-fast) var(--ease-out);
 }
 
 .stack__seg:first-child {
@@ -225,7 +227,7 @@ function pct(share: number): string {
   align-items: center;
   gap: 7px;
   font-size: 12.5px;
-  transition: opacity 140ms ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .stack__legend:hover .stack__key:not(.is-hovered) {

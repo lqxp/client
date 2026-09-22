@@ -189,7 +189,7 @@ function pct(share: number): string {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .pie__toggle:hover {
@@ -221,9 +221,9 @@ function pct(share: number): string {
 .pie__slice {
   transform-origin: center;
   cursor: pointer;
-  animation: pie-in 640ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: pie-in 640ms var(--ease-out) both;
   animation-delay: calc(var(--i) * 80ms);
-  transition: opacity 160ms ease-out, translate 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur-base) var(--ease-out);
 }
 
 .pie__slice.is-lifted {
@@ -278,7 +278,7 @@ function pct(share: number): string {
   align-items: center;
   gap: 8px;
   font-size: 12.5px;
-  transition: opacity 140ms ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .pie__legend:hover .pie__key:not(.is-hovered) {

@@ -26,7 +26,7 @@ const { skipDrawerVisible, skipUpdate } = useUpdater();
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: 9999990;
+  z-index: var(--z-update-drawer);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -44,7 +44,7 @@ const { skipDrawerVisible, skipUpdate } = useUpdater();
   cursor: pointer;
   user-select: none;
   backdrop-filter: blur(16px);
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .update-skip-drawer:hover {
@@ -75,8 +75,8 @@ const { skipDrawerVisible, skipUpdate } = useUpdater();
 
 .update-skip-drawer-enter-active,
 .update-skip-drawer-leave-active {
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
 }
 
 .update-skip-drawer-enter-from,

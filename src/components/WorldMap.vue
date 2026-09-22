@@ -5,14 +5,10 @@ import "leaflet/dist/leaflet.css";
 import { feature, mesh } from "topojson-client";
 import type { Topology } from "topojson-specification";
 import worldTopo from "world-atlas/countries-110m.json";
+import type { MapPoint } from "@/components/worldMapTypes";
 
-export interface MapPoint {
-  lat: number;
-  lng: number;
-  label: string;
-  role?: "guard" | "middle" | "exit";
-  color?: string;
-}
+export type { MapPoint };
+
 
 const props = defineProps<{
   points: MapPoint[];
@@ -154,7 +150,7 @@ function renderWorld() {
     const topo = worldTopo as unknown as Topology;
     const objects = topo.objects as Record<string, any>;
 
-    const countriesGeo = feature(topo, objects.countries);
+    const countriesGeo = feature(topo, objects.countries) as unknown as GeoJSON.FeatureCollection;
 
     // Filtrer l'Antarctique + normaliser les rings à l'antiméridien
     const filtered = {
@@ -163,7 +159,7 @@ function renderWorld() {
     };
     const normalized = normalizeFeatureCollection(filtered);
 
-    L.geoJSON(normalized, {
+    const fillOptions: L.GeoJSONOptions & { renderer: L.Renderer } = {
       renderer: canvas,
       style: {
         color: "transparent",
@@ -171,7 +167,8 @@ function renderWorld() {
         fillColor: surface,
         fillOpacity: 0.9,
       },
-    }).addTo(layer);
+    };
+    L.geoJSON(normalized, fillOptions).addTo(layer);
 
     // Bordures : filtrer les segments antiméridien (artefacts de mesh)
     const borders = mesh(topo, objects.countries, (a: { id?: string | number }, b: { id?: string | number }) => a !== b);
@@ -184,7 +181,7 @@ function renderWorld() {
       ),
     };
 
-    L.geoJSON(cleanBorders, {
+    const borderOptions: L.GeoJSONOptions & { renderer: L.Renderer } = {
       renderer: canvas,
       style: {
         color: accent,
@@ -192,7 +189,8 @@ function renderWorld() {
         opacity: 0.8,
         fill: false,
       },
-    }).addTo(layer);
+    };
+    L.geoJSON(cleanBorders as unknown as GeoJSON.GeoJsonObject, borderOptions).addTo(layer);
   } catch (error) {
     console.error("Failed to render world map:", error);
     if (el) el.style.background = surface;

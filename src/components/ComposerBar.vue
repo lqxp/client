@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { initialsOf } from "@/utils/initials";
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { twemojiSvgUrl } from "@/utils/twemoji";
@@ -8,7 +12,7 @@ import EmojiPicker from "@/components/EmojiPicker.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true }
+  messenger: { type: Object as PropType<Messenger>, required: true }
 });
 
 const composerRef = ref<HTMLElement | null>(null);
@@ -81,12 +85,6 @@ const muteCooldownLabel = computed(() => {
   const remaining = Number(props.messenger.myTimeoutRemaining?.(roomId) || 0);
   if (remaining <= 0) return "";
   return formatMuteRemaining(remaining);
-});
-const typingLabel = computed(() => {
-  const users = props.messenger.typingUsers?.value || [];
-  if (!users.length) return "";
-  if (users.length === 1) return t("thread.typingOne", { user: users[0] });
-  return t("thread.typingMany", { count: String(users.length) });
 });
 const mentionSearch = computed(() => {
   const input = inputRef.value;
@@ -165,12 +163,6 @@ const selectedShortcode = computed(
 const mentionOpen = computed(() => mentionOptions.value.length > 0 && mentionSearch.value?.start !== mentionSuppressedStart.value);
 const selectedMention = computed<string>(() => mentionOptions.value[Math.min(mentionIndex.value, mentionOptions.value.length - 1)] || "");
 
-function initialsFor(name: string) {
-  const clean = String(name || "?").trim();
-  const parts = clean.split(/[\s\-_]+/).filter(Boolean).slice(0, 2);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return clean.slice(0, 2).toUpperCase() || "?";
-}
 
 function mentionAvatarSrc(username: string) {
   return props.messenger.profileImageSrc?.(props.messenger.profileFor?.(username)?.avatar, "avatar") || "";
@@ -200,7 +192,7 @@ function focusInput(options: { end?: boolean } = {}) {
 
 
 
-function pastedExtension(mimeType) {
+function pastedExtension(mimeType: unknown) {
   const type = String(mimeType || "").toLowerCase().split(";")[0];
   const known = {
     "application/gzip": "gz",
@@ -217,7 +209,7 @@ function pastedExtension(mimeType) {
     "video/mp4": "mp4",
     "video/webm": "webm"
   };
-  if (known[type]) return known[type];
+  if (type in known) return known[type as keyof typeof known];
   const subtype = type.includes("/") ? type.split("/").pop() : "";
   const clean = String(subtype || "").replace(/[^a-z0-9]/g, "");
   return clean || "bin";
@@ -423,7 +415,22 @@ function renameUploadFile(file: File): File {
   }
 }
 
+/**
+ * The one door for files, whichever way they arrive.
+ *
+ * The clipboard, a drop and the picker all come through here, so the three
+ * cannot drift apart: the same refusal when the room will not take a
+ * message, the same renaming, the same preview. Dropping into a room you
+ * cannot speak in used to queue files silently that could never be sent.
+ */
 function addPendingFiles(files: File[]) {
+  if (!files.length) return;
+  if (mediaDisabled.value || recording.value) {
+    props.messenger.showToast?.(
+      speakBlocked.value ? composerPlaceholder.value : t("composer.attachBlocked"),
+    );
+    return;
+  }
   for (const file of files) {
     const finalFile = props.messenger.state.renameUploadsRandomly
       ? renameUploadFile(file)
@@ -796,14 +803,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <button v-if="!uploading" type="button" class="icon-btn composer__attachment-remove" :aria-label="t('composer.removeAttachment')" @click="removePendingFile(item.id)">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </div>
       </div>
 
       <div class="composer__topline">
-        <div v-if="typingLabel" class="typing-indicator composer__typing-indicator" aria-live="polite">{{ typingLabel }}
-        </div>
         <div v-if="messenger.state.editingMessage" class="reply-draft edit-draft">
           <div>
             <span class="reply-draft__label">{{ t('composer.editing') }}</span>
@@ -811,9 +816,7 @@ onBeforeUnmount(() => {
           </div>
           <button type="button" class="icon-btn" :aria-label="t('composer.cancelEdit')"
             @click="messenger.cancelEditMessage">
-            <svg viewBox="0 0 24 24">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </div>
         <div v-else-if="messenger.state.replyingTo" class="reply-draft">
@@ -823,9 +826,7 @@ onBeforeUnmount(() => {
             <span class="reply-draft__text">{{ messenger.state.replyingTo.text }}</span>
           </div>
           <button type="button" class="icon-btn" :aria-label="t('composer.cancelReply')" @click="messenger.cancelReply">
-            <svg viewBox="0 0 24 24">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </div>
         <div v-if="muteCooldownLabel" class="composer__mute-cooldown">
@@ -839,7 +840,7 @@ onBeforeUnmount(() => {
       </div>
       <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFile" />
       <div class="composer__mobile-actions">
-        <button class="icon-btn composer__more" type="button" aria-label="More message actions"
+        <button class="icon-btn composer__more" type="button" :aria-label="t('composer.moreActions')"
           :aria-expanded="mobileActionsOpen" :disabled="disabled" @click="toggleMobileActions">
           <svg viewBox="0 0 24 24">
             <circle cx="5" cy="12" r="1.8" />
@@ -849,39 +850,40 @@ onBeforeUnmount(() => {
         </button>
 
         <Teleport to="body">
-          <div v-if="mobileActionsOpen" class="composer__actions-backdrop" @click.self="mobileActionsOpen = false">
-            <div class="composer__actions-pop" role="menu" @click.stop>
-              <div class="composer__actions-header">
-                <strong>{{ t('composer.attachFile') }}</strong>
+          <Transition name="qx-pop">
+            <div v-if="mobileActionsOpen" class="composer__actions-backdrop" @click.self="mobileActionsOpen = false">
+              <div v-sheet-dismiss="() => (mobileActionsOpen = false)" class="composer__actions-pop" role="menu" @click.stop>
+                <div class="composer__actions-header">
+                  <strong>{{ t('composer.attachFile') }}</strong>
+                </div>
+                <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickFile">
+                  <Icon name="attach" viewBox="0 0 24 24" />
+                  <span>{{ t('composer.attachFile') }}</span>
+                </button>
+                <button type="button" role="menuitem" :disabled="mediaDisabled" @click="startMobileRecording">
+                  <Icon name="microphone" viewBox="0 0 24 24" />
+                  <span>{{ t('composer.holdToRecord') }}</span>
+                </button>
+                <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickCamera">
+                  <Icon name="camera" viewBox="0 0 24 24" />
+                  <span>{{ t('camera.title') }}</span>
+                </button>
+                <button type="button" role="menuitem" @click="mobileActionsOpen = false; messenger.state.pollCreatorOpen = true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                    aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7" /></svg>
+                  <span>{{ t('poll.create') }}</span>
+                </button>
+                <button type="button" role="menuitem" @click="mobileActionsOpen = false; messenger.state.whiteboardRoom = messenger.state.activeRoom">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4M7 12l3-3 2 2 4-4" /></svg>
+                  <span>{{ t('whiteboard.title') }}</span>
+                </button>
+                <div class="composer__actions-separator" aria-hidden="true"></div>
+                <button type="button" class="composer__actions-cancel" role="menuitem" @click="mobileActionsOpen = false">
+                  <span>{{ t('message.cancel') }}</span>
+                </button>
               </div>
-              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickFile">
-                <svg viewBox="0 0 24 24">
-                  <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
-                </svg>
-                <span>{{ t('composer.attachFile') }}</span>
-              </button>
-              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="startMobileRecording">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10a7 7 0 0 1-14 0" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-                <span>{{ t('composer.holdToRecord') }}</span>
-              </button>
-              <button type="button" role="menuitem" :disabled="mediaDisabled" @click="pickCamera">
-                <svg viewBox="0 0 24 24">
-                  <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-                  <circle cx="12" cy="13" r="3.5" />
-                </svg>
-                <span>{{ t('camera.title') }}</span>
-              </button>
-              <div class="composer__actions-separator" aria-hidden="true"></div>
-              <button type="button" class="composer__actions-cancel" role="menuitem" @click="mobileActionsOpen = false">
-                <span>{{ t('message.cancel') }}</span>
-              </button>
             </div>
-          </div>
+          </Transition>
         </Teleport>
       </div>
 
@@ -889,10 +891,7 @@ onBeforeUnmount(() => {
         @click="onComposerContainerClick">
         <button v-if="!isMobile" class="icon-btn composer__desktop-action composer__attach" type="button" :aria-label="t('composer.attachFile')"
           :disabled="mediaDisabled" @click="pickFile">
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83L14.83 7" />
-          </svg>
+          <Icon name="attach" viewBox="0 0 24 24" />
         </button>
 
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
@@ -900,47 +899,52 @@ onBeforeUnmount(() => {
           @input="onInput" @click="onComposerClick" @keyup="onComposerKeyup"
           @keydown="onComposerKeydown"></textarea>
 
+        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('whiteboard.title')"
+          :title="t('whiteboard.title')" @click="messenger.state.whiteboardRoom = messenger.state.activeRoom">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4M7 12l3-3 2 2 4-4" /></svg>
+        </button>
+        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('poll.create')"
+          :title="t('poll.create')" @click="messenger.state.pollCreatorOpen = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7" /></svg>
+        </button>
         <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
           :disabled="mediaDisabled" @click="pickCamera">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-            <circle cx="12" cy="13" r="3.5" />
-          </svg>
+          <Icon name="camera" viewBox="0 0 24 24" />
         </button>
 
         <button v-if="!canSend" class="icon-btn composer__mic composer__desktop-action" type="button"
           :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold"
           @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold"
           @touchend.prevent="endHold" @touchcancel.prevent="cancelHold">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10a7 7 0 0 1-14 0" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
+          <Icon name="microphone" viewBox="0 0 24 24" />
         </button>
 
-        <div v-if="shortcodeOpen" class="mention-picker mention-picker--emoji" role="listbox"
-          :aria-label="t('composer.emojiSuggestions')">
-          <button v-for="(option, index) in shortcodeOptions" :key="option.code" type="button"
-            class="mention-picker__item" :class="{ 'is-active': index === shortcodeIndex }" role="option"
-            :aria-selected="index === shortcodeIndex" @mousedown.prevent="insertShortcode(option)">
-            <span class="mention-picker__emoji"><img class="emoji-picker__glyph" :src="twemojiSvgUrl(option.emoji)" :alt="option.emoji" draggable="false" /></span>
-            <span class="mention-picker__name">:{{ option.code }}:</span>
-          </button>
-        </div>
+        <Transition name="qx-menu">
+          <div v-if="shortcodeOpen" class="mention-picker mention-picker--emoji" role="listbox"
+            :aria-label="t('composer.emojiSuggestions')">
+            <button v-for="(option, index) in shortcodeOptions" :key="option.code" type="button"
+              class="mention-picker__item" :class="{ 'is-active': index === shortcodeIndex }" role="option"
+              :aria-selected="index === shortcodeIndex" @mousedown.prevent="insertShortcode(option)">
+              <span class="mention-picker__emoji"><img class="emoji-picker__glyph" :src="twemojiSvgUrl(option.emoji)" :alt="option.emoji" draggable="false" /></span>
+              <span class="mention-picker__name">:{{ option.code }}:</span>
+            </button>
+          </div>
+        </Transition>
 
-        <div v-if="mentionOpen" class="mention-picker" role="listbox" aria-label="Mention suggestions">
-          <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
-            :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"
-            @mousedown.prevent="insertMention(username)">
-            <span class="mention-picker__avatar" :class="mentionAvatarSrc(username) ? 'mention-picker__avatar--image' : `avatar--${messenger.accentFor(username)}`">
-              <img v-if="mentionAvatarSrc(username)" :src="mentionAvatarSrc(username)" alt="" />
-              <template v-else>{{ initialsFor(username) }}</template>
-            </span>
-            <span class="mention-picker__name">@{{ username }}</span>
-          </button>
-        </div>
+        <Transition name="qx-menu">
+          <div v-if="mentionOpen" class="mention-picker" role="listbox" :aria-label="t('composer.mentionSuggestions')">
+            <button v-for="(username, index) in mentionOptions" :key="username" type="button" class="mention-picker__item"
+              :class="{ 'is-active': index === mentionIndex }" role="option" :aria-selected="index === mentionIndex"
+              @mousedown.prevent="insertMention(username)">
+              <span class="mention-picker__avatar" :class="mentionAvatarSrc(username) ? 'mention-picker__avatar--image' : `avatar--${messenger.accentFor(username)}`">
+                <img v-if="mentionAvatarSrc(username)" :src="mentionAvatarSrc(username)" alt="" />
+                <template v-else>{{ initialsOf(username) }}</template>
+              </span>
+              <span class="mention-picker__name">@{{ username }}</span>
+            </button>
+          </div>
+        </Transition>
         <span class="composer__emoji-wrap" ref="emojiWrapRef">
           <button class="icon-btn" type="button" :aria-label="t('composer.emoji')" :aria-expanded="pickerOpen"
             :class="{ 'is-active': pickerOpen }" :disabled="disabled" @click.prevent="togglePicker">
@@ -994,10 +998,8 @@ onBeforeUnmount(() => {
       <header class="shot__top">
         <button type="button" class="shot__chip" :aria-label="t('camera.close')" :title="t('camera.close')"
           @click="closeCamera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <Icon name="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true" />
         </button>
         <button v-if="!cameraError" type="button" class="shot__chip" :aria-label="t('camera.switch')"
           :title="t('camera.switch')" @click="switchCamera">

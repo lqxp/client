@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import Avatar from "@/components/Avatar.vue";
+import { initialsOf } from "@/utils/initials";
+import type { Phantom } from "@/composables/usePhantom";
+import Icon from "@/components/Icon.vue";
+import { errorMessage, type Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
+import { computed, inject, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import AdminSettings from "@/components/AdminSettings.vue";
 import SelectMenu from "@/components/SelectMenu.vue";
 import BadgeIcon from "@/components/BadgeIcon.vue";
@@ -7,65 +13,47 @@ import { badgeLabel as badgeLabelFor } from "@/config/badges";
 import { useI18n, LOCALE_LABELS } from "@/composables/useI18n";
 import { useDialog } from "@/composables/useDialog";
 import { useUpdater } from "@/composables/useUpdater";
-import { appRuntimeConfig, turnServerList } from "@/config/runtime";
-import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
-import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcStatus } from "@/calls/discordRpc";
-import { fetchTorRelays, relayDetailUrl, type TorRelay } from "@/calls/torRelays";
-import { countryCoord } from "@/calls/geo";
-import WorldMap, { type MapPoint } from "@/components/WorldMap.vue";
+import { appRuntimeConfig, TurnServerConfig, turnServerList } from "@/config/runtime";
+import SettingsTor from "@/components/settings/SettingsTor.vue";
+import ColorPicker from "@/components/ColorPicker.vue";
+import SettingsCalls from "@/components/settings/SettingsCalls.vue";
+import SettingsNotifications from "@/components/settings/SettingsNotifications.vue";
+import SettingsSecurity from "@/components/settings/SettingsSecurity.vue";
+import SettingsAdvanced from "@/components/settings/SettingsAdvanced.vue";
+import SettingsOpsec from "@/components/settings/SettingsOpsec.vue";
 import ImageCropModal from "@/components/ImageCropModal.vue";
 import { isAnimatedImage } from "@/utils/animatedImage";
+import { takePickedFile } from "@/utils/pickedFile";
+import { binaryFingerprint, interfaceFingerprint } from "@/utils/buildFingerprint";
+import { decodeTheme, encodeTheme, setCustomTheme, setCustomThemeEnabled, useCustomTheme, type CustomTheme } from "@/composables/useCustomTheme";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
-const phantom = inject<any>("phantom");
+const phantom = inject<Phantom>("phantom")!;
 const { isTauri, triggerCheckUpdatesEvent } = useUpdater();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   initialSection: { type: String, default: "profile" }
 });
 
 const draftName = ref(props.messenger.state.username || "");
 const draftDescription = ref(props.messenger.state.profile?.description || "");
 const draftPronouns = ref(props.messenger.state.profile?.pronouns || "");
-const fileInputRef = ref(null);
-const recoveryFileInputRef = ref(null);
-const avatarInputRef = ref(null);
-const bannerInputRef = ref(null);
-const firstInputRef = ref(null);
-const cameraPreviewRef = ref<HTMLVideoElement | null>(null);
+const draftStatus = ref(props.messenger.state.profile?.customStatus || "");
+const draftLinks = ref((props.messenger.state.profile?.links || []).map((link) => ({ ...link })));
+const linksKey = (links: { label: string; url: string }[]) =>
+  JSON.stringify(links.map((link) => [link.label.trim(), link.url.trim()]).filter(([, url]) => url));
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const avatarInputRef = ref<HTMLInputElement | null>(null);
+const bannerInputRef = ref<HTMLInputElement | null>(null);
+const firstInputRef = ref<HTMLInputElement | null>(null);
 const crop = ref<{ open: boolean; src: string; kind: "avatar" | "banner"; mimeType: string } | null>(null);
 const activeSection = ref("profile");
 const mobileSectionOpen = ref(false);
 const settingsSearch = ref("");
 const isMobileSettings = ref(false);
-const lockPin = ref("");
-const lockPinConfirm = ref("");
-const duressPin = ref("");
-const duressPinConfirm = ref("");
-const lockPinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
-const lockPinPlaceholder = computed(() => "•".repeat(lockPinLength.value));
-const lockPinLabel = computed(() => t('settings.security.pinDigits', { count: String(lockPinLength.value) }));
-const autolockOptions = computed(() => props.messenger.clientLockAutolockTimeoutsMs || []);
-
-// Phantom : signature du client via les recovery words.
-const recoveryWordsInput = ref("");
-const recoverySigned = computed(
-  () =>
-    Array.isArray(props.messenger.state.recoveryWords) &&
-    props.messenger.state.recoveryWords.length === 12,
-);
-function importRecoveryWords() {
-  if (props.messenger.setRecoveryWords?.(recoveryWordsInput.value)) {
-    recoveryWordsInput.value = "";
-    // Les recovery words déchiffrent le roster amis : on le recharge et on
-    // relance un poll pour re-matérialiser amis/pending sans F5.
-    phantom?.loadRoster?.().catch(() => {});
-    phantom?.pollNow?.().catch(() => {});
-  }
-}
 
 const donationAddresses = [
   { id: "usdc", network: "USDC (Solana)", address: "0x6D71F6134b2F338f66B603D4F92e2D22628892Dd" },
@@ -125,6 +113,12 @@ interface GithubContributor {
 const contributorsLoading = ref(false);
 const contributorsError = ref(false);
 const topContributors = ref<GithubContributor[]>([]);
+/** Avatars that have arrived; each one fades in on its own load. */
+const loadedAvatars = ref(new Set<string>());
+
+function markAvatarLoaded(login: string) {
+  loadedAvatars.value.add(login);
+}
 
 async function loadContributors() {
   if (contributorsLoading.value || topContributors.value.length) return;
@@ -199,382 +193,102 @@ function contributorRole(login: string): string {
   return contributorRoles[String(login || "").toLowerCase()] || "";
 }
 
-// Custom TURN server form state
-const showAddTurn = ref(false);
-const newTurnLabel = ref("");
-const newTurnUrls = ref("");
-const newTurnUsername = ref("");
-const newTurnCredential = ref("");
-const turnServerError = ref("");
+const isOpen = computed(() => props.messenger.state.settingsOpen);
 
-// Tor connectivity (desktop only).
-const torStatus = ref<TorStatus | null>(null);
-const torError = ref("");
-let unsubTorStatus: (() => void) | null = null;
+const customTheme = useCustomTheme();
+const themeCodeInput = ref("");
+const rememberTheme = () => !props.messenger.state.opsecRamOnlyEnabled;
 
-// Discord Rich Presence (desktop only, driven by the Rust backend).
-const discordRpcEnabled = ref(true);
-const discordRpcShowPlatform = ref(true);
-const discordRpcConnected = ref(false);
-const discordRpcReady = ref(false);
+const THEME_PRESETS: CustomTheme[] = [
+  { accent: "#2090ea", tint: "#2090ea" },
+  { accent: "#8b5cf6", tint: "#c084fc" },
+  { accent: "#10b981", tint: "#34d399" },
+  { accent: "#f43f5e", tint: "#fb7185" },
+  { accent: "#f59e0b", tint: "#fbbf24" },
+  { accent: "#64748b", tint: "#94a3b8" },
+];
+const THEME_SWATCHES = ["#2090ea", "#0ea5e9", "#14b8a6", "#10b981", "#84cc16", "#f59e0b", "#f97316", "#f43f5e", "#ec4899", "#8b5cf6", "#6366f1", "#64748b"];
+const THEME_FIELDS = ["accent", "tint"] as const;
+const themeEditing = ref<"" | "accent" | "tint">("");
 
-async function loadDiscordRpc() {
-  if (!isTorRuntime()) return;
+function onThemeToggle(event: Event) {
+  const enabled = event.target instanceof HTMLInputElement && event.target.checked;
+  if (enabled && !customTheme.theme) applyTheme({ ...THEME_PRESETS[0] });
+  else setCustomThemeEnabled(enabled, rememberTheme());
+}
+
+function defaultAccent() {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  return /^#[0-9a-f]{6}$/i.test(accent) ? accent.toLowerCase() : "#2090ea";
+}
+
+function themeValue(field: "accent" | "tint") {
+  const theme = customTheme.enabled ? customTheme.theme : null;
+  if (field === "accent") return theme?.accent || customTheme.theme?.accent || defaultAccent();
+  return theme?.tint || theme?.accent || defaultAccent();
+}
+
+const themePreviewStyle = computed(() => ({
+  "--preview-accent": themeValue("accent"),
+  "--preview-tint": themeValue("tint"),
+}));
+
+function applyTheme(theme: CustomTheme) {
+  setCustomTheme(theme, rememberTheme());
+}
+
+function updateCustomTheme(patch: Partial<CustomTheme>) {
+  setCustomTheme({ accent: themeValue("accent"), tint: customTheme.theme?.tint || "", ...patch }, rememberTheme(), false);
+}
+
+async function copyThemeCode() {
+  if (!customTheme.theme) return;
   try {
-    const s: DiscordRpcStatus = await getDiscordRpcStatus();
-    discordRpcEnabled.value = s.enabled;
-    discordRpcShowPlatform.value = s.show_platform;
-    discordRpcConnected.value = s.connected;
-    discordRpcReady.value = true;
+    await navigator.clipboard.writeText(encodeTheme(customTheme.theme));
+    props.messenger.showToast?.(t("settings.theme.copied"));
   } catch {
-    discordRpcReady.value = false;
+    props.messenger.showToast?.(t("errors.clipboardFailed"));
   }
 }
 
-async function toggleDiscordRpcEnabled(enabled: boolean) {
-  if (!isTorRuntime()) return;
-  try {
-    const s = await setDiscordRpcEnabled(enabled);
-    discordRpcEnabled.value = s.enabled;
-    await loadDiscordRpc();
-  } catch {
-    await loadDiscordRpc();
-  }
-}
-
-async function toggleDiscordRpcShowPlatform(showPlatform: boolean) {
-  if (!isTorRuntime()) return;
-  try {
-    const s = await setDiscordRpcShowPlatform(showPlatform);
-    discordRpcShowPlatform.value = s.show_platform;
-    await loadDiscordRpc();
-  } catch {
-    await loadDiscordRpc();
-  }
-}
-
-/** Converts an ISO 3166-1 alpha-2 code to a regional-indicator flag emoji. */
-function countryFlag(code: string): string {
-  const c = String(code || "").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(c)) return "🏳️";
-  const offset = 0x1f1e6;
-  return String.fromCodePoint(...[...c].map((ch) => offset + ch.charCodeAt(0) - 65));
-}
-
-function relayFlagLabel(flag: string): string {
-  const key = `settings.tor.flags.${flag}`;
-  const label = t(key);
-  return label === key ? flag : label;
-}
-
-/**
- * Returns the full human-readable country name for an ISO 3166-1 alpha-2 code,
- * always in English (independent of the current UI locale, as requested). Uses
- * the native `Intl.DisplayNames` API so there's no bundle-heavy lookup table.
- */
-function countryNameEnglish(code: string | null | undefined): string {
-  const c = String(code || "").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(c)) return "";
-  try {
-    const dn = new Intl.DisplayNames(["en"], { type: "region" });
-    return dn.of(c) ?? "";
-  } catch {
-    return c;
-  }
-}
-
-/**
- * Masks an IP address down to only its first number/block for the "You" circuit
- * entry, so the client's own address is effectively unreadable. IPv4 keeps only
- * the first octet (e.g. "203.0.113.xxx" → "203.x.x.x"); IPv6 keeps only the
- * first hextet group (e.g. "2606:x:x:x:x:x:x:x").
- */
-function maskIpFirstBlock(ip: string | null | undefined): string {
-  const s = String(ip || "").trim();
-  if (!s) return "";
-  if (s.includes(":")) {
-    const first = s.split(":").find((p) => p.length > 0);
-    return first ? `${first}:x:x:x:x:x:x:x` : "x:x:x:x:x:x:x:x";
-  }
-  const firstOctet = s.split(".").find((p) => /^[0-9a-fA-FxX]+$/.test(p) && p !== "xxx");
-  const head = firstOctet || "x";
-  return `${head}.x.x.x`;
-}
-
-// Tor relay directory.
-const relays = ref<TorRelay[]>([]);
-const relaysLoading = ref(false);
-const relaysError = ref("");
-const relaySearch = ref("");
-
-// Live-filter the relay directory by nickname, address, AS name/number, or
-// country (name or code).
-const filteredRelays = computed(() => {
-  const q = relaySearch.value.trim().toLowerCase();
-  if (!q) return relays.value;
-  return relays.value.filter((r) =>
-    [
-      r.nickname,
-      r.address,
-      r.asName,
-      r.asNumber,
-      r.countryName,
-      r.country,
-    ]
-      .map((s) => String(s || "").toLowerCase())
-      .some((s) => s.includes(q)),
-  );
-});
-
-// Live circuit (guard → middle → exit) shown like Tor Browser.
-const circuit = ref<CircuitPath | null>(null);
-const circuitLoading = ref(false);
-
-// Client + server geolocation for the map endpoints (IP masked backend-side).
-const geo = ref<GeoInfo | null>(null);
-
-// Exact coordinates + country for circuit relay IPs (resolved lazily via the
-// Rust geo-IP backend); keyed by IP and used as a higher-fidelity alternative
-// to the country-centroid fallback and to Arti's built-in country code.
-const relayGeo = ref<Record<string, { lat: number | null; lng: number | null; countryCode: string | null }>>({});
-
-// Circuit hops geolocated by country, plus client (origin) and server (target).
-const circuitPoints = computed<MapPoint[]>(() => {
-  const pts: MapPoint[] = [];
-
-  if (geo.value?.client?.latitude != null && geo.value?.client?.longitude != null) {
-    pts.push({
-      lat: geo.value.client.latitude,
-      lng: geo.value.client.longitude,
-      color: "#3fcf6f",
-      label: ["You", geo.value.client.ip].filter(Boolean).join(" · "),
-    });
-  }
-
-  for (const hop of circuit.value?.hops ?? []) {
-    const exact = hop.ip ? relayGeo.value[hop.ip] : undefined;
-    const coord =
-      exact && exact.lat != null && exact.lng != null
-        ? ([exact.lat, exact.lng] as [number, number])
-        : countryCoord(hopCountryCode(hop));
-    if (!coord) continue;
-    const [lat, lng] = coord;
-    const parts = [
-      hop.nickname && hop.nickname !== "Unnamed" ? hop.nickname : hop.role,
-      hop.ip,
-    ].filter(Boolean);
-    pts.push({
-      lat,
-      lng,
-      role: hop.role,
-      label: parts.join(" · "),
-    });
-  }
-
-  if (geo.value?.server?.latitude != null && geo.value?.server?.longitude != null) {
-    pts.push({
-      lat: geo.value.server.latitude,
-      lng: geo.value.server.longitude,
-      color: "#f43f5e",
-      label: ["qxch.at", geo.value.server.ip].filter(Boolean).join(" · "),
-    });
-  }
-
-  // The QxChat server itself is hosted in Reykjavik (IP intentionally hidden).
-  pts.push({
-    lat: 64.1466,
-    lng: -21.9426,
-    color: "#f59e0b",
-    label: "Our server",
-  });
-
-  return pts;
-});
-
-async function loadGeo() {
-  if (!isTorRuntime()) return;
-  try {
-    geo.value = await getGeo();
-  } catch {
-    geo.value = null;
-  }
-}
-
-async function loadCircuit() {
-  if (!isTorRuntime()) return;
-  circuitLoading.value = true;
-  try {
-    circuit.value = await getCircuit();
-    await loadRelayGeo(circuit.value);
-  } catch {
-    circuit.value = null;
-  } finally {
-    circuitLoading.value = false;
-  }
-}
-
-async function loadRelayGeo(path: CircuitPath | null) {
-  if (!path?.hops?.length) {
-    relayGeo.value = {};
+function importThemeCode() {
+  const theme = decodeTheme(themeCodeInput.value);
+  if (!theme) {
+    props.messenger.showToast?.(t("settings.theme.invalidCode"), { error: true });
     return;
   }
-
-  const entries = await Promise.all(
-    path.hops.map(async (hop) => {
-      if (!hop.ip) return null;
-      try {
-        const point = await getGeoIp(hop.ip);
-        if (point) {
-          return [
-            hop.ip,
-            {
-              lat: point.latitude,
-              lng: point.longitude,
-              countryCode: point.countryCode ?? null,
-            },
-          ] as const;
-        }
-      } catch {
-        // fall through to country centroid
-      }
-      return null;
-    }),
-  );
-
-  const next: Record<string, { lat: number | null; lng: number | null; countryCode: string | null }> = {};
-  for (const entry of entries) {
-    if (entry) next[entry[0]] = entry[1];
-  }
-  relayGeo.value = next;
+  setCustomTheme(theme, rememberTheme());
+  themeCodeInput.value = "";
+  props.messenger.showToast?.(t("settings.theme.imported"));
 }
 
-/** Resolved country code for a circuit hop: Tor first, then geo-IP fallback. */
-function hopCountryCode(hop: CircuitPath["hops"][number]): string | null {
-  return hop.country ?? (hop.ip ? relayGeo.value[hop.ip]?.countryCode ?? null : null);
+const fingerprints = ref<{ app: string; ui: string } | null>(null);
+let fingerprintsLoading = false;
+
+async function loadFingerprints() {
+  if (fingerprintsLoading || fingerprints.value) return;
+  fingerprintsLoading = true;
+  const [app, ui] = await Promise.all([binaryFingerprint(), interfaceFingerprint()]);
+  fingerprints.value = { app, ui };
+  fingerprintsLoading = false;
 }
 
-const relaysConsent = ref(false);
+function groupHex(value: string) {
+  return value.match(/.{1,4}/g)?.join(" ") || value;
+}
 
-async function loadRelays() {
-  relaysLoading.value = true;
-  relaysError.value = "";
+async function copyFingerprint(value: string) {
   try {
-    // fetchTorRelays falls back to a direct Onionoo fetch when Tor isn't
-    // running, so the directory is always browseable.
-    relays.value = await fetchTorRelays(100);
-  } catch (err) {
-    relaysError.value = err?.message || String(err);
-  } finally {
-    relaysLoading.value = false;
+    await navigator.clipboard.writeText(value);
+    props.messenger.showToast?.(t("settings.about.fingerprintCopied"));
+  } catch {
+    props.messenger.showToast?.(t("errors.clipboardFailed"));
   }
 }
 
-async function requestRelays() {
-  if (!relaysConsent.value) {
-    const confirmed = await dialog.showConfirm(
-      t('settings.tor.relaysConfirm'),
-      t('settings.tor.relaysConfirmTitle'),
-    );
-    if (!confirmed) return;
-    relaysConsent.value = true;
-  }
-  await loadRelays();
-}
-
-/** Tor is ready AND it's our embedded client (circuit view available). */
-const torReady = computed(() => torStatus.value?.phase === "ready" && torStatus.value?.mode === "embedded");
-
-/** True when a foreign Tor is being reused (transport works, no circuit view). */
-const isExternalTor = computed(() => torStatus.value?.mode === "external");
-
-let relaysAutoLoaded = false;
-
-function maybeAutoLoadTorDirectory() {
-  if (relaysAutoLoaded || relaysLoading.value || relays.value.length) return;
-  if (activeSection.value !== "tor") return;
-  if (!isTorRuntime() || !isOpen.value) return;
-  if (!relaysConsent.value) return;
-  relaysAutoLoaded = true;
-  void loadRelays();
-}
-
-watch(activeSection, (section) => {
-  if (section === "tor") {
-    if (torReady.value) {
-      loadCircuit();
-      loadGeo();
-    }
-    maybeAutoLoadTorDirectory();
-  }
-});
-
-// When Tor finishes bootstrapping and becomes ready, load the circuit and the
-// relay directory automatically.
-  watch(torReady, (ready) => {
-    if (ready) {
-      loadCircuit();
-      loadGeo();
-      maybeAutoLoadTorDirectory();
-    }
-  });
-
-function addCustomTurnServer() {
-  turnServerError.value = "";
-  const urls = newTurnUrls.value
-    .split(/[\s,;]+/)
-    .map((u) => u.trim())
-    .filter(Boolean);
-  const ok = props.messenger.addCustomTurnServer({
-    label: newTurnLabel.value,
-    urls,
-    username: newTurnUsername.value,
-    credential: newTurnCredential.value,
-  });
-  if (ok) {
-    newTurnLabel.value = "";
-    newTurnUrls.value = "";
-    newTurnUsername.value = "";
-    newTurnCredential.value = "";
-  } else {
-    turnServerError.value = t('settings.calls.turnInvalid');
-  }
-}
-
-function autolockLabel(ms: number) {
-  switch (Number(ms)) {
-    case 60_000:
-      return t('settings.security.autolockOneMinute');
-    case 600_000:
-      return t('settings.security.autolockTenMinutes');
-    case 1_800_000:
-      return t('settings.security.autolockThirtyMinutes');
-    case 3_600_000:
-      return t('settings.security.autolockOneHour');
-    case 7_200_000:
-      return t('settings.security.autolockTwoHours');
-    case 18_000_000:
-      return t('settings.security.autolockFiveHours');
-    default:
-      return `${Math.round(Number(ms) / 60000)} min`;
-  }
-}
-
-watch(lockPinLength, (length) => {
-  lockPin.value = lockPin.value.replace(/\D/g, "").slice(0, length);
-  lockPinConfirm.value = lockPinConfirm.value.replace(/\D/g, "").slice(0, length);
-});
-
-watch(lockPin, (value) => {
-  const clean = value.replace(/\D/g, "").slice(0, lockPinLength.value);
-  if (clean !== value) lockPin.value = clean;
-});
-
-watch(lockPinConfirm, (value) => {
-  const clean = value.replace(/\D/g, "").slice(0, lockPinLength.value);
-  if (clean !== value) lockPinConfirm.value = clean;
-});
-
-const isOpen = computed(() => props.messenger.state.settingsOpen);
+watch([activeSection, isOpen], ([section, open]) => {
+  if (open && section === "about") void loadFingerprints();
+}, { immediate: true });
 
 const nameChanged = computed(() => draftName.value.trim() !== String(props.messenger.state.username || "").trim());
 const nameError = computed(() =>
@@ -585,45 +299,15 @@ const meAccent = computed(() => props.messenger.accentFor(props.messenger.state.
 const meInitials = computed(() => initialsOf(props.messenger.state.username));
 const profile = computed(() => props.messenger.myProfile.value);
 const turnServers = computed(() => props.messenger.turnServers.value || turnServerList());
-const selectedTurnInfo = computed(() => {
-  const id = props.messenger.state.selectedTurnServerId;
-  if (!id) return null;
-  const srv = turnServers.value.find((s: TurnServerConfig) => s.id === id);
-  if (!srv) return null;
-  // Try i18n key first, fall back to server config hint
-  const hintKey = `settings.calls.turnHints.${id}`;
-  const i18nHint = t(hintKey);
-  const hint = i18nHint !== hintKey ? i18nHint : (srv.hint || "");
-  return {
-    urls: (srv.urls || []).map((u: string) => formatTurnUrl(u)).join(" · "),
-    hint
-  };
-});
-
-function formatTurnUrl(url: string) {
-  try {
-    // turn:host:port?transport=udp  /  turns:host:port?transport=tcp  /  stun:host:port
-    const m = url.match(/^(turn|turns|stun):([^:?]+)(?::(\d+))?(?:\?transport=(\w+))?$/);
-    if (!m) return url;
-    const [, proto, host, port, transport] = m;
-    const protoLabel = proto === "turns" ? "TLS" : proto.toUpperCase();
-    const addr = port ? `${host}:${port}` : host;
-    const transportLabel = transport ? ` (${transport})` : "";
-    return `${protoLabel} ${addr}${transportLabel}`;
-  } catch {
-    return url;
-  }
-}
-
-function formatServerUrls(server: TurnServerConfig) {
-  return (server.urls || []).map((u: string) => formatTurnUrl(u)).join(" · ");
-}
 const avatarSrc = computed(() => props.messenger.profileImageSrc(profile.value.avatar, "avatar"));
 const bannerSrc = computed(() => props.messenger.profileImageSrc(profile.value.banner, "banner"));
 const profileTextChanged = computed(() =>
   draftDescription.value.trim() !== String(profile.value.description || "").trim()
   || draftPronouns.value.trim() !== String(profile.value.pronouns || "").trim()
+  || draftStatus.value.trim() !== String(profile.value.customStatus || "").trim()
+  || linksKey(draftLinks.value) !== linksKey(profile.value.links || [])
 );
+const invalidLinks = computed(() => draftLinks.value.some((link) => link.url.trim() && !/^https:\/\/\S{3,}$/.test(link.url.trim())));
 
 const hasUnsavedChanges = computed(() => nameChanged.value || profileTextChanged.value);
 const connectionStatusLabel = computed(() => {
@@ -691,31 +375,6 @@ const messageStyleOptions = computed(() => [
 const localeOptions = computed(() =>
   availableLocales.map((code) => ({ value: code, label: LOCALE_LABELS[code] || code }))
 );
-const pinLengthOptions = [4, 6, 8].map((length) => ({ value: length, label: String(length) }));
-const autolockSelectOptions = computed(() =>
-  autolockOptions.value.map((ms: number) => ({ value: ms, label: autolockLabel(ms) }))
-);
-const duressActionOptions = computed(() => [
-  { value: "wipe", label: t("settings.opsec.actionWipe") },
-  { value: "decoy", label: t("settings.opsec.actionDecoy") }
-]);
-const turnServerOptions = computed(() =>
-  turnServers.value.map((server: TurnServerConfig) => ({ value: String(server.id), label: String(server.label) }))
-);
-function deviceOptions(devices: MediaDeviceInfo[], fallback: (index: number) => string) {
-  return [
-    { value: "", label: t("settings.calls.systemDefault") },
-    ...devices.map((device: MediaDeviceInfo, index: number) => ({
-      value: String(device.deviceId || ""),
-      label: deviceLabel(device, fallback(index))
-    }))
-  ];
-}
-const microphoneOptions = computed(() => deviceOptions(microphones.value, (i) => `Microphone ${i + 1}`));
-const speakerOptions = computed(() => deviceOptions(headphones.value, (i) => `Output ${i + 1}`));
-const cameraOptions = computed(() =>
-  deviceOptions(cameras.value, (i) => `${t("settings.calls.camera")} ${i + 1}`)
-);
 const acceptUnknownOptions = computed(() => [
   { value: "off", label: t("phantom.acceptUnknownOff") },
   { value: "filter", label: t("phantom.acceptUnknownFilter") },
@@ -725,7 +384,7 @@ const acceptUnknownOptions = computed(() => [
 const myBadges = computed<string[]>(() => props.messenger.badgesFor?.(props.messenger.state.username) || []);
 const myBadgeNames = computed(() => myBadges.value.map((badge) => badgeLabelFor(t, badge)).join(", "));
 const activeSectionLabel = computed(() => sections.value.find((section) => section.id === activeSection.value)?.label || "Settings");
-watch(isOpen, async (v) => {
+watch(isOpen, (v) => {
   if (v) {
     if (settingsHistoryDepth === 0) pushSettingsHistoryEntry();
     mobileSectionOpen.value = false;
@@ -733,29 +392,17 @@ watch(isOpen, async (v) => {
     draftName.value = props.messenger.state.username || "";
     draftDescription.value = props.messenger.state.profile?.description || "";
     draftPronouns.value = props.messenger.state.profile?.pronouns || "";
+    draftStatus.value = props.messenger.state.profile?.customStatus || "";
+    draftLinks.value = (props.messenger.state.profile?.links || []).map((link) => ({ ...link }));
     if (sections.value.some((section) => section.id === props.initialSection)) {
       activeSection.value = props.initialSection;
     }
-    if (activeSection.value === "calls") props.messenger.refreshAudioDevices();
-    await nextTick();
-    maybeAutoLoadTorDirectory();
   } else {
     releaseSettingsHistoryEntry();
   }
 });
 
-watch(activeSection, async (section) => {
-  if (!isOpen.value) return;
-  if (section === "calls") props.messenger.refreshAudioDevices();
-  if (section !== "calls") {
-    props.messenger.stopMicTest();
-    stopCameraPreview();
-  }
-});
-
 function close() {
-  props.messenger.stopMicTest();
-  stopCameraPreview();
   mobileSectionOpen.value = false;
   props.messenger.state.settingsOpen = false;
 }
@@ -766,8 +413,6 @@ function selectSection(sectionId: string) {
 }
 
 function backToSettingsList() {
-  props.messenger.stopMicTest();
-  stopCameraPreview();
   mobileSectionOpen.value = false;
 }
 
@@ -778,10 +423,14 @@ async function saveName() {
 }
 
 function saveProfileText() {
-  if (!profileTextChanged.value) return;
+  if (!profileTextChanged.value || invalidLinks.value) return;
   props.messenger.setProfileText({
     description: draftDescription.value,
     pronouns: draftPronouns.value
+  });
+  props.messenger.setProfileExtras({
+    customStatus: draftStatus.value,
+    links: draftLinks.value.filter((link) => link.url.trim()),
   });
 }
 
@@ -790,6 +439,8 @@ function revertProfileDrafts() {
   draftName.value = props.messenger.state.username || "";
   draftDescription.value = props.messenger.state.profile?.description || "";
   draftPronouns.value = props.messenger.state.profile?.pronouns || "";
+  draftStatus.value = props.messenger.state.profile?.customStatus || "";
+  draftLinks.value = (props.messenger.state.profile?.links || []).map((link) => ({ ...link }));
 }
 
 async function saveAll() {
@@ -797,19 +448,17 @@ async function saveAll() {
   if (profileTextChanged.value) saveProfileText();
 }
 
-function onAvatarPicked(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  openCrop(file, "avatar");
+function onAvatarPicked(event: Event) {
+  const file = takePickedFile(event);
+  if (file) openCrop(file, "avatar");
 }
 
-function onBannerPicked(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  openCrop(file, "banner");
+function onBannerPicked(event: Event) {
+  const file = takePickedFile(event);
+  if (file) openCrop(file, "banner");
 }
 
-async function openCrop(file, kind: "avatar" | "banner") {
+async function openCrop(file: File, kind: "avatar" | "banner") {
   if (!file) return;
   if (file.type && !String(file.type).startsWith("image/")) {
     props.messenger.state.lastError = t("crop.invalidImage");
@@ -854,27 +503,12 @@ function onCropConfirm(file: File) {
 
 function onExport() { props.messenger.exportData(); }
 function onImport() { fileInputRef.value?.click(); }
-function onFilePicked(event) {
-  const file = event.target.files?.[0];
+function onFilePicked(event: Event) {
+  const file = takePickedFile(event);
   if (file) props.messenger.importData(file);
-  event.target.value = "";
-}
-function onRecoveryFilePick() {
-  recoveryFileInputRef.value?.click();
-}
-async function onRecoveryFilePicked(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (!file) return;
-  try {
-    recoveryWordsInput.value = (await file.text()).trim();
-    importRecoveryWords();
-  } catch {
-    /* ignore */
-  }
 }
 async function onClear() {
-  if (!await dialog.showConfirm("Clear all local data? This removes every conversation, message, and reaction from this browser. The remote server is not touched.")) return;
+  if (!await dialog.showConfirm(t('dialog.clearDataConfirm'), "", { danger: true, confirmLabel: t('dialog.clear') })) return;
   props.messenger.clearAllData();
   close();
 }
@@ -885,49 +519,11 @@ async function onLogout() {
   close();
 }
 
-async function onSaveDuressPin() {
-  if (duressPin.value !== duressPinConfirm.value) {
-    await dialog.showAlert(t('settings.security.pinMismatch'));
-    return;
-  }
-  const ok = await props.messenger.setOpsecDuressPin(duressPin.value);
-  if (ok) {
-    duressPin.value = "";
-    duressPinConfirm.value = "";
-  }
-}
-
-async function onStartDecoySetup() {
-  if (!await dialog.showConfirm(t('settings.opsec.decoySetupConfirm'))) return;
-  await props.messenger.startOpsecDecoySetup();
-}
-
-async function onEnableClientLock() {
-  if (lockPin.value !== lockPinConfirm.value) {
-    await dialog.showAlert(t('settings.security.pinMismatch'));
-    return;
-  }
-  const ok = await props.messenger.enableClientLock(lockPin.value);
-  if (ok) {
-    lockPin.value = "";
-    lockPinConfirm.value = "";
-  }
-}
-
-async function onDisableClientLock() {
-  const pin = await dialog.showPrompt(t('settings.security.disableLockPrompt'));
-  if (!pin) return;
-  const unlocked = await props.messenger.verifyClientLockPin(pin);
-  if (!unlocked) return;
-  if (!await dialog.showConfirm(t('settings.security.disableLockConfirm'))) return;
-  const disabled = await props.messenger.disableClientLock();
-  if (disabled) await dialog.showAlert(t('settings.security.disableLockSuccess'));
-  lockPin.value = "";
-  lockPinConfirm.value = "";
-}
-
 async function onDeleteAccount() {
-  const confirmed = await dialog.showConfirm(t('settings.profile.deleteAccountConfirm'));
+  const confirmed = await dialog.showConfirm(t('settings.profile.deleteAccountConfirm'), "", {
+    danger: true,
+    confirmLabel: t('settings.profile.deleteAccount'),
+  });
   if (!confirmed) return;
   const password = await dialog.showPrompt(t('settings.profile.deleteAccountPrompt'));
   if (!password) return;
@@ -936,20 +532,8 @@ async function onDeleteAccount() {
       close();
     })
     .catch(async (err: unknown) => {
-      await dialog.showAlert(err?.message || t('settings.profile.deleteAccountError'));
+      await dialog.showAlert(errorMessage(err) || t('settings.profile.deleteAccountError'));
     });
-}
-
-function targetChecked(event: Event) {
-  return Boolean((event.target as HTMLInputElement | null)?.checked);
-}
-
-function targetValue(event: Event) {
-  return (event.target as HTMLInputElement | HTMLSelectElement | null)?.value || "";
-}
-
-function targetNumber(event: Event) {
-  return Number((event.target as HTMLInputElement | HTMLSelectElement | null)?.value) || 0;
 }
 
 function onPollIntervalChange(event: Event) {
@@ -966,65 +550,6 @@ function onPollIntervalChange(event: Event) {
     return;
   }
   phantom.setPollInterval(n);
-}
-
-const microphones = computed(() =>
-  props.messenger.state.audioDevices.filter((device) => device.kind === "audioinput")
-);
-const headphones = computed(() =>
-  props.messenger.state.audioDevices.filter((device) => device.kind === "audiooutput")
-);
-const cameras = computed(() =>
-  props.messenger.state.audioDevices.filter((device) => device.kind === "videoinput")
-);
-const cameraPreviewActive = ref(false);
-const cameraPreviewLoading = ref(false);
-const cameraPreviewError = ref("");
-let cameraPreviewStream: MediaStream | null = null;
-
-function stopCameraPreview() {
-  if (cameraPreviewStream) {
-    for (const track of cameraPreviewStream.getTracks()) track.stop();
-    cameraPreviewStream = null;
-  }
-  if (cameraPreviewRef.value) cameraPreviewRef.value.srcObject = null;
-  cameraPreviewActive.value = false;
-  cameraPreviewLoading.value = false;
-}
-
-async function startCameraPreview() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    cameraPreviewError.value = t('settings.calls.cameraUnavailable');
-    return;
-  }
-  stopCameraPreview();
-  cameraPreviewError.value = "";
-  cameraPreviewActive.value = true;
-  cameraPreviewLoading.value = true;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: props.messenger.state.selectedVideoInputId
-        ? { deviceId: { exact: props.messenger.state.selectedVideoInputId } }
-        : true,
-      audio: false
-    });
-    cameraPreviewStream = stream;
-    await props.messenger.refreshAudioDevices();
-    if (cameraPreviewRef.value) {
-      cameraPreviewRef.value.srcObject = stream;
-      await cameraPreviewRef.value.play().catch(() => { });
-    }
-  } catch (error) {
-    cameraPreviewError.value = error instanceof Error ? error.message : t('settings.calls.cameraPreviewError');
-    stopCameraPreview();
-  } finally {
-    cameraPreviewLoading.value = false;
-  }
-}
-
-async function onVideoInputChanged(deviceId: string) {
-  props.messenger.setVideoInput(deviceId);
-  if (cameraPreviewActive.value) await startCameraPreview();
 }
 
 const runtimePlatform = computed(() => {
@@ -1073,19 +598,7 @@ const runtimeDetails = computed(() => {
   };
 });
 
-function deviceLabel(device, fallback) {
-  return device.label || fallback;
-}
-
-function initialsOf(name) {
-  const trimmed = String(name || "?").trim();
-  if (!trimmed) return "?";
-  const parts = trimmed.split(/[\s\-_]+/).slice(0, 2);
-  if (parts.length === 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
-}
-
-function onKey(event) {
+function onKey(event: KeyboardEvent) {
   if (!isOpen.value) return;
   if (event.key !== "Escape") return;
   // Let the global confirm/prompt dialog consume Escape first — otherwise
@@ -1244,27 +757,12 @@ onMounted(() => {
   window.addEventListener("resize", syncMobileSettings, { passive: true });
   window.addEventListener("popstate", onSettingsPopState);
   document.addEventListener("keydown", onKey);
-
-  // Keep the Tor status in sync with the backend (bootstrap → ready | stopped),
-  // and seed it immediately so a Tor that was already auto-started at boot is
-  // reflected without waiting for the next event.
-  if (isTorRuntime()) {
-    unsubTorStatus = onTorStatus((s) => {
-      torStatus.value = s;
-    });
-    fetchTorStatus().then((s) => {
-      torStatus.value = s;
-    }).catch(() => {});
-    loadDiscordRpc().catch(() => {});
-  }
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
   window.removeEventListener("popstate", onSettingsPopState);
   document.removeEventListener("keydown", onKey);
   releaseSettingsHistoryEntry();
-  stopCameraPreview();
-  unsubTorStatus?.();
 });
 </script>
 
@@ -1277,20 +775,15 @@ onBeforeUnmount(() => {
       <header class="settings__side-head">
         <h2 id="settings-title">{{ t('settings.title') }}</h2>
         <button class="icon-btn settings__close" type="button" :aria-label="t('settings.close')" @click="close">
-          <svg viewBox="0 0 24 24">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <Icon name="close" viewBox="0 0 24 24" />
         </button>
       </header>
 
       <button class="settings__card" type="button" @click="activeSection = 'profile'">
-        <span v-if="avatarSrc" class="side-user__avatar">
-          <img :src="avatarSrc" alt="" />
-        </span>
-        <span v-else class="avatar avatar--md" :class="`avatar--${meAccent}`">{{ meInitials }}</span>
+        <Avatar :name="messenger.state.username" :src="avatarSrc" :accent="meAccent" size="md" />
         <span class="settings__card-identity">
           <span class="settings__card-name">
-            <strong>@{{ messenger.state.username || "anonymous" }}</strong>
+            <strong>@{{ messenger.state.username || t('labels.anonymous') }}</strong>
             <span v-if="myBadges.length" class="settings__card-badges" :aria-label="myBadgeNames">
               <BadgeIcon v-for="badge in myBadges.slice(0, 3)" :key="badge" :badge="badge" />
               <small v-if="myBadges.length > 3" class="settings__card-badges-more">+{{ myBadges.length - 3 }}</small>
@@ -1300,13 +793,10 @@ onBeforeUnmount(() => {
         </span>
       </button>
 
-      <nav class="settings__nav" aria-label="Settings sections">
+      <nav class="settings__nav" :aria-label="t('settings.sectionsNav')">
         <button v-for="section in filteredSections" :key="section.id" type="button" class="settings__nav-item"
           :class="{ 'is-active': activeSection === section.id }" @click="selectSection(section.id)">
-          <svg v-if="section.id === 'profile'" viewBox="0 0 24 24">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
+          <Icon name="user" v-if="section.id === 'profile'" viewBox="0 0 24 24" />
           <svg v-else-if="section.id === 'ui'" viewBox="0 0 24 24">
             <rect x="3" y="4" width="18" height="12" rx="2" />
             <path d="M8 20h8" />
@@ -1336,10 +826,7 @@ onBeforeUnmount(() => {
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
             <path d="M10 21h4" />
           </svg>
-          <svg v-else-if="section.id === 'calls'" viewBox="0 0 24 24">
-            <path
-              d="M7.6 10.8a14.5 14.5 0 0 0 5.6 5.6l1.9-1.9a1.5 1.5 0 0 1 1.5-.37c1.03.34 2.1.52 3.2.52.83 0 1.5.67 1.5 1.5v3.05c0 .83-.67 1.5-1.5 1.5C10.45 20.7 3.3 13.55 3.3 4.2c0-.83.67-1.5 1.5-1.5h3.05c.83 0 1.5.67 1.5 1.5 0 1.1.18 2.17.52 3.2.17.53.03 1.1-.37 1.5l-1.9 1.9Z" />
-          </svg>
+          <Icon name="phone" v-else-if="section.id === 'calls'" viewBox="0 0 24 24" />
           <svg v-else-if="section.id === 'advanced'" viewBox="0 0 24 24">
             <path d="M4 7h5" />
             <path d="M15 7h5" />
@@ -1356,39 +843,23 @@ onBeforeUnmount(() => {
             <path
               d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2 2 0 0 1-2.83 2.83l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.05.05a2 2 0 0 1-2.83-2.83l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H3a2 2 0 0 1 0-4h.1A1.8 1.8 0 0 0 4.75 8.8a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2 2 0 0 1 7.17 3.94l.05.05a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 10.3 2.7V2.6a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2 2 0 0 1 2.83 2.83l-.05.05a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1h.1a2 2 0 0 1 0 4h-.1A1.8 1.8 0 0 0 19.4 15Z" />
           </svg>
-          <svg v-else-if="section.id === 'backups'" viewBox="0 0 24 24">
-            <path d="M12 3v12" />
-            <path d="m6 9 6-6 6 6" />
-            <path d="M5 21h14" />
-          </svg>
-          <svg v-else-if="section.id === 'donation'" viewBox="0 0 24 24" style="fill: currentColor; stroke: none;">
-            <path d="M12 21s-7.5-4.7-9.8-9.2C.4 8.6 2.7 5 6.5 5c2.2 0 3.9 1.2 5.5 3.2C13.6 6.2 15.3 5 17.5 5c3.8 0 6.1 3.6 4.3 6.8C19.5 16.3 12 21 12 21Z" />
-          </svg>
-          <svg v-else-if="section.id === 'phantom'" viewBox="0 0 24 24">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M19 8v6M16 11h6" />
-          </svg>
+          <Icon name="upload" v-else-if="section.id === 'backups'" viewBox="0 0 24 24" />
+          <Icon name="heart" v-else-if="section.id === 'donation'" viewBox="0 0 24 24" style="fill: currentColor; stroke: none;" />
+          <Icon name="user-plus" v-else-if="section.id === 'phantom'" viewBox="0 0 24 24" />
           <svg v-else viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 16v-4" />
             <path d="M12 8h.01" />
           </svg>
           <span>{{ section.label }}</span>
-          <svg class="settings__chevron" viewBox="0 0 24 24">
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+          <Icon name="chevron-right" class="settings__chevron" viewBox="0 0 24 24" />
         </button>
       </nav>
 
       <div class="settings__disconnect">
         <button v-if="messenger.state.authToken" type="button" class="settings__disconnect-btn"
           @click="onLogout">
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <path d="M9 12h12" />
-            <path d="m17 8 4 4-4 4" />
-            <path d="M9 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
-          </svg>
+          <Icon name="sign-out" viewBox="0 0 24 24" width="18" height="18" />
           {{ t('settings.security.logout') }}
         </button>
       </div>
@@ -1398,9 +869,7 @@ onBeforeUnmount(() => {
       <header class="settings__main-head">
         <button class="icon-btn settings__back" type="button" :aria-label="t('settings.back')"
           @click="backToSettingsList">
-          <svg viewBox="0 0 24 24">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
+          <Icon name="chevron-left" viewBox="0 0 24 24" />
         </button>
         <h3>{{ activeSectionLabel }}</h3>
       </header>
@@ -1415,7 +884,7 @@ onBeforeUnmount(() => {
             <img :src="avatarSrc" alt="" />
           </span>
           <span v-else class="avatar settings-profile__avatar"
-            :class="`avatar--${meAccent}`">{{ meInitial }}</span>
+            :class="`avatar--${meAccent}`">{{ meInitials }}</span>
 
           <!-- One row, fixed shape: the two pickers always sit in the same
                place, and each removal appears beside the picture it clears
@@ -1423,18 +892,13 @@ onBeforeUnmount(() => {
           <div class="settings-profile__actions">
             <div class="settings-profile__pair">
               <button type="button" class="settings-profile__pick" @click="avatarInputRef?.click()">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-                  <circle cx="12" cy="13" r="3.5" />
-                </svg>
+                <Icon name="camera" viewBox="0 0 24 24" aria-hidden="true" />
                 <span>{{ t('settings.profile.profileImage') }}</span>
               </button>
               <button v-if="profile.avatar" type="button" class="settings-profile__clear"
                 :aria-label="t('settings.profile.clearImage')" :title="t('settings.profile.clearImage')"
                 @click="messenger.clearProfileImage('avatar')">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                <Icon name="close" viewBox="0 0 24 24" aria-hidden="true" />
               </button>
             </div>
 
@@ -1449,9 +913,7 @@ onBeforeUnmount(() => {
               <button v-if="profile.banner" type="button" class="settings-profile__clear"
                 :aria-label="t('settings.profile.clearBanner')" :title="t('settings.profile.clearBanner')"
                 @click="messenger.clearProfileImage('banner')">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                <Icon name="close" viewBox="0 0 24 24" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -1471,10 +933,7 @@ onBeforeUnmount(() => {
         <div class="settings-group">
           <label class="settings-field" for="profile-display-name">
             <span class="settings-field__icon">
-              <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 21a8 8 0 0 1 16 0" />
-              </svg>
+              <Icon name="user" viewBox="0 0 24 24" />
             </span>
             <span class="settings-field__body">
               <span class="settings-field__label">{{ t('settings.profile.displayName') }}</span>
@@ -1516,7 +975,6 @@ onBeforeUnmount(() => {
               @update:model-value="messenger.setPresenceStatus(String($event))" />
           </div>
         </div>
-
 
         <div class="settings-group">
           <label class="settings-field" for="profile-description">
@@ -1561,6 +1019,34 @@ onBeforeUnmount(() => {
               autocomplete="off" spellcheck="false" :placeholder="t('settings.profile.pronounsPlaceholder')"
               class="settings-input" @keydown.enter.prevent="saveProfileText" />
           </div>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.profile.richTitle') }}</h4>
+          <label class="settings-field" for="profile-status">
+            <span>{{ t('settings.profile.customStatus') }}</span>
+          </label>
+          <div class="settings-inline">
+            <input id="profile-status" v-model="draftStatus" type="text" maxlength="60" autocomplete="off"
+              :placeholder="t('settings.profile.customStatusPlaceholder')" class="settings-input" />
+          </div>
+          <span class="settings-field profile-links__title">{{ t('settings.profile.links') }}</span>
+          <TransitionGroup tag="div" name="profile-link" class="profile-links">
+            <div v-for="(link, index) in draftLinks" :key="index" class="profile-links__row">
+              <input v-model="link.label" type="text" maxlength="32" class="settings-input profile-links__label"
+                :placeholder="t('settings.profile.linkLabel')" :aria-label="t('settings.profile.linkLabel')" />
+              <input v-model="link.url" type="url" maxlength="200" class="settings-input profile-links__url"
+                :class="{ 'is-invalid': link.url.trim() && !/^https:\/\/\S{3,}$/.test(link.url.trim()) }"
+                placeholder="https://" :aria-label="t('settings.profile.linkUrl')" spellcheck="false" />
+              <button type="button" class="icon-btn" :aria-label="t('settings.profile.removeLink')" @click="draftLinks.splice(index, 1)">
+                <Icon name="close" viewBox="0 0 24 24" />
+              </button>
+            </div>
+          </TransitionGroup>
+          <button v-if="draftLinks.length < 4" type="button" class="btn settings-btn" @click="draftLinks.push({ label: '', url: '' })">
+            {{ t('settings.profile.addLink') }}
+          </button>
+          <p class="settings-note">{{ invalidLinks ? t('settings.profile.linkInvalid') : t('settings.profile.linksNote') }}</p>
         </div>
 
         <div class="settings-group settings-group--danger">
@@ -1624,6 +1110,64 @@ onBeforeUnmount(() => {
           </label>
           <p class="settings-note">{{ t('settings.ui.spotlightSearchNote') }}</p>
         </div>
+        <div class="settings-group theme-studio">
+          <h4>{{ t('settings.theme.title') }}</h4>
+          <label class="settings-check">
+            <span>{{ t('settings.theme.enable') }}</span>
+            <input type="checkbox" :checked="Boolean(customTheme.theme) && customTheme.enabled" @change="onThemeToggle" />
+            <span class="toggle__track"><span class="toggle__thumb"></span></span>
+          </label>
+          <Transition name="theme-disclose">
+          <div v-if="customTheme.theme && customTheme.enabled" class="theme-studio__body">
+          <div class="theme-preview" :style="themePreviewStyle" aria-hidden="true">
+            <span class="theme-preview__bubble theme-preview__bubble--in">{{ t('settings.theme.previewIn') }}</span>
+            <span class="theme-preview__bubble theme-preview__bubble--out">{{ t('settings.theme.previewOut') }}</span>
+            <span class="theme-preview__chip">{{ t('settings.theme.previewChip') }}</span>
+          </div>
+          <div class="theme-presets" role="group" :aria-label="t('settings.theme.presets')">
+            <button v-for="(preset, index) in THEME_PRESETS" :key="index" type="button" class="theme-preset"
+              :class="{ 'is-active': customTheme.theme?.accent === preset.accent && customTheme.theme?.tint === preset.tint }"
+              :aria-label="t('settings.theme.preset', { n: String(index + 1) })"
+              @click="applyTheme({ ...preset })">
+              <span :style="{ background: preset.accent }"></span>
+              <span :style="{ background: preset.tint }"></span>
+            </button>
+          </div>
+          <div v-for="field in THEME_FIELDS" :key="field" class="theme-field">
+            <button type="button" class="theme-field__row" :aria-expanded="themeEditing === field"
+              @click="themeEditing = themeEditing === field ? '' : field">
+              <span>{{ t(`settings.theme.${field}`) }}</span>
+              <span class="theme-field__value">
+                <code>{{ themeValue(field) }}</code>
+                <span class="theme-field__swatch" :style="{ background: themeValue(field) }"></span>
+              </span>
+            </button>
+            <Transition name="theme-disclose">
+              <div v-if="themeEditing === field" class="theme-field__picker">
+                <ColorPicker :model-value="themeValue(field)" :swatches="THEME_SWATCHES"
+                  @update:model-value="updateCustomTheme({ [field]: $event })" />
+              </div>
+            </Transition>
+          </div>
+          <div class="theme-share">
+            <button type="button" class="btn settings-btn" :disabled="!customTheme.theme" @click="copyThemeCode">
+              {{ t('settings.theme.copyCode') }}
+            </button>
+            <button type="button" class="btn settings-btn" :disabled="!customTheme.theme" @click="setCustomTheme(null, rememberTheme())">
+              {{ t('settings.theme.reset') }}
+            </button>
+          </div>
+          <div class="settings-inline theme-import">
+            <input v-model="themeCodeInput" type="text" class="settings-input" spellcheck="false" autocomplete="off"
+              :placeholder="t('settings.theme.codePlaceholder')" @keydown.enter.prevent="importThemeCode" />
+            <button type="button" class="btn settings-btn" :disabled="!themeCodeInput.trim()" @click="importThemeCode">
+              {{ t('settings.theme.import') }}
+            </button>
+          </div>
+          <p class="settings-note">{{ t('settings.theme.note') }}</p>
+          </div>
+          </Transition>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'language'" class="settings-page">
@@ -1648,779 +1192,18 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section v-else-if="activeSection === 'security'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.security.account') }}</h4>
-          <dl class="settings-kv">
-            <div>
-              <dt>{{ t('settings.security.userId') }}</dt>
-              <dd>{{ messenger.state.userId || "-" }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('settings.security.username') }}</dt>
-              <dd>{{ messenger.state.username || "-" }}</dd>
-            </div>
-          </dl>
-          <div class="settings-actions">
-            <button type="button" class="btn settings-btn" @click="messenger.downloadRecoveryWords">
-              {{ t('settings.security.downloadRecovery') }}
-            </button>
-            <button type="button" class="btn settings-btn settings-btn--danger" @click="onLogout">
-              {{ t('settings.security.logout') }}
-            </button>
-          </div>
-          <p class="settings-note">
-            {{ t('settings.security.recoveryNote') }}
-          </p>
-        </div>
+      <SettingsSecurity v-else-if="activeSection === 'security'" :messenger="messenger" @logout="onLogout" />
 
-        <div class="settings-group">
-          <h4>{{ t("settings.security.recoveryTitle") }}</h4>
-          <p v-if="recoverySigned" class="settings-note recovery-signed">
-            {{ t("settings.security.recoverySigned") }}
-          </p>
-          <p v-else class="settings-note recovery-unsigned">
-            {{ t("settings.security.recoveryNotSigned") }}
-          </p>
-          <p class="settings-note">{{ t("settings.security.recoveryHint") }}</p>
-          <div class="settings-inline">
-            <textarea
-              id="security-recovery-words"
-              v-model="recoveryWordsInput"
-              class="settings-input settings-textarea"
-              rows="3"
-              :aria-label="t('settings.security.recoveryTitle')"
-              :placeholder="t('settings.security.recoveryPlaceholder')"
-              autocomplete="off"
-              spellcheck="false"
-            ></textarea>
-          </div>
-          <div class="settings-actions">
-            <button
-              type="button"
-              class="btn settings-btn"
-              :disabled="!recoveryWordsInput.trim()"
-              @click="importRecoveryWords"
-            >
-              {{ t("settings.security.recoveryImport") }}
-            </button>
-            <button type="button" class="btn settings-btn" @click="onRecoveryFilePick">
-              {{ t("settings.security.recoveryImportFile") }}
-            </button>
-            <input
-              ref="recoveryFileInputRef"
-              type="file"
-              accept=".txt,text/plain"
-              style="display: none"
-              @change="onRecoveryFilePicked"
-            />
-          </div>
-        </div>
+      <SettingsOpsec v-else-if="activeSection === 'opsec'" :messenger="messenger" />
 
-        <div class="settings-group">
-          <h4>{{ t('settings.security.clientLock') }}</h4>
-          <div v-if="!messenger.state.clientLockEnabled" class="settings-lock-form">
-            <div class="settings-select">
-              <span>{{ lockPinLabel }}</span>
-              <SelectMenu :aria-label="lockPinLabel" :model-value="messenger.state.clientLockPinLength" :options="pinLengthOptions"
-                @update:model-value="messenger.state.clientLockPinLength = Number($event)" />
-            </div>
-            <div class="settings-inline settings-inline--lock">
-              <input v-model="lockPin" class="settings-input settings-input--pin" inputmode="numeric" pattern="[0-9]*"
-                autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
-                :placeholder="lockPinPlaceholder" />
-              <input v-model="lockPinConfirm" class="settings-input settings-input--pin" inputmode="numeric"
-                pattern="[0-9]*" autocomplete="new-password" :maxlength="messenger.state.clientLockPinLength"
-                :placeholder="lockPinPlaceholder" />
-              <button type="button" class="btn btn--primary settings-btn" :disabled="messenger.state.clientLockLoading"
-                @click="onEnableClientLock">
-                {{ messenger.state.clientLockLoading ? t('settings.security.encrypting') :
-                  t('settings.security.enableLock') }}
-              </button>
-            </div>
-            <div v-if="messenger.state.clientLockLoading" class="settings-progress" role="progressbar"
-              :aria-valuenow="messenger.state.clientLockProgress" aria-valuemin="0" aria-valuemax="100">
-              <span :style="{ width: `${messenger.state.clientLockProgress || 8}%` }"></span>
-            </div>
-            <p v-if="messenger.state.clientLockLoading" class="settings-note">
-              {{ t('settings.security.encryptingNote') }}
-            </p>
-          </div>
+      <SettingsNotifications v-else-if="activeSection === 'notifications'" :messenger="messenger" />
 
-          <div v-else>
-            <label class="settings-check">
-              <span>{{ t('settings.security.autolockEnabled') }}</span>
-              <input type="checkbox" :checked="messenger.state.clientLockAutolockEnabled"
-                @change="messenger.setClientLockAutolockEnabled(targetChecked($event))" />
-              <span class="toggle__track"><span class="toggle__thumb"></span></span>
-            </label>
-            <div class="settings-select">
-              <span>{{ t('settings.security.autolockThreshold') }}</span>
-              <SelectMenu :aria-label="t('settings.security.autolockThreshold')" :model-value="messenger.state.clientLockAutolockTimeoutMs" :options="autolockSelectOptions"
-                :disabled="!messenger.state.clientLockAutolockEnabled"
-                @update:model-value="messenger.setClientLockAutolockTimeoutMs(Number($event))" />
-            </div>
-            <div class="settings-actions">
-              <button type="button" class="btn settings-btn" :disabled="messenger.state.clientLockLoading"
-                @click="messenger.lockClient">
-                {{ t('settings.security.lockNow') }}
-              </button>
-              <button type="button" class="btn settings-btn settings-btn--danger" @click="onDisableClientLock">
-                {{ t('settings.security.disableLock') }}
-              </button>
-            </div>
-          </div>
-          <p class="settings-note">
-            {{ t('settings.security.clientLockNote') }}
-          </p>
-        </div>
-      </section>
+      <SettingsCalls v-else-if="activeSection === 'calls'" :messenger="messenger"
+        :active="isOpen && (!isMobileSettings || mobileSectionOpen)" />
 
-      <section v-else-if="activeSection === 'opsec'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.opsec.lockScreenPrivacyTitle') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.opsec.hideLockIdentity') }}</span>
-            <input type="checkbox" :checked="messenger.state.opsecHideLockIdentity"
-              @change="messenger.setOpsecHideLockIdentity(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">{{ t('settings.opsec.hideLockIdentityNote') }}</p>
-        </div>
+      <SettingsTor v-else-if="activeSection === 'tor'" :messenger="messenger" />
 
-        <div class="settings-group">
-          <h4>{{ t('settings.opsec.duressTitle') }}</h4>
-          <div class="settings-select">
-            <span>{{ t('settings.opsec.duressAction') }}</span>
-            <SelectMenu :aria-label="t('settings.opsec.duressAction')" :model-value="messenger.state.opsecDuressAction" :options="duressActionOptions"
-              @update:model-value="messenger.setOpsecDuressAction(String($event))" />
-          </div>
-          <div class="settings-inline settings-inline--lock">
-            <input v-model="duressPin" class="settings-input settings-input--pin settings-input--duress"
-              inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-              :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.duressPin')" />
-            <input v-model="duressPinConfirm" class="settings-input settings-input--pin settings-input--duress"
-              inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-              :maxlength="messenger.state.clientLockPinLength" :placeholder="t('settings.opsec.confirmDuressPin')" />
-            <button type="button" class="btn btn--primary settings-btn"
-              :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked"
-              @click="onSaveDuressPin">
-              {{ t('settings.opsec.saveDuressPin') }}
-            </button>
-          </div>
-          <div class="settings-actions" v-if="messenger.state.opsecDuressEnabled">
-            <button type="button" class="btn settings-btn settings-btn--danger" @click="messenger.clearOpsecDuressPin">
-              {{ t('settings.opsec.disableDuressPin') }}
-            </button>
-          </div>
-          <p class="settings-note" v-if="!messenger.state.clientLockEnabled">{{ t('settings.opsec.requiresLock') }}</p>
-          <p class="settings-note">{{ t('settings.opsec.duressNote') }}</p>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.opsec.decoyTitle') }}</h4>
-          <div class="settings-actions">
-            <button type="button" class="btn settings-btn"
-              :disabled="!messenger.state.clientLockEnabled || messenger.state.clientLockLocked"
-              @click="onStartDecoySetup">
-              {{ t('settings.opsec.configureDecoy') }}
-            </button>
-          </div>
-          <p class="settings-note" v-if="messenger.state.opsecDecoyConfigured">{{ t('settings.opsec.decoyConfigured') }}
-          </p>
-          <p class="settings-note">{{ t('settings.opsec.decoyNote') }}</p>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.opsec.ramOnlyTitle') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.opsec.ramOnlyEnabled') }}</span>
-            <input type="checkbox" :checked="messenger.state.opsecRamOnlyEnabled"
-              @change="messenger.setOpsecRamOnlyEnabled(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">{{ t('settings.opsec.ramOnlyNote') }}</p>
-        </div>
-      </section>
-
-      <section v-else-if="activeSection === 'notifications'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.notifications.messages') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.notifications.messageSound') }}</span>
-            <input type="checkbox" :checked="messenger.state.messageSoundEnabled"
-              @change="messenger.setMessageSoundEnabled(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.notifications.backgroundNotifs') }}</span>
-            <input type="checkbox" :checked="messenger.state.androidNotificationsEnabled"
-              @change="messenger.setAndroidNotificationsEnabled(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">{{ t('settings.notifications.permission', {
-            status:
-              messenger.notificationPermission()
-          }) }}</p>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.notifications.sounds') }}</h4>
-          <div class="sound-list">
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundMessage') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('message')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.message }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.message"
-                  @change="messenger.setSoundEnabled('message', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundJoin') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('join')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.join }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.join"
-                  @change="messenger.setSoundEnabled('join', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundLeave') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('leave')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.leave }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.leave"
-                  @change="messenger.setSoundEnabled('leave', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundMute') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('mute')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.mute }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.mute"
-                  @change="messenger.setSoundEnabled('mute', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundUnmute') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('unmute')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.unmute }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.unmute"
-                  @change="messenger.setSoundEnabled('unmute', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundDeafen') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('deafen')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.deafen }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.deafen"
-                  @change="messenger.setSoundEnabled('deafen', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundUndeafen') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('undeafen')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.undeafen }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.undeafen"
-                  @change="messenger.setSoundEnabled('undeafen', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundCameraOn') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOn')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.cameraOn }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOn"
-                  @change="messenger.setSoundEnabled('cameraOn', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundCameraOff') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('cameraOff')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.cameraOff }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.cameraOff"
-                  @change="messenger.setSoundEnabled('cameraOff', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundScreenOn') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOn')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.screenOn }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.screenOn"
-                  @change="messenger.setSoundEnabled('screenOn', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-            <div class="sound-row">
-              <div class="sound-row__info">
-                <span class="sound-row__label">{{ t('settings.notifications.soundScreenOff') }}</span>
-                <button type="button" class="sound-row__preview" @click="messenger.previewSound('screenOff')">{{
-                  t('settings.notifications.previewSound') }}</button>
-              </div>
-              <label class="toggle" :class="{ 'is-on': messenger.state.soundFlags.screenOff }">
-                <input type="checkbox" :checked="messenger.state.soundFlags.screenOff"
-                  @change="messenger.setSoundEnabled('screenOff', targetChecked($event))" />
-                <span class="toggle__track"><span class="toggle__thumb"></span></span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section v-else-if="activeSection === 'calls'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.calls.calling') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.calls.enableCalls') }}</span>
-            <input type="checkbox" checked disabled />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.calls.playCallingSounds') }}</span>
-            <input type="checkbox" checked disabled />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-        </div>
-
-        <div v-if="turnServers.length >= 1" class="settings-group">
-          <h4>{{ t('settings.calls.turnServer') }}</h4>
-          <div class="settings-select">
-            <span>{{ t('settings.calls.relayServer') }}</span>
-            <SelectMenu :aria-label="t('settings.calls.relayServer')" :model-value="messenger.state.selectedTurnServerId" :options="turnServerOptions"
-              @update:model-value="messenger.setSelectedTurnServer(String($event))" />
-          </div>
-          <div v-if="selectedTurnInfo" class="turn-server-detail">
-            <span class="turn-server-detail__urls">{{ selectedTurnInfo.urls }}</span>
-            <small v-if="selectedTurnInfo.hint" class="turn-server-detail__hint">{{ selectedTurnInfo.hint }}</small>
-          </div>
-
-          <div v-if="messenger.state.customTurnServers?.length" class="custom-turn-list">
-            <div v-for="srv in messenger.state.customTurnServers" :key="srv.id" class="custom-turn-row">
-              <div class="custom-turn-row__info">
-                <strong>{{ srv.label }}</strong>
-                <small>{{ srv.urls.join(' · ') }}</small>
-              </div>
-              <button type="button" class="icon-btn" :aria-label="t('settings.calls.removeTurnServer')"
-                @click="messenger.removeCustomTurnServer(srv.id)">
-                <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group">
-          <button type="button" class="btn settings-btn" @click="showAddTurn = !showAddTurn">
-            {{ showAddTurn ? t('settings.calls.hideAddTurn') : t('settings.calls.showAddTurn') }}
-          </button>
-
-          <template v-if="showAddTurn">
-            <div class="turn-form-field">
-              <label class="settings-field">
-                <span class="settings-field__body">
-                  <span class="settings-field__label">{{ t('settings.calls.turnLabel') }}</span>
-                </span>
-              </label>
-              <input v-model="newTurnLabel" type="text" class="settings-input" placeholder="My TURN" />
-            </div>
-
-            <div class="turn-form-field">
-              <label class="settings-field">
-                <span class="settings-field__body">
-                  <span class="settings-field__label">{{ t('settings.calls.turnUrls') }}</span>
-                </span>
-              </label>
-              <input v-model="newTurnUrls" type="text" class="settings-input"
-                placeholder="turn:host:3478?transport=udp, turns:host:5349?transport=tcp" />
-            </div>
-
-            <div class="turn-form-field">
-              <label class="settings-field">
-                <span class="settings-field__body">
-                  <span class="settings-field__label">{{ t('settings.calls.turnUsername') }}</span>
-                </span>
-              </label>
-              <input v-model="newTurnUsername" type="text" class="settings-input" autocomplete="off" />
-            </div>
-
-            <div class="turn-form-field">
-              <label class="settings-field">
-                <span class="settings-field__body">
-                  <span class="settings-field__label">{{ t('settings.calls.turnCredential') }}</span>
-                </span>
-              </label>
-              <input v-model="newTurnCredential" type="password" class="settings-input" autocomplete="new-password" />
-            </div>
-
-            <p v-if="turnServerError" class="settings-note settings-note--error">{{ turnServerError }}</p>
-            <button type="button" class="btn settings-btn turn-form-submit"
-              :disabled="!newTurnUrls.trim() || !newTurnLabel.trim()" @click="addCustomTurnServer">
-              {{ t('settings.calls.addTurnServer') }}
-            </button>
-          </template>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.calls.devices') }}</h4>
-          <div class="settings-select">
-            <span>{{ t('settings.calls.microphone') }}</span>
-            <SelectMenu :aria-label="t('settings.calls.microphone')" :model-value="messenger.state.selectedAudioInputId" :options="microphoneOptions"
-              @update:model-value="messenger.setAudioInput(String($event))" />
-          </div>
-
-          <div class="settings-select">
-            <span>{{ t('settings.calls.speakers') }}</span>
-            <SelectMenu :aria-label="t('settings.calls.speakers')" :model-value="messenger.state.selectedAudioOutputId" :options="speakerOptions"
-              @update:model-value="messenger.setAudioOutput(String($event))" />
-          </div>
-
-          <div class="settings-select">
-            <span>{{ t('settings.calls.camera') }}</span>
-            <SelectMenu :aria-label="t('settings.calls.camera')" :model-value="messenger.state.selectedVideoInputId" :options="cameraOptions"
-              @update:model-value="onVideoInputChanged(String($event))" />
-          </div>
-
-          <div class="settings-camera-preview">
-            <video ref="cameraPreviewRef" autoplay muted playsinline></video>
-            <div v-if="!cameraPreviewActive && !cameraPreviewError" class="settings-camera-preview__empty">
-              {{ t('settings.calls.cameraPreview') }}
-            </div>
-            <div v-if="cameraPreviewError" class="settings-camera-preview__error">{{ cameraPreviewError }}</div>
-          </div>
-
-          <div class="settings-camera-actions">
-            <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': cameraPreviewActive }"
-              :disabled="cameraPreviewLoading" @click="cameraPreviewActive ? stopCameraPreview() : startCameraPreview()">
-              {{ cameraPreviewLoading ? t('settings.calls.startingCamera') : cameraPreviewActive ?
-                t('settings.calls.stopCameraPreview') : t('settings.calls.startCameraPreview') }}
-            </button>
-            <button type="button" class="btn settings-btn" :disabled="messenger.state.audioDevicesLoading"
-              @click="messenger.unlockAudioDevices">
-              {{ messenger.state.audioDevicesLoading ? t('settings.calls.checkingDevices') :
-                t('settings.calls.allowDevices') }}
-            </button>
-          </div>
-
-          <p class="settings-note" v-if="messenger.state.audioDevicesPermission !== 'granted'">
-            {{ t('settings.calls.devicesNote') }}
-          </p>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.calls.advanced') }}</h4>
-          <label class="settings-range">
-            <span>{{ t('settings.calls.micThreshold') }}</span>
-            <small>{{ t('settings.calls.micThresholdHint') }}</small>
-            <div class="settings-meter" :class="{ 'is-active': messenger.state.micTestActive }">
-              <span class="settings-meter__bar" :style="{ width: `${messenger.state.micTestLevel}%` }"></span>
-              <span class="settings-meter__threshold"
-                :style="{ left: `${messenger.state.microphoneThreshold}%` }"></span>
-            </div>
-            <input type="range" min="0" max="100" step="1" :value="messenger.state.microphoneThreshold"
-              @input="messenger.setMicrophoneThreshold(targetValue($event))" />
-            <strong>{{ messenger.state.microphoneThreshold }}</strong>
-          </label>
-          <button type="button" class="btn settings-btn" :class="{ 'icon-btn--active': messenger.state.micTestActive }"
-            :disabled="messenger.state.micTestLoading" @click="messenger.startMicTest">
-            {{ messenger.state.micTestLoading ? t('settings.calls.startingMic') : messenger.state.micTestActive ?
-              t('settings.calls.stopListening') : t('settings.calls.testMic') }}
-          </button>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.calls.screenShare') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.calls.shareScreenAudio') }}</span>
-            <input type="checkbox" :checked="messenger.state.shareScreenAudio"
-              @change="messenger.setShareScreenAudio(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.calls.shareScreenAudioNote') }}
-          </p>
-        </div>
-      </section>
-
-      <section v-else-if="activeSection === 'tor'" class="settings-page">
-        <!-- Desktop Web: the option only works on the Tauri desktop build. -->
-        <div v-if="!isTorRuntime()" class="tor-only-desktop">
-          <img class="tor-only-desktop__icon" src="/icons/tor.svg" alt="" aria-hidden="true" />
-          <h4 class="tor-only-desktop__title">{{ t('settings.tor.title') }}</h4>
-          <p class="tor-only-desktop__copy">{{ t('settings.tor.desktopOnly') }}</p>
-          <a class="btn btn--primary tor-only-desktop__cta"
-            href="https://qxch.at/download" target="_blank" rel="noopener noreferrer">
-            {{ t('settings.tor.downloadDesktop') }}
-          </a>
-        </div>
-
-        <template v-else>
-          <div class="settings-group">
-            <h4>{{ t('settings.tor.title') }}</h4>
-            <label class="settings-check settings-check--readonly" :aria-disabled="true">
-              <span>{{ t('settings.tor.enabled') }}</span>
-              <input type="checkbox" :checked="messenger.state.torEnabled" disabled />
-              <span class="toggle__track"><span class="toggle__thumb"></span></span>
-            </label>
-            <p class="settings-note">{{ t('settings.tor.enabledNote') }}</p>
-            <p class="settings-note settings-note--pro">{{ t('settings.tor.trayNote') }}</p>
-
-            <p v-if="torStatus" class="settings-note">
-              <template v-if="torStatus.phase === 'bootstrapping'">
-                {{ t('settings.tor.bootstrapping') }}
-              </template>
-              <template v-else-if="torStatus.phase === 'error'">
-                {{ t('settings.tor.error', { error: torStatus.error || torError }) }}
-              </template>
-              <template v-else-if="torStatus.running">
-                {{ t('settings.tor.running', { port: String(torStatus.port) }) }}
-              </template>
-              <template v-else>
-                {{ t('settings.tor.stopped') }}
-              </template>
-            </p>
-            <p v-if="isExternalTor" class="settings-note settings-note--warn">
-              {{ t('settings.tor.externalNote') }}
-            </p>
-            <p v-if="torError && torStatus?.phase !== 'error'" class="settings-note" style="color: var(--red)">
-              {{ t('settings.tor.error', { error: torError }) }}
-            </p>
-          </div>
-
-          <div v-if="circuit?.hops?.length" class="settings-group">
-            <h4>{{ t('settings.tor.circuit') }}</h4>
-            <p class="settings-note tor-circuit-note">{{ t('settings.tor.circuitNote') }}</p>
-
-            <WorldMap v-if="circuitPoints.length" :points="circuitPoints" connect />
-
-            <div class="tor-circuit">
-              <div v-if="geo?.client" class="tor-circuit__hop tor-circuit__hop--you">
-                <div class="tor-circuit__role">{{ t('settings.tor.role.you') }}</div>
-                <div class="tor-circuit__ident">
-                  <span v-if="geo.client.countryCode" class="tor-circuit__flag" :title="countryNameEnglish(geo.client.countryCode)">{{ countryFlag(geo.client.countryCode) }}</span>
-                  <span class="tor-circuit__ip">{{ maskIpFirstBlock(geo.client.ip) || '-' }}</span>
-                </div>
-              </div>
-              <div v-if="geo?.client" class="tor-circuit__arrow">→</div>
-
-              <template v-for="(hop, i) in circuit.hops" :key="i">
-                <div class="tor-circuit__hop">
-                  <div class="tor-circuit__role">{{ t(`settings.tor.role.${hop.role}`) }}</div>
-                  <div class="tor-circuit__ident">
-                    <span v-if="hopCountryCode(hop)" class="tor-circuit__flag" :title="countryNameEnglish(hopCountryCode(hop))">{{ countryFlag(hopCountryCode(hop)) }}</span>
-                    <span v-if="hop.nickname && hop.nickname !== 'Unnamed'" class="tor-circuit__nick">{{ hop.nickname }}</span>
-                    <span class="tor-circuit__ip">{{ hop.ip || '-' }}</span>
-                  </div>
-                </div>
-                <div v-if="i < circuit.hops.length - 1" class="tor-circuit__arrow">→</div>
-              </template>
-            </div>
-          </div>
-
-        </template>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.tor.relays') }}</h4>
-          <p class="settings-note">{{ t('settings.tor.relaysNote') }}</p>
-
-          <div class="tor-relay-toolbar" :class="{ 'tor-relay-toolbar--disabled': !isTorRuntime() }">
-            <input
-              v-model="relaySearch"
-              class="settings-input tor-relay-search"
-              type="search"
-              :placeholder="t('settings.tor.searchPlaceholder')"
-              :aria-label="t('settings.tor.searchPlaceholder')"
-              :disabled="!isTorRuntime()"
-            />
-            <button type="button" class="btn settings-btn" :disabled="!isTorRuntime() || relaysLoading"
-              @click="requestRelays">
-              {{ relaysLoading ? t('settings.tor.loading') : t('settings.tor.refresh') }}
-            </button>
-          </div>
-          <p v-if="!isTorRuntime()" class="settings-note tor-relay-desktop-only">
-            {{ t('settings.tor.relaysDesktopOnly') }}
-          </p>
-          <p v-if="relays.length" class="settings-note tor-relay-count">
-            {{ t('settings.tor.resultsCount', { shown: String(filteredRelays.length), total: String(relays.length) }) }}
-          </p>
-
-          <p v-if="relaysError" class="settings-note" style="color: var(--red)">
-            {{ t('settings.tor.relaysError', { error: relaysError }) }}
-          </p>
-
-          <ul v-if="filteredRelays.length" class="tor-relay-list">
-            <li v-for="relay in filteredRelays" :key="relay.fingerprint" class="tor-relay">
-              <div class="tor-relay__head">
-                <span class="tor-relay__flag" :title="relay.countryName">{{ countryFlag(relay.country) }}</span>
-                <strong class="tor-relay__nickname">{{ relay.nickname }}</strong>
-                <span class="tor-relay__flags">
-                  <span v-for="flag in relay.flags" :key="flag" class="tor-relay__flag-tag">{{ relayFlagLabel(flag) }}</span>
-                </span>
-              </div>
-              <div class="tor-relay__meta">
-                <span class="tor-relay__address">{{ relay.address || '-' }}</span>
-                <span v-if="relay.asName" class="tor-relay__as">{{ relay.asName }}</span>
-              </div>
-              <a class="tor-relay__link" :href="relayDetailUrl(relay.fingerprint)"
-                target="_blank" rel="noopener noreferrer">
-                {{ t('settings.tor.details') }}
-              </a>
-            </li>
-          </ul>
-          <p v-else-if="!relaysLoading && relays.length" class="settings-note">
-            {{ t('settings.tor.noSearchResults') }}
-          </p>
-        </div>
-      </section>
-
-      <section v-else-if="activeSection === 'advanced'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.advanced.connection') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.autoReconnect') }}</span>
-            <input type="checkbox" :checked="messenger.state.autoReconnectEnabled"
-              @change="messenger.setAutoReconnectEnabled(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.serverClears') }}</span>
-            <input type="checkbox" v-model="messenger.state.serverClearsLocalMessages"
-              @change="messenger.setServerClearsLocalMessages(messenger.state.serverClearsLocalMessages)" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.advanced.serverClearsNote') }}
-          </p>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.serverDefaultRoom') }}</span>
-            <input type="checkbox" :checked="messenger.state.allowServerDefaultRoom"
-              @change="messenger.setAllowServerDefaultRoom(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.advanced.uploads') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.autoArchive') }}</span>
-            <input type="checkbox" :checked="messenger.state.autoArchiveUploads"
-              @change="messenger.setAutoArchiveUploads(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.advanced.autoArchiveNote') }}
-          </p>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.renameUploads') }}</span>
-            <input type="checkbox" :checked="messenger.state.renameUploadsRandomly"
-              @change="messenger.setRenameUploadsRandomly(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.advanced.renameUploadsNote') }}
-          </p>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.stripExif') }}</span>
-            <input type="checkbox" :checked="messenger.state.stripImageExif"
-              @change="messenger.setStripImageExif(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.advanced.stripExifNote') }}
-          </p>
-        </div>
-
-        <div class="settings-group">
-          <h4>{{ t('settings.privacy.title') }}</h4>
-          <label class="settings-check">
-            <span>{{ t('settings.privacy.deleteOnLeave') }}</span>
-            <input type="checkbox" :checked="messenger.state.deleteMessagesOnLeave"
-              @change="messenger.setDeleteMessagesOnLeave(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <label class="settings-check">
-            <span>{{ t('settings.privacy.streamerMode') }}</span>
-            <input type="checkbox" :checked="messenger.state.streamerMode"
-              @change="messenger.setStreamerMode(targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-          <p class="settings-note">
-            {{ t('settings.privacy.streamerNote') }}
-          </p>
-          <label class="settings-check">
-            <span>{{ t('settings.advanced.disableTypingSend') }}</span>
-            <input type="checkbox" :checked="!messenger.state.typingIndicatorsEnabled"
-              @change="messenger.setTypingIndicatorsEnabled(!targetChecked($event))" />
-            <span class="toggle__track"><span class="toggle__thumb"></span></span>
-          </label>
-        </div>
-
-        <div v-if="isTorRuntime()" class="settings-group">
-          <h4>{{ t('settings.advanced.discordRpc.title') }}</h4>
-          <template v-if="discordRpcReady">
-            <label class="settings-check">
-              <span>{{ t('settings.advanced.discordRpc.enabled') }}</span>
-              <input type="checkbox" :checked="discordRpcEnabled"
-                @change="toggleDiscordRpcEnabled(targetChecked($event))" />
-              <span class="toggle__track"><span class="toggle__thumb"></span></span>
-            </label>
-            <p class="settings-note">
-              {{ t('settings.advanced.discordRpc.enabledNote') }}
-            </p>
-            <label class="settings-check">
-              <span>{{ t('settings.advanced.discordRpc.showPlatform') }}</span>
-              <input type="checkbox" :checked="discordRpcShowPlatform"
-                @change="toggleDiscordRpcShowPlatform(targetChecked($event))" />
-              <span class="toggle__track"><span class="toggle__thumb"></span></span>
-            </label>
-            <p class="settings-note">
-              {{ t('settings.advanced.discordRpc.showPlatformNote') }}
-            </p>
-            <p class="settings-note">
-              {{ discordRpcConnected
-                ? t('settings.advanced.discordRpc.connected')
-                : t('settings.advanced.discordRpc.disconnected') }}
-            </p>
-          </template>
-          <p v-else class="settings-note">
-            {{ t('settings.advanced.discordRpc.unavailable') }}
-          </p>
-        </div>
-      </section>
+      <SettingsAdvanced v-else-if="activeSection === 'advanced'" :messenger="messenger" />
 
       <section v-else-if="activeSection === 'admin'" class="settings-page">
         <AdminSettings :messenger="messenger" />
@@ -2480,12 +1263,8 @@ onBeforeUnmount(() => {
           <p class="settings-note">{{ t('settings.backups.note') }}</p>
           <div class="settings-actions">
             <button type="button" class="btn settings-btn" @click="onExport">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3v12" />
-                <path d="m6 9 6-6 6 6" />
-                <path d="M5 21h14" />
-              </svg>
+              <Icon name="upload" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" />
               {{ t('settings.backups.export') }}
             </button>
             <button type="button" class="btn settings-btn" @click="onImport">
@@ -2515,9 +1294,7 @@ onBeforeUnmount(() => {
       <section v-else-if="activeSection === 'donation'" class="settings-page">
         <div class="settings-group">
           <div class="donation-hero">
-            <svg class="donation-hero__heart" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 21s-7.5-4.7-9.8-9.2C.4 8.6 2.7 5 6.5 5c2.2 0 3.9 1.2 5.5 3.2C13.6 6.2 15.3 5 17.5 5c3.8 0 6.1 3.6 4.3 6.8C19.5 16.3 12 21 12 21Z" />
-            </svg>
+            <Icon name="heart" class="donation-hero__heart" viewBox="0 0 24 24" aria-hidden="true" />
             <h4>{{ t('settings.donation.title') }}</h4>
             <p class="settings-note">{{ t('settings.donation.subtitle') }}</p>
           </div>
@@ -2538,7 +1315,26 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section v-else class="settings-page">
+      <section v-else class="settings-page settings-page--about">
+        <div class="settings-group">
+          <h4>{{ t('settings.about.integrity') }}</h4>
+          <p class="settings-note">{{ t('settings.about.integrityNote') }}</p>
+          <template v-for="entry in [
+            { key: 'app', label: t('settings.about.appFingerprint'), value: fingerprints?.app || '' },
+            { key: 'ui', label: t('settings.about.uiFingerprint'), value: fingerprints?.ui || '' }
+          ]" :key="entry.key">
+            <div v-if="entry.key === 'ui' || isTauri" class="about-fingerprint">
+              <span class="about-fingerprint__label">{{ entry.label }}</span>
+              <code v-if="entry.value" class="about-fingerprint__hash">{{ groupHex(entry.value) }}</code>
+              <span v-else class="about-fingerprint__hash is-pending">{{ fingerprints ? t('settings.about.fingerprintUnavailable') : t('settings.about.fingerprintComputing') }}</span>
+              <button v-if="entry.value" type="button" class="about-fingerprint__copy" :aria-label="t('settings.about.copyFingerprint')"
+                :title="t('settings.about.copyFingerprint')" @click="copyFingerprint(entry.value)">
+                <Icon name="copy" viewBox="0 0 24 24" />
+              </button>
+            </div>
+          </template>
+        </div>
+
         <div class="settings-group">
           <h4>{{ t('settings.about.licenses') }}</h4>
           <div class="about-hero">
@@ -2566,11 +1362,19 @@ onBeforeUnmount(() => {
 
         <div class="settings-group">
           <h4>{{ t('settings.about.topContributors') }}</h4>
-          <template v-if="topContributors.length">
-            <ul class="about-contributors">
-              <li v-for="contributor in topContributors" :key="contributor.login" class="about-contributor">
+          <!-- Skeleton while the request runs, then the real list in its place,
+               so the section never jumps from a button to three rows at once. -->
+          <Transition name="qx-fade" mode="out-in">
+            <ul v-if="topContributors.length" key="list" class="about-contributors">
+              <li v-for="(contributor, index) in topContributors" :key="contributor.login" class="about-contributor"
+                :style="{ '--n': index }">
                 <a :href="contributor.html_url" target="_blank" rel="noopener noreferrer" class="about-contributor__link">
-                  <img class="about-contributor__avatar" :src="contributor.avatar_url" :alt="contributor.login" loading="lazy" referrerpolicy="no-referrer" />
+                  <span class="about-contributor__avatar-frame">
+                    <img class="about-contributor__avatar"
+                      :class="{ 'is-loaded': loadedAvatars.has(contributor.login) }" :src="contributor.avatar_url"
+                      :alt="contributor.login" referrerpolicy="no-referrer"
+                      @load="markAvatarLoaded(contributor.login)" @error="markAvatarLoaded(contributor.login)" />
+                  </span>
                   <span class="about-contributor__meta">
                     <span class="about-contributor__name-row">
                       <strong class="about-contributor__name">{{ contributor.login }}</strong>
@@ -2581,11 +1385,23 @@ onBeforeUnmount(() => {
                 </a>
               </li>
             </ul>
-          </template>
-          <template v-else>
+            <ul v-else-if="contributorsLoading" key="loading" class="about-contributors is-loading" aria-busy="true"
+              :aria-label="t('settings.about.loading')">
+              <li v-for="n in 3" :key="n" class="about-contributor" :style="{ '--n': n - 1 }">
+                <span class="about-contributor__link">
+                  <span class="about-skeleton about-skeleton--avatar"></span>
+                  <span class="about-contributor__meta">
+                    <span class="about-skeleton about-skeleton--name"></span>
+                    <span class="about-skeleton about-skeleton--count"></span>
+                  </span>
+                </span>
+              </li>
+            </ul>
+          </Transition>
+          <template v-if="!topContributors.length && !contributorsLoading">
             <p v-if="contributorsError" class="settings-note">{{ t('settings.about.contributorsError') }}</p>
-            <button type="button" class="btn settings-btn" :disabled="contributorsLoading" @click="requestContributors">
-              {{ contributorsLoading ? t('settings.about.loading') : t('settings.about.loadContributors') }}
+            <button type="button" class="btn settings-btn" @click="requestContributors">
+              {{ t('settings.about.loadContributors') }}
             </button>
           </template>
         </div>
@@ -2733,7 +1549,7 @@ onBeforeUnmount(() => {
 @media (max-width: 820px) {
   .settings.settings-enter-active,
   .settings.settings-leave-active {
-    transition: opacity 200ms ease, transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
   }
 
   .settings.settings-enter-from,
@@ -2743,330 +1559,8 @@ onBeforeUnmount(() => {
   }
 }
 
-:global(.app.app--desktop-titlebar) .settings.settings-enter-active,
-:global(.app.app--desktop-titlebar) .settings.settings-leave-active,
-:global(.app.is-tauri) .settings.settings-enter-active,
-:global(.app.is-tauri) .settings.settings-leave-active,
-:global(.app.is-web-titlebar) .settings.settings-enter-active,
-:global(.app.is-web-titlebar) .settings.settings-leave-active {
-  transition: none !important;
-  transform: none !important;
-}
-
-.turn-server-detail {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: var(--color-bg-input, rgba(255,255,255,0.04));
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.turn-server-detail__urls {
-  font-size: 12px;
-  color: var(--color-text-dim, #888);
-  font-family: monospace;
-  word-break: break-all;
-}
-
-.turn-server-detail__hint {
-  font-size: 11px;
-  color: var(--color-text-dim, #999);
-  line-height: 1.4;
-}
-
-.custom-turn-list {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.custom-turn-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--color-bg-input, rgba(255,255,255,0.04));
-}
-
-.custom-turn-row__info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
-}
-
-.custom-turn-row__info strong {
-  font-size: 13px;
-  color: var(--color-text, #e5e5e5);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom-turn-row__info small {
-  font-size: 11px;
-  color: var(--color-text-dim, #888);
-  font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom-turn-row .icon-btn {
-  flex: none;
-  width: 28px;
-  height: 28px;
-}
-
-.turn-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.turn-form-field:first-of-type {
-  margin-top: 16px;
-}
-
-.turn-form-field .settings-field {
-  min-height: 0;
-  gap: 0;
-}
-
-.turn-form-submit {
-  margin-top: 16px;
-}
-
 .settings-note--error {
   color: var(--red, #ff6b70);
-}
-
-/* ---- Tor connectivity ---- */
-.tor-only-desktop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  text-align: center;
-  padding: 40px 24px;
-}
-
-.tor-only-desktop__icon {
-  width: 96px;
-  height: 96px;
-  object-fit: contain;
-}
-
-.tor-only-desktop__title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text, #f4f4f5);
-}
-
-.tor-only-desktop__copy {
-  max-width: 420px;
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--muted, #8a8a90);
-}
-
-.tor-only-desktop__cta {
-  margin-top: 8px;
-  text-decoration: none;
-}
-
-.tor-relay-toolbar {
-  display: flex;
-  gap: 8px;
-  margin: 16px 0 0;
-}
-
-.tor-relay-search {
-  flex: 1;
-  min-width: 0;
-}
-
-/* On phone, the global mobile styles force every `.settings-btn` to `width:
-   100%`, which makes the refresh button hijack the whole toolbar row. Keep it
-   compact so it sits beside the search input instead. */
-@media (max-width: 640px) {
-  .tor-relay-toolbar .settings-btn {
-    width: auto;
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-}
-
-.tor-relay-toolbar--disabled .settings-input,
-.tor-relay-toolbar--disabled .settings-btn {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.tor-relay-desktop-only {
-  margin-top: 10px;
-}
-
-.tor-relay-count {
-  margin-top: 8px;
-}
-
-.tor-relay-list {
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 46vh;
-  overflow-y: auto;
-}
-
-.tor-circuit {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 8px;
-  margin-top: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.tor-circuit-note {
-  margin-bottom: 14px;
-}
-.tor-circuit__hop {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface, #2c2c2e) 70%, transparent);
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
-  min-width: 0;
-  flex: none;
-}
-.tor-circuit__role {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--accent, #2090ea);
-}
-.tor-circuit__ip {
-  font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--text, #f4f4f5);
-}
-.tor-circuit__ident {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-.tor-circuit__flag {
-  font-size: 14px;
-  line-height: 1;
-}
-.tor-circuit__nick {
-  font-size: 11px;
-  color: var(--muted, #8a8a90);
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tor-circuit__arrow {
-  color: var(--muted, #8a8a90);
-  flex: none;
-}
-
-.tor-relay {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.04));
-  border-radius: 12px;
-  background: var(--surface-2, #3a3a3d);
-}
-
-.tor-relay__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.tor-relay__flag {
-  font-size: 16px;
-  line-height: 1;
-  flex: none;
-}
-
-.tor-relay__nickname {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text, #f4f4f5);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tor-relay__flags {
-  display: flex;
-  gap: 4px;
-  flex: none;
-  margin-left: auto;
-}
-
-.tor-relay__flag-tag {
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, #2090ea) 16%, transparent);
-  color: var(--accent, #2090ea);
-}
-
-.tor-relay__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  font-size: 12px;
-  color: var(--muted, #8a8a90);
-}
-
-.tor-relay__address {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.tor-relay__as {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tor-relay__link {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent, #2090ea);
-  text-decoration: none;
-  align-self: flex-start;
-}
-
-.tor-relay__link:hover {
-  text-decoration: underline;
 }
 
 .phantom-blocked-list {
@@ -3227,46 +1721,75 @@ onBeforeUnmount(() => {
   display: block;
 }
 
+/* One grouped list: the rows sit in the group's own box and are told apart
+   by an inset hairline, instead of each being a bordered box inside it. */
 .about-contributors {
   list-style: none;
   margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+.about-contributor + .about-contributor .about-contributor__link {
+  background-image: linear-gradient(to right, transparent 0 48px, var(--line-strong) 48px);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top left;
 }
 
 .about-contributor__link {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
-  background: var(--surface-2, #2c2c2e);
+  padding: 9px 0;
   text-decoration: none;
 }
 
-.about-contributor__avatar {
+/* The rows arrive one after another once the list replaces the skeleton. */
+.about-contributors:not(.is-loading) .about-contributor {
+  animation: contributor-in var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--n) * 70ms);
+}
+
+@keyframes contributor-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.about-contributor__avatar-frame {
+  flex: none;
   width: 36px;
   height: 36px;
+  overflow: hidden;
   border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* An avatar shows once it has arrived rather than popping into a hole. */
+.about-contributor__avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--surface, #1b1b1d);
-  flex: none;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.about-contributor__avatar.is-loaded {
+  opacity: 1;
 }
 
 .about-contributor__meta {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .about-contributor__name {
   font-size: 14px;
-  font-weight: 700;
-  color: var(--text, #f4f4f5);
+  font-weight: 600;
+  color: var(--text);
 }
 
 .about-contributor__name-row {
@@ -3283,27 +1806,64 @@ onBeforeUnmount(() => {
   line-height: 1;
   padding: 4px 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, #2090ea) 16%, transparent);
-  color: var(--accent, #2090ea);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
   white-space: nowrap;
 }
 
 .about-contributor__count {
   font-size: 12px;
-  color: var(--muted, #8a8a90);
+  color: var(--muted);
 }
 
-.about-contributor__link:hover {
-  border-color: var(--line-strong, rgba(255, 255, 255, 0.12));
+.about-contributor__link:hover .about-contributor__name {
+  color: var(--accent);
 }
 
-.recovery-signed {
-  color: var(--green) !important;
+/* Placeholders the shape of a row, with a light sweeping across them. */
+.about-skeleton {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+      color-mix(in srgb, var(--text) 7%, transparent) 0%,
+      color-mix(in srgb, var(--text) 15%, transparent) 50%,
+      color-mix(in srgb, var(--text) 7%, transparent) 100%);
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--n, 0) * 120ms);
 }
 
-.recovery-unsigned {
-  color: var(--red) !important;
-  font-weight: 600;
+.about-skeleton--avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.about-skeleton--name {
+  width: 120px;
+  height: 11px;
+}
+
+.about-skeleton--count {
+  width: 72px;
+  height: 9px;
+}
+
+@keyframes skeleton-sweep {
+  from { background-position: 110% 0; }
+  to { background-position: -110% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .about-contributors:not(.is-loading) .about-contributor {
+    animation: none;
+  }
+
+  .about-skeleton {
+    animation: none;
+  }
 }
 
 /* Barre flottante « Modifications repérées [Sauvegarder] » */
@@ -3311,7 +1871,7 @@ onBeforeUnmount(() => {
   position: fixed;
   left: 50%;
   bottom: 24px;
-  z-index: 240;
+  z-index: var(--z-sheet);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -3342,8 +1902,8 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out,
-    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
 }
 
 .settings-save-bar__revert:hover {
@@ -3365,7 +1925,7 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 140ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .settings-save-bar__btn:active:not(:disabled) {
@@ -3405,12 +1965,276 @@ onBeforeUnmount(() => {
 
 .save-bar-enter-active,
 .save-bar-leave-active {
-  transition: opacity 160ms ease, transform 200ms cubic-bezier(0.16, 0.8, 0.2, 1);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .save-bar-enter-from,
 .save-bar-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(12px);
+}
+
+.about-fingerprint {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--field-bg);
+}
+
+.about-fingerprint__label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.about-fingerprint__hash {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+  color: var(--text);
+}
+
+.about-fingerprint__hash.is-pending {
+  color: var(--muted);
+  font-family: var(--font);
+}
+
+.about-fingerprint__copy {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.about-fingerprint__copy:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+
+.about-fingerprint__copy svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.profile-links__title {
+  display: block;
+  margin-top: 12px;
+}
+
+.profile-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.profile-links__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.profile-links__url.is-invalid {
+  box-shadow: inset 0 0 0 1px var(--red);
+}
+
+.profile-link-enter-active,
+.profile-link-leave-active {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.profile-link-enter-from,
+.profile-link-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (max-width: 640px) {
+  .profile-links__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .profile-links__url {
+    grid-column: 1 / 2;
+  }
+}
+
+.theme-studio__body {
+  margin-top: 10px;
+}
+
+.theme-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--preview-tint) 10%, var(--bg));
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.theme-preview__bubble {
+  max-width: 70%;
+  padding: 7px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.theme-preview__bubble--in {
+  align-self: flex-start;
+  background: var(--bubble-in);
+  color: var(--text);
+}
+
+.theme-preview__bubble--out {
+  align-self: flex-end;
+  background: var(--preview-accent);
+  color: #fff;
+}
+
+.theme-preview__chip {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--preview-accent) 18%, transparent);
+  color: var(--preview-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.theme-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+
+.theme-preset {
+  display: flex;
+  overflow: hidden;
+  width: 44px;
+  height: 28px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.theme-preset span {
+  flex: 1;
+}
+
+.theme-preset:hover {
+  transform: scale(1.06);
+}
+
+.theme-preset.is-active {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.theme-field {
+  border-bottom: 1px solid var(--line);
+}
+
+.theme-field__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 46px;
+  color: var(--text);
+  font-size: 15px;
+  text-align: left;
+}
+
+.theme-field__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-field__value code {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.theme-field__swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.theme-field__picker {
+  padding: 6px 6px 14px;
+}
+
+/* Keyframes rather than transitions: the colour cross-fade overrides every transition while it runs. */
+.theme-disclose-enter-active {
+  animation: theme-disclose-in var(--dur-slow) var(--ease-out) both;
+  transform-origin: top center;
+}
+
+.theme-disclose-leave-active {
+  animation: theme-disclose-out var(--dur-base) var(--ease-in) both;
+  transform-origin: top center;
+}
+
+@keyframes theme-disclose-in {
+  from { opacity: 0; transform: translateY(-10px) scale(.98); }
+}
+
+@keyframes theme-disclose-out {
+  to { opacity: 0; transform: translateY(-8px) scale(.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-disclose-enter-active,
+  .theme-disclose-leave-active {
+    animation-duration: 1ms;
+  }
+}
+
+.theme-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.theme-import {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (max-width: 820px) {
+  .settings-page--about .settings-group {
+    padding: 0;
+    margin: 0 0 26px;
+  }
+
+  .settings-page--about :deep(.settings-actions) {
+    display: flex;
+    flex-wrap: wrap;
+  }
 }
 </style>

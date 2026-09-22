@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import ModalShell from "@/components/ModalShell.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   open: { type: Boolean, default: false },
   roomId: { type: String, default: "" },
   targetUserId: { type: String, default: "" }
@@ -39,12 +43,12 @@ function close() {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="mute-modal-backdrop" @click.self="close">
-      <div class="mute-modal" role="dialog" :aria-label="t('rooms.muteTitle')">
+    <ModalShell :open="open" backdrop-class="mute-modal-backdrop" @close="close">
+      <div v-sheet-dismiss="close" class="mute-modal" role="dialog" :aria-label="t('rooms.muteTitle')">
         <header class="mute-modal__head">
           <h2 class="mute-modal__title">{{ t('rooms.muteTitle') }}</h2>
           <button class="icon-btn mute-modal__close" type="button" :aria-label="t('message.cancel')" @click="close">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <Icon name="close" viewBox="0 0 24 24" />
           </button>
         </header>
 
@@ -68,7 +72,7 @@ function close() {
           </button>
         </footer>
       </div>
-    </div>
+    </ModalShell>
   </Teleport>
 </template>
 
@@ -76,7 +80,7 @@ function close() {
 .mute-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -137,7 +141,7 @@ function close() {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .mute-modal__duration:hover,
@@ -174,15 +178,7 @@ function close() {
   color: var(--text);
 }
 
-@keyframes mute-modal-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
-@keyframes mute-modal-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
 
 @media (max-width: 700px), (hover: none) and (pointer: coarse) {
   .mute-modal-backdrop {
@@ -190,7 +186,6 @@ function close() {
     align-items: flex-end;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: mute-modal-backdrop-in 160ms ease-out;
   }
 
   .mute-modal {
@@ -199,7 +194,6 @@ function close() {
     border-radius: 22px 22px 0 0;
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
     padding-bottom: max(18px, var(--app-safe-bottom));
-    animation: mute-modal-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     overscroll-behavior: contain;
   }
 

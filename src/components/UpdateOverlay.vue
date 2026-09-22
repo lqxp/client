@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
 import { inject } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import { useUpdater } from "@/composables/useUpdater";
@@ -22,7 +23,7 @@ const {
         <button
           v-if="phase === 'error' || phase === 'upToDate'"
           class="update-close-btn"
-          aria-label="Close"
+          :aria-label="t('updater.close')"
           @click="dismissOverlay"
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
@@ -59,15 +60,11 @@ const {
                 </div>
 
                 <div v-else-if="phase === 'found'" class="icon-slot found-badge">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
+                  <Icon name="download-outline" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" />
                 </div>
 
                 <div v-else-if="phase === 'downloading'" class="icon-slot download-badge">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
+                  <Icon name="download-outline" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" />
                 </div>
 
                 <div v-else-if="phase === 'installing'" class="icon-slot installing-badge">
@@ -124,7 +121,7 @@ const {
 .update-screen {
   position: fixed;
   inset: 0;
-  z-index: 9999999;
+  z-index: var(--z-update);
   width: var(--app-viewport-width);
   height: var(--app-viewport-height);
   background: #0f0c1b;
@@ -147,7 +144,7 @@ const {
   filter: blur(32px) brightness(0.7);
   opacity: 0.95;
   z-index: 0;
-  transition: background-image 0.3s ease;
+  transition: background-image var(--dur-slow) var(--ease-out);
 }
 
 :global(:root[data-theme="light"] .update-screen) {
@@ -187,7 +184,7 @@ const {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--dur-base) var(--ease-out);
 }
 
 :global(:root[data-theme="light"] .update-close-btn) {
@@ -241,7 +238,7 @@ const {
   stroke-dasharray: 251;
   stroke-dashoffset: 251;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.25s ease-out;
+  transition: stroke-dashoffset var(--dur-base) var(--ease-out);
 }
 
 .hero-icon-content {
@@ -374,7 +371,7 @@ const {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: background 0.2s ease;
+  transition: background var(--dur-base) var(--ease-out);
 }
 
 .update-primary-btn:hover {
@@ -390,7 +387,7 @@ const {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background var(--dur-base) var(--ease-out);
 }
 
 :global(:root[data-theme="light"] .update-secondary-btn) {
@@ -406,7 +403,7 @@ const {
 /* Ultra smooth scale-fade transition */
 .phase-fade-enter-active,
 .phase-fade-leave-active {
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .phase-fade-enter-from {
@@ -421,11 +418,21 @@ const {
 
 .update-screen-fade-enter-active,
 .update-screen-fade-leave-active {
-  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity var(--dur-slow) var(--ease-out);
 }
 
 .update-screen-fade-enter-from,
 .update-screen-fade-leave-to {
   opacity: 0;
+}
+
+/* A spinning gear and an orbiting loupe say "working" just as well standing
+   still, for anyone who has asked the system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+
+  .loupe-search,
+  .install-gear-spin {
+    animation: none;
+  }
 }
 </style>

@@ -1,4 +1,128 @@
 {
+    "errors": {
+        "cryptoUnavailable": "La API de cifrado del navegador no está disponible.",
+        "clipboardFailed": "No se pudo copiar al portapapeles.",
+        "lockNeedsCrypto": "El bloqueo requiere Web Crypto.",
+        "lockEnableFailed": "No se pudo activar el bloqueo.",
+        "lockWiped": "QxChat se restableció tras demasiados PIN incorrectos.",
+        "invalidPin": "PIN incorrecto.",
+        "opsecNeedsCrypto": "OpSec requiere Web Crypto.",
+        "malformedAccount": "Respuesta de cuenta no válida.",
+        "challengeFailed": "No se pudo obtener el desafío de seguridad.",
+        "registerFailed": "El registro falló.",
+        "loginFailed": "El inicio de sesión falló.",
+        "recoveryFailed": "La recuperación falló.",
+        "adminOverviewFailed": "No se pudo cargar el resumen de administración.",
+        "adminSearchFailed": "La búsqueda de usuarios falló.",
+        "featureUpdateFailed": "No se pudo actualizar la opción.",
+        "noLocalRoomKey": "Esta sala no tiene clave local.",
+        "defaultRoomUpdateFailed": "No se pudo definir la sala predeterminada.",
+        "defaultRoomClearFailed": "No se pudo quitar la sala predeterminada.",
+        "userUpdateFailed": "No se pudo actualizar la cuenta.",
+        "userDeleteFailed": "No se pudo eliminar la cuenta.",
+        "badgeUpdateFailed": "No se pudieron actualizar las insignias.",
+        "invalidRoomId": "ID de sala no válido.",
+        "webCryptoUnavailable": "Web Crypto no está disponible en este navegador.",
+        "roomKeyStoreFailed": "No se pudo guardar la clave de la sala.",
+        "noRoomKey": "No hay clave de sala disponible.",
+        "roomIconNotImage": "El icono de la sala debe ser una imagen.",
+        "roomIconTooLarge": "El icono de la sala debe pesar menos de 5 MB.",
+        "roomIconBadUrl": "El servidor devolvió una URL de icono no válida.",
+        "roomIconUploadFailed": "No se pudo subir el icono de la sala.",
+        "roomGenerateFailed": "No se pudo crear una sala segura.",
+        "roomIconPrepareFailed": "No se pudo preparar el icono de la sala.",
+        "screenNoVideo": "La pantalla compartida no tiene pista de vídeo.",
+        "profileImageFormat": "Las imágenes de perfil admiten PNG, APNG, GIF, JPEG y WEBP.",
+        "imageDimensions": "Dimensiones de imagen no válidas.",
+        "profileImageRead": "No se pudo leer la imagen de perfil.",
+        "audioDevicesUnavailable": "Los dispositivos de audio no están disponibles en este navegador.",
+        "micPermissionTest": "Se necesita permiso del micrófono para probar el audio.",
+        "tokenCopyFailed": "Sala abierta. No se pudo copiar el token.",
+        "malformedPayload": "Datos recibidos no válidos.",
+        "websocket": "Error de conexión en tiempo real.",
+        "encryptFailed": "El cifrado del mensaje falló.",
+        "notJoined": "Aún no te has unido a esta sala.",
+        "notConnected": "Sin conexión.",
+        "joinRoomFirst": "Únete primero a una sala.",
+        "recording": "Error de grabación.",
+        "micDenied": "Acceso al micrófono denegado.",
+        "micDeniedLabel": "Acceso al micrófono denegado",
+        "invisibleNoCall": "Sal del modo invisible antes de unirte a una llamada.",
+        "cameraNoVideo": "La cámara no tiene pista de vídeo.",
+        "cameraDenied": "Acceso a la cámara denegado.",
+        "screenCancelled": "Se canceló la pantalla compartida.",
+        "usernameChangeFailed": "No se pudo cambiar el nombre de usuario.",
+        "editFailed": "No se pudo editar el mensaje.",
+        "notAuthenticated": "No autenticado.",
+        "missingUsername": "Falta el nombre de usuario.",
+        "sessionRenewFailed": "No se pudo renovar la sesión.",
+        "decryptMessageFailed": "No se pudo procesar un mensaje cifrado.",
+        "decryptHistoryFailed": "No se pudo descifrar el historial de la sala.",
+        "editedMessageFailed": "No se pudo procesar un mensaje editado.",
+        "fileRead": "No se pudo leer el archivo.",
+        "backupInvalid": "Este archivo no es una copia válida.",
+        "requestFailed": "La solicitud falló ({status})",
+        "imageTooLarge": "{what}: archivo demasiado grande ({size} > {limit})",
+        "connectionFailed": "Error de conexión: {reason}",
+        "fileTooLarge": "Archivo demasiado grande: {name} ({size} > {limit})",
+        "uploadFailed": "La subida falló: {reason}",
+        "importFailed": "La importación falló: {reason}",
+        "captchaRequired": "Completa primero el CAPTCHA.",
+        "vdfInvalid": "Se recibió un desafío de seguridad no válido del servidor.",
+        "pqcMissing": "El servidor no envió su desafío de seguridad poscuántico.",
+        "pqcUnsupported": "Tu navegador no admite la criptografía poscuántica. Actualízalo.",
+        "roomKeyRequired": "Esta sala necesita su clave de token antes de poder enviar mensajes cifrados.",
+        "connectionLost": "Conexión perdida. Reconectando…",
+        "pollTooLong": "Esta encuesta es demasiado larga. Acorta la pregunta o las respuestas."
+    },
+    "labels": {
+        "customTurn": "TURN personalizado",
+        "fileAttachment": "Archivo adjunto",
+        "noMessagesYet": "Aún no hay mensajes",
+        "banner": "Banner",
+        "profileImage": "Imagen de perfil",
+        "anonymous": "anónimo",
+        "photo": "Foto",
+        "video": "Vídeo",
+        "voiceMessage": "Mensaje de voz",
+        "poll": "Encuesta",
+        "hiddenChannel": "Sala oculta"
+    },
+    "notices": {
+        "lockEnabled": "Bloqueo activado.",
+        "locked": "QxChat bloqueado.",
+        "duressEnabled": "PIN de coacción activado.",
+        "lockDisabled": "Bloqueo desactivado.",
+        "tokenCopied": "Token de la sala copiado.",
+        "backupExported": "Copia exportada.",
+        "backupImported": "Copia importada."
+    },
+    "notifications": {
+        "titleIn": "{user} en {room}",
+        "newMessage": "Nuevo mensaje"
+    },
+    "cap": {
+        "label": "Verificación Cap",
+        "verify": "Verifica que eres humano",
+        "verifying": "Verificando ({progress}%)",
+        "done": "Eres humano",
+        "error": "Error. Inténtalo de nuevo.",
+        "ariaIdle": "Haz clic para verificar que eres humano",
+        "ariaVerifying": "Verificando, espera por favor",
+        "ariaDone": "Hemos verificado que eres humano",
+        "ariaError": "Se produjo un error, inténtalo de nuevo",
+        "securedBy": "Protegido por Cap",
+        "securedByTitle": "Protegido por Cap, el CAPTCHA autoalojado para la web moderna."
+    },
+    "textPreview": {
+        "loading": "Cargando vista previa",
+        "close": "Cerrar vista previa",
+        "controls": "Controles de la vista previa",
+        "download": "Descargar archivo",
+        "openTab": "Abrir en una pestaña nueva",
+        "dialogLabel": "Vista previa del archivo de texto: {name}",
+        "contentLabel": "Contenido del archivo de texto: {name}"
+    },
     "chart": {
         "graph": "Gráfico",
         "table": "Tabla",
@@ -22,7 +146,13 @@
         "disableStreamer": "Desactivar modo streamer",
         "moveToTray": "Mover {action} a la bandeja",
         "moveFromTray": "Sacar {action} de la bandeja",
-        "rightClickHint": "Haz clic derecho en un icono de la barra para moverlo a la bandeja."
+        "rightClickHint": "Haz clic derecho en un icono de la barra para moverlo a la bandeja.",
+        "desktopTitleBar": "Barra de título",
+        "windowControls": "Controles de ventana",
+        "minimize": "Minimizar",
+        "maximize": "Maximizar",
+        "restore": "Restaurar",
+        "close": "Cerrar"
     },
     "onboarding": {
         "register": "Registrarse",
@@ -42,7 +172,12 @@
         "submit": "Continuar",
         "usernamePlaceholder": "ej. echo",
         "passwordPlaceholder": "Contraseña",
-        "recoveryPlaceholder": "Palabras de recuperación"
+        "recoveryPlaceholder": "Palabras de recuperación",
+        "modeLabel": "Modo de autenticación",
+        "password": "Contraseña",
+        "recoveryWords": "Palabras de recuperación",
+        "newPassword": "Nueva contraseña",
+        "pleaseWait": "Espera"
     },
     "sessionExpired": {
         "title": "Sesión expirada",
@@ -113,7 +248,10 @@
         "leaveAllRoomsDelete": "Salir de todas las salas y borrar mensajes",
         "leaveAllRoomsConfirm": "¿Salir de todas las salas?",
         "leaveAllRoomsDeleteConfirm": "¿Salir de todas las salas y borrar sus mensajes locales?",
-        "statusOptions": "Estado"
+        "statusOptions": "Estado",
+        "onlineHint": "Visible para todos",
+        "invisibleHint": "Desconectado para los demás",
+        "dndHint": "Silenciar todas las notificaciones"
     },
     "members": {
         "presence": "Presencia",
@@ -124,7 +262,10 @@
         "seeAvatar": "Ver avatar",
         "seeBanner": "Ver banner",
         "viewProfile": "Ver perfil",
-        "copyUserId": "Copiar ID de usuario"
+        "copyUserId": "Copiar ID de usuario",
+        "platformsLabel": "Plataformas: {list}",
+        "platformsUnknown": "desconocidas",
+        "loading": "Cargando miembros"
     },
     "profile": {
         "close": "Cerrar perfil",
@@ -177,7 +318,12 @@
         "today": "Hoy",
         "yesterday": "Ayer",
         "typingOne": "{user} está escribiendo…",
-        "typingMany": "{count} personas están escribiendo…"
+        "typingMany": "{count} personas están escribiendo…",
+        "callStarted": "{user} inició una llamada",
+        "callStartedSelf": "Has iniciado una llamada",
+        "newMessages": "Mensajes nuevos",
+        "loadingHistory": "Cargando mensajes",
+        "unreadPill": {"one": "{count} mensaje nuevo", "other": "{count} mensajes nuevos"}
     },
     "composer": {
         "placeholder": "Mensaje",
@@ -207,7 +353,10 @@
             "flags": "Banderas"
         },
         "emojiSuggestions": "Sugerencias de emoji",
-        "emojiNoResult": "Ningún emoji encontrado"
+        "emojiNoResult": "Ningún emoji encontrado",
+        "attachBlocked": "No puedes enviar nada en esta sala.",
+        "moreActions": "Más acciones",
+        "mentionSuggestions": "Sugerencias de mención"
     },
     "message": {
         "deleted": "Mensaje eliminado",
@@ -243,7 +392,15 @@
         "reactions": "Reacciones",
         "back": "Atrás",
         "spoilerHidden": "Texto oculto, haz clic para revelar",
-        "moreReactions": "Más reacciones"
+        "moreReactions": "Más reacciones",
+        "react": "Reaccionar",
+        "avatarOf": "Avatar de {name}",
+        "copyCode": "Copiar código",
+        "viewReactions": "Ver reacciones",
+        "reactionsAll": "Todas",
+        "addReaction": "Añadir una reacción",
+        "close": "Cerrar",
+        "imageUnavailable": "Imagen no disponible"
     },
     "call": {
         "live": "En vivo",
@@ -322,7 +479,17 @@
             "deleteAccountConfirm": "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
             "deleteAccountPrompt": "Introduce tu contraseña para confirmar la eliminación:",
             "deleteAccountError": "No se pudo eliminar la cuenta. Verifica tu contraseña.",
-            "revert": "Restablecer"
+            "revert": "Restablecer",
+            "richTitle": "Estado y enlaces",
+            "customStatus": "Estado personalizado",
+            "customStatusPlaceholder": "¿Qué quieres compartir?",
+            "links": "Enlaces",
+            "linkLabel": "Etiqueta",
+            "linkUrl": "Dirección del enlace",
+            "removeLink": "Quitar enlace",
+            "addLink": "Añadir un enlace",
+            "linksNote": "Hasta 4 enlaces, solo https. Se abren en una pestaña nueva sin revelar de dónde vienes.",
+            "linkInvalid": "Cada enlace debe empezar por https://"
         },
         "ui": {
             "theme": "Tema",
@@ -403,7 +570,8 @@
             "autolockOneHour": "1 hora",
             "autolockTwoHours": "2 horas",
             "autolockFiveHours": "5 horas",
-            "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar."
+            "clientLockNote": "Cuando está activo, los datos locales de QxChat se cifran en este dispositivo con una clave derivada del PIN. Sin el PIN no se pueden descifrar.",
+            "autolockMinutes": "{count} min"
         },
         "opsec": {
             "duressTitle": "Contraseña bajo coacción",
@@ -452,7 +620,13 @@
             "soundCameraOn": "Cámara activada",
             "soundCameraOff": "Cámara desactivada",
             "soundScreenOn": "Pantalla compartida activada",
-            "soundScreenOff": "Pantalla compartida desactivada"
+            "soundScreenOff": "Pantalla compartida desactivada",
+            "privacy": "Contenido de las notificaciones",
+            "privacyHidden": "Oculto",
+            "privacySender": "Solo el remitente",
+            "privacyFull": "Completo",
+            "privacyNote": "Oculto muestra solo «QxChat, Nuevo mensaje»: nada sobre quién escribió ni qué, ni siquiera en la pantalla de bloqueo.",
+            "localOnlyNote": "Las notificaciones se crean en este dispositivo. No se usa ningún servicio push de Google ni de Apple y nada pasa por terceros; QxChat debe seguir abierto en segundo plano para recibirlas."
         },
         "calls": {
             "calling": "Llamadas",
@@ -495,7 +669,13 @@
             "turnHints": {
                 "qxp-turn": "Relay propio en nuestra infraestructura, puede ser inestable según la carga. Sin IP expuesta, todo pasa por nuestro relay.",
                 "google-stun": "STUN público de Google, muy estable y rápido, pero ⚠️ tus IPs quedan expuestas (sin relay anónimo). Solo útil en red local o para pruebas."
-            }
+            },
+            "micGateIdle": "Inicia la prueba para ver tu nivel frente al umbral.",
+            "micGateOpen": "Tu voz pasa.",
+            "micGateClosed": "Por debajo del umbral, no se envía nada.",
+            "cameraPreviewHint": "Nada sale de este equipo. La vista previa es local.",
+            "inputLevel": "Nivel de entrada",
+            "turnLabelPlaceholder": "Mi TURN"
         },
         "tor": {
             "title": "Conectividad Tor",
@@ -546,7 +726,8 @@
             "details": "Detalles",
             "desktopOnly": "El enrutamiento por Tor solo está disponible en la aplicación de escritorio de QxChat, que incorpora el cliente Tor y enruta tu tráfico localmente. En la versión web, tu conexión depende de tu navegador y no puede enrutarse a través de Tor.",
             "downloadDesktop": "Descargar la aplicación de escritorio",
-            "relaysConfirmTitle": "Directorio de repetidores"
+            "relaysConfirmTitle": "Directorio de repetidores",
+            "ourServer": "Nuestro servidor"
         },
         "advanced": {
             "connection": "Conexión",
@@ -662,8 +843,8 @@
             "deleteAccount": "Eliminar esta cuenta",
             "roomsLegend": "Cada fila muestra las personas conectadas y luego los mensajes en memoria.",
             "none": "Ninguna",
-            "chartSignups": "Cuentas durante la última semana",
-            "chartSignupsNote": "Reconstruido a partir de los recuentos de 24 horas y 7 días, así que las cuentas borradas desde entonces no aparecen.",
+            "chartSignups": "Cuentas creadas por día",
+            "chartSignupsNote": "Los últimos 30 días, contados sobre las cuentas que existen ahora, así que las borradas no aparecen.",
             "chartMessages": "Mensajes en memoria por sala",
             "chartMessagesNote": "En memoria ahora mismo; el servidor no guarda historial.",
             "chartPlatforms": "Sesiones por plataforma",
@@ -677,7 +858,6 @@
             "ageWeekAccounts": "2 a 7 días",
             "ageOlderAccounts": "Más de una semana",
             "stateActive": "Activos",
-            "stateIdle": "Inactivos",
             "statMessages": "Mensajes",
             "statMessagesTotal": "En memoria",
             "statMessagesRooms": "Salas con mensajes",
@@ -697,7 +877,24 @@
             "chartLastMessage": "Salas por día del último mensaje",
             "chartLastMessageNote": "Cuenta las salas cuyo mensaje más reciente en memoria cae en cada día.",
             "chartPlatformsNote": "Reparto de las sesiones activas, por cliente.",
-            "chartAccountStateNote": "Todas las cuentas que guarda el servidor, por estado."
+            "chartAccountStateNote": "Todas las cuentas que guarda el servidor, por estado.",
+            "connectionNotVoice": "Fuera de voz",
+            "roomsQuiet": "Nadie conectado",
+            "statConnections": "Conexiones",
+            "statSessionsPerAccount": "Sesiones por cuenta",
+            "statConnectionsNote": "Más sesiones que cuentas significa que hay gente conectada desde varios sitios.",
+            "statShareOnline": "Proporción de cuentas en línea",
+            "chartOnline": "Cuentas en línea ahora",
+            "chartOnlineNote": "Cuentas distintas conectadas, frente a todas las cuentas del servidor.",
+            "stateOnline": "En línea",
+            "stateOffline": "Desconectadas",
+            "chartRoomVoice": "Personas en voz por sala",
+            "statRuntime": "Desde que arrancó el servidor",
+            "statMessagesRelayed": "Mensajes retransmitidos",
+            "statSessionsOpened": "Sesiones abiertas",
+            "statPeakSessions": "Máximo de sesiones a la vez",
+            "statRuntimeSince": "Contando desde",
+            "statRuntimeNote": "Contadores solo en memoria. No se escribe nada y se reinician al reiniciar el servidor."
         },
         "backups": {
             "title": "Copias de seguridad",
@@ -754,7 +951,35 @@
             "turnPassword": "Contraseña TURN",
             "userAgent": "User agent",
             "yes": "sí",
-            "no": "no"
+            "no": "no",
+            "integrity": "Integridad",
+            "integrityNote": "Compara estas huellas con las publicadas para esta versión. Si no coinciden, esta copia de la app ha sido modificada.",
+            "appFingerprint": "Aplicación (SHA-256)",
+            "uiFingerprint": "Interfaz (SHA-256)",
+            "fingerprintCopied": "Huella copiada.",
+            "fingerprintUnavailable": "No disponible",
+            "fingerprintComputing": "Calculando…",
+            "copyFingerprint": "Copiar la huella"
+        },
+        "sectionsNav": "Secciones de ajustes",
+        "theme": {
+            "title": "Tema personalizado",
+            "enable": "Usar colores personalizados",
+            "accent": "Acento",
+            "tint": "Fondo",
+            "copyCode": "Copiar el código del tema",
+            "copied": "Código del tema copiado.",
+            "codePlaceholder": "Pega un código de tema (QXT1.…)",
+            "import": "Importar",
+            "imported": "Tema aplicado.",
+            "invalidCode": "Este código de tema no es válido.",
+            "note": "Comparte tus colores con un código corto. Solo se comparten los colores, nada sobre ti.",
+            "previewIn": "Hola, ¿qué te parece?",
+            "previewOut": "Queda genial",
+            "previewChip": "Vista previa",
+            "presets": "Paletas",
+            "preset": "Paleta {n}",
+            "reset": "Volver al predeterminado"
         }
     },
     "imageViewer": {
@@ -763,7 +988,10 @@
         "openTab": "Abrir en nueva pestaña",
         "resetZoom": "Restablecer zoom",
         "zoomIn": "Acercar",
-        "zoomOut": "Alejar"
+        "zoomOut": "Alejar",
+        "controls": "Controles de la vista previa",
+        "dialogLabel": "Vista previa de la imagen: {name}",
+        "openLabel": "Abrir vista previa de la imagen: {name}"
     },
     "camera": {
         "title": "Tomar foto",
@@ -785,7 +1013,12 @@
         "captureFailed": "No se pudo tomar la foto."
     },
     "audio": {
-        "download": "Descargar audio"
+        "download": "Descargar audio",
+        "play": "Reproducir",
+        "pause": "Pausa",
+        "progress": "Progreso del audio",
+        "speed": "Velocidad de reproducción",
+        "save": "Guardar mensaje de voz"
     },
     "ban": {
         "title": "Cuenta expulsada",
@@ -794,6 +1027,7 @@
         "roomMessage": "Has sido expulsado de {channel}."
     },
     "rooms": {
+        "settingsSections": "Secciones de ajustes de la sala",
         "roleAdmin": "Administrador",
         "roleSubAdmin": "Subadministrador",
         "roleModerator": "Moderador",
@@ -876,7 +1110,8 @@
         "checkUpdates": "Buscar actualizaciones",
         "availableTitle": "Actualización disponible",
         "skipTitle": "¿Omitir actualización?",
-        "skipHint": "Haz clic aquí para omitir la actualización"
+        "skipHint": "Haz clic aquí para omitir la actualización",
+        "close": "Cerrar"
     },
     "phantom": {
         "title": "Amigos",
@@ -939,5 +1174,154 @@
         "bug_hunter": "Cazador de errores",
         "bug_hunter_lvl_2": "Cazador de errores dorado",
         "system": "Sistema QxChat"
+    },
+    "dialog": {
+        "clear": "Borrar",
+        "leaveAll": "Salir de todas",
+        "clearDataConfirm": "¿Borrar todos los datos locales? Se eliminan de este dispositivo todas las conversaciones, mensajes y reacciones. No se toca nada en el servidor."
+    },
+    "recoveryNotice": {
+        "title": "Guarda tus palabras de recuperación en un lugar seguro",
+        "titleRecover": "Tus palabras de recuperación se han guardado de nuevo",
+        "lead": "Este archivo se acaba de guardar en tu carpeta de Descargas. Contiene las 12 palabras que dan acceso a tu cuenta.",
+        "folder": "Descargas",
+        "onlyWayTitle": "La única forma de recuperar tu cuenta",
+        "onlyWay": "Si olvidas tu contraseña, solo estas palabras permiten recuperarla. Nadie, ni siquiera QxChat, puede restablecerlas.",
+        "offlineTitle": "Cópialas sin conexión",
+        "offline": "En papel o en un gestor de contraseñas, y luego elimina el archivo de tus Descargas.",
+        "neverShareTitle": "No las compartas nunca",
+        "neverShare": "Cualquiera que tenga estas palabras puede quedarse con tu cuenta. QxChat nunca te las pedirá.",
+        "wordsLabel": "Palabras de recuperación",
+        "reveal": "Mostrar las palabras",
+        "hide": "Ocultar las palabras",
+        "confirm": "He guardado mis palabras de recuperación en un lugar seguro",
+        "download": "Descargar de nuevo",
+        "done": "Continuar",
+        "verifyTitle": "Comprobemos tus palabras",
+        "verifyLead": "Escribe las palabras que se piden para confirmar que las copiaste bien.",
+        "wordNumber": "Palabra n.º {n}",
+        "verify": "Comprobar",
+        "back": "Ver mis palabras de nuevo",
+        "wrong": "Una de las palabras no coincide.",
+        "doneTitle": "Todo listo",
+        "doneLead": "Tus palabras de recuperación están bien guardadas. Mantenlas lejos de tus dispositivos.",
+        "finish": "Terminar"
+    },
+    "spotlight": {
+        "dnd": "Activar No molestar",
+        "online": "Volver a estar en línea",
+        "statusGroup": "Estado",
+        "call": "Iniciar una llamada en {room}",
+        "hangUp": "Colgar",
+        "callGroup": "Llamada",
+        "switchAccount": "Cambiar a {name}",
+        "accountGroup": "Cuenta",
+        "mute": "Silenciar micrófono",
+        "unmute": "Activar micrófono",
+        "deafen": "Ensordecer",
+        "undeafen": "Reactivar el sonido",
+        "camera": "Activar o apagar la cámara",
+        "screen": "Compartir pantalla",
+        "roomGroup": "Sala",
+        "newPoll": "Crear una encuesta",
+        "pin": "Fijar esta sala",
+        "unpin": "Desfijar esta sala",
+        "copyInvite": "Copiar la invitación de la sala",
+        "securityGroup": "Seguridad",
+        "lockNow": "Bloquear ahora",
+        "downloadRecovery": "Descargar mis palabras de recuperación",
+        "streamerOn": "Activar el modo streamer",
+        "streamerOff": "Desactivar el modo streamer",
+        "appearanceGroup": "Apariencia",
+        "lightTheme": "Cambiar al tema claro",
+        "darkTheme": "Cambiar al tema oscuro",
+        "bubbleStyle": "Mensajes en burbujas",
+        "discordStyle": "Mensajes estilo Discord",
+        "openSettings": "Ajustes › {section}",
+        "settingsGroup": "Ajustes",
+        "filters": "Filtros",
+        "filter": {"from": "De", "room": "En", "has": "Contiene", "before": "Antes", "after": "Después"},
+        "kind": {"text": "Mensaje", "image": "Foto", "video": "Vídeo", "file": "Archivo", "voice": "Mensaje de voz", "audio": "Audio", "poll": "Encuesta"}
+    },
+    "securityTour": {
+        "eyebrow": "Tu seguridad, paso a paso",
+        "lock": {
+            "title": "Bloquear la app",
+            "body": "Protege QxChat con un PIN que cifra tus datos locales, con bloqueo automático tras un tiempo."
+        },
+        "duress": {
+            "title": "Código de coacción",
+            "body": "Un segundo PIN que, introducido bajo presión, borra tus datos o abre una cuenta señuelo inofensiva."
+        },
+        "ramOnly": {
+            "title": "Modo solo RAM",
+            "body": "No se escribe nada en este dispositivo: todo desaparece al cerrar la app."
+        },
+        "configure": "Configurar",
+        "next": "Siguiente",
+        "finish": "Entendido",
+        "later": "Más tarde"
+    },
+    "poll": {
+        "label": "Encuesta",
+        "multiple": "Opción múltiple",
+        "create": "Nueva encuesta",
+        "question": "Pregunta",
+        "questionPlaceholder": "Haz una pregunta",
+        "options": "Respuestas",
+        "optionN": "Respuesta {n}",
+        "removeOption": "Quitar respuesta",
+        "addOption": "Añadir una respuesta",
+        "allowMultiple": "Permitir varias respuestas",
+        "visibilityNote": "Cifrada de extremo a extremo. Los votos son anónimos y definitivos, y los resultados aparecen cuando has votado.",
+        "send": "Enviar encuesta",
+        "votes": {
+            "one": "{count} voto",
+            "other": "{count} votos"
+        },
+        "single": "Opción única",
+        "anonymous": "Anónima",
+        "vote": "Votar",
+        "final": "Voto definitivo",
+        "youVoted": "Has votado",
+        "alreadyVoted": "Ya has votado en esta encuesta.",
+        "voteFailed": "No se pudo registrar tu voto."
+    },
+    "threads": {
+        "title": "Hilo",
+        "open": "Responder en un hilo",
+        "empty": "Aún no hay respuestas.",
+        "placeholder": "Responder en el hilo",
+        "replies": {
+            "one": "{count} respuesta",
+            "other": "{count} respuestas"
+        }
+    },
+    "whiteboard": {
+        "title": "Pizarra",
+        "subtitle": "Cifrada de extremo a extremo, no se guarda nada",
+        "tools": "Herramientas de dibujo",
+        "thin": "Trazo fino",
+        "thick": "Trazo grueso",
+        "eraser": "Goma",
+        "undo": "Deshacer mi último trazo",
+        "export": "Guardar como imagen",
+        "clear": "Borrar la pizarra",
+        "clearConfirm": "¿Borrar la pizarra para todos?",
+        "lockedNote": "Solo lectura para los miembros",
+        "readonly": "Solo los moderadores pueden dibujar aquí",
+        "lock": "Solo lectura para los miembros",
+        "unlock": "Dejar que todos dibujen",
+        "redo": "Rehacer",
+        "size": "Grosor",
+        "customColor": "Color personalizado",
+        "colorN": "Color {n}",
+        "tool": {"pen": "Lápiz", "marker": "Resaltador", "line": "Línea", "arrow": "Flecha", "rect": "Rectángulo", "ellipse": "Elipse", "eraser": "Goma (solo tus dibujos)"},
+        "clearShort": "Borrar"
+    },
+    "colorPicker": {
+        "shade": "Tono",
+        "hue": "Matiz",
+        "hex": "Código hexadecimal"
     }
 }

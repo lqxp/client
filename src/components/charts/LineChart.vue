@@ -31,7 +31,7 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 /** User units. The SVG scales to its box, so these are only a coordinate space. */
 const W = 560;
 const H = 184;
-const PAD = { top: 14, right: 14, bottom: 26, left: 44 };
+const PAD = { top: 16, right: 26, bottom: 26, left: 44 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
@@ -112,12 +112,14 @@ const plotted = computed<PlottedSeries[]>(() =>
       ? `${line} L${dots[dots.length - 1].x.toFixed(2)} ${baseline} L${dots[0].x.toFixed(2)} ${baseline} Z`
       : "";
     // Measured here rather than with getTotalLength(): the path is straight
-    // segments in these same units, so the sum is exact and needs no DOM.
+    // segments in these same units, so the sum is exact and needs no DOM. It
+    // is the dash that draws the line in, so it is padded by a unit: a length
+    // a hair short of the path leaves the last pixel of it in the gap.
     let length = 0;
     for (let i = 1; i < dots.length; i += 1) {
       length += Math.hypot(dots[i].x - dots[i - 1].x, dots[i].y - dots[i - 1].y);
     }
-    return { label: serie.label, index, dots, line, area, length: Math.max(1, length) };
+    return { label: serie.label, index, dots, line, area, length: Math.max(1, length) + 1 };
   })
 );
 
@@ -149,6 +151,14 @@ const xTicks = computed(() => {
   if (x - ends[0].x < room || ends[1].x - x < room) return ends;
   return [ends[0], { at: middle, x, anchor: "middle" as const }, ends[1]];
 });
+
+const baseline = PAD.top + PLOT_H;
+const axisEndX = W - PAD.right + 9;
+
+/** Both axes in one stroke, each running a little past the last gridline. */
+const axisPath = `M${PAD.left} ${PAD.top - 9} L${PAD.left} ${baseline} L${axisEndX} ${baseline}`;
+const upHead = `${PAD.left},${PAD.top - 15} ${PAD.left - 3.6},${PAD.top - 8} ${PAD.left + 3.6},${PAD.top - 8}`;
+const rightHead = `${axisEndX + 6},${baseline} ${axisEndX - 1},${baseline - 3.6} ${axisEndX - 1},${baseline + 3.6}`;
 
 const hoveredStamp = computed(() => (hovered.value >= 0 ? stamps.value[hovered.value] : 0));
 
@@ -224,9 +234,16 @@ function valueAt(serie: PlottedSeries, at: number): string {
           </linearGradient>
         </defs>
 
+        <!-- The baseline is drawn by the axis, so it is not also a gridline. -->
         <g class="line__grid">
-          <line v-for="tick in yTicks" :key="`grid-${tick.value}`" :x1="PAD.left" :x2="W - PAD.right"
-            :y1="tick.y" :y2="tick.y" />
+          <line v-for="tick in yTicks.slice(1)" :key="`grid-${tick.value}`" :x1="PAD.left"
+            :x2="W - PAD.right" :y1="tick.y" :y2="tick.y" />
+        </g>
+
+        <g class="line__frame">
+          <path :d="axisPath" />
+          <polygon :points="upHead" />
+          <polygon :points="rightHead" />
         </g>
 
         <g class="line__axis">
@@ -335,7 +352,7 @@ function valueAt(serie: PlottedSeries, at: number): string {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: background-color 140ms ease-out, color 140ms ease-out;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .line__toggle:hover {
@@ -375,6 +392,18 @@ function valueAt(serie: PlottedSeries, at: number): string {
   vector-effect: non-scaling-stroke;
 }
 
+.line__frame path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text) 22%, transparent);
+  stroke-width: 1;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.line__frame polygon {
+  fill: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
 .line__axis text {
   fill: var(--muted);
   font-family: inherit;
@@ -394,15 +423,14 @@ function valueAt(serie: PlottedSeries, at: number): string {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
   stroke-dasharray: var(--len);
   stroke-dashoffset: var(--len);
-  animation: line-draw 900ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: line-draw 900ms var(--ease-out) both;
   animation-delay: calc(var(--i) * 120ms);
 }
 
 .line__area {
-  animation: line-fade 700ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: line-fade 700ms var(--ease-out) both;
   animation-delay: calc(240ms + var(--i) * 120ms);
 }
 
@@ -444,7 +472,7 @@ function valueAt(serie: PlottedSeries, at: number): string {
   background: color-mix(in srgb, var(--surface) 94%, var(--text));
   box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
   pointer-events: none;
-  animation: line-tip 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: line-tip var(--dur-base) var(--ease-out) both;
 }
 
 .line__tip.is-right {
@@ -504,6 +532,21 @@ function valueAt(serie: PlottedSeries, at: number): string {
   border-radius: 3px;
 }
 
+/* The SVG scales to its box, so its text scales down with it. On a phone the
+   box is not much over half the coordinate space, which would take the axis
+   labels under seven pixels; the plot is given more height and the labels
+   more units to compensate. */
+@media (max-width: 760px) {
+
+  .line__svg {
+    aspect-ratio: 560 / 236;
+  }
+
+  .line__axis text {
+    font-size: 15px;
+  }
+}
+
 .line__scroll {
   overflow-x: auto;
 }
@@ -555,6 +598,7 @@ function valueAt(serie: PlottedSeries, at: number): string {
 
   .line__stroke {
     animation: none;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 

@@ -1,4 +1,135 @@
 {
+    "errors": {
+        "cryptoUnavailable": "L'API de chiffrement du navigateur est indisponible.",
+        "clipboardFailed": "La copie dans le presse-papiers a échoué.",
+        "lockNeedsCrypto": "Le verrouillage nécessite Web Crypto.",
+        "lockEnableFailed": "Impossible d'activer le verrouillage.",
+        "lockWiped": "QxChat a été réinitialisé après trop de codes PIN incorrects.",
+        "invalidPin": "Code PIN incorrect.",
+        "opsecNeedsCrypto": "L'OpSec nécessite Web Crypto.",
+        "malformedAccount": "Réponse de compte invalide.",
+        "challengeFailed": "Impossible d'obtenir le défi de sécurité.",
+        "registerFailed": "L'inscription a échoué.",
+        "loginFailed": "La connexion a échoué.",
+        "recoveryFailed": "La récupération a échoué.",
+        "adminOverviewFailed": "Impossible de charger l'aperçu d'administration.",
+        "adminSearchFailed": "La recherche d'utilisateurs a échoué.",
+        "featureUpdateFailed": "La mise à jour de l'option a échoué.",
+        "noLocalRoomKey": "Ce salon n'a pas de clé locale.",
+        "defaultRoomUpdateFailed": "Impossible de définir le salon par défaut.",
+        "defaultRoomClearFailed": "Impossible de retirer le salon par défaut.",
+        "userUpdateFailed": "La mise à jour du compte a échoué.",
+        "userDeleteFailed": "La suppression du compte a échoué.",
+        "badgeUpdateFailed": "La mise à jour des badges a échoué.",
+        "invalidRoomId": "Identifiant de salon invalide.",
+        "webCryptoUnavailable": "Web Crypto n'est pas disponible dans ce navigateur.",
+        "roomKeyStoreFailed": "Impossible d'enregistrer la clé du salon.",
+        "noRoomKey": "Aucune clé de salon disponible.",
+        "roomIconNotImage": "L'icône du salon doit être une image.",
+        "roomIconTooLarge": "L'icône du salon doit faire moins de 5 Mo.",
+        "roomIconBadUrl": "Le serveur a renvoyé une adresse d'icône invalide.",
+        "roomIconUploadFailed": "Impossible d'envoyer l'icône du salon.",
+        "roomGenerateFailed": "Impossible de créer un salon sécurisé.",
+        "roomIconPrepareFailed": "Impossible de préparer l'icône du salon.",
+        "screenNoVideo": "Le partage d'écran n'a pas de piste vidéo.",
+        "profileImageFormat": "Les images de profil acceptent PNG, APNG, GIF, JPEG et WEBP.",
+        "imageDimensions": "Dimensions d'image invalides.",
+        "profileImageRead": "Impossible de lire l'image de profil.",
+        "audioDevicesUnavailable": "Les périphériques audio ne sont pas disponibles dans ce navigateur.",
+        "micPermissionTest": "L'accès au micro est nécessaire pour tester l'audio.",
+        "tokenCopyFailed": "Salon ouvert. La copie du jeton a échoué.",
+        "malformedPayload": "Données reçues invalides.",
+        "websocket": "Erreur de connexion en temps réel.",
+        "encryptFailed": "Le chiffrement du message a échoué.",
+        "notJoined": "Vous n'avez pas encore rejoint ce salon.",
+        "notConnected": "Non connecté.",
+        "joinRoomFirst": "Rejoignez d'abord un salon.",
+        "recording": "Erreur d'enregistrement.",
+        "micDenied": "Accès au micro refusé.",
+        "micDeniedLabel": "Accès au micro refusé",
+        "invisibleNoCall": "Quittez le mode invisible avant de rejoindre un appel.",
+        "cameraNoVideo": "La caméra n'a pas de piste vidéo.",
+        "cameraDenied": "Accès à la caméra refusé.",
+        "screenCancelled": "Le partage d'écran a été annulé.",
+        "usernameChangeFailed": "Le changement de pseudo a échoué.",
+        "editFailed": "La modification du message a échoué.",
+        "notAuthenticated": "Non authentifié.",
+        "missingUsername": "Pseudo manquant.",
+        "sessionRenewFailed": "Le renouvellement de session a échoué.",
+        "decryptMessageFailed": "Impossible de traiter un message chiffré.",
+        "decryptHistoryFailed": "Impossible de déchiffrer l'historique du salon.",
+        "editedMessageFailed": "Impossible de traiter un message modifié.",
+        "fileRead": "Impossible de lire le fichier.",
+        "backupInvalid": "Ce fichier n'est pas une sauvegarde valide.",
+        "requestFailed": "Échec de la requête ({status})",
+        "imageTooLarge": "{what}: fichier trop lourd ({size} > {limit})",
+        "connectionFailed": "Échec de la connexion: {reason}",
+        "fileTooLarge": "Fichier trop lourd: {name} ({size} > {limit})",
+        "uploadFailed": "L'envoi a échoué: {reason}",
+        "importFailed": "L'import a échoué: {reason}",
+        "captchaRequired": "Validez d'abord le CAPTCHA.",
+        "vdfInvalid": "Défi de sécurité invalide reçu du serveur.",
+        "pqcMissing": "Le serveur n’a pas envoyé son défi de sécurité post-quantique.",
+        "pqcUnsupported": "Votre navigateur ne prend pas en charge la cryptographie post-quantique. Mettez-le à jour.",
+        "roomKeyRequired": "Ce salon a besoin de sa clé de jeton avant de pouvoir envoyer des messages chiffrés.",
+        "connectionLost": "Connexion perdue. Reconnexion…",
+        "pollTooLong": "Ce sondage est trop long. Raccourcissez la question ou les réponses."
+    },
+    "labels": {
+        "customTurn": "TURN personnalisé",
+        "fileAttachment": "Pièce jointe",
+        "noMessagesYet": "Aucun message pour l'instant",
+        "banner": "Bannière",
+        "profileImage": "Photo de profil",
+        "anonymous": "anonyme",
+        "photo": "Photo",
+        "video": "Vidéo",
+        "voiceMessage": "Message vocal",
+        "poll": "Sondage",
+        "hiddenChannel": "Salon masqué"
+    },
+    "notices": {
+        "lockEnabled": "Verrouillage activé.",
+        "locked": "QxChat verrouillé.",
+        "duressEnabled": "Code PIN de contrainte activé.",
+        "lockDisabled": "Verrouillage désactivé.",
+        "tokenCopied": "Jeton du salon copié.",
+        "backupExported": "Sauvegarde exportée.",
+        "backupImported": "Sauvegarde importée."
+    },
+    "notifications": {
+        "titleIn": "{user} dans {room}",
+        "newMessage": "Nouveau message"
+    },
+    "cap": {
+        "label": "Vérification Cap",
+        "verify": "Vérifier que vous êtes humain",
+        "verifying": "Vérification ({progress}%)",
+        "done": "Vous êtes humain",
+        "error": "Erreur. Réessayez.",
+        "ariaIdle": "Cliquez pour vérifier que vous êtes humain",
+        "ariaVerifying": "Vérification en cours, patientez",
+        "ariaDone": "Vous avez été vérifié comme humain",
+        "ariaError": "Une erreur est survenue, réessayez",
+        "securedBy": "Protégé par Cap",
+        "securedByTitle": "Protégé par Cap, le CAPTCHA auto-hébergé pour le web moderne."
+    },
+    "textPreview": {
+        "loading": "Chargement de l'aperçu",
+        "close": "Fermer l'aperçu",
+        "controls": "Commandes de l'aperçu texte",
+        "download": "Télécharger le fichier",
+        "openTab": "Ouvrir dans un nouvel onglet",
+        "dialogLabel": "Aperçu du fichier texte: {name}",
+        "contentLabel": "Contenu du fichier texte: {name}"
+    },
+    "audio": {
+        "play": "Lire",
+        "pause": "Pause",
+        "progress": "Progression de l'audio",
+        "speed": "Vitesse de lecture",
+        "save": "Enregistrer le vocal"
+    },
     "chart": {
         "graph": "Graphique",
         "table": "Tableau",
@@ -22,7 +153,13 @@
         "disableStreamer": "Désactiver le mode streamer",
         "moveToTray": "Ranger {action} dans le tray",
         "moveFromTray": "Sortir {action} du tray",
-        "rightClickHint": "Clic droit sur une icône de la barre pour la ranger dans le tray."
+        "rightClickHint": "Clic droit sur une icône de la barre pour la ranger dans le tray.",
+        "desktopTitleBar": "Barre de titre",
+        "windowControls": "Contrôles de fenêtre",
+        "minimize": "Réduire",
+        "maximize": "Agrandir",
+        "restore": "Restaurer",
+        "close": "Fermer"
     },
     "onboarding": {
         "register": "S'inscrire",
@@ -42,7 +179,12 @@
         "submit": "Continuer",
         "usernamePlaceholder": "ex. echo",
         "passwordPlaceholder": "Mot de passe",
-        "recoveryPlaceholder": "Mots de récupération"
+        "recoveryPlaceholder": "Mots de récupération",
+        "modeLabel": "Mode d'authentification",
+        "password": "Mot de passe",
+        "recoveryWords": "Mots de récupération",
+        "newPassword": "Nouveau mot de passe",
+        "pleaseWait": "Patientez"
     },
     "sessionExpired": {
         "title": "Session expirée",
@@ -113,7 +255,10 @@
         "leaveAllRoomsDelete": "Quitter tous les salons et supprimer les messages",
         "leaveAllRoomsConfirm": "Quitter tous les salons?",
         "leaveAllRoomsDeleteConfirm": "Quitter tous les salons et supprimer leurs messages locaux?",
-        "statusOptions": "Statut"
+        "statusOptions": "Statut",
+        "onlineHint": "Visible par tout le monde",
+        "invisibleHint": "Hors ligne pour les autres",
+        "dndHint": "Couper toutes les notifications"
     },
     "members": {
         "presence": "Présence",
@@ -124,7 +269,10 @@
         "seeAvatar": "Voir l’avatar",
         "seeBanner": "Voir la bannière",
         "viewProfile": "Voir le profil",
-        "copyUserId": "Copier l’ID utilisateur"
+        "copyUserId": "Copier l’ID utilisateur",
+        "platformsLabel": "Plateformes: {list}",
+        "platformsUnknown": "inconnues",
+        "loading": "Chargement des membres"
     },
     "profile": {
         "close": "Fermer le profil",
@@ -177,7 +325,12 @@
         "today": "Aujourd’hui",
         "yesterday": "Hier",
         "typingOne": "{user} est en train d’écrire…",
-        "typingMany": "{count} personnes sont en train d’écrire…"
+        "typingMany": "{count} personnes sont en train d’écrire…",
+        "callStarted": "{user} a lancé un appel",
+        "callStartedSelf": "Vous avez lancé un appel",
+        "newMessages": "Nouveaux messages",
+        "loadingHistory": "Chargement des messages",
+        "unreadPill": {"one": "{count} nouveau message", "other": "{count} nouveaux messages"}
     },
     "composer": {
         "placeholder": "Message",
@@ -207,7 +360,10 @@
             "flags": "Drapeaux"
         },
         "emojiSuggestions": "Suggestions d'emoji",
-        "emojiNoResult": "Aucun emoji trouvé"
+        "emojiNoResult": "Aucun emoji trouvé",
+        "attachBlocked": "Vous ne pouvez rien envoyer dans ce salon.",
+        "moreActions": "Autres actions",
+        "mentionSuggestions": "Suggestions de mention"
     },
     "message": {
         "deleted": "Message supprimé",
@@ -243,7 +399,15 @@
         "reactions": "Réactions",
         "back": "Retour",
         "spoilerHidden": "Texte masqué, cliquez pour révéler",
-        "moreReactions": "Plus de réactions"
+        "moreReactions": "Plus de réactions",
+        "react": "Réagir",
+        "avatarOf": "Avatar de {name}",
+        "copyCode": "Copier le code",
+        "viewReactions": "Voir les réactions",
+        "reactionsAll": "Toutes",
+        "addReaction": "Ajouter une réaction",
+        "close": "Fermer",
+        "imageUnavailable": "Image indisponible"
     },
     "call": {
         "live": "En direct",
@@ -322,7 +486,17 @@
             "deleteAccountConfirm": "Êtes-vous sûr de vouloir supprimer votre compte? Cette action est irréversible.",
             "deleteAccountPrompt": "Entrez votre mot de passe pour confirmer la suppression:",
             "deleteAccountError": "Impossible de supprimer le compte. Vérifiez votre mot de passe.",
-            "revert": "Rétablir"
+            "revert": "Rétablir",
+            "richTitle": "Statut et liens",
+            "customStatus": "Statut personnalisé",
+            "customStatusPlaceholder": "Que voulez-vous partager",
+            "links": "Liens",
+            "linkLabel": "Libellé",
+            "linkUrl": "Adresse du lien",
+            "removeLink": "Retirer le lien",
+            "addLink": "Ajouter un lien",
+            "linksNote": "Jusqu’à 4 liens, en https uniquement. Ils s’ouvrent dans un nouvel onglet sans transmettre d’où vous venez.",
+            "linkInvalid": "Chaque lien doit commencer par https://"
         },
         "ui": {
             "theme": "Thème",
@@ -403,7 +577,8 @@
             "autolockOneHour": "1 heure",
             "autolockTwoHours": "2 heures",
             "autolockFiveHours": "5 heures",
-            "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées."
+            "clientLockNote": "Quand le verrouillage est actif, les données locales de QxChat sont chiffrées sur cet appareil avec une clé dérivée du PIN. Sans le PIN, elles ne peuvent pas être déchiffrées.",
+            "autolockMinutes": "{count} min"
         },
         "opsec": {
             "duressTitle": "Mot de passe sous contrainte",
@@ -452,7 +627,13 @@
             "soundCameraOn": "Caméra activée",
             "soundCameraOff": "Caméra désactivée",
             "soundScreenOn": "Partage d’écran activé",
-            "soundScreenOff": "Partage d’écran désactivé"
+            "soundScreenOff": "Partage d’écran désactivé",
+            "privacy": "Contenu des notifications",
+            "privacyHidden": "Masqué",
+            "privacySender": "Expéditeur seulement",
+            "privacyFull": "Complet",
+            "privacyNote": "Masqué affiche seulement «QxChat, Nouveau message», sans rien sur l’expéditeur ni le texte, même sur l’écran verrouillé.",
+            "localOnlyNote": "Les notifications sont créées sur cet appareil. Aucun service push de Google ou d’Apple n’est utilisé et rien ne passe par un tiers. QxChat doit rester ouvert en arrière-plan pour les recevoir."
         },
         "calls": {
             "calling": "Appels",
@@ -495,14 +676,20 @@
             "turnHints": {
                 "qxp-turn": "Relais auto-hébergé sur notre infrastructure, peut être instable selon la charge. Aucune IP exposée, tout passe par notre relais.",
                 "google-stun": "STUN public de Google, très stable et rapide, mais ⚠️ vos IPs sont exposées (pas de relay anonyme). Utile uniquement en réseau local ou pour du test."
-            }
+            },
+            "micGateIdle": "Lancez le test pour voir votre niveau par rapport au seuil.",
+            "micGateOpen": "Votre voix passe.",
+            "micGateClosed": "Sous le seuil, donc rien n'est envoyé.",
+            "cameraPreviewHint": "Rien ne quitte cette machine. L'aperçu reste local.",
+            "inputLevel": "Niveau d'entrée",
+            "turnLabelPlaceholder": "Mon TURN"
         },
         "tor": {
             "title": "Connectivité Tor",
             "enabled": "Se connecter via Tor",
             "enabledNote": "Achemine le trafic de l’application via le réseau Tor. Le premier démarrage peut prendre plusieurs secondes pendant que Tor télécharge son consensus.",
             "restartNote": "Modifier ce réglage redémarrera complètement QxChat.",
-            "trayNote": "Tor se gère depuis la barre système. Faites un clic droit sur l’icône QxChat de la barre système et basculez « Se connecter via Tor », l’application redémarrera pour appliquer le changement.",
+            "trayNote": "Tor se gère depuis la barre système. Faites un clic droit sur l’icône QxChat de la barre système et basculez «Se connecter via Tor», l’application redémarrera pour appliquer le changement.",
             "externalNote": "Un Tor externe utilise déjà le port. Le trafic passe par celui-ci, mais la vue du circuit en direct n’est pas disponible.",
             "port": "Port SOCKS5 de Tor",
             "running": "Tor est en cours d’exécution sur le port {port}.",
@@ -546,7 +733,8 @@
             "details": "Détails",
             "desktopOnly": "Le routage via Tor n’est disponible que dans l’application de bureau QxChat, qui embarque le client Tor et achemine votre trafic localement. Sur la version web, votre connexion dépend de votre navigateur et ne peut pas être routée via Tor.",
             "downloadDesktop": "Télécharger l’application de bureau",
-            "relaysConfirmTitle": "Annuaire des relais"
+            "relaysConfirmTitle": "Annuaire des relais",
+            "ourServer": "Notre serveur"
         },
         "advanced": {
             "connection": "Connexion",
@@ -565,7 +753,7 @@
             "discordRpc": {
                 "title": "Discord Rich Presence",
                 "enabled": "Afficher mon activité sur Discord",
-                "enabledNote": "Activé par défaut. Affiche « Joue à QxChat » avec l’icône QxChat sur ton profil Discord (client desktop uniquement).",
+                "enabledNote": "Activé par défaut. Affiche «Joue à QxChat» avec l’icône QxChat sur ton profil Discord (client desktop uniquement).",
                 "showPlatform": "Afficher l’icône du système d’exploitation",
                 "showPlatformNote": "Affiche une petite icône Windows, macOS ou Linux détectée automatiquement à côté de l’activité.",
                 "connected": "Connecté à Discord.",
@@ -662,8 +850,8 @@
             "deleteAccount": "Supprimer ce compte",
             "roomsLegend": "Chaque ligne indique les personnes en ligne, puis les messages gardés en mémoire.",
             "none": "Aucun",
-            "chartSignups": "Comptes sur la dernière semaine",
-            "chartSignupsNote": "Reconstruit à partir des compteurs 24 heures et 7 jours, donc les comptes supprimés depuis n'apparaissent pas.",
+            "chartSignups": "Comptes créés par jour",
+            "chartSignupsNote": "Les 30 derniers jours, comptés sur les comptes qui existent aujourd'hui, donc les comptes supprimés n'y sont pas.",
             "chartMessages": "Messages en mémoire par salon",
             "chartMessagesNote": "Actuellement en mémoire; le serveur ne garde aucun historique.",
             "chartPlatforms": "Sessions par plateforme",
@@ -677,7 +865,6 @@
             "ageWeekAccounts": "2 à 7 jours",
             "ageOlderAccounts": "Plus d'une semaine",
             "stateActive": "Actifs",
-            "stateIdle": "Inactifs",
             "statMessages": "Messages",
             "statMessagesTotal": "En mémoire",
             "statMessagesRooms": "Salons avec des messages",
@@ -697,7 +884,24 @@
             "chartLastMessage": "Salons par jour du dernier message",
             "chartLastMessageNote": "Compte les salons dont le message le plus récent en mémoire tombe ce jour-là.",
             "chartPlatformsNote": "Répartition des sessions en cours, par client.",
-            "chartAccountStateNote": "Tous les comptes que le serveur détient, répartis par état."
+            "chartAccountStateNote": "Tous les comptes que le serveur détient, répartis par état.",
+            "connectionNotVoice": "Hors vocal",
+            "roomsQuiet": "Personne en ligne",
+            "statConnections": "Connexions",
+            "statSessionsPerAccount": "Sessions par compte",
+            "statConnectionsNote": "Plus de sessions que de comptes signifie que des personnes sont connectées depuis plusieurs endroits.",
+            "statShareOnline": "Part des comptes en ligne",
+            "chartOnline": "Comptes en ligne maintenant",
+            "chartOnlineNote": "Comptes distincts connectés, rapportés à tous les comptes du serveur.",
+            "stateOnline": "En ligne",
+            "stateOffline": "Hors ligne",
+            "chartRoomVoice": "Personnes en vocal par salon",
+            "statRuntime": "Depuis le démarrage du serveur",
+            "statMessagesRelayed": "Messages relayés",
+            "statSessionsOpened": "Sessions ouvertes",
+            "statPeakSessions": "Maximum de sessions simultanées",
+            "statRuntimeSince": "Comptage depuis",
+            "statRuntimeNote": "Compteurs gardés en mémoire seulement. Rien n'est écrit et ils repartent de zéro au redémarrage."
         },
         "backups": {
             "title": "Copies de sauvegarde",
@@ -751,7 +955,35 @@
             "turnPassword": "Mot de passe TURN",
             "userAgent": "User-Agent",
             "yes": "Oui",
-            "no": "Non"
+            "no": "Non",
+            "integrity": "Intégrité",
+            "integrityNote": "Comparez ces empreintes avec celles publiées pour cette version. Si elles diffèrent, cette copie de l’application a été modifiée.",
+            "appFingerprint": "Application (SHA-256)",
+            "uiFingerprint": "Interface (SHA-256)",
+            "fingerprintCopied": "Empreinte copiée.",
+            "fingerprintUnavailable": "Indisponible",
+            "fingerprintComputing": "Calcul en cours…",
+            "copyFingerprint": "Copier l’empreinte"
+        },
+        "sectionsNav": "Sections des réglages",
+        "theme": {
+            "title": "Thème personnalisé",
+            "enable": "Utiliser des couleurs personnalisées",
+            "accent": "Accent",
+            "tint": "Fond",
+            "copyCode": "Copier le code du thème",
+            "copied": "Code du thème copié.",
+            "codePlaceholder": "Collez un code de thème (QXT1.…)",
+            "import": "Importer",
+            "imported": "Thème appliqué.",
+            "invalidCode": "Ce code de thème n’est pas valide.",
+            "note": "Partagez vos couleurs avec un code court. Seules les couleurs sont partagées, rien sur vous.",
+            "previewIn": "Salut, tu en penses quoi?",
+            "previewOut": "Ça rend super bien",
+            "previewChip": "Aperçu",
+            "presets": "Palettes",
+            "preset": "Palette {n}",
+            "reset": "Revenir par défaut"
         }
     },
     "camera": {
@@ -780,6 +1012,7 @@
         "roomMessage": "Tu as été banni de {channel}."
     },
     "rooms": {
+        "settingsSections": "Sections des réglages du salon",
         "roleAdmin": "Administrateur",
         "roleSubAdmin": "Sous-Administrateur",
         "roleModerator": "Modérateur",
@@ -862,7 +1095,8 @@
         "checkUpdates": "Vérifier les mises à jour",
         "availableTitle": "Mise à jour disponible",
         "skipTitle": "Ignorer la mise à jour?",
-        "skipHint": "Cliquez ici pour ignorer la mise à jour"
+        "skipHint": "Cliquez ici pour ignorer la mise à jour",
+        "close": "Fermer"
     },
     "phantom": {
         "title": "Amis",
@@ -932,6 +1166,158 @@
         "openTab": "Ouvrir dans un nouvel onglet",
         "resetZoom": "Réinitialiser le zoom",
         "zoomIn": "Zoom avant",
-        "zoomOut": "Zoom arrière"
+        "zoomOut": "Zoom arrière",
+        "controls": "Commandes de l'aperçu",
+        "dialogLabel": "Aperçu de l'image: {name}",
+        "openLabel": "Ouvrir l'aperçu de l'image: {name}"
+    },
+    "dialog": {
+        "clear": "Effacer",
+        "leaveAll": "Tout quitter",
+        "clearDataConfirm": "Effacer toutes les données locales? Chaque conversation, message et réaction est retiré de cet appareil. Rien n'est touché sur le serveur."
+    },
+    "recoveryNotice": {
+        "title": "Gardez vos mots de récupération en lieu sûr",
+        "titleRecover": "Vos mots de récupération ont été réenregistrés",
+        "lead": "Ce fichier vient d’être enregistré dans votre dossier Téléchargements. Il contient les 12 mots qui donnent accès à votre compte.",
+        "folder": "Téléchargements",
+        "onlyWayTitle": "Le seul moyen de retrouver votre compte",
+        "onlyWay": "Si vous oubliez votre mot de passe, seuls ces mots permettent de le récupérer. Personne, pas même QxChat, ne peut les réinitialiser.",
+        "offlineTitle": "Recopiez-les hors ligne",
+        "offline": "Sur papier ou dans un gestionnaire de mots de passe, puis supprimez le fichier de vos Téléchargements.",
+        "neverShareTitle": "Ne les partagez jamais",
+        "neverShare": "Quiconque possède ces mots peut prendre votre compte. QxChat ne vous les demandera jamais.",
+        "wordsLabel": "Mots de récupération",
+        "reveal": "Afficher les mots",
+        "hide": "Masquer les mots",
+        "confirm": "J’ai rangé mes mots de récupération en lieu sûr",
+        "download": "Télécharger à nouveau",
+        "done": "Continuer",
+        "verifyTitle": "Vérifions vos mots",
+        "verifyLead": "Saisissez les mots demandés pour confirmer que vous les avez bien recopiés.",
+        "wordNumber": "Mot n°{n}",
+        "verify": "Vérifier",
+        "back": "Revoir mes mots",
+        "wrong": "Un des mots ne correspond pas.",
+        "doneTitle": "C’est parfait",
+        "doneLead": "Vos mots de récupération sont bien sauvegardés. Gardez-les à l’écart de vos appareils.",
+        "finish": "Terminer"
+    },
+    "spotlight": {
+        "dnd": "Passer en Ne pas déranger",
+        "online": "Repasser en ligne",
+        "statusGroup": "Statut",
+        "call": "Lancer un appel dans {room}",
+        "hangUp": "Raccrocher",
+        "callGroup": "Appel",
+        "switchAccount": "Passer au compte {name}",
+        "accountGroup": "Compte",
+        "mute": "Couper le micro",
+        "unmute": "Réactiver le micro",
+        "deafen": "Mettre en sourdine",
+        "undeafen": "Réactiver le son",
+        "camera": "Activer ou couper la caméra",
+        "screen": "Partager l’écran",
+        "roomGroup": "Salon",
+        "newPoll": "Créer un sondage",
+        "pin": "Épingler ce salon",
+        "unpin": "Désépingler ce salon",
+        "copyInvite": "Copier l’invitation du salon",
+        "securityGroup": "Sécurité",
+        "lockNow": "Verrouiller maintenant",
+        "downloadRecovery": "Télécharger mes mots de récupération",
+        "streamerOn": "Activer le mode streamer",
+        "streamerOff": "Désactiver le mode streamer",
+        "appearanceGroup": "Apparence",
+        "lightTheme": "Passer au thème clair",
+        "darkTheme": "Passer au thème sombre",
+        "bubbleStyle": "Messages en bulles",
+        "discordStyle": "Messages style Discord",
+        "openSettings": "Paramètres › {section}",
+        "settingsGroup": "Paramètres",
+        "filters": "Filtres",
+        "filter": {"from": "De", "room": "Dans", "has": "Contient", "before": "Avant", "after": "Après"},
+        "kind": {"text": "Message", "image": "Photo", "video": "Vidéo", "file": "Fichier", "voice": "Message vocal", "audio": "Audio", "poll": "Sondage"}
+    },
+    "securityTour": {
+        "eyebrow": "Votre sécurité, étape par étape",
+        "lock": {
+            "title": "Verrouiller l’application",
+            "body": "Protégez QxChat par un code PIN qui chiffre vos données locales, avec un verrouillage automatique après un délai."
+        },
+        "duress": {
+            "title": "Code sous contrainte",
+            "body": "Un second code qui, saisi sous la contrainte, efface vos données ou ouvre un compte leurre inoffensif."
+        },
+        "ramOnly": {
+            "title": "Mode RAM seule",
+            "body": "Rien n’est écrit sur cet appareil, tout disparaît à la fermeture de l’application."
+        },
+        "configure": "Configurer",
+        "next": "Suivant",
+        "finish": "Compris",
+        "later": "Plus tard"
+    },
+    "poll": {
+        "label": "Sondage",
+        "multiple": "Choix multiple",
+        "create": "Nouveau sondage",
+        "question": "Question",
+        "questionPlaceholder": "Posez une question",
+        "options": "Réponses",
+        "optionN": "Réponse {n}",
+        "removeOption": "Retirer la réponse",
+        "addOption": "Ajouter une réponse",
+        "allowMultiple": "Autoriser plusieurs réponses",
+        "visibilityNote": "Chiffré de bout en bout. Les votes sont anonymes et définitifs, et les résultats s’affichent une fois que vous avez voté.",
+        "send": "Envoyer le sondage",
+        "votes": {
+            "one": "{count} vote",
+            "other": "{count} votes"
+        },
+        "single": "Choix unique",
+        "anonymous": "Anonyme",
+        "vote": "Voter",
+        "final": "Vote définitif",
+        "youVoted": "Vous avez voté",
+        "alreadyVoted": "Vous avez déjà voté à ce sondage.",
+        "voteFailed": "Votre vote n’a pas pu être enregistré."
+    },
+    "threads": {
+        "title": "Fil de discussion",
+        "open": "Répondre dans un fil",
+        "empty": "Aucune réponse pour l’instant.",
+        "placeholder": "Répondre dans le fil",
+        "replies": {
+            "one": "{count} réponse",
+            "other": "{count} réponses"
+        }
+    },
+    "whiteboard": {
+        "title": "Tableau blanc",
+        "subtitle": "Chiffré de bout en bout, rien n’est enregistré",
+        "tools": "Outils de dessin",
+        "thin": "Trait fin",
+        "thick": "Trait épais",
+        "eraser": "Gomme",
+        "undo": "Annuler mon dernier trait",
+        "export": "Enregistrer en image",
+        "clear": "Effacer le tableau",
+        "clearConfirm": "Effacer le tableau pour tout le monde?",
+        "lockedNote": "Lecture seule pour les membres",
+        "readonly": "Seuls les modérateurs peuvent dessiner ici",
+        "lock": "Passer en lecture seule pour les membres",
+        "unlock": "Laisser tout le monde dessiner",
+        "redo": "Rétablir",
+        "size": "Épaisseur",
+        "customColor": "Couleur personnalisée",
+        "colorN": "Couleur {n}",
+        "tool": {"pen": "Stylo", "marker": "Surligneur", "line": "Ligne", "arrow": "Flèche", "rect": "Rectangle", "ellipse": "Ellipse", "eraser": "Gomme (vos dessins uniquement)"},
+        "clearShort": "Effacer"
+    },
+    "colorPicker": {
+        "shade": "Nuance",
+        "hue": "Teinte",
+        "hex": "Code hexadécimal"
     }
 }

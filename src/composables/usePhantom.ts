@@ -39,7 +39,7 @@ const PHANTOM_POLL_MAX_MS = 30 * 1000;
 const PHANTOM_POLL_USER_MIN_SEC = 3;
 const PHANTOM_POLL_USER_MAX_SEC = 40;
 
-interface PhantomIncoming {
+export interface PhantomIncoming {
   sender: {
     contextualPub: JsonWebKey;
     prekeyFp: string;

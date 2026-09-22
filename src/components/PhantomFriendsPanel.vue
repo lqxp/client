@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
 import type { Messenger } from "@/composables/useMessenger";
-import type { Phantom, PhantomFriend } from "@/composables/usePhantom";
+import type { Phantom, PhantomFriend, PhantomIncoming } from "@/composables/usePhantom";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import AddFriendModal from "@/components/AddFriendModal.vue";
 import { currentWindowZoom } from "@/utils/windowZoom";
 
-const props = defineProps<{ messenger: Messenger; phantom: Phy }>();
+const props = defineProps<{ messenger: Messenger; phantom: Phantom }>();
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
@@ -60,7 +61,7 @@ function openFriend(friend: PhantomFriend) {
 }
 
 function friendAvatar(friend: PhantomFriend) {
-  const profile = props.messenger.profileFor?.(friend.peerDisplayName);
+  const profile = props.messenger.profileFor?.(String(friend.peerDisplayName || ""));
   return props.messenger.profileImageSrc?.(profile?.avatar, "avatar") || "";
 }
 
@@ -74,9 +75,9 @@ function unreadLabel(count: number) {
   return count > 99 ? "99+" : String(count);
 }
 
-function blockRequest(request: Record<string, unknown>) {
-  props.phantom.blockUser(request.sender?.prekeyFp);
-  props.phantom.ignoreIncoming(request.id);
+function blockRequest(request: PhantomIncoming) {
+  props.phantom.blockUser(String(request.sender?.prekeyFp || ""));
+  props.phantom.ignoreIncoming(String(request.id || ""));
 }
 
 function openFriendMenu(event: MouseEvent, friend: PhantomFriend) {
@@ -95,11 +96,11 @@ function friendMenuAction(action: string) {
   closeFriendMenu();
   if (!friend) return;
   if (action === "block") {
-    props.phantom.blockUser(friend.peerFp);
+    props.phantom.blockUser(String(friend.peerFp || ""));
   } else if (action === "remove") {
-    props.phantom.removeFriend(friend.peerFp);
+    props.phantom.removeFriend(String(friend.peerFp || ""));
   } else if (action === "clear") {
-    props.messenger.clearLocalRoomMessages?.(friend.roomId);
+    props.messenger.clearLocalRoomMessages?.(String(friend.roomId || ""));
   }
 }
 </script>
@@ -108,11 +109,11 @@ function friendMenuAction(action: string) {
   <section class="phantom-friends">
     <header class="phantom-friends__head">
       <button class="phantom-toggle" type="button" :aria-expanded="!collapsed" @click="toggleCollapsed">
-        <svg class="phantom-toggle__chevron" :class="{ 'is-collapsed': collapsed }" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+        <Icon name="chevron-down" class="phantom-toggle__chevron" :class="{ 'is-collapsed': collapsed }" viewBox="0 0 24 24" />
         <strong>{{ t("phantom.title") }}</strong>
       </button>
       <button class="phantom-add-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+        <Icon name="plus" viewBox="0 0 24 24" />
       </button>
     </header>
 
@@ -152,26 +153,28 @@ function friendMenuAction(action: string) {
     </ul>
     <p v-else-if="!requests.length && recoveryReady" class="phantom-friends__empty">{{ t("phantom.noFriends") }}</p>
 
-    <div
-      v-if="friendMenu"
-      class="phantom-friend-menu"
-      :style="{ top: `${friendMenu.y}px`, left: `${friendMenu.x}px` }"
-      @click.stop
-      @contextmenu.prevent.stop
-    >
-      <button type="button" @click="friendMenuAction('block')">
-        <svg class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        <span>{{ t("phantom.block") }}</span>
-      </button>
-      <button type="button" @click="friendMenuAction('remove')">
-        <svg class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
-        <span>{{ t("phantom.removeFriend") }}</span>
-      </button>
-      <button type="button" @click="friendMenuAction('clear')">
-        <svg class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        <span>{{ t("phantom.clearMessages") }}</span>
-      </button>
-    </div>
+    <Transition name="qx-menu">
+      <div
+        v-if="friendMenu"
+        class="phantom-friend-menu"
+        :style="{ top: `${friendMenu.y}px`, left: `${friendMenu.x}px` }"
+        @click.stop
+        @contextmenu.prevent.stop
+      >
+        <button type="button" @click="friendMenuAction('block')">
+          <Icon name="ban" class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <span>{{ t("phantom.block") }}</span>
+        </button>
+        <button type="button" @click="friendMenuAction('remove')">
+          <svg class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+          <span>{{ t("phantom.removeFriend") }}</span>
+        </button>
+        <button type="button" @click="friendMenuAction('clear')">
+          <Icon name="trash" class="phantom-friend-menu__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <span>{{ t("phantom.clearMessages") }}</span>
+        </button>
+      </div>
+    </Transition>
 
     </template>
 
@@ -220,7 +223,7 @@ function friendMenuAction(action: string) {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .phantom-toggle__chevron.is-collapsed {
   transform: rotate(-90deg);
@@ -235,7 +238,7 @@ function friendMenuAction(action: string) {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .phantom-add-btn svg {
   width: 16px;
@@ -387,16 +390,16 @@ function friendMenuAction(action: string) {
 }
 .phantom-friend-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-floating-menu);
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 170px;
   padding: 6px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 14px 40px color-mix(in srgb, var(--bg) 50%, transparent);
+  border-radius: var(--context-menu-radius);
+  background: var(--context-menu-bg);
+  border: var(--context-menu-border);
+  box-shadow: var(--context-menu-shadow);
 }
 .phantom-friend-menu button {
   display: flex;
