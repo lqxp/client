@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "@/composables/useI18n";
+
+const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
   src: { type: String, required: true },
   filename: { type: String, default: "Voice message" },
   sizeLabel: { type: String, default: "" },
-  fallbackDuration: { type: String, default: "" },
+  fallbackDuration: { type: [String, Number] as PropType<string | number>, default: "" },
   waveform: { type: Array as () => number[], default: () => [] },
-  messenger: { type: Object, default: null }
+  messenger: { type: Object as PropType<Messenger>, default: null },
+  resumeKey: { type: String, default: "" },
+  chain: { type: Boolean, default: false }
 });
 
+const rootRef = ref<HTMLElement | null>(null);
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
 const currentTime = ref(0);
 const duration = ref(0);
+const decodedDuration = ref(0);
 const canPlay = ref(false);
 const playbackRate = ref(1);
 const isHoveringWave = ref(false);
@@ -24,10 +34,10 @@ let frameId = 0;
 let playbackStartedAt = 0;
 let playbackBaseTime = 0;
 
-// In-memory cache for decoded waveforms
-const waveformCache = new Map<string, number[]>();
-
 const BAR_COUNT = 32;
+// Some engines report an unknown length as Infinity, WebKitGTK as a huge finite number.
+const MAX_SANE_SECONDS = 12 * 3600;
+const CHAIN_EVENT = "qx:voice-play";
 
 const defaultBars = [
   25, 35, 55, 40, 70, 85, 60, 45, 75, 90, 65, 50, 80, 70, 45, 60,
@@ -35,87 +45,43 @@ const defaultBars = [
 ];
 
 const waveBars = computed(() => {
-  if (Array.isArray(props.waveform) && props.waveform.length > 0) {
-    return props.waveform;
-  }
+  if (Array.isArray(props.waveform) && props.waveform.length > 0) return props.waveform;
   if (rawWaveBars.value.length > 0) return rawWaveBars.value;
   return defaultBars;
 });
 
-async function decodeRealWaveform(url: string) {
-  if (!url) return;
-  if (props.waveform && props.waveform.length > 0) return;
-  if (waveformCache.has(url)) {
-    rawWaveBars.value = waveformCache.get(url)!;
-    return;
-  }
+function isSaneDuration(value: number) {
+  return Number.isFinite(value) && value > 0 && value < MAX_SANE_SECONDS;
+}
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buffer = await res.arrayBuffer();
+function parseClock(value: string | number) {
+  if (typeof value === "number") return isSaneDuration(value) ? value : 0;
+  const parts = String(value || "").trim().split(":");
+  if (parts.length < 2 || parts.length > 3 || !parts.every((part) => /^\d+$/.test(part))) return 0;
+  const seconds = parts.reduce((total, part) => total * 60 + Number(part), 0);
+  return isSaneDuration(seconds) ? seconds : 0;
+}
 
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const audioCtx = new AudioContextClass();
-    let audioBuffer: AudioBuffer | null = null;
-    try {
-      audioBuffer = await audioCtx.decodeAudioData(buffer.slice(0));
-    } catch {
-      // Fallback with callback syntax for older safari/webkit
-      audioBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
-        audioCtx.decodeAudioData(buffer.slice(0), resolve, reject);
-      });
-    }
-    try {
-      await audioCtx.close();
-    } catch {
-      /* ignore */
-    }
-
-    if (!audioBuffer) return;
-
-    const channelData = audioBuffer.getChannelData(0);
-    const step = Math.floor(channelData.length / BAR_COUNT);
-    const amplitudes: number[] = [];
-
-    for (let i = 0; i < BAR_COUNT; i++) {
-      const start = i * step;
-      let sum = 0;
-      const count = Math.min(step, channelData.length - start);
-      for (let j = 0; j < count; j++) {
-        const val = Math.abs(channelData[start + j]);
-        sum += val * val;
-      }
-      const rms = count > 0 ? Math.sqrt(sum / count) : 0;
-      amplitudes.push(rms);
-    }
-
-    const max = Math.max(...amplitudes, 0.001);
-    const normalized = amplitudes.map((val) => {
-      const pct = Math.round((val / max) * 100);
-      return Math.max(16, Math.min(100, pct));
-    });
-
-    waveformCache.set(url, normalized);
-    rawWaveBars.value = normalized;
-
-    if (audioBuffer.duration && Number.isFinite(audioBuffer.duration) && !duration.value) {
-      duration.value = audioBuffer.duration;
-    }
-  } catch (e) {
-    // Keep clean fallback bars
-  }
+function formatClock(seconds: number) {
+  const value = isSaneDuration(seconds) ? Math.floor(seconds) : 0;
+  const minutes = Math.floor(value / 60);
+  return `${minutes}:${String(value % 60).padStart(2, "0")}`;
 }
 
 const fallbackDurationSeconds = computed(() => parseClock(props.fallbackDuration));
+const referenceDuration = computed(() => decodedDuration.value || fallbackDurationSeconds.value);
 const effectiveDuration = computed(() => {
-  if (duration.value && Number.isFinite(duration.value) && duration.value > 0) {
-    return duration.value;
-  }
-  return fallbackDurationSeconds.value || 0;
+  const media = duration.value;
+  const reference = referenceDuration.value;
+  if (!isSaneDuration(media)) return reference;
+  if (reference && Math.abs(media - reference) > Math.max(2, reference * 0.2)) return reference;
+  return media;
 });
+
+function clampTime(value: number) {
+  const time = isSaneDuration(value) ? value : 0;
+  return effectiveDuration.value ? Math.min(time, effectiveDuration.value) : 0;
+}
 
 const progress = computed(() => {
   if (!effectiveDuration.value) return 0;
@@ -123,34 +89,85 @@ const progress = computed(() => {
 });
 
 const elapsedLabel = computed(() => formatClock(currentTime.value));
-const durationLabel = computed(() => {
-  if (effectiveDuration.value) return formatClock(effectiveDuration.value);
-  return "0:00";
-});
+const durationLabel = computed(() => formatClock(effectiveDuration.value));
 
-function parseClock(value: string) {
-  const match = /^(\d+):(\d{2})$/.exec(String(value || "").trim());
-  if (!match) return 0;
-  return Number(match[1]) * 60 + Number(match[2]);
+// Decoded once per file: the only duration that no engine can get wrong.
+const decodeCache = new Map<string, { bars: number[]; duration: number }>();
+let decoding = "";
+
+async function decodeAudio(url: string) {
+  if (!url || decoding === url) return;
+  const cached = decodeCache.get(url);
+  if (cached) {
+    rawWaveBars.value = cached.bars;
+    decodedDuration.value = cached.duration;
+    return;
+  }
+  decoding = url;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const buffer = await res.arrayBuffer();
+    const AudioContextClass = window.AudioContext
+      || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    let audioBuffer: AudioBuffer;
+    try {
+      audioBuffer = await audioCtx.decodeAudioData(buffer.slice(0));
+    } catch {
+      audioBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
+        audioCtx.decodeAudioData(buffer.slice(0), resolve, reject);
+      });
+    }
+    audioCtx.close().catch(() => {});
+
+    const channel = audioBuffer.getChannelData(0);
+    const step = Math.max(1, Math.floor(channel.length / BAR_COUNT));
+    const amplitudes: number[] = [];
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const start = i * step;
+      const count = Math.max(0, Math.min(step, channel.length - start));
+      let sum = 0;
+      for (let j = 0; j < count; j++) sum += channel[start + j] ** 2;
+      amplitudes.push(count > 0 ? Math.sqrt(sum / count) : 0);
+    }
+    const max = Math.max(...amplitudes, 0.001);
+    const bars = amplitudes.map((value) => Math.max(16, Math.min(100, Math.round((value / max) * 100))));
+    const exact = isSaneDuration(audioBuffer.duration) ? audioBuffer.duration : 0;
+    decodeCache.set(url, { bars, duration: exact });
+    if (props.src !== url) return;
+    rawWaveBars.value = bars;
+    decodedDuration.value = exact;
+  } catch {
+    // The recorded label and the default bars stand in.
+  } finally {
+    if (decoding === url) decoding = "";
+  }
 }
 
-function formatClock(seconds: number) {
-  const value = Math.max(0, Math.floor(Number(seconds) || 0));
-  const minutes = Math.floor(value / 60);
-  const rest = String(value % 60).padStart(2, "0");
-  return `${minutes}:${rest}`;
+function needsDecode() {
+  return !props.waveform?.length || (!fallbackDurationSeconds.value && !isSaneDuration(duration.value));
+}
+
+// Positions live in memory only: nothing about what was listened to reaches the disk.
+const resumePositions = new Map<string, number>();
+let stopActive: (() => void) | null = null;
+
+function rememberPosition() {
+  if (!props.resumeKey) return;
+  const time = currentTime.value;
+  if (time > 1 && effectiveDuration.value && time < effectiveDuration.value - 1) resumePositions.set(props.resumeKey, time);
+  else resumePositions.delete(props.resumeKey);
 }
 
 function syncAudioState() {
   const audio = audioRef.value;
   if (!audio) return;
-  if (Number.isFinite(audio.duration) && audio.duration > 0) {
-    duration.value = audio.duration;
-  }
-  const nextTime = audio.currentTime || 0;
-  if (nextTime > 0 || !isPlaying.value) {
-    currentTime.value = nextTime;
-  }
+  if (isSaneDuration(audio.duration)) duration.value = audio.duration;
+  else if (!referenceDuration.value) void decodeAudio(props.src);
+  const nextTime = clampTime(audio.currentTime);
+  if (nextTime > 0 || !isPlaying.value && !resumePositions.has(props.resumeKey)) currentTime.value = nextTime;
 }
 
 function stopProgressLoop() {
@@ -170,8 +187,7 @@ function startProgressLoop() {
       frameId = 0;
       return;
     }
-
-    const mediaTime = audio.currentTime || 0;
+    const mediaTime = clampTime(audio.currentTime);
     if (mediaTime > 0) {
       currentTime.value = mediaTime;
       playbackStartedAt = performance.now();
@@ -180,51 +196,71 @@ function startProgressLoop() {
       const elapsed = ((performance.now() - playbackStartedAt) / 1000) * playbackRate.value;
       currentTime.value = Math.min(effectiveDuration.value, playbackBaseTime + elapsed);
     }
-
-    if (Number.isFinite(audio.duration) && audio.duration > 0) {
-      duration.value = audio.duration;
-    }
-
+    if (isSaneDuration(audio.duration)) duration.value = audio.duration;
     frameId = requestAnimationFrame(tick);
   };
 
   frameId = requestAnimationFrame(tick);
 }
 
+function pauseSelf() {
+  const audio = audioRef.value;
+  if (audio && !audio.paused) audio.pause();
+}
+
+async function play() {
+  const audio = audioRef.value;
+  if (!audio) return;
+  try {
+    if (audio.ended || (effectiveDuration.value && currentTime.value >= effectiveDuration.value - 0.2)) {
+      currentTime.value = 0;
+    }
+    if (Math.abs((isSaneDuration(audio.currentTime) ? audio.currentTime : 0) - currentTime.value) > 0.3) {
+      audio.currentTime = currentTime.value;
+    }
+    audio.volume = 1.0;
+    audio.muted = false;
+    audio.playbackRate = playbackRate.value;
+    if (stopActive && stopActive !== pauseSelf) stopActive();
+    stopActive = pauseSelf;
+    await audio.play();
+    isPlaying.value = true;
+    startProgressLoop();
+  } catch (err) {
+    console.warn("Audio play failed:", err);
+    isPlaying.value = false;
+    stopProgressLoop();
+  }
+}
+
 async function togglePlayback() {
   const audio = audioRef.value;
   if (!audio) return;
-
   if (audio.paused) {
-    try {
-      if (audio.ended || (effectiveDuration.value && currentTime.value >= effectiveDuration.value - 0.2)) {
-        audio.currentTime = 0;
-        currentTime.value = 0;
-      }
-      audio.volume = 1.0;
-      audio.muted = false;
-      audio.playbackRate = playbackRate.value;
-      await audio.play();
-      isPlaying.value = true;
-      startProgressLoop();
-    } catch (err) {
-      console.warn("Audio play failed:", err);
-      isPlaying.value = false;
-      stopProgressLoop();
-    }
-  } else {
-    audio.pause();
-    isPlaying.value = false;
-    stopProgressLoop();
-    syncAudioState();
+    await play();
+    return;
   }
+  audio.pause();
+}
+
+function playFromStart() {
+  currentTime.value = 0;
+  if (props.resumeKey) resumePositions.delete(props.resumeKey);
+  void play();
+}
+
+function playNextInChain() {
+  const root = rootRef.value;
+  if (!props.chain || !root) return;
+  const players = Array.from(document.querySelectorAll<HTMLElement>("[data-voice-chain]"));
+  const next = players[players.indexOf(root) + 1];
+  next?.dispatchEvent(new CustomEvent(CHAIN_EVENT));
 }
 
 function seekByProgress(pct: number) {
   const audio = audioRef.value;
   const dur = effectiveDuration.value;
   if (!dur) return;
-
   const nextTime = Math.max(0, Math.min(dur, (pct / 100) * dur));
   currentTime.value = nextTime;
   if (audio) {
@@ -236,23 +272,21 @@ function seekByProgress(pct: number) {
   }
   playbackStartedAt = performance.now();
   playbackBaseTime = nextTime;
+  if (!isPlaying.value) rememberPosition();
 }
 
 function onWaveClick(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement;
   if (!target) return;
   const rect = target.getBoundingClientRect();
-  const clickX = event.clientX - rect.left;
-  const pct = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
-  seekByProgress(pct);
+  seekByProgress(Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)));
 }
 
 function onWaveMouseMove(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement;
   if (!target) return;
   const rect = target.getBoundingClientRect();
-  const mouseX = event.clientX - rect.left;
-  hoverProgress.value = Math.max(0, Math.min(100, (mouseX / rect.width) * 100));
+  hoverProgress.value = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
   isHoveringWave.value = true;
 }
 
@@ -262,11 +296,8 @@ function onWaveMouseLeave() {
 
 function cyclePlaybackRate() {
   const rates = [0.5, 1, 1.5, 2];
-  const nextIdx = (rates.indexOf(playbackRate.value) + 1) % rates.length;
-  playbackRate.value = rates[nextIdx];
-  if (audioRef.value) {
-    audioRef.value.playbackRate = playbackRate.value;
-  }
+  playbackRate.value = rates[(rates.indexOf(playbackRate.value) + 1) % rates.length];
+  if (audioRef.value) audioRef.value.playbackRate = playbackRate.value;
 }
 
 function downloadAudio() {
@@ -285,9 +316,6 @@ function onLoadedMetadata() {
   if (audio) {
     audio.volume = 1.0;
     audio.muted = false;
-    if (Number.isFinite(audio.duration) && audio.duration > 0) {
-      duration.value = audio.duration;
-    }
     props.messenger?.applyAudioOutput?.(audio);
   }
   syncAudioState();
@@ -296,9 +324,7 @@ function onLoadedMetadata() {
 watch(
   () => props.messenger?.state.selectedAudioOutputId,
   () => {
-    if (audioRef.value) {
-      props.messenger?.applyAudioOutput?.(audioRef.value);
-    }
+    if (audioRef.value) props.messenger?.applyAudioOutput?.(audioRef.value);
   }
 );
 
@@ -311,15 +337,17 @@ function onPause() {
   isPlaying.value = false;
   stopProgressLoop();
   syncAudioState();
+  rememberPosition();
+  if (stopActive === pauseSelf) stopActive = null;
 }
 
 function onEnded() {
   isPlaying.value = false;
   stopProgressLoop();
-  syncAudioState();
-  if (effectiveDuration.value) {
-    currentTime.value = effectiveDuration.value;
-  }
+  if (stopActive === pauseSelf) stopActive = null;
+  if (props.resumeKey) resumePositions.delete(props.resumeKey);
+  currentTime.value = effectiveDuration.value;
+  playNextInChain();
 }
 
 watch(
@@ -327,33 +355,30 @@ watch(
   (newSrc) => {
     stopProgressLoop();
     isPlaying.value = false;
-    currentTime.value = 0;
     duration.value = 0;
+    decodedDuration.value = 0;
     canPlay.value = false;
-    if (newSrc && (!props.waveform || props.waveform.length === 0)) {
-      decodeRealWaveform(newSrc);
-    }
+    currentTime.value = resumePositions.get(props.resumeKey) ?? 0;
+    if (newSrc && needsDecode()) void decodeAudio(newSrc);
   },
   { immediate: true }
 );
 
 onMounted(() => {
-  if (props.src && (!props.waveform || props.waveform.length === 0)) {
-    decodeRealWaveform(props.src);
-  }
+  rootRef.value?.addEventListener(CHAIN_EVENT, playFromStart);
 });
 
 onBeforeUnmount(() => {
   stopProgressLoop();
-  const audio = audioRef.value;
-  if (audio) {
-    audio.pause();
-  }
+  rootRef.value?.removeEventListener(CHAIN_EVENT, playFromStart);
+  if (stopActive === pauseSelf) stopActive = null;
+  rememberPosition();
+  audioRef.value?.pause();
 });
 </script>
 
 <template>
-  <div class="voice-player" :class="{ 'is-playing': isPlaying }">
+  <div ref="rootRef" class="voice-player" :class="{ 'is-playing': isPlaying }" :data-voice-chain="chain ? '' : undefined">
     <audio
       ref="audioRef"
       :src="src"
@@ -366,11 +391,10 @@ onBeforeUnmount(() => {
       @ended="onEnded"
     ></audio>
 
-    <!-- Apple-Style Squircle Play/Pause Button with Spring Dynamics -->
     <button
       class="voice-player__play"
       type="button"
-      :aria-label="isPlaying ? 'Pause' : 'Play'"
+      :aria-label="isPlaying ? t('audio.pause') : t('audio.play')"
       @click="togglePlayback"
     >
       <Transition name="apple-pop" mode="out-in">
@@ -393,7 +417,7 @@ onBeforeUnmount(() => {
       :aria-valuenow="progress"
       aria-valuemin="0"
       aria-valuemax="100"
-      aria-label="Audio progress"
+      :aria-label="t('audio.progress')"
       tabindex="0"
       @click="onWaveClick"
       @mousemove="onWaveMouseMove"
@@ -420,7 +444,7 @@ onBeforeUnmount(() => {
       <button
         class="voice-player__speed"
         type="button"
-        title="Vitesse de lecture (0.5x, 1x, 1.5x, 2x)"
+        :title="`${t('audio.speed')} (0.5x, 1x, 1.5x, 2x)`"
         @click.stop="cyclePlaybackRate"
       >
         {{ playbackRate }}x
@@ -429,14 +453,10 @@ onBeforeUnmount(() => {
       <button
         class="voice-player__dl"
         type="button"
-        title="Enregistrer le vocal"
+        :title="t('audio.save')"
         @click.stop="downloadAudio"
       >
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
+        <Icon name="download" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </button>
     </div>
   </div>
@@ -484,7 +504,6 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-/* Apple-Style Squircle Play/Pause Button */
 .voice-player__play {
   flex-shrink: 0;
   width: 34px;
@@ -502,9 +521,9 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   box-shadow: none;
   transition:
-    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    border-radius 240ms cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 160ms ease;
+    transform var(--dur-slow) var(--ease-spring),
+    border-radius var(--dur-base) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
   will-change: transform;
 }
 
@@ -518,7 +537,7 @@ onBeforeUnmount(() => {
   transform: scale(0.88);
   border-radius: 9px;
   opacity: 0.82;
-  transition-duration: 90ms;
+  transition-duration: var(--dur-fast);
 }
 
 .voice-player__icon {
@@ -529,17 +548,16 @@ onBeforeUnmount(() => {
   will-change: transform, opacity;
 }
 
-/* Apple Spring Icon Crossfade / Pop */
 .apple-pop-enter-active {
   transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 160ms ease;
+    transform var(--dur-base) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
 .apple-pop-leave-active {
   transition:
-    transform 140ms cubic-bezier(0.4, 0, 1, 1),
-    opacity 110ms ease;
+    transform var(--dur-fast) var(--ease-in),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
 .apple-pop-enter-from {
@@ -572,9 +590,9 @@ onBeforeUnmount(() => {
   background: var(--vp-bar-color);
   opacity: var(--vp-bar-idle-opacity);
   transition:
-    height 220ms cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    height var(--dur-base) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring);
   align-self: center;
   transform-origin: center bottom;
   will-change: height, opacity, transform;
@@ -608,10 +626,9 @@ onBeforeUnmount(() => {
   opacity: 0.88;
   min-width: 28px;
   text-align: right;
-  transition: opacity 160ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-/* Apple Pill Speed Selector */
 .voice-player__speed {
   padding: 1px 6px;
   border-radius: 999px;
@@ -622,10 +639,10 @@ onBeforeUnmount(() => {
   font-weight: 700;
   cursor: pointer;
   transition:
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
+    transform var(--dur-base) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
   will-change: transform;
 }
 
@@ -638,10 +655,9 @@ onBeforeUnmount(() => {
 
 .voice-player__speed:active {
   transform: scale(0.88);
-  transition-duration: 80ms;
+  transition-duration: var(--dur-fast);
 }
 
-/* Apple Micro-Bounce Download Button */
 .voice-player__dl {
   padding: 3px 4px;
   border-radius: 6px;
@@ -654,8 +670,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   transition:
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 160ms ease;
+    transform var(--dur-base) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-out);
   will-change: transform, opacity;
 }
 
@@ -667,6 +683,6 @@ onBeforeUnmount(() => {
 .voice-player__dl:active {
   transform: scale(0.86);
   opacity: 0.75;
-  transition-duration: 80ms;
+  transition-duration: var(--dur-fast);
 }
 </style>

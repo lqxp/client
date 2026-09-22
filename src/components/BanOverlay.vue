@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { inject } from "vue";
+import { useI18n } from "@/composables/useI18n";
 
-const i18n = inject<any>("i18n");
+const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps<{
   message?: string;
@@ -30,9 +31,9 @@ const props = defineProps<{
         </svg>
       </div>
 
-      <h1 class="ban-title">{{ i18n?.t("ban.title") || "Au revoir," }}</h1>
+      <h1 class="ban-title">{{ i18n.t('ban.title') }}</h1>
       <p class="ban-message">
-        {{ props.message || i18n?.t("ban.message") || "Ton compte a été banni." }}
+        {{ props.message || i18n.t('ban.message') }}
       </p>
     </div>
   </div>
@@ -42,7 +43,7 @@ const props = defineProps<{
 .ban-overlay {
   position: fixed;
   inset: 0;
-  z-index: 999999;
+  z-index: var(--z-blocking);
   background-color: var(--bg-primary, #0d0f12);
   color: var(--text-primary, #f0f2f5);
   display: flex;

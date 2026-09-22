@@ -1,6 +1,9 @@
 import { createApp } from "vue";
 import type { Plugin } from "vue";
 import App from "./App.vue";
+import { sheetDismiss } from "@/directives/sheetDismiss";
+import { installBrokenImageWatch } from "@/utils/brokenImages";
+import { installCustomTheme } from "@/composables/useCustomTheme";
 import router from "./router";
 import { initializeRuntimeConfig } from "./config/runtime";
 import { isWindowZoomEnabled } from "./utils/windowZoom";
@@ -47,6 +50,12 @@ function syncPlatformChromeOffset() {
   const isAndroid = /Android/i.test(navigator.userAgent);
   const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
   document.documentElement.classList.toggle("is-android-runtime", isAndroid && isTauri);
+  // The desktop title bar sits at --z-window-chrome, above every overlay, and
+  // the ones teleported to `body` start at y=0: without this offset their top
+  // controls end up underneath it. Same conditions InboxView uses to show it.
+  const isWebDesktop = window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
+  const hasTitlebar = (isTauri && !isAndroid) || isWebDesktop;
+  document.documentElement.style.setProperty("--app-chrome-top", hasTitlebar ? "30px" : "0px");
 }
 
 function preventMobileZoom() {
@@ -211,6 +220,22 @@ setupScrollLockdown();
 window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
 window.addEventListener("wheel", handleGlobalWheel, { passive: false, capture: true });
 
+/**
+ * A file dropped outside a drop zone must not take the window with it.
+ *
+ * The default action for a dropped file is to open it, which in a single page
+ * app means the session, the draft and the call all go. The conversation has
+ * its own handler and still receives the drop first; this only stops the
+ * navigation that would otherwise follow everywhere else.
+ */
+function blockStrayFileDrop(event: DragEvent) {
+  if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+  event.preventDefault();
+}
+
+window.addEventListener("dragover", blockStrayFileDrop);
+window.addEventListener("drop", blockStrayFileDrop);
+
 window.addEventListener("resize", syncViewportHeight, { passive: true });
 window.addEventListener("contextmenu", (event) => {
   const target = event.target as HTMLElement | null;
@@ -223,7 +248,9 @@ initializeRuntimeConfig()
     /* Keep the bundled runtime config when the server runtime cannot be fetched. */
   })
   .finally(() => {
-    createApp(App).use(router as Plugin).mount("#app");
+    installBrokenImageWatch();
+    installCustomTheme();
+    createApp(App).use(router as Plugin).directive("sheet-dismiss", sheetDismiss).mount("#app");
     const splash = document.getElementById("splash");
     if (splash) {
       // Laisse un tick pour que Vue finisse le premier rendu

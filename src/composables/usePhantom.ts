@@ -39,10 +39,26 @@ const PHANTOM_POLL_MAX_MS = 30 * 1000;
 const PHANTOM_POLL_USER_MIN_SEC = 3;
 const PHANTOM_POLL_USER_MAX_SEC = 40;
 
+export interface PhantomIncoming {
+  sender: {
+    contextualPub: JsonWebKey;
+    prekeyFp: string;
+    displayName: string;
+    mlkem768Pk: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface PhantomFriend {
+  peerFp?: string;
+  roomId?: string;
+  peerDisplayName?: string;
+}
+
 export interface PhantomMessengerCtx {
-  state: any;
-  apiRequest: (path: string, options?: any) => Promise<any>;
-  send: (payload: any) => void;
+  state: Record<string, unknown>;
+  apiRequest: (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+  send: (payload: Record<string, unknown>) => void;
   roomKeyFor: (roomId: string) => string;
   ensureRoomKey: (roomId: string) => string;
   importRoomKey: (roomId: string, roomKey: string) => string;
@@ -59,15 +75,15 @@ export interface PhantomMessengerCtx {
   mutualRoomsWith: (
     username: string,
   ) => Array<{ roomId: string; name: string; icon: string }>;
-  showToast?: (msg: string, opts?: any) => void;
+  showToast?: (msg: string, opts?: { badge?: string; error?: boolean }) => void;
 }
 
 interface StoredPrekey {
   mlkemPublicKeyHex: string;
   mlkemSecretKeyHex: string;
   mldsaSecretKeyHex: string;
-  ecdsaPublicJwk: any;
-  ecdsaPrivateJwk: any;
+  ecdsaPublicJwk: JsonWebKey | null;
+  ecdsaPrivateJwk: JsonWebKey | null;
   bundle: PrekeyBundle | null;
 }
 
@@ -108,13 +124,15 @@ function savePrekey(prekey: StoredPrekey): void {
   }
 }
 
+export type Phantom = ReturnType<typeof usePhantom>;
+
 export function usePhantom(ctx: PhantomMessengerCtx) {
   const state = reactive({
     ready: false,
     prekey: null as StoredPrekey | null,
     friendsByUser: {} as Record<string, any>,
-    pendingIncoming: [] as any[],
-    pendingOutgoing: [] as any[],
+    pendingIncoming: [] as PhantomIncoming[],
+    pendingOutgoing: [] as PhantomIncoming[],
     acceptUnknown: "all" as "off" | "filter" | "all",
     blockList: [] as string[],
     friendsCollapsed: false,
@@ -169,7 +187,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   }
 
   // ── Fetch anonyme (aucun header d'authentification — S6/INV13) ──────────────
-  async function anonymousFetch(path: string, options: any = {}) {
+  async function anonymousFetch(path: string, options: RequestInit = {}) {
     const headers = {
       ...(options.body ? { "content-type": "application/json" } : {}),
       ...(options.headers || {}),
@@ -278,7 +296,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     const myFp = await fp(prekey.mlkemPublicKeyHex);
     const day = epochDay(Date.now());
     const slots: string[] = [await slotGlobal(myFp, day)];
-    const roomKeys = ctx.state?.roomKeysByRoom || {};
+    const roomKeys = (ctx.state?.roomKeysByRoom || {}) as Record<string, string>;
     for (const roomId of Object.keys(roomKeys)) {
       const roomKey = roomKeys[roomId];
       if (roomKey) slots.push(await slotContextual(myFp, roomKey, day));
@@ -303,16 +321,16 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
         // par empreinte de prékey émetteur.
         const senderFp = inner.sender?.prekeyFp;
         const alreadyFriend = Object.values(state.friendsByUser).some(
-          (friend: any) => friend?.peerFp === senderFp,
+          (friend: PhantomFriend) => friend?.peerFp === senderFp,
         );
         if (alreadyFriend) return;
         const alreadyPending = state.pendingIncoming.some(
-          (item: any) => item.sender?.prekeyFp === senderFp,
+          (item: PhantomIncoming) => item.sender?.prekeyFp === senderFp,
         );
         if (alreadyPending) return;
         state.pendingIncoming.push({
           id: globalThis.crypto.randomUUID(),
-          ...inner,
+          ...(inner as unknown as PhantomIncoming),
         });
       } else if (inner.kind === "welcome") {
         await handleWelcome(inner);
@@ -371,7 +389,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
   // ── Dépôt (gating) ──────────────────────────────────────────────────────────
   async function obtainQuotaToken(): Promise<{
-    quotaToken: any;
+    quotaToken: string | null;
     nullifier: string;
   } | null> {
     try {
@@ -451,7 +469,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     const quota = await obtainQuotaToken();
     if (!quota) return false;
 
-    let token = gate.token;
+    let token: string | null = gate.token;
     if (gate.mode === "cap" && !token) {
       token = await obtainCapToken("phantom");
       if (!token) return false;
@@ -585,7 +603,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       return false;
     }
     const valid = await verifyInner(
-      incoming as PhantomInner,
+      incoming as unknown as PhantomInner,
       incoming.sender.contextualPub,
       senderBundle.mldsa65Pk,
     );
@@ -597,7 +615,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     // Déjà ami avec cette empreinte (acceptation croisée en cours, ou
     // redélivrance) : purge la demande au lieu de créer une deuxième room.
     const alreadyFriend = Object.values(state.friendsByUser).some(
-      (friend: any) => friend?.peerFp === incoming.sender?.prekeyFp,
+      (friend: PhantomFriend) => friend?.peerFp === incoming.sender?.prekeyFp,
     );
     if (alreadyFriend) {
       state.pendingIncoming.splice(index, 1);
@@ -688,9 +706,9 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
   function removeFriendLocal(prekeyFp: string): void {
     for (const [name, friend] of Object.entries(state.friendsByUser)) {
-      if ((friend as any)?.peerFp === prekeyFp) {
-        if ((friend as any)?.roomId) {
-          ctx.unregisterFriendRoom?.((friend as any).roomId);
+      if (friend?.peerFp === prekeyFp) {
+        if (friend?.roomId) {
+          ctx.unregisterFriendRoom?.(friend.roomId);
         }
         delete state.friendsByUser[name];
       }
@@ -800,7 +818,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       if (!data?.blob) return;
       const key = await rosterKey();
       if (!key) return;
-      const raw = b64ToBytes(data.blob);
+      const raw = b64ToBytes(String(data.blob || ""));
       const iv = raw.slice(0, 12);
       const ciphertext = raw.slice(12);
       const plaintext = new Uint8Array(
@@ -834,7 +852,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   }
 
   // ── Scheduler (poll cadencé + jitter) ───────────────────────────────────────
-  let schedulerTimer: any = null;
+  let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Délai avant le prochain poll : intervalle utilisateur explicite (3–40 s)
   // si défini, sinon jitter par défaut (15–30 s) pour la discrétion.

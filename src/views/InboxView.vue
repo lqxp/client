@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
+import Icon from "@/components/Icon.vue";
+import WindowControls from "@/components/WindowControls.vue";
+import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch, watchEffect } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
@@ -21,6 +23,12 @@ import BadgeIcon from "@/components/BadgeIcon.vue";
 import BanOverlay from "@/components/BanOverlay.vue";
 import RoomBanOverlay from "@/components/RoomBanOverlay.vue";
 import DialogModal from "@/components/DialogModal.vue";
+import RecoveryWordsNotice from "@/components/RecoveryWordsNotice.vue";
+import SecurityTour from "@/components/SecurityTour.vue";
+import PollCreateModal from "@/components/PollCreateModal.vue";
+import ThreadPanel from "@/components/ThreadPanel.vue";
+import Whiteboard from "@/components/Whiteboard.vue";
+import SpoilerParticles from "@/components/SpoilerParticles.vue";
 import SpotlightSearch from "@/components/SpotlightSearch.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import ThemeToggleButton from "@/components/ThemeToggleButton.vue";
@@ -57,6 +65,10 @@ const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
 const showAuthTitlebar = showNativeTitlebar;
 const showDesktopTitlebar = showNativeTitlebar || isWebDesktopRuntime;
+// Full-screen overlays teleported to <body> start below the desktop title bar.
+watchEffect(() => {
+  document.documentElement.style.setProperty("--app-top-inset", showDesktopTitlebar ? "30px" : "0px");
+});
 const showWindowControls = showNativeTitlebar && !isMacOS;
 const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
 
@@ -105,7 +117,7 @@ function hideSessionThemeSwitch() {
 
 async function submitSessionRenewal() {
   if (!renewCapToken.value) {
-    messenger.state.lastError = "Please complete the CAPTCHA.";
+    messenger.state.lastError = t("errors.captchaRequired");
     messenger.showToast(messenger.state.lastError);
     return;
   }
@@ -205,11 +217,14 @@ function onThreadDrop(event: DragEvent) {
 // Swipe-to-members on mobile
 let touchStartX = 0;
 let touchStartY = 0;
+let touchStartOnMessage = false;
 
 function onThreadTouchStart(event: TouchEvent) {
   if (!isMobile.value) return;
   touchStartX = event.touches[0].clientX;
   touchStartY = event.touches[0].clientY;
+  // Away from the edge, a rightward swipe on a message means reply.
+  touchStartOnMessage = touchStartX > 24 && event.target instanceof Element && Boolean(event.target.closest(".msg"));
 }
 
 function onThreadTouchEnd(event: TouchEvent) {
@@ -219,6 +234,7 @@ function onThreadTouchEnd(event: TouchEvent) {
   if (Math.abs(dx) <= Math.abs(dy) * 1.5) return; // not horizontal enough
   // Swipe left → open members panel
   if (dx < -60) {
+    if (touchStartOnMessage && touchStartX < window.innerWidth - 24) return;
     showMobileMembers.value = true;
   }
   // Swipe right while members open → close members
@@ -226,7 +242,7 @@ function onThreadTouchEnd(event: TouchEvent) {
     showMobileMembers.value = false;
   }
   // Swipe right from thread → back to conversation list
-  else if (dx > 60) {
+  else if (dx > 60 && !touchStartOnMessage) {
     showConversationList();
   }
 }
@@ -348,7 +364,21 @@ function resolveThemeMode(mode: string) {
   return mode === "adaptive" ? adaptiveTheme : mode;
 }
 
+function commitAppearance(apply: () => void) {
+  const root = document.documentElement;
+  const startViewTransition = (document as unknown as { startViewTransition?: (cb: () => void) => void })
+    .startViewTransition;
+  const themeChanged = root.getAttribute("data-theme") !== resolveThemeMode(messenger.state.themeMode || "system");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!themeChanged || reduced || typeof startViewTransition !== "function") return apply();
+  startViewTransition.call(document, apply);
+}
+
 function applyAppearance() {
+  commitAppearance(() => applyAppearanceNow());
+}
+
+function applyAppearanceNow() {
   const theme = resolveThemeMode(messenger.state.themeMode || "system");
   const lockTheme = resolveThemeMode(messenger.state.clientLockThemeMode || messenger.state.themeMode || "system");
 
@@ -571,59 +601,21 @@ async function lockClientNow() {
 
   <div v-if="isLocked" class="app app--auth"
     :class="{ 'app--desktop-titlebar app--lock-titlebar': showAuthTitlebar, 'is-tauri': showNativeTitlebar, 'is-macos': isMacOS }">
-    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" :aria-label="t('titlebar.desktopTitleBar')"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
-          @click="minimizeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M2 8.5h8" />
-          </svg>
-        </button>
-        <button class="desktop-titlebar__window-button" type="button"
-          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
-          <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M4.5 2.5h5v5" />
-            <path d="M2.5 4.5h5v5h-5z" />
-          </svg>
-          <svg v-else viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3h6v6H3z" />
-          </svg>
-        </button>
-        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
-          aria-label="Fermer" @click="closeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="m3 3 6 6" />
-            <path d="m9 3-6 6" />
-          </svg>
-        </button>
-      </div>
+      <WindowControls v-if="showWindowControls" :maximized="isWindowMaximized" @minimize="minimizeNativeWindow"
+        @toggle-maximize="toggleNativeMaximize()" @close="closeNativeWindow" />
     </header>
     <LockScreen :messenger="messenger" />
   </div>
   <div v-else-if="sessionExpired" class="app app--auth"
     :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar, 'is-macos': isMacOS }">
-    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" :aria-label="t('titlebar.desktopTitleBar')"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
-          @click="minimizeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8.5h8" /></svg>
-        </button>
-        <button class="desktop-titlebar__window-button" type="button"
-          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
-          <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M4.5 2.5h5v5" /><path d="M2.5 4.5h5v5h-5z" />
-          </svg>
-          <svg v-else viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3h6v6H3z" /></svg>
-        </button>
-        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
-          aria-label="Fermer" @click="closeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 3 6 6" /><path d="m9 3-6 6" /></svg>
-        </button>
-      </div>
+      <WindowControls v-if="showWindowControls" :maximized="isWindowMaximized" @minimize="minimizeNativeWindow"
+        @toggle-maximize="toggleNativeMaximize()" @close="closeNativeWindow" />
     </header>
     <section class="session-renew">
       <div class="session-renew__card" @mouseenter="hideSessionThemeSwitch" @mouseleave="showSessionThemeSwitch">
@@ -668,41 +660,18 @@ async function lockClientNow() {
   </div>
   <div v-else-if="needsOnboarding" class="app app--auth"
     :class="{ 'app--onboarding-titlebar is-tauri': showAuthTitlebar, 'is-macos': isMacOS }">
-    <header v-if="showAuthTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+    <header v-if="showAuthTitlebar" class="desktop-titlebar" :aria-label="t('titlebar.desktopTitleBar')"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
-      <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-        <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
-          @click="minimizeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M2 8.5h8" />
-          </svg>
-        </button>
-        <button class="desktop-titlebar__window-button" type="button"
-          :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
-          <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M4.5 2.5h5v5" />
-            <path d="M2.5 4.5h5v5h-5z" />
-          </svg>
-          <svg v-else viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3h6v6H3z" />
-          </svg>
-        </button>
-        <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
-          aria-label="Fermer" @click="closeNativeWindow">
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="m3 3 6 6" />
-            <path d="m9 3-6 6" />
-          </svg>
-        </button>
-      </div>
+      <WindowControls v-if="showWindowControls" :maximized="isWindowMaximized" @minimize="minimizeNativeWindow"
+        @toggle-maximize="toggleNativeMaximize()" @close="closeNativeWindow" />
     </header>
     <OnboardingScreen :messenger="messenger" />
   </div>
 
   <div v-else class="app"
     :class="{ 'app--desktop-titlebar': showDesktopTitlebar, 'is-thread': hasActive && mobileThreadOpen, 'is-tauri': showNativeTitlebar, 'is-web-titlebar': isWebDesktopRuntime }">
-    <header v-if="showDesktopTitlebar" class="desktop-titlebar" aria-label="Desktop title bar"
+    <header v-if="showDesktopTitlebar" class="desktop-titlebar" :aria-label="t('titlebar.desktopTitleBar')"
       @pointerdown="startNativeDrag" @dblclick="toggleNativeMaximize">
       <div class="desktop-titlebar__spacer"></div>
       <div class="desktop-titlebar__room">
@@ -731,38 +700,13 @@ async function lockClientNow() {
             type="button" :aria-pressed="action === 'streamer' ? messenger.state.streamerMode : undefined"
             :aria-label="titlebarActionLabel(action)" :title="titlebarActionLabel(action)"
             @click="runTitlebarAction(action)">
-            <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 3l18 18" />
-              <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
-              <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
-              <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
-            </svg>
-            <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
-              <path
-                d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
-            </svg>
-            <svg v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-            </svg>
-            <svg v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-            </svg>
-            <svg v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <path d="M16 17l5-5-5-5" />
-              <path d="M21 12H9" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M7 10V8a5 5 0 0 1 10 0v2" />
-              <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
-              <path d="M12 14v2" />
-            </svg>
+            <Icon name="eye-off" v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="eye" v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="cog" v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="moon" v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="sun" v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="log-out" v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true" />
+            <Icon name="lock" v-else viewBox="0 0 24 24" aria-hidden="true" />
           </button>
         </div>
 
@@ -773,91 +717,43 @@ async function lockClientNow() {
               <path d="M6 15 12 9l6 6" />
             </svg>
           </button>
-          <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu"
-            :aria-label="t('titlebar.quickActions')">
-            <template v-if="titlebarTrayEmpty">
-              <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
-              <div class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
-            </template>
-            <template v-else>
-              <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
-                <button class="desktop-titlebar__tray-item" type="button" role="menuitem"
-                  @click="runTitlebarAction(action)">
-                  <svg v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24"
-                    aria-hidden="true">
-                    <path d="M3 3l18 18" />
-                    <path d="M10.6 10.6A2 2 0 0 0 13.4 13.4" />
-                    <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8" />
-                    <path d="M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1" />
-                  </svg>
-                  <svg v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <svg v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" />
-                    <path
-                      d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.99 19.4a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.4H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.99a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.99 4.6h.01c.39 0 .76-.14 1.04-.4A1.7 1.7 0 0 0 10.4 3.1V3a2 2 0 1 1 4 0v.09c0 .4.14.77.4 1.05.28.26.65.4 1.04.4h.01a1.7 1.7 0 0 0 1.06-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.27.27-.4.65-.34 1.03v.01c0 .39.14.76.4 1.04.28.26.65.4 1.05.4h.09a2 2 0 1 1 0 4H21.1c-.4 0-.77.14-1.05.4-.26.28-.4.65-.4 1.04Z" />
-                  </svg>
-                  <svg v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24"
-                    aria-hidden="true">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                  </svg>
-                  <svg v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                  </svg>
-                  <svg v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <path d="M16 17l5-5-5-5" />
-                    <path d="M21 12H9" />
-                  </svg>
-                  <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M7 10V8a5 5 0 0 1 10 0v2" />
-                    <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
-                    <path d="M12 14v2" />
-                  </svg>
-                  <span>{{ titlebarActionLabel(action) }}</span>
-                </button>
-                <button class="desktop-titlebar__tray-move" type="button"
-                  :aria-label="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
-                  :title="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
-                  @click="toggleTitlebarActionLocation(action)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M15 18 9 12l6-6" />
-                  </svg>
-                </button>
-              </div>
-            </template>
-          </div>
+          <Transition name="qx-menu">
+            <div v-if="titlebarTrayOpen" class="desktop-titlebar__tray-menu" role="menu"
+              :aria-label="t('titlebar.quickActions')">
+              <template v-if="titlebarTrayEmpty">
+                <div class="desktop-titlebar__tray-hint">{{ t('titlebar.rightClickHint') }}</div>
+                <div class="desktop-titlebar__tray-empty">{{ t('titlebar.emptyTray') }}</div>
+              </template>
+              <template v-else>
+                <div v-for="action in titlebarTrayActionItems" :key="`tray-${action}`" class="desktop-titlebar__tray-row">
+                  <button class="desktop-titlebar__tray-item" type="button" role="menuitem"
+                    @click="runTitlebarAction(action)">
+                    <Icon name="eye-off" v-if="action === 'streamer' && messenger.state.streamerMode" viewBox="0 0 24 24"
+                      aria-hidden="true" />
+                    <Icon name="eye" v-else-if="action === 'streamer'" viewBox="0 0 24 24" aria-hidden="true" />
+                    <Icon name="cog" v-else-if="action === 'settings'" viewBox="0 0 24 24" aria-hidden="true" />
+                    <Icon name="moon" v-else-if="action === 'theme' && titlebarResolvedTheme === 'light'" viewBox="0 0 24 24"
+                      aria-hidden="true" />
+                    <Icon name="sun" v-else-if="action === 'theme'" viewBox="0 0 24 24" aria-hidden="true" />
+                    <Icon name="log-out" v-else-if="action === 'logout'" viewBox="0 0 24 24" aria-hidden="true" />
+                    <Icon name="lock" v-else viewBox="0 0 24 24" aria-hidden="true" />
+                    <span>{{ titlebarActionLabel(action) }}</span>
+                  </button>
+                  <button class="desktop-titlebar__tray-move" type="button"
+                    :aria-label="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
+                    :title="t('titlebar.moveFromTray', { action: titlebarActionLabel(action) })"
+                    @click="toggleTitlebarActionLocation(action)">
+                    <Icon name="chevron-left" viewBox="0 0 24 24" aria-hidden="true" />
+                  </button>
+                </div>
+              </template>
+            </div>
+          </Transition>
         </div>
         </div>
 
-        <div v-if="showWindowControls" class="desktop-titlebar__window-controls" aria-label="Contrôles de fenêtre">
-          <button class="desktop-titlebar__window-button" type="button" aria-label="Minimiser"
-            @click="minimizeNativeWindow">
-            <svg viewBox="0 0 12 12" aria-hidden="true">
-              <path d="M2 8.5h8" />
-            </svg>
-          </button>
-          <button class="desktop-titlebar__window-button" type="button"
-            :aria-label="isWindowMaximized ? 'Restaurer' : 'Maximiser'" @click="toggleNativeMaximize()">
-            <svg v-if="isWindowMaximized" viewBox="0 0 12 12" aria-hidden="true">
-              <path d="M4.5 2.5h5v5" />
-              <path d="M2.5 4.5h5v5h-5z" />
-            </svg>
-            <svg v-else viewBox="0 0 12 12" aria-hidden="true">
-              <path d="M3 3h6v6H3z" />
-            </svg>
-          </button>
-          <button class="desktop-titlebar__window-button desktop-titlebar__window-button--close" type="button"
-            aria-label="Fermer" @click="closeNativeWindow">
-            <svg viewBox="0 0 12 12" aria-hidden="true">
-              <path d="m3 3 6 6" />
-              <path d="m9 3-6 6" />
-            </svg>
-          </button>
-        </div>
+        <WindowControls v-if="showWindowControls" :maximized="isWindowMaximized" @minimize="minimizeNativeWindow"
+          @toggle-maximize="toggleNativeMaximize()" @close="closeNativeWindow" />
       </div>
     </header>
 
@@ -882,13 +778,21 @@ async function lockClientNow() {
       </Transition>
     </Teleport>
 
+    <SpoilerParticles :active="Boolean(messenger.state.streamerMode || messenger.state.streamerLeaving)" />
+    <RecoveryWordsNotice :messenger="messenger" />
+    <SecurityTour :messenger="messenger" @open-settings="openSettings" />
+    <PollCreateModal :messenger="messenger" />
+    <ThreadPanel :messenger="messenger" />
+    <Whiteboard :messenger="messenger" />
     <DialogModal />
 
-    <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" @open-profile="(username) => { spotlightProfile = username }" />
+    <SpotlightSearch :messenger="messenger" :open="spotlightOpen" @close="spotlightOpen = false" @open-settings="openSettings" @open-profile="(username) => { spotlightProfile = username }" />
 
     <!-- Profile card from spotlight -->
     <Teleport to="body">
-      <ProfileCard v-if="spotlightProfile" :messenger="messenger" :username="spotlightProfile" @close="spotlightProfile = ''" />
+      <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
+        <ProfileCard v-if="spotlightProfile" :messenger="messenger" :username="spotlightProfile" @close="spotlightProfile = ''" />
+      </Transition>
     </Teleport>
 
     <main v-if="hasActive" class="thread" :class="{ 'thread--members-open': showMobileMembers }"
@@ -920,11 +824,7 @@ async function lockClientNow() {
 
       <Transition name="drop-fade">
         <div v-if="isFileDrag" class="thread__drop-overlay" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
+          <Icon name="download" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           <span>{{ t('composer.dropToSend') }}</span>
         </div>
       </Transition>
@@ -989,7 +889,7 @@ async function lockClientNow() {
 
 .drop-fade-enter-active,
 .drop-fade-leave-active {
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .drop-fade-enter-from,
@@ -1062,7 +962,7 @@ async function lockClientNow() {
 .app.app--onboarding-titlebar.is-tauri .desktop-titlebar,
 .app.app--onboarding-titlebar.is-web-titlebar .desktop-titlebar {
   position: relative;
-  z-index: 50;
+  z-index: var(--z-window-chrome);
   grid-column: 1 / -1;
   grid-row: 1;
   width: 100%;
@@ -1082,18 +982,18 @@ async function lockClientNow() {
   background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
 }
 
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-controls,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-controls),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-controls) {
   border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
 }
 
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-button),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button) {
   color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
 }
 
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button:hover,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button:hover {
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-button:hover),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button:hover) {
   background: var(--lock-titlebar-hover);
   color: var(--lock-titlebar-text);
 }
@@ -1218,9 +1118,9 @@ async function lockClientNow() {
   }
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-controls,
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-controls,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
+.app.app--desktop-titlebar.is-tauri :deep(.desktop-titlebar__window-controls),
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-controls),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-controls) {
   height: 30px;
   display: flex;
   align-items: stretch;
@@ -1229,33 +1129,33 @@ async function lockClientNow() {
   border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button,
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
+.app.app--desktop-titlebar.is-tauri :deep(.desktop-titlebar__window-button),
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-button),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button) {
   width: 42px;
   height: 30px;
   display: grid;
   place-items: center;
   color: color-mix(in srgb, var(--text) 78%, transparent);
   border-radius: 0;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button:hover {
+.app.app--desktop-titlebar.is-tauri :deep(.desktop-titlebar__window-button:hover) {
   background: var(--surface-hover);
   color: var(--text);
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button--close:hover,
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button--close:hover,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button--close:hover {
+.app.app--desktop-titlebar.is-tauri :deep(.desktop-titlebar__window-button--close:hover),
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-button--close:hover),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button--close:hover) {
   background: var(--red);
   color: #fff;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__window-button svg,
-.app.app--lock-titlebar.is-tauri .desktop-titlebar__window-button svg,
-.app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button svg {
+.app.app--desktop-titlebar.is-tauri :deep(.desktop-titlebar__window-button svg),
+.app.app--lock-titlebar.is-tauri :deep(.desktop-titlebar__window-button svg),
+.app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button svg) {
   width: 12px;
   height: 12px;
   fill: none;
@@ -1270,7 +1170,7 @@ async function lockClientNow() {
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-toggle {
-  transition: transform 140ms ease, background-color 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
@@ -1285,11 +1185,11 @@ async function lockClientNow() {
   z-index: 80;
   min-width: 190px;
   padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 94%, black 6%);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(18px) saturate(1.1);
+  border: var(--context-menu-border);
+  border-radius: var(--context-menu-radius);
+  background: var(--context-menu-bg);
+  box-shadow: var(--context-menu-shadow);
+  backdrop-filter: var(--context-menu-blur);
 }
 
 .app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-menu::before {
@@ -1385,7 +1285,7 @@ async function lockClientNow() {
   stroke-linejoin: round;
 }
 
-.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item svg circle {
+.app.app--desktop-titlebar.is-tauri .desktop-titlebar__tray-item :deep(svg circle) {
   fill: none;
 }
 
@@ -1458,18 +1358,18 @@ async function lockClientNow() {
     background: color-mix(in srgb, var(--lock-titlebar-surface) 94%, black 6%);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-controls,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-controls {
+  .app.app--lock-titlebar :deep(.desktop-titlebar__window-controls),
+  .app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-controls) {
     border-left-color: color-mix(in srgb, var(--lock-titlebar-line) 78%, transparent);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-button,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button {
+  .app.app--lock-titlebar :deep(.desktop-titlebar__window-button),
+  .app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button) {
     color: color-mix(in srgb, var(--lock-titlebar-text) 78%, transparent);
   }
 
-  .app.app--lock-titlebar .desktop-titlebar__window-button:hover,
-  .app.app--onboarding-titlebar.is-tauri .desktop-titlebar__window-button:hover {
+  .app.app--lock-titlebar :deep(.desktop-titlebar__window-button:hover),
+  .app.app--onboarding-titlebar.is-tauri :deep(.desktop-titlebar__window-button:hover) {
     background: var(--lock-titlebar-hover);
     color: var(--lock-titlebar-text);
   }
@@ -1557,7 +1457,7 @@ async function lockClientNow() {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
   }
 
-  .desktop-titlebar__window-controls {
+  :deep(.desktop-titlebar__window-controls) {
     height: 30px;
     display: flex;
     align-items: stretch;
@@ -1566,27 +1466,27 @@ async function lockClientNow() {
     border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   }
 
-  .desktop-titlebar__window-button {
+  :deep(.desktop-titlebar__window-button) {
     width: 42px;
     height: 30px;
     display: grid;
     place-items: center;
     color: color-mix(in srgb, var(--text) 78%, transparent);
     border-radius: 0;
-    transition: background-color 120ms ease, color 120ms ease;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   }
 
-  .desktop-titlebar__window-button:hover {
+  :deep(.desktop-titlebar__window-button:hover) {
     background: var(--surface-hover);
     color: var(--text);
   }
 
-  .desktop-titlebar__window-button--close:hover {
+  :deep(.desktop-titlebar__window-button--close:hover) {
     background: var(--red);
     color: #fff;
   }
 
-  .desktop-titlebar__window-button svg {
+  :deep(.desktop-titlebar__window-button svg) {
     width: 12px;
     height: 12px;
     fill: none;
@@ -1601,7 +1501,7 @@ async function lockClientNow() {
   }
 
   .desktop-titlebar__tray-toggle {
-    transition: transform 140ms ease, background-color 140ms ease;
+    transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
   }
 
   .desktop-titlebar__tray.is-open .desktop-titlebar__tray-toggle {
@@ -1616,11 +1516,11 @@ async function lockClientNow() {
     z-index: 80;
     min-width: 190px;
     padding: 6px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--surface) 94%, black 6%);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(18px) saturate(1.1);
+    border: var(--context-menu-border);
+    border-radius: var(--context-menu-radius);
+    background: var(--context-menu-bg);
+    box-shadow: var(--context-menu-shadow);
+    backdrop-filter: var(--context-menu-blur);
   }
 
   .desktop-titlebar__tray-menu::before {
@@ -1716,7 +1616,7 @@ async function lockClientNow() {
     stroke-linejoin: round;
   }
 
-  .desktop-titlebar__tray-item svg circle {
+  .desktop-titlebar__tray-item :deep(svg circle) {
     fill: none;
   }
 

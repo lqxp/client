@@ -47,15 +47,15 @@ interface BackendRelay {
 
 const ONIONOO_DETAILS = "https://onionoo.torproject.org/details";
 
-function firstAddress(orAddresses: string[] | undefined): string {
-  const list = Array.isArray(orAddresses) ? orAddresses : [];
+function firstAddress(orAddresses: unknown): string {
+  const list: string[] = Array.isArray(orAddresses) ? orAddresses : [];
   const v4 = list.find((a) => /\d+\.\d+\.\d+\.\d+/.test(a));
   const v6 = list.find((a) => a.includes(":"));
   return v4 || v6 || "";
 }
 
 /** Maps Onionoo relay documents into the UI shape (and drops non-relays). */
-export function mapRelay(raw: any): TorRelay {
+export function mapRelay(raw: Record<string, unknown>): TorRelay {
   return {
     fingerprint: String(raw.fingerprint || ""),
     nickname: String(raw.nickname || "Unnamed"),
@@ -99,7 +99,7 @@ export function relayDetailUrl(fingerprint: string): string {
 
 function isTauriRuntime(): boolean {
   if (typeof window === "undefined") return false;
-  const w = window as any;
+  const w = window as unknown as Record<string, unknown>;
   return Boolean(w.__TAURI_INTERNALS__ || w.__TAURI__);
 }
 
@@ -146,7 +146,7 @@ async function fetchTorRelaysDirect(
     }
     const data = await res.json();
     const relays = Array.isArray(data?.relays) ? data.relays : [];
-    return relays.map(mapRelay).filter((r) => r.fingerprint);
+    return (relays as Record<string, unknown>[]).map(mapRelay).filter((r) => r.fingerprint);
   } finally {
     clearTimeout(timer);
   }

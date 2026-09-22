@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import type { Connect, ViteDevServer } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { readFileSync } from "node:fs";
 import { resolve, basename } from "node:path";
@@ -13,8 +14,13 @@ const isWeb = basename(process.cwd()) === "web";
 function runtimeConfigPlugin() {
   return {
     name: "qxp-runtime-config",
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(
+        async (
+          req: Connect.IncomingMessage,
+          res: import("node:http").ServerResponse,
+          next: Connect.NextFunction,
+        ) => {
         const url = req.url || "";
         if (!url.endsWith("/runtime-config.js")) {
           return next();

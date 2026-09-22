@@ -13,7 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export function isTauriDesktopRuntime() {
   if (typeof window === "undefined") return false;
-  const candidate = window as any;
+  const candidate = window as unknown as Record<string, unknown>;
   if (!(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__)) return false;
   const ua = String(navigator?.userAgent || "").toLowerCase();
   return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);

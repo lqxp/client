@@ -11,6 +11,7 @@
     "build:web": "bun run build",
     "sync:runtime": "node ./scripts/sync-runtime-config.mjs",
     "typecheck": "vue-tsc --noEmit",
+    "typecheck:vue": "bun scripts/typecheck-vue.ts",
     "preview": "vite preview",
     "build:tauri": "vite build && node ./scripts/sync-runtime-config.mjs --out dist/runtime-config.js"
   },

@@ -23,6 +23,47 @@
   --green: #3fcf6f;
   --red: #ff6b70;
 
+  /* Categorical chart marks, one source of truth for every chart.
+     Checked with the dataviz palette validator against this mode's chart
+     surface (--surface-2): lightness band, chroma floor, all-pairs CVD
+     separation, normal-vision floor and 3:1 contrast all pass. Do not
+     hand-edit a single slot; re-run the validator on the whole set. */
+  --chart-1: #3f93f7;
+  --chart-2: #ee5e23;
+  --chart-3: #409f61;
+  --chart-4: #d05fc8;
+  --chart-track: rgba(255, 255, 255, 0.09);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-surface: var(--surface-2);
+
+  --field-bg: color-mix(in srgb, var(--bg) 55%, transparent);
+  --field-bg-focus: color-mix(in srgb, var(--bg) 78%, transparent);
+  --field-edge: var(--line-strong);
+  --field-radius: 8px;
+  --field-focus: inset 0 0 0 1px var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
+
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 340ms;
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  --z-dialog: 500;
+  --z-modal: 220;
+  --z-sheet: 240;
+  --z-spotlight: 300;
+  --z-popover-backdrop: 998;
+  --z-popover: 999;
+  --z-floating-menu: 1000;
+  --z-blocking: 999999;
+  --z-update-drawer: 9999990;
+  --z-select: 9999998;
+  --z-update: 9999999;
+  --z-toast: 100000000;
+
+  --segment-pill: #5a5a5f;
+
   --bubble-in: #3a3a3d;
   --bubble-out: var(--accent);
 
@@ -34,6 +75,7 @@
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --z-window-chrome: 10000000;
 
   --sidebar-w: 380px;
   --members-w: 272px;
@@ -104,6 +146,37 @@
   --lock-titlebar-hover: #343438;
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-out);
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  animation-name: theme-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: theme-fade-in;
+}
+
+@keyframes theme-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes theme-fade-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 .context-menu-base {
   position: fixed;
   z-index: 140;
@@ -132,7 +205,7 @@
   color: var(--text);
   font-size: var(--context-menu-item-font-size);
   font-weight: var(--context-menu-item-font-weight);
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .context-menu-base button>span,
@@ -169,8 +242,6 @@
   color: var(--red) !important;
 }
 
-
-
 :root[data-theme="light"] {
   --bg: #f3f5f8;
   --surface: #ffffff;
@@ -184,6 +255,14 @@
   --dim: #8893a2;
   --bubble-in: #e8edf4;
   --bubble-out: var(--accent);
+
+  --chart-1: #127eee;
+  --chart-2: #9f3501;
+  --chart-3: #1a9951;
+  --chart-4: #c142ba;
+  --chart-track: rgba(12, 22, 34, 0.1);
+  --segment-pill: #ffffff;
+  --chart-grid: rgba(12, 22, 34, 0.08);
 
   --discord-text: #2b3440;
   --discord-text-strong: #18212b;
@@ -385,15 +464,62 @@ textarea {
   border: 0;
 }
 
+/* Custom theme: the chosen tint runs through every surface, so no area keeps the stock color. */
+:root.has-chat-tint {
+  --bg: color-mix(in srgb, var(--chat-tint) 8%, #1b1b1d);
+  --surface: color-mix(in srgb, var(--chat-tint) 7%, #2c2c2e);
+  --surface-2: color-mix(in srgb, var(--chat-tint) 10%, #3a3a3d);
+  --surface-hover: color-mix(in srgb, var(--chat-tint) 11%, #343438);
+  --surface-active: color-mix(in srgb, var(--chat-tint) 13%, #3f3f44);
+  --bubble-in: color-mix(in srgb, var(--chat-tint) 11%, #3a3a3d);
+}
+
+:root.has-chat-tint[data-theme="light"] {
+  --bg: color-mix(in srgb, var(--chat-tint) 8%, #f3f5f8);
+  --surface: color-mix(in srgb, var(--chat-tint) 4%, #ffffff);
+  --surface-2: color-mix(in srgb, var(--chat-tint) 11%, #e8edf4);
+  --surface-hover: color-mix(in srgb, var(--chat-tint) 9%, #eef2f8);
+  --surface-active: color-mix(in srgb, var(--chat-tint) 13%, #e2e8f1);
+  --bubble-in: color-mix(in srgb, var(--chat-tint) 13%, #e8edf4);
+}
+
+:root.theme-animating *,
+:root.theme-animating *::before,
+:root.theme-animating *::after {
+  transition:
+    background-color 480ms var(--ease-out),
+    border-color 480ms var(--ease-out),
+    color 480ms var(--ease-out),
+    fill 480ms var(--ease-out),
+    stroke 480ms var(--ease-out),
+    box-shadow 480ms var(--ease-out) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root.theme-animating *,
+  :root.theme-animating *::before,
+  :root.theme-animating *::after {
+    transition: none !important;
+  }
+}
+
 /* Native scrollbars — thin, clean, theme-aware */
 :root {
   --scrollbar-thumb: rgba(255, 255, 255, 0.14);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
+  --reaction-bg: rgba(255, 255, 255, 0.07);
+  --reaction-bg-hover: rgba(255, 255, 255, 0.13);
+  --reaction-edge: rgba(255, 255, 255, 0.08);
+  --reaction-mine-text: color-mix(in srgb, var(--accent) 78%, #fff);
 }
 
 :root[data-theme="light"] {
   --scrollbar-thumb: rgba(12, 22, 34, 0.18);
   --scrollbar-thumb-hover: rgba(12, 22, 34, 0.32);
+  --reaction-bg: #f1f4f9;
+  --reaction-bg-hover: #e4eaf3;
+  --reaction-edge: rgba(12, 22, 34, 0.16);
+  --reaction-mine-text: color-mix(in srgb, var(--accent) 72%, #000);
 }
 
 * {
@@ -459,6 +585,54 @@ textarea {
   font-size: 17px;
 }
 
+.presence-dot {
+  --tone: var(--green);
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--tone);
+  transition: background-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.presence-dot.is-call {
+  --tone: var(--accent);
+}
+
+.presence-dot.is-dnd {
+  --tone: var(--red);
+}
+
+.presence-dot.is-connecting {
+  --tone: #e4b231;
+}
+
+.presence-dot.is-invisible {
+  background: transparent;
+  box-shadow: inset 0 0 0 max(1.5px, calc(var(--dot) * .24)) var(--dim);
+}
+
+.presence-dot.has-ring {
+  box-shadow: 0 0 0 var(--ring) var(--surface);
+}
+
+.presence-dot.has-ring.is-invisible {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 max(1.5px, calc(var(--dot) * .24)) var(--dim), 0 0 0 var(--ring) var(--surface);
+}
+
+.avatar--image {
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.avatar--image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .avatar--blue {
   background: linear-gradient(135deg, #3b8bff, #1a5dd4);
 }
@@ -499,7 +673,7 @@ textarea {
   place-items: center;
   border-radius: 50%;
   color: var(--muted);
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .icon-btn:hover {
@@ -550,7 +724,7 @@ textarea {
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  transition: background 120ms ease, opacity 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 
 .btn:hover {
@@ -718,7 +892,7 @@ textarea {
   border: 1px solid #1b1d20;
   color: #f2f3f5;
   font-size: 15px;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .onboarding__field textarea {
@@ -780,9 +954,9 @@ textarea {
 
 .toast {
   position: fixed;
-  top: calc(18px + var(--app-safe-top));
+  top: calc(18px + var(--app-safe-top) + var(--app-chrome-top, 0px));
   left: 50%;
-  z-index: 1000;
+  z-index: var(--z-toast);
   transform: translateX(-50%);
   width: max-content;
   max-width: min(720px, calc(100vw - 32px));
@@ -867,7 +1041,7 @@ textarea {
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .toast-enter-from,
@@ -901,7 +1075,7 @@ textarea {
   gap: 10px;
   padding: 4px 10px 4px 4px;
   border-radius: 999px;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
   min-width: 0;
 }
 
@@ -957,7 +1131,7 @@ textarea {
 }
 
 .menu__pop button:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .menu__pop svg {
@@ -988,7 +1162,7 @@ textarea {
   background: color-mix(in srgb, var(--surface-2) 88%, var(--surface) 12%);
   border: 1px solid var(--line);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .search:focus-within,
@@ -1080,7 +1254,7 @@ textarea {
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background 80ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
   min-height: 52px;
 }
 
@@ -1214,31 +1388,7 @@ textarea {
   color: var(--muted);
   flex: none;
   min-height: 56px;
-  background: #232428;
-}
-
-.side__foot .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--dim);
-  flex: none;
-}
-
-.side__foot .dot.is-online {
-  background: var(--green);
-}
-
-.side__foot .dot.is-dnd {
-  background: var(--red);
-}
-
-.side__foot .dot.is-invisible {
-  background: var(--dim);
-}
-
-.side__foot .dot.is-connecting {
-  background: #e4b231;
+  background: color-mix(in srgb, var(--bg) 60%, var(--surface));
 }
 
 .side__foot .spacer {
@@ -1263,23 +1413,6 @@ textarea {
 .side-user:focus-visible {
   background: transparent;
   color: var(--text);
-}
-
-
-.side-user__avatar {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  overflow: hidden;
-  border-radius: 50%;
-  background: var(--surface-2);
-}
-
-.side-user__avatar img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
 }
 
 .side-user__text {
@@ -1333,37 +1466,91 @@ textarea {
   right: -4px;
   bottom: 40px;
   z-index: 30;
-  min-width: 190px;
-  padding: 6px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
+  width: 248px;
+  padding: 5px;
+  border-radius: var(--context-menu-radius);
+  background: var(--context-menu-bg);
+  border: var(--context-menu-border);
+  box-shadow: var(--context-menu-shadow);
+  backdrop-filter: var(--context-menu-blur);
+  transform-origin: bottom right;
 }
 
-.side-status__menu button {
-  width: 100%;
-  display: flex;
+.side-status__menu .status-option {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 7px;
+  column-gap: 11px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 9px;
+  border-radius: 6px;
   color: var(--text);
   text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+/* Offline reads as an empty ring, the way the platform draws "away". */
+
+.status-option__label {
+  display: block;
   font-size: 13.5px;
-  font-weight: 600;
-  transition: background-color 120ms ease, color 120ms ease;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
-.side-status__menu button:hover,
-.side-status__menu button.is-active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+.status-option__hint {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
-.side-status__menu button.is-active {
-  color: var(--text);
+.status-option__check {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+/* The platform's menu highlight: the row fills with the accent and every
+   piece of text on it turns white, the check included. Pointer devices only:
+   the phone sheet keeps its own pressed state, and white text on it would
+   vanish in the light theme. */
+@media (hover: hover) and (pointer: fine) {
+
+  .side-status__menu .status-option:hover,
+  .side-status__menu .status-option:focus-visible {
+    outline: none;
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .side-status__menu .status-option:hover .status-option__hint,
+  .side-status__menu .status-option:focus-visible .status-option__hint {
+    color: rgba(255, 255, 255, .8);
+  }
+
+  .side-status__menu .status-option:hover .status-option__check,
+  .side-status__menu .status-option:focus-visible .status-option__check {
+    color: #fff;
+  }
+
+}
+
+/* It opens upward from the button below it, so it rises into place rather
+   than dropping like a menu that hangs from a bar. */
+@media (min-width: 701px) and (hover: hover) {
+
+  .qx-pop-enter-from > .side-status__menu,
+  .qx-pop-leave-to > .side-status__menu {
+    transform: translateY(6px) scale(.96);
+  }
 }
 
 .side-foot__link {
@@ -1469,7 +1656,7 @@ textarea {
   min-width: 0;
   background: transparent;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .members__item:hover {
@@ -1479,22 +1666,6 @@ textarea {
 .members__item:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-}
-
-.members__avatar-image {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  overflow: hidden;
-  border-radius: 50%;
-  background: var(--surface-2);
-}
-
-.members__avatar-image img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
 }
 
 .members__meta {
@@ -1553,17 +1724,6 @@ textarea {
   line-height: 1;
 }
 
-.profile-card__platforms {
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-.profile-card__platforms .platforms__badge {
-  min-width: 26px;
-  height: 22px;
-  color: var(--text);
-}
-
 .members__status {
   display: flex;
   align-items: center;
@@ -1571,26 +1731,6 @@ textarea {
   margin-top: 2px;
   font-size: 12px;
   color: var(--muted);
-}
-
-.members__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  flex: none;
-}
-
-.members__dot.is-call {
-  background: var(--accent);
-}
-
-.members__dot.is-dnd {
-  background: var(--red);
-}
-
-.members__dot.is-invisible {
-  background: var(--dim);
 }
 
 .members__empty {
@@ -1627,7 +1767,7 @@ textarea {
     width: min(320px, 85vw);
     z-index: 80;
     transform: translateX(0);
-    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    transition: transform var(--dur-base) var(--ease-out);
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
     background: var(--surface);
     overflow: hidden;
@@ -1636,7 +1776,7 @@ textarea {
 
   .members-fade-enter-active,
   .members-fade-leave-active {
-    transition: opacity 200ms ease;
+    transition: opacity var(--dur-base) var(--ease-out);
   }
 
   .members-fade-enter-from,
@@ -1646,7 +1786,7 @@ textarea {
 
   .members-slide-enter-active,
   .members-slide-leave-active {
-    transition: transform 240ms cubic-bezier(0.16, 0.8, 0.2, 1);
+    transition: transform var(--dur-base) var(--ease-out);
   }
 
   .members-slide-enter-from,
@@ -1665,84 +1805,12 @@ textarea {
   }
 }
 
-/* Keep profile card above mobile members panel */
-.profile-card {
-  position: fixed;
-  inset: 0;
-  z-index: 85;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgba(0, 0, 0, 0.62);
-}
-
-.profile-card__panel {
-  position: relative;
-  width: min(900px, calc(100vw - 32px));
-  max-height: calc(var(--app-viewport-height) - 36px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-}
-
-.profile-card__banner {
-  width: 100%;
-  aspect-ratio: 21 / 9;
-  border-radius: 12px;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), rgba(63, 207, 111, 0.12)),
-    var(--surface-2);
-}
-
-.profile-card__handle {
-  display: none;
-}
-
 .profile-card__banner img,
 .settings-profile__banner img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
-}
-
-.profile-card__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
-}
-
-.profile-card__left {
-  position: relative;
-  min-width: 0;
-  padding: 20px 16px 20px 20px;
-  border-right: 1px solid var(--line);
-}
-
-.profile-card__left-box {
-  padding: 24px;
-  border-radius: 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-}
-
-.profile-card__left:only-child {
-  grid-column: 1 / -1;
-  border-right: 0;
-}
-
-.profile-card__avatar {
-  position: relative;
-  left: 16px;
-  margin: -60px 0 0 0;
-  width: 116px;
-  height: 116px;
-  border: 6px solid var(--surface);
-  border-radius: 50%;
-  font-size: 36px;
 }
 
 .profile-card__avatar--image,
@@ -1761,670 +1829,35 @@ textarea {
   object-fit: cover;
 }
 
-/* Presence dot pinned to the avatar (Discord-style).
-   The dot must poke out of the circle, so the avatar box itself is not
-   allowed to clip its children; the photo is instead clipped by its own
-   circular wrapper (`.profile-card__avatar-clip`) so it can never bleed
-   outside the frame. */
-.profile-card__avatar.profile-card__avatar--image {
-  overflow: visible;
+/* The two panes cross in the direction the control just moved. */
+.profile-pane-forward-enter-active,
+.profile-pane-forward-leave-active,
+.profile-pane-back-enter-active,
+.profile-pane-back-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
-.profile-card__avatar-clip {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  overflow: hidden;
-}
+.profile-pane-forward-enter-from { opacity: 0; transform: translateX(14px); }
+.profile-pane-forward-leave-to { opacity: 0; transform: translateX(-14px); }
+.profile-pane-back-enter-from { opacity: 0; transform: translateX(-14px); }
+.profile-pane-back-leave-to { opacity: 0; transform: translateX(14px); }
 
-.profile-card__avatar-clip img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
+@media (prefers-reduced-motion: reduce) {
 
-.profile-card__presence {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 6px solid var(--surface);
-  background: var(--green);
-}
-
-.profile-card__presence.is-call {
-  background: var(--accent);
-}
-
-.profile-card__presence.is-dnd {
-  background: var(--red);
-}
-
-.profile-card__presence.is-invisible {
-  background: var(--dim);
-}
-
-.profile-card__identity {
-  min-width: 0;
-  margin-top: 6px;
-  text-align: left;
-}
-
-.profile-card__name-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  min-width: 0;
-}
-
-.profile-card__identity strong,
-.profile-card__identity small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-card__name-row strong {
-  min-width: 0;
-}
-
-.profile-card__badges {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-}
-
-.profile-card__badge {
-  --badge-size: 24px;
-  --badge-tooltip-gap: 10px;
-  --badge-tooltip-height: 104px;
-  --badge-tooltip-glow-y: 42px;
-  --badge-tooltip-icon-scale: 1.28;
-  --badge-tooltip-icon-y: calc(-1 * (var(--badge-size) / 2 + var(--badge-tooltip-gap) + var(--badge-tooltip-height) - var(--badge-tooltip-glow-y)));
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: var(--badge-size);
-  height: var(--badge-size);
-  cursor: help;
-  overflow: visible;
-  outline: none;
-}
-
-.profile-card__badge svg {
-  display: block;
-}
-
-.profile-card__badge-icon {
-  display: block;
-  width: 24px;
-  height: 24px;
-}
-
-.profile-card__badge-custom {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #fff 45%));
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: -0.04em;
-}
-
-.profile-card__badge>svg,
-.profile-card__badge>img,
-.profile-card__badge>.profile-card__badge-custom {
-  position: relative;
-  z-index: 22;
-  transition: transform 140ms ease;
-}
-
-.profile-card__badge::before,
-.profile-card__badge::after {
-  position: absolute;
-  left: 50%;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.profile-card__badge::before {
-  content: "";
-  bottom: calc(100% + var(--badge-tooltip-gap));
-  z-index: 20;
-  width: 172px;
-  height: var(--badge-tooltip-height);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 50% var(--badge-tooltip-glow-y), rgba(255, 255, 255, .1), transparent 38px),
-    linear-gradient(180deg, #121212 0%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, .1);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
-  transform: translateX(-50%) translateY(8px) scale(.96);
-}
-
-.profile-card__badge::after {
-  content: attr(data-title);
-  top: calc(var(--badge-tooltip-icon-y) + var(--badge-size) * var(--badge-tooltip-icon-scale) + 13px);
-  z-index: 23;
-  min-width: 140px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 950;
-  line-height: 1.05;
-  letter-spacing: -.04em;
-  text-align: center;
-  white-space: nowrap;
-  transform: translateX(-50%) translateY(6px);
-}
-
-.profile-card__badge:hover>svg,
-.profile-card__badge:hover>img,
-.profile-card__badge:hover>.profile-card__badge-custom,
-.profile-card__badge:focus-visible>svg,
-.profile-card__badge:focus-visible>img,
-.profile-card__badge:focus-visible>.profile-card__badge-custom {
-  transform: translateY(var(--badge-tooltip-icon-y)) scale(var(--badge-tooltip-icon-scale));
-}
-
-.profile-card__badge:hover::before,
-.profile-card__badge:focus-visible::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
-.profile-card__badge:hover::after,
-.profile-card__badge:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-@media (max-width: 820px) {
-
-  .profile-card__badge::before,
-  .profile-card__badge::after {
-    display: none;
+  .profile-card__tabs::before,
+  .profile-pane-forward-enter-active,
+  .profile-pane-forward-leave-active,
+  .profile-pane-back-enter-active,
+  .profile-pane-back-leave-active {
+    transition: opacity 120ms linear;
   }
 
-  .profile-card__badge:hover>svg,
-  .profile-card__badge:hover>img,
-  .profile-card__badge:hover>.profile-card__badge-custom,
-  .profile-card__badge:focus-visible>svg,
-  .profile-card__badge:focus-visible>img,
-  .profile-card__badge:focus-visible>.profile-card__badge-custom {
+  .profile-pane-forward-enter-from,
+  .profile-pane-forward-leave-to,
+  .profile-pane-back-enter-from,
+  .profile-pane-back-leave-to {
     transform: none;
   }
-}
-
-.profile-card__identity strong {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
-.profile-card__identity small {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.profile-card__close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
-  color: var(--text);
-}
-
-.profile-card__close:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-.profile-card__section-title {
-  margin: 20px 0 10px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.profile-card__section {
-  margin-top: 0;
-  padding-left: 16px;
-  border-left: 5px solid color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.profile-card__section h4 {
-  margin: 0 0 10px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.profile-card__description,
-.profile-card__empty {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.profile-card__empty {
-  color: var(--muted);
-}
-
-.profile-card__mutual-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.profile-card__mutual-room {
-  width: 100%;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--text);
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-}
-
-.profile-card__mutual-room:hover {
-  background: var(--surface-hover);
-  border-color: var(--line-strong);
-}
-
-.profile-card__mutual-room-media,
-.profile-card__mutual-room-fallback {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  flex: none;
-}
-
-.profile-card__mutual-room-media {
-  background: var(--surface-3, var(--surface-2));
-}
-
-.profile-card__mutual-room-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.profile-card__mutual-room-fallback {
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
-  color: var(--text);
-  font-weight: 800;
-}
-
-.profile-card__mutual-room-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-@media (max-width: 640px) {
-  .profile-card {
-    align-items: end;
-    padding: 0;
-  }
-
-  .profile-card__panel {
-    width: 100%;
-    max-height: calc(var(--app-viewport-height) - 18px);
-    border-radius: 16px 16px 0 0;
-    border: 0;
-    overflow: hidden;
-    animation: profile-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
-  }
-
-  .profile-card__handle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    display: flex;
-    justify-content: center;
-    padding: 12px 0 2px;
-    pointer-events: none;
-  }
-
-  .profile-card__handle::after {
-    content: "";
-    display: block;
-    width: 40px;
-    height: 5px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--muted) 48%, transparent);
-  }
-
-  .profile-card__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .profile-card__left {
-    padding: 0;
-    border-right: 0;
-  }
-
-  .profile-card__left-box {
-    padding: 0 0 24px;
-    border-radius: 0;
-    background: none;
-    border: 0;
-  }
-
-  .profile-card__banner {
-    border-radius: 0;
-    border: 0;
-    box-shadow: none;
-  }
-
-  .profile-card__avatar {
-    margin-left: 18px;
-  }
-
-  .profile-card__identity,
-  .profile-card__section,
-  .profile-card__section-title {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .profile-card__section {
-    margin-top: 0;
-    border-left: 0;
-    padding-left: 18px;
-  }
-
-  .profile-card__section-title {
-    margin-top: 24px;
-    margin-bottom: 10px;
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .profile-card__joined {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .profile-card__mutual {
-    display: none;
-  }
-
-  .profile-card__avatar {
-    margin: -52px 0 0 0;
-    width: 104px;
-    height: 104px;
-    font-size: 32px;
-  }
-
-  .profile-card__presence {
-    right: 0;
-    bottom: 0;
-    width: 24px;
-    height: 24px;
-    border-width: 5px;
-  }
-
-  .profile-card__identity strong {
-    font-size: 24px;
-  }
-
-  .profile-card__mutual-room {
-    grid-template-columns: 36px minmax(0, 1fr);
-    gap: 10px;
-  }
-
-  .profile-card__mutual-room-media,
-  .profile-card__mutual-room-fallback {
-    width: 36px;
-    height: 36px;
-  }
-}
-
-/* ---- Profile card: redesigned content layout ---- */
-.profile-card__mutual {
-  min-width: 0;
-  padding: 28px 28px 32px;
-}
-
-.profile-card__mutual-title {
-  margin: 0 0 14px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.profile-card__note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.profile-card__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.profile-card__action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--surface-3, var(--surface-2));
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-
-.profile-card__action-btn:hover {
-  background: var(--surface-hover);
-}
-
-.profile-card__action-btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.profile-card__action-btn--primary:hover {
-  background: color-mix(in srgb, var(--accent) 85%, black 15%);
-}
-
-.profile-card__action-btn--danger {
-  color: var(--red);
-  border-color: color-mix(in srgb, var(--red) 40%, transparent);
-}
-
-.profile-card__action-btn--danger:hover {
-  background: color-mix(in srgb, var(--red) 12%, transparent);
-}
-
-.profile-card__action-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.profile-card__mutual-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.profile-card__tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 14px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-}
-
-.profile-card__tab {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.profile-card__tab:hover {
-  color: var(--text);
-}
-
-.profile-card__tab.is-active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.profile-card__tab-count {
-  min-width: 16px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.profile-card__mutual-room-media--round,
-.profile-card__mutual-room-fallback--round {
-  border-radius: 50%;
-}
-
-.profile-card__list-empty {
-  list-style: none;
-  padding: 12px 4px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.profile-card__mutual-room {
-  cursor: pointer;
-}
-
-.profile-card__member-since {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.profile-card__member-since svg {
-  flex: none;
-  opacity: 0.8;
-}
-
-.profile-card__member-since--bio {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Champ « Membre depuis » (discret, sous la bio). */
-.profile-card__joined {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 16px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.profile-card__joined svg {
-  flex: none;
-  opacity: 0.8;
-}
-
-.profile-card__joined span {
-  min-width: 0;
-}
-
-/* Markdown description */
-.profile-card__description.markdown blockquote {
-  margin: 8px 0;
-  padding: 4px 0 4px 12px;
-  border-left: 4px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--muted);
-}
-
-.profile-card__description.markdown a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.profile-card__description.markdown a:hover {
-  text-decoration: underline;
-}
-
-.profile-card__description.markdown strong {
-  font-weight: 800;
-}
-
-.profile-card__description.markdown em {
-  font-style: italic;
 }
 
 .thread__head {
@@ -2706,6 +2139,42 @@ textarea {
   display: block;
 }
 
+/* A call reads as the same kind of room event as an arrival, because that is
+   what it is: one line in the room's own voice, and nothing in front of it. */
+.msg.is-system .bubble__system.is-call {
+  align-items: center;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* The name is the one thing here worth reaching for. */
+.bubble__system-user {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), text-decoration-color var(--dur-fast) var(--ease-out);
+}
+
+.bubble__system-user:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+.bubble__system-user:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .msg.is-system .bubble__system-time {
   opacity: 0.8;
   white-space: nowrap;
@@ -2822,11 +2291,7 @@ textarea {
 }
 
 :root[data-message-style="discord"] .reactions {
-  position: static;
-  margin-top: 6px;
-  width: fit-content;
-  border-radius: 8px;
-  padding: 2px 6px;
+  margin-top: 4px;
 }
 
 :root[data-message-style="discord"] .msg.has-reactions {
@@ -2938,6 +2403,27 @@ textarea {
   margin: 2px 0;
 }
 
+.markdown__quote {
+  position: relative;
+  margin: 2px 0;
+  padding: 0 8px 0 14px;
+}
+
+.markdown__quote::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 32%, transparent);
+}
+
+.markdown__quote .markdown__h:first-child {
+  margin-top: 0;
+}
+
 .markdown code {
   padding: 1px 5px;
   border-radius: 5px;
@@ -2990,7 +2476,7 @@ textarea {
   font-family: var(--font);
   font-size: 11px;
   line-height: 1;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .codeblock__copy:hover,
@@ -3101,64 +2587,184 @@ textarea {
 
 /* Reactions */
 .reactions {
-  position: inline-block;
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
-  bottom: 6px;
-  left: 8px;
-  right: auto;
-  padding: 2px 7px;
-  background: color-mix(in srgb, var(--accent) 26%, transparent);
-  border-radius: 999px;
-  border: 0;
-  z-index: 1;
-  min-height: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.msg:not(.is-own) .reactions {
-  left: 8px;
-  right: auto;
-}
-
-.msg.is-own .reactions {
-  left: 8px;
-  right: auto;
-  background: rgba(255, 255, 255, 0.22);
+  gap: 4px;
+  margin-top: 6px;
+  min-width: 0;
 }
 
 .reaction {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 12px;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--reaction-bg);
+  box-shadow: inset 0 0 0 1px var(--reaction-edge);
   color: var(--text);
-  padding: 0 2px;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-spring);
 }
 
-.reaction:hover {
-  opacity: 0.85;
+.reaction__emoji {
+  display: inline-grid;
+  place-items: center;
+  font-size: 15px;
+  transition: transform var(--dur-base) var(--ease-spring);
 }
 
-/* Bubble mode: hide the reaction count (only shown in the hover tooltip) */
-:root:not([data-message-style="discord"]) .reaction> :nth-child(2) {
-  display: none;
+.reaction.is-mine {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--reaction-mine-text);
 }
 
-/* Bubble mode: reserve room at the bottom of the bubble for the reactions badge */
-:root:not([data-message-style="discord"]) .msg.has-reactions>.bubble {
-  padding-bottom: 28px;
+.reaction--add {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+  color: var(--muted);
 }
 
-:root:not([data-message-style="discord"]) .msg.has-reactions>.bubble>.bubble__time {
-  position: absolute;
-  bottom: 8px;
-  right: 10px;
-  margin-top: 0;
+.reaction--add svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reaction:hover {
+    background: var(--reaction-bg-hover);
+  }
+
+  .reaction.is-mine:hover {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+
+  .reaction:hover .reaction__emoji {
+    transform: scale(1.2);
+  }
+
+  .reaction--add {
+    opacity: 0;
+  }
+
+  .msg:hover .reaction--add,
+  .reaction--add:focus-visible {
+    opacity: 1;
+  }
+
+  .reaction--add:hover {
+    color: var(--text);
+  }
+}
+
+.reaction:active {
+  transform: scale(.92);
+}
+
+.reaction:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+:root:not([data-message-style="discord"]) .msg.is-own .reaction {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+:root:not([data-message-style="discord"]) .msg.is-own .reaction.is-mine {
+  background: #fff;
+  box-shadow: none;
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root:not([data-message-style="discord"]) .msg.is-own .reaction:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  :root:not([data-message-style="discord"]) .msg.is-own .reaction.is-mine:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.reactions {
+  transform-origin: left center;
+}
+
+.reactions-row-enter-active {
+  animation: reactions-row-in var(--dur-slow) var(--ease-out) both;
+}
+
+.reactions-row-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in);
+}
+
+.reactions-row-leave-to {
+  opacity: 0;
+  transform: scale(.8);
+}
+
+.reaction-bloom-enter-active {
+  animation: reaction-bloom 520ms var(--ease-out) both;
+}
+
+.reaction-bloom-enter-active .reaction__emoji,
+.reaction.is-bumped .reaction__emoji {
+  animation: reaction-emoji-pop 560ms var(--ease-out) both;
+}
+
+.reaction-bloom-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in);
+}
+
+.reaction-bloom-leave-to {
+  opacity: 0;
+  transform: scale(.5);
+}
+
+.reaction-bloom-move {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+@keyframes reactions-row-in {
+  from { opacity: 0; transform: scale(.6); }
+}
+
+@keyframes reaction-bloom {
+  0% { opacity: 0; transform: scale(.3); }
+  55% { opacity: 1; transform: scale(1.14); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes reaction-emoji-pop {
+  0% { transform: scale(.5) rotate(-18deg); }
+  55% { transform: scale(1.35) rotate(8deg); }
+  100% { transform: none; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .reactions-row-enter-active,
+  .reaction-bloom-enter-active,
+  .reaction-bloom-enter-active .reaction__emoji,
+  .reaction.is-bumped .reaction__emoji {
+    animation: none !important;
+  }
 }
 
 .reaction-tooltip {
@@ -3167,63 +2773,88 @@ textarea {
   display: flex;
   flex-direction: column;
   width: 220px;
-  max-height: 220px;
+  max-height: 240px;
   padding: 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  background: #000;
-  color: #fff;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  color: var(--text);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  animation: reaction-tooltip-in var(--dur-base) var(--ease-spring) both;
 }
 
 .reaction-tooltip.is-top {
   transform: translateY(-100%);
+  transform-origin: bottom left;
+}
+
+.reaction-tooltip.is-bottom {
+  transform-origin: top left;
+}
+
+@keyframes reaction-tooltip-in {
+  from {
+    opacity: 0;
+    scale: .94;
+  }
 }
 
 .reaction-tooltip__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding: 0 2px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
+}
+
+.reaction-tooltip__head .twemoji {
+  width: 22px;
+  height: 22px;
+}
+
+.reaction-tooltip__count {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .reaction-tooltip__list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  max-height: 160px;
-  margin-top: 8px;
+  gap: 1px;
+  max-height: 170px;
+  margin-top: 6px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
-}
-
-.reaction-tooltip__list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.reaction-tooltip__list::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.38);
 }
 
 .reaction-tooltip__user {
-  padding: 7px 8px;
-  border-radius: 9px;
+  padding: 6px 8px;
+  border-radius: 7px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 550;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .reaction-tooltip__user:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction,
+  .reaction__emoji {
+    transition: none;
+  }
+
+  .reaction-tooltip {
+    animation: none;
+  }
 }
 
 /* Keep the hover toolbar below the message so it never covers the text. */
@@ -3234,7 +2865,7 @@ textarea {
   opacity: 0;
   padding-top: 0;
   pointer-events: none;
-  transition: opacity 100ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .msg.has-reactions .bubble>.bubble-actions {
@@ -3262,10 +2893,10 @@ textarea {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px;
-  background: color-mix(in srgb, var(--surface) 96%, black 4%);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--line);
+  padding: 3px 4px;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--line-strong);
   max-width: min(260px, calc(100vw - 40px));
   overflow-x: auto;
   scrollbar-width: none;
@@ -3285,13 +2916,24 @@ textarea {
   padding: 0;
   line-height: 1;
   color: var(--text);
-  transition: background 100ms ease, transform 100ms ease, color 100ms ease;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .pick button:hover {
-  background: color-mix(in srgb, var(--surface-2) 80%, white 20%);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
-  transform: scale(1.12);
+}
+
+.pick button:hover > .twemoji {
+  transform: scale(1.22);
+}
+
+.pick button:active {
+  transform: scale(.9);
+}
+
+.pick .twemoji {
+  transition: transform var(--dur-base) var(--ease-spring);
 }
 
 .pick__delete {
@@ -3400,7 +3042,7 @@ textarea {
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 80ms ease;
+  transition: width var(--dur-fast) var(--ease-out);
 }
 
 .composer__attachment-remove {
@@ -3496,7 +3138,7 @@ textarea {
   background: color-mix(in srgb, var(--surface-2) 90%, var(--surface) 10%);
   border: 1px solid var(--line);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .composer__input:focus-within {
@@ -3525,16 +3167,38 @@ textarea {
 }
 
 .composer__input--streamer-blur textarea {
-  contain: paint;
-  filter: blur(8px);
-  opacity: 0.72;
-  transform: translateZ(0);
-  transition: filter 120ms ease, opacity 120ms ease;
+  color: transparent;
+  text-shadow: none;
+  background-color: color-mix(in srgb, var(--text) 14%, var(--bg));
+  background-image: linear-gradient(100deg, transparent 32%, color-mix(in srgb, var(--text) 9%, transparent) 50%, transparent 68%);
+  background-size: 280% 100%;
+  background-repeat: no-repeat;
+  border-radius: 7px;
+  animation: redact-sheen 7s linear infinite;
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__input--streamer-blur textarea::placeholder {
+  color: transparent;
 }
 
 .composer__input--streamer-blur:focus-within textarea {
-  filter: none;
-  opacity: 1;
+  color: var(--text);
+  background-color: transparent;
+  background-image: none;
+  animation: none;
+}
+
+@keyframes redact-sheen {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__input--streamer-blur textarea {
+    animation: none;
+    background-image: none;
+  }
 }
 
 .composer__input--disabled {
@@ -3645,7 +3309,7 @@ textarea {
 }
 
 .composer__actions-pop button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .composer__actions-pop button:disabled {
@@ -3683,7 +3347,6 @@ textarea {
     z-index: 50;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: composer-actions-backdrop-in 160ms ease-out;
   }
 
   .composer__actions-pop {
@@ -3701,7 +3364,6 @@ textarea {
     border-radius: 22px 22px 0 0;
     background: var(--surface);
     box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--line-strong);
-    animation: composer-actions-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
     z-index: 51;
   }
 
@@ -3765,104 +3427,201 @@ textarea {
   }
 }
 
-@keyframes composer-actions-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes composer-actions-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.camera-modal {
+/*
+ * Taking a photo is a full-screen act, not a form: the frame fills the
+ * viewport, the controls float over it, and the shutter sits where a thumb
+ * lands. Nothing but the picture competes for attention.
+ */
+.shot {
   position: fixed;
   inset: 0;
   z-index: 55;
   display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgba(0, 0, 0, 0.72);
+  /* The fault glyph strikes its own gap through the camera with a stroke in
+     this colour, so the two have to stay in step. */
+  --shot-bg: #000;
+  background: var(--shot-bg);
+  color: #fff;
+  user-select: none;
 }
 
-.camera-modal__panel {
-  width: min(560px, 100%);
-  overflow: hidden;
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--line-strong);
-}
-
-.camera-modal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px 10px 18px;
-  font-weight: 600;
-}
-
-.camera-modal__head-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.camera-modal__preview {
-  position: relative;
+.shot__stage {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  max-height: 70vh;
-  max-height: 70dvh;
-  background: #050506;
   overflow: hidden;
 }
 
-.camera-modal__preview video {
+.shot__stage video {
   width: 100%;
-  height: auto;
-  max-height: 70vh;
-  max-height: 70dvh;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
 
-.camera-modal__error {
+/* Floating controls, legible over any frame. */
+.shot__top {
   position: absolute;
-  inset: 18px;
+  top: calc(max(14px, var(--app-safe-top)) + var(--app-chrome-top, 0px));
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+
+.shot__chip {
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  color: var(--muted);
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .45);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.shot__chip:hover {
+  background: rgba(0, 0, 0, .62);
+}
+
+.shot__chip:active {
+  transform: scale(.92);
+}
+
+.shot__chip svg {
+  width: 18px;
+  height: 18px;
+}
+
+.shot__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(22px, var(--app-safe-bottom));
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.shot__cancel {
+  justify-self: start;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+.shot__cancel:hover {
+  opacity: .75;
+}
+
+/* The shutter: a ring with a disc inside, the way a camera app draws it. */
+.shot__shutter {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, .9);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.shot__shutter-core {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.shot__shutter:active:not(:disabled) .shot__shutter-core {
+  transform: scale(.84);
+}
+
+.shot__shutter.is-busy .shot__shutter-core {
+  transform: scale(.7);
+  background: rgba(255, 255, 255, .55);
+}
+
+.shot__shutter:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.shot__spacer {
+  justify-self: end;
+}
+
+.shot__fault {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  max-width: 30ch;
+  padding: 24px;
   text-align: center;
 }
 
-.camera-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px 14px;
+.shot__fault-mark {
+  width: 38px;
+  height: 38px;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, .45);
 }
 
-.camera-modal__actions .btn {
-  min-width: 110px;
-  height: 40px;
-  justify-content: center;
-  margin-top: 0;
+.shot__fault-cut {
+  stroke: var(--shot-bg);
 }
 
-.camera-modal__actions .btn--primary {
-  width: auto;
+.shot__fault-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
 }
 
-@media (max-width: 640px) {
-  .camera-modal {
-    align-items: end;
-    padding: var(--app-safe-top) 0 0;
-  }
+.shot__fault-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .6);
+}
 
-  .camera-modal__panel {
-    width: 100%;
-    border-radius: 18px 18px 0 0;
+.shot__retry {
+  height: 34px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.shot__retry:hover {
+  background: rgba(255, 255, 255, .24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .shot__chip,
+  .shot__shutter,
+  .shot__shutter-core {
+    transition-duration: .01ms;
   }
 }
 
@@ -3922,19 +3681,72 @@ textarea {
 }
 
 .att-image {
-  max-width: min(360px, 100%);
-  max-height: 360px;
+  max-width: min(280px, 100%);
+  max-height: 280px;
   width: auto;
   height: auto;
   border-radius: 14px;
   display: block;
   background: rgba(0, 0, 0, 0.2);
-  transition: filter 140ms ease, transform 140ms ease;
+  transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+@media (max-width: 760px) {
+
+  .att-image {
+    max-width: min(220px, 100%);
+    max-height: 220px;
+    border-radius: 12px;
+  }
 }
 
 .att-image-link:hover .att-image {
   filter: brightness(1.06);
   transform: scale(1.012);
+}
+
+img[data-broken] {
+  visibility: hidden;
+}
+
+.att-image-missing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(300px, 100%);
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+}
+
+.att-image-missing svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  opacity: 0.6;
+}
+
+.att-image-missing__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.att-image-missing__text strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.att-image-missing__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  opacity: 0.65;
 }
 
 .att-expired {
@@ -3990,144 +3802,6 @@ textarea {
   flex: none;
 }
 
-.text-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: calc(76px + var(--app-safe-top)) 28px 32px;
-  isolation: isolate;
-}
-
-.text-viewer__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(42, 42, 48, 0.72), rgba(0, 0, 0, 0.92) 62%),
-    rgba(0, 0, 0, 0.86);
-  backdrop-filter: blur(5px);
-}
-
-.text-viewer__toolbar {
-  position: absolute;
-  top: calc(18px + var(--app-safe-top));
-  right: 20px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 16px;
-  background: rgba(32, 30, 38, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
-}
-
-.text-viewer__toolbar button,
-.text-viewer__badge {
-  min-width: 38px;
-  height: 38px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 10px;
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 12px;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.text-viewer__toolbar button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.text-viewer__toolbar svg {
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.text-viewer__close {
-  margin-left: 4px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.text-viewer__stage {
-  position: relative;
-  z-index: 1;
-  width: min(92vw, 1100px);
-  height: min(calc(var(--app-viewport-height) - 130px), 760px);
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 18px;
-  background: rgba(18, 18, 22, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
-}
-
-.text-viewer__titlebar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 42px;
-  padding: 0 10px 0 14px;
-  background: linear-gradient(180deg, rgba(49, 49, 55, 0.96), rgba(31, 31, 36, 0.96));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 12.5px;
-}
-
-.text-viewer__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
-.text-viewer__size {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-}
-
-.text-viewer__editor {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  background: rgba(10, 11, 14, 0.94);
-}
-
-.text-viewer__code {
-  margin: 0;
-  padding: 16px 18px;
-  color: rgba(244, 247, 251, 0.9);
-  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  tab-size: 2;
-  white-space: pre;
-}
-
-.text-viewer__state {
-  padding: 24px;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 12.5px;
-}
-
 .syntax-keyword {
   color: #ff7ab2;
 }
@@ -4157,126 +3831,6 @@ textarea {
 
 .syntax-punct {
   color: #c9d1d9;
-}
-
-.image-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 76px 28px 32px;
-  isolation: isolate;
-}
-
-.image-viewer__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  cursor: zoom-out;
-  background: rgba(0, 0, 0, 0.86);
-  backdrop-filter: blur(5px);
-}
-
-.image-viewer__toolbar {
-  position: absolute;
-  top: calc(18px + var(--app-safe-top));
-  right: 20px;
-  left: auto;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 16px;
-  background: rgba(32, 30, 38, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
-}
-
-.image-viewer__toolbar button {
-  min-width: 38px;
-  height: 38px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 10px;
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 12px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
-}
-
-.image-viewer__toolbar button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.image-viewer__toolbar svg {
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.image-viewer__close {
-  margin-left: 4px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.image-viewer__stage {
-  position: relative;
-  z-index: 1;
-  max-width: 100%;
-  max-height: 100%;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
-
-.image-viewer__image {
-  max-width: min(92vw, 1400px);
-  max-height: calc(var(--app-viewport-height) - 150px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
-  transform-origin: center;
-  transition: transform 140ms ease;
-}
-
-.image-viewer__caption {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(92vw, 720px);
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: rgba(18, 18, 21, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-
-.image-viewer__caption span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.image-viewer__caption span+span {
-  flex: none;
-  color: rgba(255, 255, 255, 0.54);
 }
 
 .att-audio {
@@ -4315,7 +3869,7 @@ textarea {
   place-items: center;
   background: var(--accent);
   color: #fff;
-  transition: transform 120ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .audio-player__play:hover {
@@ -4459,7 +4013,7 @@ textarea {
   font-size: 11px;
   font-weight: 700;
   opacity: 0.78;
-  transition: opacity 120ms ease, background 120ms ease, transform 120ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .audio-player__download:hover {
@@ -4484,7 +4038,7 @@ textarea {
   gap: 10px;
   padding: 6px 8px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, currentColor 8%, transparent);
   border-radius: 10px;
   color: inherit;
   text-align: left;
@@ -4497,7 +4051,7 @@ textarea {
 }
 
 .att-file:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .att-file:disabled {
@@ -4509,7 +4063,7 @@ textarea {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, currentColor 14%, transparent);
   display: grid;
   place-items: center;
   flex: none;
@@ -4625,6 +4179,128 @@ textarea {
   color: var(--red);
 }
 
+/* The reaction grid is teleported to the body: .pick lives in a row with
+   overflow hidden, which would clip a pop-up anchored inside it. */
+.react-pop__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover-backdrop);
+}
+
+.react-pop {
+  position: fixed;
+  z-index: var(--z-popover);
+}
+
+.react-pop .emoji-picker {
+  position: static;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+}
+
+/* ── The same grid as a sheet, for a finger ──────────────────────────────── */
+
+.react-pop__backdrop.is-sheet {
+  background: rgba(0, 0, 0, .34);
+}
+
+.react-pop.is-sheet {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 7px 0 0;
+  border-radius: 16px 16px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, .34);
+  /* Clear of the home indicator, which sits over the last row of emoji. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.react-pop.is-sheet .emoji-picker {
+  width: 100%;
+  max-width: none;
+  max-height: min(58vh, 420px);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Finger-sized targets. The desktop grid is 34px, which is fine under a
+   pointer and under the 44px the platform asks for under a thumb. */
+.react-pop.is-sheet .emoji-picker__cell {
+  height: 44px;
+  font-size: 23px;
+  border-radius: 8px;
+}
+
+.react-pop.is-sheet .emoji-picker__tab {
+  width: 44px;
+  height: 44px;
+  font-size: 21px;
+}
+
+/* Under 16px iOS zooms the page the moment the field takes focus. */
+.react-pop.is-sheet .emoji-picker__search-input {
+  min-height: 40px;
+  font-size: 16px;
+}
+
+/* The handle says the sheet is a sheet before anyone tries to drag it. */
+.react-pop__grabber {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+.pick__more svg {
+  opacity: .75;
+}
+
+/* ||spoiler|| inline text.
+
+   These rules are global on purpose: the span is produced by the markdown
+   renderer and injected with v-html, so it never receives a scoped style's
+   data-v attribute and a scoped rule could never match it.
+
+   The blur sits on the span itself rather than on an overlay, so it follows
+   the words across a line break instead of painting a rectangle over the
+   whole paragraph. */
+.spoiler {
+  --redact-blur: 5px;
+  filter: blur(var(--redact-blur)) saturate(0.85);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: filter 460ms var(--ease-out);
+}
+
+.spoiler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Peeking is the hover state and undoes itself; revealed is latched by a
+   click and lasts until the room changes. */
+.spoiler.is-revealed,
+.spoiler.is-peeking {
+  filter: none;
+}
+
+.spoiler.is-revealed {
+  cursor: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spoiler {
+    transition: none;
+  }
+}
+
 /* Emoji picker */
 .composer__emoji-wrap {
   position: relative;
@@ -4689,11 +4365,11 @@ textarea {
   border-radius: 8px;
   padding: 0;
   background: transparent;
-  transition: background 80ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .emoji-picker__tab:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .emoji-picker__tab.is-active {
@@ -4730,12 +4406,22 @@ textarea {
   border-radius: 6px;
   padding: 0;
   line-height: 1;
-  transition: background 80ms ease, transform 80ms ease;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .emoji-picker__cell:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   transform: scale(1.15);
+}
+
+/* The picker draws the same twemoji images the messages use, so a flag never
+   depends on whether the machine's emoji font happens to ship one. */
+.emoji-picker__glyph {
+  display: block;
+  width: 1.15em;
+  height: 1.15em;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 @media (max-width: 760px) {
@@ -4817,6 +4503,21 @@ textarea {
   font-weight: 700;
 }
 
+/* The same list as the mentions, with a character where the avatar goes. */
+.mention-picker__emoji {
+  flex: 0 0 auto;
+  width: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mention-picker--emoji .mention-picker__name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
 /* Thread header call active state */
 .icon-btn--active {
   color: var(--accent);
@@ -4874,7 +4575,7 @@ textarea {
   place-items: center;
   cursor: pointer;
   margin-left: auto;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .call-pip__end:hover {
   background: #c62828;
@@ -4908,15 +4609,6 @@ textarea {
 
   to {
     opacity: 1;
-  }
-}
-
-@keyframes profile-sheet-in {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
   }
 }
 
@@ -4990,6 +4682,44 @@ textarea {
   font-size: 13px;
 }
 
+.settings__card-identity {
+  min-width: 0;
+}
+
+.settings__card-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings__card-name strong {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.settings__card-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.settings__card .settings__card-badges .badge-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Beats the shared `.settings__card small` block/ellipsis rule. */
+.settings__card .settings__card-badges-more {
+  display: inline;
+  max-width: none;
+  margin: 0 0 0 1px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .settings__nav {
   display: flex;
   flex-direction: column;
@@ -5023,12 +4753,12 @@ textarea {
 .settings__nav-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 12px;
+  gap: 11px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
   color: var(--text);
-  font-size: 15px;
+  font-size: 13.5px;
   text-align: left;
   min-width: 0;
 }
@@ -5042,8 +4772,8 @@ textarea {
 
 .settings__nav-item svg,
 .settings-field__icon svg {
-  width: 21px;
-  height: 21px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -5053,8 +4783,8 @@ textarea {
 }
 
 .settings__nav-item .settings__nav-icon-img {
-  width: 21px;
-  height: 21px;
+  width: 17px;
+  height: 17px;
   flex: none;
   object-fit: contain;
 }
@@ -5063,10 +4793,21 @@ textarea {
   margin-left: auto;
 }
 
-.settings__nav-item:hover,
+.settings__nav-item:hover:not(.is-active) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
 .settings__nav-item.is-active {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text);
+  background: var(--accent);
+  color: #fff;
+}
+
+.settings__nav-item.is-active svg {
+  color: #fff;
+}
+
+.settings__nav-item.is-active .settings__chevron {
+  opacity: .7;
 }
 
 .settings__main {
@@ -5086,20 +4827,18 @@ textarea {
   background: linear-gradient(var(--bg) 72%, transparent);
 }
 
-
-
 .settings__main-head h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .settings-page {
-  max-width: 760px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
@@ -5136,22 +4875,18 @@ textarea {
   border: 5px solid var(--bg);
 }
 
-.settings-profile__photo {
-  height: 34px;
-  padding: 0 14px;
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.settings-profile__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
+/* ── Settings, System Settings language ──────────────────────────────────────
+   A group is a caption, an inset rounded box of rows, and an optional note
+   underneath. The rows are the group's own children rather than a wrapper, so
+   the box is assembled with :has() instead of extra markup: a row rounds both
+   ends by default, loses its bottom rounding when another row follows, and
+   loses its top rounding plus gains a hairline when it follows one. The
+   hairline is a background gradient inset to the text, the way macOS draws it,
+   so it never shifts the layout. */
 .settings-group {
-  padding: 24px 0;
-  border-top: 1px solid var(--line-strong);
+  padding: 0;
+  margin: 0 0 26px;
+  border-top: 0;
 }
 
 .settings-group:first-child {
@@ -5159,16 +4894,20 @@ textarea {
 }
 
 .settings-group h4 {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 700;
+  margin: 0 0 7px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--muted);
 }
 
 .settings-note {
-  margin: 16px 0 0;
+  margin: 7px 0 0;
+  padding: 0 14px;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .settings-note--warn {
@@ -5209,13 +4948,30 @@ textarea {
   text-align: center;
 }
 
-.settings-field,
 .settings-check {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  min-height: 46px;
+  min-height: 42px;
   color: var(--text);
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 42px;
+  color: var(--text);
+}
+
+.settings-field__body {
+  flex: 1 1 auto;
+}
+
+.settings-field__label {
+  white-space: normal;
 }
 
 .settings-check--readonly {
@@ -5263,11 +5019,65 @@ textarea {
   flex-shrink: 0;
 }
 
-.settings-input,
-.settings-select select {
+.qx-field,
+.settings-input {
   width: 100%;
+  min-width: 0;
+  height: 34px;
+  min-height: 0;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.qx-field::placeholder,
+.settings-input::placeholder {
+  color: var(--dim);
+}
+
+.qx-field:focus,
+.settings-input:focus {
+  background: var(--field-bg-focus);
+  box-shadow: var(--field-focus);
+}
+
+textarea.qx-field,
+textarea.settings-input {
+  height: auto;
+  min-height: 74px;
+  padding: 8px 11px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+@media (max-width: 760px) {
+
+  .qx-field,
+  .settings-input {
+    height: 40px;
+    font-size: 16px;
+  }
+}
+
+/*
+ * The pop-up menu stands exactly where the native control stood. The extra
+ * class raises specificity above the component's own scoped rule, which would
+ * otherwise win the tie and keep its compact sizing.
+ */
+.settings-page .settings-select .smenu {
+  display: flex;
+  width: 100%;
+  align-self: stretch;
   min-height: 44px;
-  padding: 0 14px;
+  height: auto;
+  padding: 0 10px 0 14px;
   border-radius: 8px;
   background: transparent;
   border: 1px solid var(--line-strong);
@@ -5275,23 +5085,250 @@ textarea {
   font-size: 15px;
 }
 
+.settings-page .settings-select .smenu:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.settings-page .settings-select .smenu.is-open {
+  border-color: var(--accent);
+  background: transparent;
+}
+
 .settings-textarea {
   min-height: 116px;
-  margin: 12px 0 0 44px;
+  margin: 0;
   padding: 12px 14px;
-  width: calc(100% - 44px);
+  width: 100%;
   resize: vertical;
   line-height: 1.45;
 }
 
 .settings-input:focus,
-.settings-select select:focus {
+.settings-page .settings-select .smenu:focus-visible {
   border-color: var(--accent);
 }
 
-.settings-select select option {
-  color: var(--text);
-  background: var(--surface);
+/* ── Shared motion ───────────────────────────────────────────────────────
+
+   The transitions every overlay uses. Written once so that a modal, a menu
+   and a sheet enter and, more to the point, leave the same way: before these
+   most of them had an entrance keyframe and simply vanished on close. */
+
+/* Modals: the backdrop fades, the panel rises and settles. The panel rules
+   hang off the backdrop's classes, because only the backdrop is mounted and
+   unmounted; ModalShell passes the matching :duration so Vue waits for the
+   panel's longer motion rather than the backdrop's. */
+.qx-modal-enter-active,
+.qx-modal-leave-active {
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.qx-modal-leave-active {
+  transition-timing-function: var(--ease-in);
+}
+
+.qx-modal-enter-active > *,
+.qx-modal-leave-active > * {
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+}
+
+.qx-modal-leave-active > * {
+  transition-duration: var(--dur-base), var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+
+.qx-modal-enter-from,
+.qx-modal-leave-to {
+  opacity: 0;
+}
+
+.qx-modal-enter-from > * {
+  opacity: 0;
+  transform: translateY(12px) scale(.97);
+}
+
+.qx-modal-leave-to > * {
+  opacity: 0;
+  transform: translateY(4px) scale(.985);
+}
+
+/* On a phone the same panels are sheets, so they come up from the edge. */
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+
+  .qx-modal-enter-from > *,
+  .qx-modal-leave-to > * {
+    opacity: 1;
+    transform: translateY(100%);
+  }
+}
+
+/* Menus: a small pop from where they were opened, quicker than a modal
+   because a menu is a glance, not a task. */
+.qx-menu-enter-active {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.qx-menu-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in);
+}
+
+.qx-menu-enter-from,
+.qx-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(.97);
+}
+
+/* Context menus: the click-catcher that holds the menu fades, the menu pops
+   from where it opened. Under 700px the same menus are sheets, so they come
+   up from the bottom edge instead. As with modals, the menu rules hang off
+   the wrapper's classes because only the wrapper mounts. */
+.qx-pop-enter-active,
+.qx-pop-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.qx-pop-leave-active {
+  transition-timing-function: var(--ease-in);
+}
+
+.qx-pop-enter-active > *,
+.qx-pop-leave-active > * {
+  transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+
+.qx-pop-leave-active > * {
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+
+.qx-pop-enter-from,
+.qx-pop-leave-to {
+  opacity: 0;
+}
+
+.qx-pop-enter-from > *,
+.qx-pop-leave-to > * {
+  transform: translateY(-4px) scale(.97);
+}
+
+/* A menu mounted on its own, with its backdrop as a sibling. */
+.qx-sheet-enter-active {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.qx-sheet-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in);
+}
+
+.qx-sheet-enter-from,
+.qx-sheet-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(.97);
+}
+
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+
+  .qx-pop-enter-active > *,
+  .qx-sheet-enter-active {
+    transition-duration: var(--dur-slow);
+  }
+
+  .qx-pop-enter-from > *,
+  .qx-pop-leave-to > *,
+  .qx-sheet-enter-from,
+  .qx-sheet-leave-to {
+    opacity: 1;
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .qx-pop-enter-active > *,
+  .qx-pop-leave-active > *,
+  .qx-sheet-enter-active,
+  .qx-sheet-leave-active {
+    transition-property: opacity;
+  }
+
+  .qx-pop-enter-from > *,
+  .qx-pop-leave-to > *,
+  .qx-sheet-enter-from,
+  .qx-sheet-leave-to {
+    transform: none;
+  }
+}
+
+/* Full-screen viewers: the room dims and the picture settles into place, the
+   way Quick Look opens a file. */
+.qx-viewer-enter-active {
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.qx-viewer-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in);
+}
+
+.qx-viewer-enter-from,
+.qx-viewer-leave-to {
+  opacity: 0;
+}
+
+.qx-viewer-enter-active [data-viewer-stage],
+.qx-viewer-leave-active [data-viewer-stage] {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.qx-viewer-leave-active [data-viewer-stage] {
+  transition-duration: var(--dur-base);
+  transition-timing-function: var(--ease-in);
+}
+
+.qx-viewer-enter-from [data-viewer-stage] {
+  transform: scale(.96);
+}
+
+.qx-viewer-leave-to [data-viewer-stage] {
+  transform: scale(.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .qx-viewer-enter-from [data-viewer-stage],
+  .qx-viewer-leave-to [data-viewer-stage] {
+    transform: none;
+  }
+}
+
+/* A backdrop, or anything that only needs to appear and go. */
+.qx-fade-enter-active {
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.qx-fade-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-in);
+}
+
+.qx-fade-enter-from,
+.qx-fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .qx-modal-enter-active > *,
+  .qx-modal-leave-active > *,
+  .qx-menu-enter-active,
+  .qx-menu-leave-active {
+    transition-property: opacity;
+  }
+
+  .qx-modal-enter-from > *,
+  .qx-modal-leave-to > *,
+  .qx-menu-enter-from,
+  .qx-menu-leave-to {
+    transform: none;
+  }
 }
 
 .settings-btn {
@@ -5331,7 +5368,7 @@ textarea {
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
   position: relative;
   flex: none;
   cursor: pointer;
@@ -5356,7 +5393,7 @@ textarea {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-  transition: transform 150ms ease;
+  transition: transform var(--dur-slow) var(--ease-spring), width var(--dur-base) var(--ease-out);
 }
 
 .settings-check:has(input:checked) .toggle__thumb {
@@ -5382,106 +5419,14 @@ textarea {
   margin-left: 44px;
 }
 
-.settings-range small {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.settings-range input {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
-.settings-meter {
-  position: relative;
-  height: 24px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-2) 76%, var(--bg) 24%);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-
-.settings-meter.is-active {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--green) 12%, transparent), color-mix(in srgb, #d7c94e 12%, transparent), color-mix(in srgb, var(--red) 12%, transparent)),
-    color-mix(in srgb, var(--surface-2) 76%, var(--bg) 24%);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-
-.settings-meter__bar {
-  position: absolute;
-  inset: 4px auto 4px 4px;
-  width: 0;
-  border-radius: 999px;
-  background: var(--muted);
-  transition: width 120ms ease-out;
-}
-
-.settings-meter.is-active .settings-meter__bar {
-  background: linear-gradient(90deg, var(--green) 0%, var(--green) 55%, #d7c94e 82%, var(--red) 100%);
-  min-width: 4px;
-}
-
-.settings-meter__threshold {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  border-radius: 999px;
-  background: var(--muted);
-  box-shadow: 0 0 0 1px var(--line-strong);
-  opacity: 0.7;
-}
-
-.settings-camera-preview {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-top: 14px;
-  margin-bottom: 12px;
-  overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-}
-
-.settings-camera-actions {
+.settings-range {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-}
-
-.settings-camera-preview video {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  background: #000;
-}
-
-.settings-camera-preview__empty,
-.settings-camera-preview__error {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  color: var(--muted);
-  text-align: center;
-  font-size: 14px;
-}
-
-.settings-camera-preview__error {
-  color: var(--red);
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-}
-
-.settings-range strong {
-  align-self: flex-end;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 11px;
+  padding-bottom: 13px;
+  color: var(--text);
+  font-size: 15.5px;
 }
 
 .settings-actions {
@@ -5493,10 +5438,6 @@ textarea {
 
 .settings-actions--wrap {
   justify-content: flex-end;
-}
-
-.settings-lock-form {
-  margin-top: 14px;
 }
 
 .settings-inline--lock {
@@ -5521,23 +5462,6 @@ textarea {
 .settings-input--duress {
   letter-spacing: normal;
   font-family: var(--font);
-}
-
-.settings-progress {
-  height: 8px;
-  margin-top: 14px;
-  overflow: hidden;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
-}
-
-.settings-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, white));
-  transition: width 0.18s ease;
 }
 
 /* ── Session expired ─────────────────────────────────────────── */
@@ -5576,6 +5500,65 @@ textarea {
 
 :root[data-theme="light"] .session-renew::before {
   background: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme="light"] .session-renew {
+  color: var(--text);
+}
+
+:root[data-theme="light"] .session-renew__title {
+  color: var(--text);
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .session-renew__sub,
+:root[data-theme="light"] .session-renew__field span {
+  color: var(--muted);
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .session-renew__field input {
+  border-color: rgba(12, 22, 34, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .session-renew__field input::placeholder {
+  color: var(--dim);
+}
+
+:root[data-theme="light"] .session-renew__field input:-webkit-autofill,
+:root[data-theme="light"] .session-renew__field input:-webkit-autofill:hover,
+:root[data-theme="light"] .session-renew__field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+
+:root[data-theme="light"] .session-renew__field input:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+
+:root[data-theme="light"] .session-renew__btn--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .session-renew__btn--primary:hover {
+  background: color-mix(in srgb, #fff 10%, var(--accent));
+}
+
+:root[data-theme="light"] .session-renew__btn--secondary {
+  border-color: rgba(12, 22, 34, 0.14);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .session-renew__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .session-renew__card {
@@ -5673,7 +5656,7 @@ textarea {
     inset 0 1px 1px rgba(255, 255, 255, 0.16),
     0 8px 24px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(18px) saturate(1.16);
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
 .session-renew__field input::placeholder {
@@ -5687,7 +5670,7 @@ textarea {
   -webkit-box-shadow: 0 0 0 1000px transparent inset;
   box-shadow: 0 0 0 1000px transparent inset;
   caret-color: #fff;
-  transition: background-color 9999s ease-out 0s;
+  transition: background-color 9999s var(--ease-out) 0s;
 }
 
 .session-renew__field input:focus {
@@ -5713,7 +5696,7 @@ textarea {
   font-weight: 750;
   border: none;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .session-renew__btn--primary {
@@ -5745,311 +5728,7 @@ textarea {
   background: rgba(255, 255, 255, 0.28);
 }
 
-.lock-screen {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: var(--app-viewport-height);
-  display: grid;
-  place-items: center;
-  padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
-  background: #101014 url("/assets/wp_dark.jpg") center / cover no-repeat;
-  color: white;
-}
-
-:root[data-lock-theme="light"] .lock-screen {
-  background-image: url("/assets/wp_light.jpg");
-  background-color: #f2f4f8;
-}
-
-:root[data-lock-theme="dark"] .lock-screen {
-  background-image: url("/assets/wp_dark.jpg");
-  background-color: #101014;
-}
-
-.lock-screen::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(24px) saturate(1.12);
-}
-
-.lock-card {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 360px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  text-align: center;
-}
-
-.lock-card__avatar {
-  width: 132px;
-  height: 132px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 50%;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.52)),
-    color-mix(in srgb, var(--accent) 32%, white);
-  color: color-mix(in srgb, var(--accent) 68%, #26324a);
-  font-size: 58px;
-  font-weight: 700;
-  letter-spacing: -0.08em;
-  text-indent: -0.08em;
-  box-shadow:
-    0 22px 55px rgba(0, 0, 0, 0.28),
-    inset 0 1px 1px rgba(255, 255, 255, 0.95);
-}
-
-.lock-card__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.lock-card__avatar--image {
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.lock-card__copy {
-  width: 100%;
-  margin-top: 18px;
-  text-align: center;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
-}
-
-.lock-card h1 {
-  width: 100%;
-  margin: 0;
-  color: white;
-  font-size: 24px;
-  font-weight: 650;
-  line-height: 1.16;
-  letter-spacing: -0.02em;
-  text-align: center;
-}
-
-.lock-card p {
-  width: 100%;
-  margin: 8px auto 0;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  line-height: 1.45;
-  text-align: center;
-}
-
-.lock-form {
-  position: relative;
-  width: min(100%, 238px);
-  display: block;
-  margin: 18px auto 0;
-}
-
-.lock-form__input {
-  min-height: 36px;
-  width: 100%;
-  padding: 0;
-  box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.23);
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  caret-color: transparent;
-  user-select: none;
-  font: 15px var(--mono);
-  letter-spacing: 0.18em;
-  text-align: center;
-  outline: none;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.22),
-    0 8px 24px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(20px) saturate(1.2);
-  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.lock-form__input::selection {
-  color: transparent;
-  background: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-.lock-form__input:focus {
-  border-color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.32);
-  box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.16),
-    0 10px 28px rgba(0, 0, 0, 0.2);
-}
-
-.lock-form__mask {
-  position: absolute;
-  inset: 0;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.lock-form__mask span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  opacity: 0;
-  background: white;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-}
-
-.lock-form__mask span.is-filled {
-  opacity: 1;
-}
-
-.lock-progress {
-  width: min(100%, 238px);
-  height: 6px;
-  margin: 16px auto 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(14px);
-}
-
-.lock-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: rgba(255, 255, 255, 0.78);
-  transition: width 160ms ease;
-}
-
-.lock-pad {
-  display: none;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.lock-pad button {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  min-height: 0;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  color: white;
-  font-size: 23px;
-  font-weight: 600;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-  user-select: none;
-  outline: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(14px);
-  -touch-action: manipulation;
-}
-
-.lock-pad button:active {
-  transform: scale(0.96);
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.lock-card__attempts {
-  margin: 16px 0 0;
-  color: rgba(255, 255, 255, 0.78) !important;
-  text-align: center;
-  font-size: 13px;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.34);
-}
-
-.lock-card__error {
-  margin: 12px 0 0;
-  color: white !important;
-  text-align: center;
-  font-weight: 650;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.44);
-}
-
-.admin-user-search {
-  margin-bottom: 8px;
-}
-
-.admin-list {
-  display: grid;
-  gap: 8px;
-}
-
-.admin-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.admin-row>div {
-  min-width: 0;
-}
-
-.admin-row--user {
-  align-items: flex-start;
-}
-
-.admin-row__identity {
-  flex: 1;
-}
-
-.admin-row__controls {
-  width: min(100%, 360px);
-  display: grid;
-  gap: 10px;
-}
-
 @media (max-width: 768px) {
-  .admin-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .admin-row__identity,
-  .admin-row__controls {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .admin-row__controls {
-    max-width: none;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .admin-row__identity strong,
-  .admin-row__identity small {
-    display: block;
-  }
-
-  .admin-row__identity small {
-    margin-top: 2px;
-    word-break: break-word;
-  }
 
   .settings-actions {
     display: flex;
@@ -6060,138 +5739,6 @@ textarea {
   .settings-actions .btn {
     flex: 1 1 140px;
   }
-}
-
-.admin-badge-menu-button {
-  width: 100%;
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px 11px;
-  border-radius: 10px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-}
-
-.admin-badge-menu-button svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.admin-badge-selection,
-.admin-badge-current {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.admin-badge-selection span,
-.admin-badge-current>span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.admin-badge-placeholder {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.admin-badge-menu {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel) 92%, #000 8%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-}
-
-.admin-badge-option {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 8px;
-  padding: 9px 10px;
-  border-radius: 10px;
-  color: var(--text);
-  text-align: left;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-}
-
-.admin-badge-option.is-selected {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.admin-badge-option__icon {
-  grid-row: span 2;
-  width: 22px;
-  height: 22px;
-  align-self: center;
-}
-
-.admin-badge-option span {
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.admin-badge-option small {
-  margin: 0;
-  font-size: 11px;
-}
-
-.admin-badge-current,
-.admin-badge-custom {
-  grid-column: 1 / -1;
-}
-
-.admin-badge-current button {
-  width: 16px;
-  height: 16px;
-  border: 0;
-  border-radius: 999px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-}
-
-.admin-badge-custom {
-  display: flex;
-  gap: 8px;
-}
-
-.admin-badge-custom .settings-input {
-  min-width: 0;
-}
-
-.admin-row strong,
-.admin-row small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.admin-row small {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .settings-kv {
@@ -6246,8 +5793,7 @@ textarea {
   background: var(--surface-2);
 }
 
-:root[data-theme="light"] .settings__nav-item:hover,
-:root[data-theme="light"] .settings__nav-item.is-active {
+:root[data-theme="light"] .settings__nav-item:hover:not(.is-active) {
   background: var(--surface-hover);
 }
 
@@ -6255,8 +5801,7 @@ textarea {
   background: var(--surface-2);
 }
 
-:root[data-theme="light"] .settings-kv>div,
-:root[data-theme="light"] .admin-row {
+:root[data-theme="light"] .settings-kv>div {
   background: var(--surface-2);
   border-color: var(--line-strong);
 }
@@ -6276,10 +5821,6 @@ textarea {
 :root[data-theme="light"] .mention-picker__item:hover,
 :root[data-theme="light"] .mention-picker__item.is-active {
   background: #0a0c0d1c;
-}
-
-:root[data-theme="light"] .profile-card {
-  background: rgba(12, 22, 34, 0.22);
 }
 
 @media (max-width: 820px) {
@@ -6425,6 +5966,7 @@ textarea {
   .settings__nav-item:hover,
   .settings__nav-item.is-active {
     background: transparent;
+    color: var(--text);
   }
 
   .settings__nav-item svg:not(.settings__chevron) {
@@ -6516,18 +6058,7 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lock-pad {
-    display: grid;
-    width: min(100%, 330px);
-  }
-
-  .lock-pad button {
-    min-height: 0;
-    font-size: 28px;
-  }
 }
-
-
 
 @media (max-width: 640px) {
   .settings__side {
@@ -6606,8 +6137,7 @@ textarea {
     min-height: 44px;
   }
 
-  .settings-input,
-  .settings-select select {
+  .settings-page .settings-select .smenu {
     min-height: 46px;
     font-size: 16px;
   }
@@ -6634,137 +6164,17 @@ textarea {
     max-width: none;
   }
 
-  .lock-screen {
-    min-height: var(--app-viewport-height);
-    display: flex;
-    width: 100%;
-    /* ← manquait, cause du décalage */
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    /* centrage horizontal explicite */
-    padding: calc(42px + var(--mobile-status-offset)) 24px 42px;
-    background:
-      radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.72) 0 8%, transparent 34%),
-      radial-gradient(ellipse at 82% 16%, rgba(255, 196, 132, 0.9) 0 9%, transparent 32%),
-      radial-gradient(ellipse at 72% 84%, rgba(60, 126, 255, 0.74) 0 12%, transparent 38%),
-      radial-gradient(ellipse at 18% 76%, rgba(255, 74, 139, 0.8) 0 10%, transparent 36%),
-      linear-gradient(135deg, #f8d7b6 0%, #f38f8f 24%, #b56fe8 48%, #4967f2 72%, #8ed3ff 100%);
-    color: white;
-    box-sizing: border-box;
-    /* ← critique : inclut le padding dans la largeur */
-    width: 100%;
-    /* ← s'assure qu'il prend toute la largeur */
-  }
-
-  .lock-card {
-    position: relative;
-    z-index: 1;
-    width: min(100%, 360px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    /* centre avatar, form, dots */
-    text-align: center;
-  }
-
-
-  .lock-card__avatar {
-    width: 116px;
-    height: 116px;
-    font-size: 50px;
-  }
-
-  .lock-card h1 {
-    font-size: 23px;
-  }
-
-  .lock-card p {
-    max-width: 300px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .lock-form {
-    position: relative;
-    width: 238px;
-    display: block;
-    margin: 18px 0 0;
-  }
-
   .lock-dots span {
     width: 9px;
     height: 9px;
   }
 
-  .lock-pad {
-    gap: 14px;
-    width: min(100%, 318px);
-    margin-top: 24px;
-  }
-
-  .lock-pad button {
-    min-height: 0;
-    border: 0;
-    background: rgba(255, 255, 255, 0.2);
-    font-size: 30px;
-    font-weight: 500;
-    box-shadow: none;
-  }
 }
 
 @media (max-width: 480px) {
   .settings__nav {
     border-radius: 18px;
   }
-}
-
-/* Sound settings list */
-.sound-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.sound-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.sound-row:last-child {
-  border-bottom: 0;
-}
-
-.sound-row__info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.sound-row__label {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.sound-row__preview {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  text-align: left;
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: fit-content;
-}
-
-.sound-row__preview:hover {
-  text-decoration: underline;
 }
 
 /* Toggle switch */
@@ -6788,7 +6198,7 @@ textarea {
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
   position: relative;
 }
 
@@ -6806,7 +6216,7 @@ textarea {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-  transition: transform 150ms ease;
+  transition: transform var(--dur-slow) var(--ease-spring), width var(--dur-base) var(--ease-out);
 }
 
 .toggle.is-on .toggle__thumb {
@@ -6849,22 +6259,6 @@ textarea {
   font-size: 10.5px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-}
-
-.reactions--standalone {
-  position: static;
-  margin-top: 6px;
-  display: flex;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  gap: 4px;
-}
-
-.reactions--standalone .reaction {
-  background: var(--surface-2);
-  padding: 2px 6px;
-  border-radius: 999px;
 }
 
 /* Deleted message placeholder */
@@ -6940,7 +6334,7 @@ textarea {
   color: inherit;
   text-decoration: none;
   max-width: 420px;
-  transition: background 80ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .embed:hover {
@@ -7010,506 +6404,7 @@ textarea {
   display: block;
 }
 
-/* Call overlay panel (Discord-style, docked below the thread header) */
-.callpanel {
-  flex: none;
-  padding: 10px 12px 12px;
-  background: color-mix(in srgb, var(--surface) 94%, var(--bg) 6%);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: inset 0 -1px 0 var(--line);
-}
-
-.callpanel__head {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  min-height: 0;
-}
-
-.callpanel__meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.callpanel__status {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.callpanel__title {
-  color: var(--text);
-  font-weight: 700;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.callpanel__time {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.callpanel__actions {
-  display: flex;
-  gap: 6px;
-  flex: none;
-  margin-left: auto;
-}
-
-.callpanel__stage {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
-  grid-auto-rows: minmax(130px, 1fr);
-  gap: 8px;
-  height: clamp(210px, 34vh, 430px);
-  min-height: 0;
-}
-
-.callpanel__stage--solo {
-  grid-template-columns: 1fr;
-}
-
-.callpanel__stage--duo {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.callpanel__stage--grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.callpanel__stage--many {
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-  grid-auto-rows: minmax(115px, 1fr);
-}
-
-.calltile {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-2) 88%, var(--bg) 12%);
-  font-size: 13px;
-  border: 1px solid var(--line-strong);
-  cursor: pointer;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.calltile.is-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  width: var(--app-viewport-width);
-  height: var(--app-viewport-height);
-  border-radius: 0;
-  border: 0;
-  background: var(--bg);
-}
-
-.calltile.is-muted {
-  opacity: 0.7;
-}
-
-.calltile.is-speaking {
-  box-shadow: 0 0 0 2px rgb(69, 163, 102);
-}
-
-.calltile__avatar {
-  width: clamp(58px, 8vw, 96px);
-  height: clamp(58px, 8vw, 96px);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  font-size: clamp(20px, 3vw, 34px);
-  font-weight: 800;
-  color: #fff;
-  flex: none;
-}
-
-.calltile__avatar--image {
-  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
-}
-
-.calltile__avatar img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.calltile__empty {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--surface-2) 90%, var(--bg) 10%);
-}
-
-.calltile__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  background: #020305;
-}
-
-.calltile__video video {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.calltile.is-screen .calltile__video video {
-  object-fit: contain;
-}
-
-.calltile__overlay {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  padding: 6px 8px;
-  border-radius: 6px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
-}
-
-.calltile__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
-.calltile__you {
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.calltile__kind {
-  flex: none;
-  color: var(--muted);
-  font-size: 11px;
-  font-family: var(--mono);
-  text-transform: uppercase;
-}
-
-.calltile__muted-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
-  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
-  color: var(--red);
-  flex: none;
-}
-
-.calltile__muted-badge--remote {
-  color: #ef4444;
-}
-
-.calltile__tools {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
-  display: flex;
-  gap: 5px;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.calltile:hover .calltile__tools,
-.calltile:focus-within .calltile__tools,
-.calltile.is-focused .calltile__tools {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.calltile.is-fullscreen .calltile__tools {
-  top: calc(30px + 8px);
-}
-
-.calltile.is-fullscreen .calltile__overlay {
-  opacity: 1;
-  transition: opacity 180ms ease;
-}
-
-.calltile.is-fullscreen.is-cursor-idle .calltile__overlay {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.calltile__tools button,
-.callpanel__focus-close {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 74%, var(--bg) 26%);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.calltile__tools button:hover,
-.callpanel__focus-close:hover {
-  background: color-mix(in srgb, var(--surface-hover) 86%, var(--surface) 14%);
-  border-color: var(--line-strong);
-}
-
-.calltile__tools svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.callpanel__focus {
-  position: relative;
-  min-height: min(70vh, 620px);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #020305;
-  border: 1px solid var(--line-strong);
-}
-
-.callpanel__focus.is-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  min-height: var(--app-viewport-height);
-  border-radius: 0;
-  border: 0;
-}
-
-.callpanel__focus video {
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  display: block;
-  object-fit: contain;
-  background: #000;
-}
-
 /* ── Mobile call panel: compact drawer ── */
-@media (max-width: 760px) {
-  .callpanel {
-    flex: none;
-    padding: 8px 10px;
-    gap: 0;
-    border-top: 1px solid var(--line);
-    background: var(--surface);
-  }
-
-  /* Single row: avatars | controls */
-  .callpanel__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0;
-    justify-content: space-between;
-  }
-
-  /* Hide the stage — avatars are now in the header */
-  .callpanel__stage {
-    display: none;
-  }
-
-  /* Mobile avatar strip */
-  .callpanel__mobile-strip {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    flex: 1;
-    min-width: 0;
-    cursor: pointer;
-  }
-
-  .callpanel__mobile-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 2px solid var(--surface);
-    background: var(--surface-2);
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    font-size: 12px;
-    font-weight: 700;
-    color: #fff;
-    flex: none;
-    margin-left: -6px;
-  }
-  .callpanel__mobile-avatar:first-child {
-    margin-left: 0;
-  }
-  .callpanel__mobile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .callpanel__mobile-avatar .avatar {
-    width: 100%;
-    height: 100%;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0;
-    border-radius: 50%;
-  }
-
-  .callpanel__mobile-overflow,
-  .callpanel__mobile-count {
-    margin-left: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--muted);
-    white-space: nowrap;
-    flex: none;
-  }
-  .callpanel__mobile-overflow {
-    color: var(--accent);
-  }
-
-  /* Controls */
-  .callpanel__actions {
-    margin-left: auto;
-    gap: 6px;
-    flex: none;
-  }
-
-  .callpanel__actions .icon-btn {
-    width: 36px;
-    height: 36px;
-  }
-}
-
-@media (max-width: 760px) {
-.callpanel__focus-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  font-size: 22px;
-  line-height: 1;
-}
-
-.callpanel__focus-label {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  z-index: 2;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg) 74%, transparent);
-  color: #fff;
-  font-weight: 700;
-}
-
-.callpanel__audio {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 1px;
-}
-
-.callpanel__audio--hidden {
-  position: fixed;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.calltile__volume {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--muted);
-  font-size: 12px;
-  flex: none;
-}
-
-.calltile__volume svg {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.calltile__volume input {
-  width: 82px;
-  accent-color: var(--accent);
-}
-
-.calltile__volume span {
-  width: 34px;
-  font-family: var(--mono);
-  font-size: 11px;
-  text-align: right;
-}
-
-.calltile__volume-name {
-  width: auto !important;
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left !important;
-  color: var(--text);
-  font-family: inherit !important;
-  font-size: 12px !important;
-}
-
-}
 
 /* Responsive */
 @media (max-width: 760px) {
@@ -7556,41 +6451,6 @@ textarea {
 
   .att-image {
     max-width: 80vw;
-  }
-
-  .text-viewer {
-    padding: calc(82px + var(--app-safe-top)) 14px 24px;
-  }
-
-  .text-viewer__toolbar {
-    top: calc(12px + var(--app-safe-top));
-    right: 12px;
-    left: 12px;
-    justify-content: flex-end;
-    overflow-x: auto;
-  }
-
-  .text-viewer__stage {
-    width: calc(100vw - 28px);
-    height: calc(var(--app-viewport-height) - 150px - var(--app-safe-top));
-  }
-
-  .image-viewer {
-    padding: calc(82px + var(--app-safe-top)) 14px 24px;
-  }
-
-  .image-viewer__toolbar {
-    top: calc(12px + var(--app-safe-top));
-    right: 12px;
-    overflow-x: auto;
-  }
-
-  .image-viewer__image {
-    max-height: calc(var(--app-viewport-height) - 170px - var(--app-safe-top));
-  }
-
-  .image-viewer__caption {
-    max-width: calc(100vw - 28px);
   }
 
   .embed {
@@ -7894,15 +6754,6 @@ textarea {
     width: 100%;
   }
 
-  .camera-modal__actions {
-    padding-bottom: calc(14px + var(--app-safe-bottom));
-  }
-
-  .camera-modal__actions .btn {
-    flex: 1;
-    min-width: 0;
-  }
-
   .call-pip {
     padding: 8px 12px;
     font-size: 12px;
@@ -7978,7 +6829,7 @@ textarea {
   color: var(--red);
   background: transparent;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   border: 0;
 }
 
@@ -8044,14 +6895,297 @@ textarea {
   border-left: 2px solid var(--line-strong);
 }
 
-.room-edit-fields .settings-input {
-  min-height: 38px;
-  font-size: 14px;
-}
-
 .room-edit-fields .settings-btn {
   align-self: flex-start;
   min-height: 34px;
   padding: 0 12px;
   font-size: 13px;
+}
+
+/* ── Settings rows ───────────────────────────────────────────────────────── */
+
+/* Every direct child of a group is a row, apart from the caption, the note and
+   a nested group. Naming what is *not* a row keeps this working for the eight
+   one-off children already in the panel and for whatever is added next. */
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group) {
+  margin: 0;
+  padding: 7px 14px;
+  background-color: var(--surface-2);
+  border-radius: 10px;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+/* A row that follows another is joined to it by an inset hairline. */
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group)
+  + *:not(h4):not(.settings-note):not(.settings-group) {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  background-image: linear-gradient(to right, transparent 0 14px, var(--line-strong) 14px);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top left;
+}
+
+.settings-group > *:not(h4):not(.settings-note):not(.settings-group):has(
+    + *:not(h4):not(.settings-note):not(.settings-group)) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* A button sits under the box it acts on, the way macOS places one, and
+   presses on its own without the group moving behind it. */
+/* Only rows that actually do something light up under the pointer. */
+.settings-group > :is(.settings-check, .settings-select):hover {
+  background-color: color-mix(in srgb, var(--text) 5%, var(--surface-2));
+}
+
+.settings-group > .settings-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 42px;
+}
+
+.settings-group > .settings-inline {
+  margin-left: 0;
+}
+
+.settings-group > .settings-actions {
+  margin-top: 0;
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* A nested group keeps its own caption and box rather than becoming a row. */
+.settings-group > .settings-group {
+  margin-top: 18px;
+}
+
+/* ── Section changes ─────────────────────────────────────────────────────── */
+
+.settings-page {
+  animation: settings-page-in var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes settings-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings__nav-item {
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.settings__nav-item:active {
+  transform: scale(.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page {
+    animation: none;
+  }
+
+  .settings__nav-item {
+    transition: none;
+  }
+}
+
+/* ── Settings controls inside a row ──────────────────────────────────────── */
+
+.settings-group > .settings-inline {
+  display: block;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.settings-group > .settings-kv {
+  gap: 1px;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The cells of a key/value pair are the row's own columns, not boxes of their
+   own; the 1px grid gap shows the row background through as a hairline. */
+.settings-group > .settings-kv > * {
+  margin: 0;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-2);
+}
+
+.settings-group > .settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A section's count sits apart from its name, the way a sidebar heading does,
+   instead of being joined to it by a dash. */
+.members__count {
+  margin-left: 7px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Settings motion ─────────────────────────────────────────────────────── */
+
+/* An intro note needs air before the box it introduces. */
+.settings-group > .settings-note + *:not(h4):not(.settings-note):not(.settings-group) {
+  margin-top: 9px;
+}
+
+.settings-group > :is(.settings-check, .settings-select) {
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+/* Pressing a toggle row gives way slightly, then springs back. A select row
+   is left alone: its menu button answers the press itself, and scaling the
+   row moved the whole block behind the open menu. */
+.settings-group > .settings-check:active {
+  transform: scale(.995);
+}
+
+.settings-btn,
+.settings-group .btn {
+  transition: background-color var(--dur-fast) var(--ease-out), filter var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+/* A button that is itself a row of the group cannot be scaled: the transform
+   took the whole slab with it and dragged the hairline above. It answers the
+   press by darkening instead, which moves nothing. */
+.settings-btn:active:not(:disabled),
+.settings-group .btn:active:not(:disabled) {
+  filter: brightness(.9);
+}
+
+/* The knob stretches while held, the way a physical switch would. */
+.toggle:active .toggle__thumb {
+  width: 22px;
+}
+
+.toggle.is-on:active .toggle__thumb {
+  transform: translateX(14px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .toggle__track,
+  .toggle__thumb,
+  .settings-btn,
+  .settings-group .btn,
+  .settings-group > :is(.settings-check, .settings-select) {
+    transition-duration: .01ms;
+  }
+
+  .settings-group > .settings-check:active {
+    transform: none;
+  }
+
+  .toggle:active .toggle__thumb {
+    width: 18px;
+  }
+}
+
+/* ── Profile picture and banner ──────────────────────────────────────────── */
+
+.settings-profile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* A picker and its removal travel together, so clearing one picture never
+   moves the other button. */
+.settings-profile__pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-profile__pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.settings-profile__pick svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settings-profile__pick:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.settings-profile__clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+
+.settings-profile__clear svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.settings-profile__clear:hover {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+  color: var(--red);
+}
+
+.settings-profile__pick:active,
+.settings-profile__clear:active {
+  transform: scale(.95);
+}
+
+.settings-profile__pick:focus-visible,
+.settings-profile__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .settings-profile__pick,
+  .settings-profile__clear {
+    transition-duration: .01ms;
+  }
+
+  .settings-profile__pick:active,
+  .settings-profile__clear:active {
+    transform: none;
+  }
 }

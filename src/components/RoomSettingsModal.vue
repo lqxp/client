@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+import ModalShell from "@/components/ModalShell.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import ImageCropModal from "@/components/ImageCropModal.vue";
@@ -6,7 +10,7 @@ import ImageCropModal from "@/components/ImageCropModal.vue";
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   open: { type: Boolean, default: false },
   roomId: { type: String, default: "" }
 });
@@ -157,8 +161,9 @@ function unban(userId: string) {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="room-settings-backdrop" @click.self="close">
+    <ModalShell :open="open" backdrop-class="room-settings-backdrop" @close="close">
       <div
+        v-sheet-dismiss="close"
         class="room-settings"
         :class="{ 'room-settings--section-open': mobileSectionOpen }"
         role="dialog"
@@ -168,11 +173,11 @@ function unban(userId: string) {
           <header class="room-settings__side-head">
             <h2 class="room-settings__title">{{ t('rooms.settings') }}</h2>
             <button class="icon-btn" type="button" :aria-label="t('message.cancel')" @click="close">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              <Icon name="close" viewBox="0 0 24 24" />
             </button>
           </header>
 
-          <nav class="room-settings__nav" aria-label="Room settings sections">
+          <nav class="room-settings__nav" :aria-label="t('rooms.settingsSections')">
             <button
               v-for="section in sections"
               :key="section.id"
@@ -200,7 +205,7 @@ function unban(userId: string) {
         <main class="room-settings__main">
           <header class="room-settings__main-head">
             <button class="icon-btn room-settings__back" type="button" :aria-label="t('rooms.back')" @click="backToList">
-              <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg>
+              <Icon name="chevron-left" viewBox="0 0 24 24" />
             </button>
             <h3 class="room-settings__section-title">{{ activeSectionLabel }}</h3>
           </header>
@@ -209,7 +214,7 @@ function unban(userId: string) {
             <div class="room-settings__field">
               <label class="room-settings__label" for="room-settings-name">{{ t('rooms.name') }}</label>
               <div class="room-settings__row">
-                <input id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
+                <input class="qx-field" id="room-settings-name" v-model="name" type="text" maxlength="64" autocomplete="off" />
                 <button type="button" class="btn--ghost" @click="saveName">{{ t('rooms.save') }}</button>
               </div>
             </div>
@@ -228,7 +233,7 @@ function unban(userId: string) {
 
             <div class="room-settings__field">
               <label class="room-settings__label" for="room-settings-description">{{ t('rooms.description') }}</label>
-              <textarea id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
+              <textarea class="qx-field" id="room-settings-description" v-model="description" rows="4" maxlength="140" :placeholder="t('rooms.descriptionPlaceholder')"></textarea>
               <div class="room-settings__actions">
                 <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
               </div>
@@ -295,7 +300,7 @@ function unban(userId: string) {
           </section>
         </main>
       </div>
-    </div>
+    </ModalShell>
   </Teleport>
 
   <ImageCropModal
@@ -315,7 +320,7 @@ function unban(userId: string) {
 .room-settings-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 240;
+  z-index: var(--z-sheet);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -463,25 +468,7 @@ function unban(userId: string) {
   gap: 8px;
 }
 
-.room-settings input[type="text"],
-.room-settings textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 10px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--text);
-  padding: 11px 13px;
-  font-size: 14px;
-  resize: vertical;
-}
 
-.room-settings input[type="text"]:focus,
-.room-settings textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
 
 .room-settings__actions {
   margin-top: 8px;
@@ -538,7 +525,7 @@ function unban(userId: string) {
   height: 24px;
   border-radius: 999px;
   background: var(--line-strong);
-  transition: background 140ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .room-settings__switch-track::after {
@@ -551,7 +538,7 @@ function unban(userId: string) {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .room-settings__switch input:checked + .room-settings__switch-track {
@@ -602,7 +589,6 @@ function unban(userId: string) {
     align-items: flex-end;
     background: rgba(0, 0, 0, 0.52);
     backdrop-filter: blur(12px);
-    animation: room-settings-backdrop-in 160ms ease-out;
   }
 
   .room-settings {
@@ -619,7 +605,6 @@ function unban(userId: string) {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     padding-bottom: max(18px, var(--app-safe-bottom));
-    animation: room-settings-sheet-in 220ms cubic-bezier(0.16, 0.8, 0.2, 1);
   }
 
   .room-settings::before {
@@ -685,11 +670,6 @@ function unban(userId: string) {
     font-size: 20px;
   }
 
-  .room-settings input[type="text"],
-  .room-settings textarea {
-    font-size: 16px;
-    padding: 14px 16px;
-  }
 
   .room-settings__switch {
     min-height: 48px;
@@ -734,13 +714,5 @@ function unban(userId: string) {
   }
 }
 
-@keyframes room-settings-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
-@keyframes room-settings-sheet-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
 </style>

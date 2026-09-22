@@ -29,7 +29,13 @@ const skipDrawerVisible = ref(false);
 
 let countdownInterval: ReturnType<typeof setInterval> | null = null;
 let listenerInitialized = false;
-let pendingUpdateObj: any = null;
+/** Progress events from the Tauri updater's download stream. */
+interface UpdateProgress {
+  event: string;
+  data?: { contentLength?: number; chunkLength?: number };
+}
+
+let pendingUpdateObj: { downloadAndInstall: (onEvent: (event: UpdateProgress) => void) => Promise<void> } | null = null;
 let skipRequested = false;
 let skipDrawerTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -168,11 +174,11 @@ export function useUpdater() {
       let downloadedBytes = 0;
       let totalBytes = 0;
 
-      await pendingUpdateObj.downloadAndInstall((event: any) => {
+      await pendingUpdateObj.downloadAndInstall((event: UpdateProgress) => {
         if (event.event === "Started") {
-          totalBytes = event.data.contentLength || 0;
+          totalBytes = event.data?.contentLength || 0;
         } else if (event.event === "Progress") {
-          downloadedBytes += event.data.chunkLength || 0;
+          downloadedBytes += event.data?.chunkLength || 0;
           if (totalBytes > 0) {
             progressPercent.value = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100));
           }
@@ -188,12 +194,12 @@ export function useUpdater() {
       step2Status.value = "completed";
       phase.value = "completed";
       startCountdown();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to perform Tauri update:", err);
       step1Status.value = "error";
       step2Status.value = "error";
       phase.value = "error";
-      errorDetails.value = err?.message || t("updater.error");
+      errorDetails.value = (err as { message?: string })?.message || t("updater.error");
     }
   }
 
@@ -287,7 +293,7 @@ export function useUpdater() {
 
       sendUpdateNotification(newVersion.value);
       performUpdate();
-    } catch (err: any) {
+    } catch (err) {
       await searchMinTime;
       console.error("Failed to check for updates:", err);
       if (skipRequested) {
@@ -296,7 +302,7 @@ export function useUpdater() {
       }
       if (forceManual) {
         phase.value = "error";
-        errorDetails.value = err?.message || t("updater.error");
+        errorDetails.value = (err as { message?: string })?.message || t("updater.error");
       } else {
         isCheckActive.value = false;
         hideSkipDrawer();

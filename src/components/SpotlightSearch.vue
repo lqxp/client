@@ -1,35 +1,221 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import Icon from "@/components/Icon.vue";
+import type { Messenger } from "@/composables/useMessenger";
+import type { PropType } from "vue";
+import { computed, inject, nextTick, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 
 const props = defineProps({
-  messenger: { type: Object, required: true },
+  messenger: { type: Object as PropType<Messenger>, required: true },
   open: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(["close", "open-profile"]);
+const emit = defineEmits(["close", "open-profile", "open-settings"]);
 
 const query = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
 const selectedIndex = ref(0);
 
 interface SearchResult {
-  kind: "room" | "message" | "user";
+  kind: "room" | "message" | "user" | "action";
   label: string;
   sub: string;
   roomId?: string;
   messageId?: string;
   username?: string;
   avatar?: string;
+  icon?: string;
+  run?: () => void;
+  timestamp?: number;
+}
+
+const fold = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const actions = computed<SearchResult[]>(() => {
+  const messenger = props.messenger;
+  const list: SearchResult[] = [];
+  const dnd = messenger.state.status === "dnd";
+  list.push({
+    kind: "action",
+    label: dnd ? t("spotlight.online") : t("spotlight.dnd"),
+    sub: t("spotlight.statusGroup"),
+    icon: dnd ? "sun" : "moon",
+    run: () => messenger.setPresenceStatus(dnd ? "online" : "dnd"),
+  });
+  const room = messenger.state.activeRoom;
+  if (messenger.state.inCall) {
+    list.push({ kind: "action", label: t("spotlight.hangUp"), sub: t("spotlight.callGroup"), icon: "phone-hangup", run: () => messenger.endCall() });
+  } else if (room && messenger.state.joinedRooms.includes(room)) {
+    list.push({
+      kind: "action",
+      label: t("spotlight.call", { room: messenger.displayRoomName(room) || room }),
+      sub: t("spotlight.callGroup"),
+      icon: "phone",
+      run: () => messenger.startCall(),
+    });
+  }
+  const state = messenger.state;
+  const inRoom = Boolean(room && state.joinedRooms.includes(room));
+  const add = (label: string, sub: string, icon: string, run: () => void) => list.push({ kind: "action", label, sub, icon, run });
+  if (state.inCall) {
+    add(state.callMuted ? t("spotlight.unmute") : t("spotlight.mute"), t("spotlight.callGroup"), state.callMuted ? "mic" : "mic-off", () => messenger.toggleMute());
+    add(state.callDeafened ? t("spotlight.undeafen") : t("spotlight.deafen"), t("spotlight.callGroup"), state.callDeafened ? "headphones" : "headphones-off", () => messenger.toggleDeafen());
+    add(t("spotlight.camera"), t("spotlight.callGroup"), "video", () => void messenger.toggleCamera());
+    add(t("spotlight.screen"), t("spotlight.callGroup"), "upload", () => void messenger.toggleScreenShare());
+  }
+  if (inRoom) {
+    add(t("spotlight.newPoll"), t("spotlight.roomGroup"), "plus-circle", () => (state.pollCreatorOpen = true));
+    add(t("whiteboard.title"), t("spotlight.roomGroup"), "edit", () => (state.whiteboardRoom = room));
+    add(messenger.isRoomPinned(room) ? t("spotlight.unpin") : t("spotlight.pin"), t("spotlight.roomGroup"), "heart", () => messenger.toggleRoomPin(room));
+    add(t("spotlight.copyInvite"), t("spotlight.roomGroup"), "copy", () => {
+      messenger.copyRoomInvite(room).then(() => messenger.showToast(t("thread.copyTokenSuccess"))).catch(() => messenger.showToast(t("thread.copyTokenError")));
+    });
+  }
+  if (state.clientLockEnabled) add(t("spotlight.lockNow"), t("spotlight.securityGroup"), "lock", () => messenger.lockClient());
+  add(t("spotlight.downloadRecovery"), t("spotlight.securityGroup"), "download", () => messenger.downloadRecoveryWords());
+  add(state.streamerMode ? t("spotlight.streamerOff") : t("spotlight.streamerOn"), t("spotlight.securityGroup"), state.streamerMode ? "eye" : "eye-off", () => messenger.setStreamerMode(!state.streamerMode));
+  const dark = state.themeMode === "dark" || (state.themeMode !== "light" && window.matchMedia?.("(prefers-color-scheme: dark)").matches === true);
+  add(dark ? t("spotlight.lightTheme") : t("spotlight.darkTheme"), t("spotlight.appearanceGroup"), dark ? "sun" : "moon", () => messenger.setThemeMode(dark ? "light" : "dark"));
+  add(state.messageStyle === "discord" ? t("spotlight.bubbleStyle") : t("spotlight.discordStyle"), t("spotlight.appearanceGroup"), "reply", () => messenger.setMessageStyle(state.messageStyle === "discord" ? "bubble" : "discord"));
+  for (const section of ["profile", "security", "opsec", "notifications", "calls", "tor"]) {
+    add(t("spotlight.openSettings", { section: t(`settings.sections.${section}`) }), t("spotlight.settingsGroup"), "settings", () => emit("open-settings", section));
+  }
+  const me = String(messenger.state.userId || "");
+  for (const account of messenger.localAccounts.value || []) {
+    if (!account.userId || account.userId === me) continue;
+    list.push({
+      kind: "action",
+      label: t("spotlight.switchAccount", { name: account.username }),
+      sub: t("spotlight.accountGroup"),
+      icon: "user",
+      run: () => void messenger.switchAccount(account.userId),
+    });
+  }
+  return list;
+});
+
+type FilterKey = "from" | "room" | "has" | "before" | "after";
+type HasKind = "image" | "video" | "file" | "voice" | "link" | "poll";
+
+const FILTER_ALIASES: Record<string, FilterKey> = {
+  de: "from", from: "from", "от": "from",
+  dans: "room", in: "room", en: "room", "в": "room",
+  a: "has", has: "has", tiene: "has", "есть": "has",
+  avant: "before", before: "before", antes: "before", "до": "before",
+  apres: "after", after: "after", despues: "after", "после": "after",
+};
+
+const HAS_ALIASES: Record<string, HasKind> = {
+  image: "image", images: "image", photo: "image", foto: "image", "фото": "image",
+  video: "video", "видео": "video",
+  fichier: "file", file: "file", archivo: "file", "файл": "file",
+  vocal: "voice", voice: "voice", audio: "voice", voz: "voice", "голос": "voice",
+  lien: "link", link: "link", enlace: "link", "ссылка": "link",
+  sondage: "poll", poll: "poll", encuesta: "poll", "опрос": "poll",
+};
+
+interface ParsedQuery {
+  text: string;
+  from: string;
+  room: string;
+  has: HasKind | "";
+  before: number;
+  after: number;
+  active: { key: FilterKey; value: string }[];
+}
+
+function parseDay(value: string) {
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  const eu = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+  const [y, m, d] = iso ? [iso[1], iso[2], iso[3]] : eu ? [eu[3], eu[2], eu[1]] : [];
+  if (!y) return 0;
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+const parsed = computed<ParsedQuery>(() => {
+  const out: ParsedQuery = { text: "", from: "", room: "", has: "", before: 0, after: 0, active: [] };
+  const words: string[] = [];
+  for (const token of query.value.trim().split(/\s+/).filter(Boolean)) {
+    const match = /^([^:]+):(.+)$/.exec(token);
+    const key = match ? FILTER_ALIASES[fold(match[1])] : undefined;
+    if (!match || !key) {
+      words.push(token);
+      continue;
+    }
+    const value = match[2].replace(/^@/, "");
+    if (key === "has") {
+      const kind = HAS_ALIASES[fold(value)];
+      if (!kind) continue;
+      out.has = kind;
+    } else if (key === "before" || key === "after") {
+      const day = parseDay(value);
+      if (!day) continue;
+      if (key === "before") out.before = day;
+      else out.after = day + 86_400_000;
+    } else {
+      out[key] = fold(value);
+    }
+    out.active.push({ key, value });
+  }
+  out.text = words.join(" ");
+  return out;
+});
+
+function messageMatchesKind(msg: { kind?: string; text?: string; preview?: unknown }, kind: HasKind) {
+  if (kind === "voice") return msg.kind === "voice" || msg.kind === "audio";
+  if (kind === "link") return Boolean(msg.preview) || /https?:\/\//i.test(String(msg.text || ""));
+  return msg.kind === kind;
+}
+
+const filteredMessages = computed<SearchResult[]>(() => {
+  const filter = parsed.value;
+  const text = fold(filter.text);
+  const items: SearchResult[] = [];
+  for (const [roomId, messages] of Object.entries(props.messenger.state.messagesByRoom || {})) {
+    const roomName = props.messenger.displayRoomName(roomId) || roomId;
+    if (filter.room && !fold(roomName).includes(filter.room) && !fold(roomId).includes(filter.room)) continue;
+    for (let i = (messages || []).length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (!msg || msg.deleted || msg.system) continue;
+      if (filter.from && !fold(String(msg.username || "")).includes(filter.from)) continue;
+      if (filter.has && !messageMatchesKind(msg, filter.has)) continue;
+      if (filter.before && msg.timestamp >= filter.before) continue;
+      if (filter.after && msg.timestamp < filter.after) continue;
+      const body = String(msg.text || msg.poll?.question || msg.attachment?.filename || "");
+      if (text && !fold(body).includes(text)) continue;
+      const label = body || t(`spotlight.kind.${msg.kind || "text"}`);
+      items.push({
+        kind: "message",
+        label: label.length > 80 ? `${label.slice(0, 80)}…` : label,
+        sub: `${msg.username} · ${roomName} · ${props.messenger.formatDay(msg.timestamp)}`,
+        roomId,
+        messageId: msg.messageId,
+        timestamp: msg.timestamp,
+      });
+    }
+  }
+  return items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 50);
+});
+
+const filterExamples = ["de:", "dans:", "a:image", "avant:", "apres:"];
+
+function insertFilter(example: string) {
+  query.value = `${query.value.trim()} ${example}`.trimStart();
+  inputRef.value?.focus();
 }
 
 const results = computed<SearchResult[]>(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q || q.length < 2) return [];
+  if (parsed.value.active.length) return filteredMessages.value;
+  const raw = query.value.trim();
+  const q = raw.toLowerCase();
+  if (!q) return actions.value;
+  const matchingActions = actions.value.filter((action) => fold(`${action.label} ${action.sub}`).includes(fold(raw)));
+  if (q.length < 2) return matchingActions;
 
-  const items: SearchResult[] = [];
+  const items: SearchResult[] = [...matchingActions];
 
   // Search rooms
   for (const room of props.messenger.state.rooms || []) {
@@ -47,7 +233,7 @@ const results = computed<SearchResult[]>(() => {
 
   // Search messages (last 50 per room, limit total)
   let messageCount = 0;
-  for (const [roomId, messages] of Object.entries(props.messenger.state.messagesByRoom || {}) as [string, any[]][]) {
+  for (const [roomId, messages] of Object.entries(props.messenger.state.messagesByRoom || {})) {
     if (messageCount > 50) break;
     const recent = (messages || []).slice(-100);
     for (let i = recent.length - 1; i >= 0; i--) {
@@ -104,7 +290,10 @@ watch(query, () => {
 });
 
 function select(item: SearchResult) {
-  if (item.kind === "room" && item.roomId) {
+  if (item.kind === "action" && item.run) {
+    item.run();
+    close();
+  } else if (item.kind === "room" && item.roomId) {
     props.messenger.selectConversation(item.roomId);
     close();
   } else if (item.kind === "message" && item.roomId && item.messageId) {
@@ -156,10 +345,7 @@ function onKeydown(event: KeyboardEvent) {
       <div v-if="open" class="spotlight-backdrop" @click="close">
         <div class="spotlight-panel" @click.stop>
           <div class="spotlight-search">
-            <svg class="spotlight-search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
+            <Icon name="search-lg" class="spotlight-search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             <input
               ref="inputRef"
               v-model="query"
@@ -171,6 +357,17 @@ function onKeydown(event: KeyboardEvent) {
               @keydown="onKeydown"
             />
             <kbd class="spotlight-shortcut">⌘K</kbd>
+          </div>
+
+          <div v-if="parsed.active.length" class="spotlight-filters" :aria-label="t('spotlight.filters')">
+            <span v-for="filter in parsed.active" :key="`${filter.key}-${filter.value}`" class="spotlight-filter">
+              {{ t(`spotlight.filter.${filter.key}`) }} <strong>{{ filter.value }}</strong>
+            </span>
+          </div>
+          <div v-else-if="!query.trim()" class="spotlight-filters spotlight-filters--hint">
+            <span class="spotlight-filters__label">{{ t('spotlight.filters') }}</span>
+            <button v-for="example in filterExamples" :key="example" type="button" class="spotlight-filter spotlight-filter--example"
+              @click="insertFilter(example)">{{ example }}</button>
           </div>
 
           <div v-if="results.length" class="spotlight-results">
@@ -187,7 +384,8 @@ function onKeydown(event: KeyboardEvent) {
               <span class="spotlight-item-icon">
                 <svg v-if="item.kind === 'room'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <svg v-else-if="item.kind === 'message'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <svg v-else-if="item.kind === 'user'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <Icon name="person" v-else-if="item.kind === 'user'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <Icon v-else-if="item.kind === 'action' && item.icon" :name="item.icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </span>
               <div class="spotlight-item-text">
                 <span class="spotlight-item-label">{{ item.label }}</span>
@@ -196,7 +394,7 @@ function onKeydown(event: KeyboardEvent) {
             </div>
           </div>
 
-          <div v-else-if="query.length >= 2" class="spotlight-empty">
+          <div v-else-if="query.length >= 2 || parsed.active.length" class="spotlight-empty">
             {{ t('sidebar.noResults') }}
           </div>
         </div>
@@ -209,7 +407,7 @@ function onKeydown(event: KeyboardEvent) {
 .spotlight-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: var(--z-spotlight);
   display: flex;
   justify-content: center;
   padding-top: 18vh;
@@ -288,7 +486,7 @@ function onKeydown(event: KeyboardEvent) {
   padding: 10px 14px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 80ms ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .spotlight-item:hover,
@@ -340,16 +538,16 @@ function onKeydown(event: KeyboardEvent) {
 
 /* Transition */
 .spotlight-enter-active {
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .spotlight-enter-active .spotlight-panel {
-  transition: transform 140ms cubic-bezier(0.16, 0.8, 0.2, 1), opacity 120ms ease-out;
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 .spotlight-leave-active {
-  transition: opacity 100ms ease-in;
+  transition: opacity var(--dur-fast) var(--ease-in);
 }
 .spotlight-leave-active .spotlight-panel {
-  transition: transform 100ms ease-in, opacity 100ms ease-in;
+  transition: transform var(--dur-fast) var(--ease-in), opacity var(--dur-fast) var(--ease-in);
 }
 .spotlight-enter-from {
   opacity: 0;
@@ -364,5 +562,48 @@ function onKeydown(event: KeyboardEvent) {
 .spotlight-leave-to .spotlight-panel {
   transform: translateY(-8px) scale(0.98);
   opacity: 0;
+}
+
+.spotlight-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.spotlight-filters__label {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.spotlight-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.spotlight-filter strong {
+  font-weight: 650;
+}
+
+.spotlight-filter--example {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.spotlight-filter--example:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 </style>

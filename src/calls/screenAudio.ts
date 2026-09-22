@@ -20,7 +20,7 @@ const RING_SIZE = 1 << RING_BITS; // 32768 frames ≈ 0.68 s @ 48 kHz
 
 export function isTauriDesktopRuntime() {
   if (typeof window === "undefined") return false;
-  const candidate = window as any;
+  const candidate = window as unknown as Record<string, unknown>;
   if (!(candidate.__TAURI_INTERNALS__ || candidate.__TAURI__)) return false;
   const ua = String(navigator?.userAgent || "").toLowerCase();
   return !ua.includes("android") && !/iphone|ipad|ipod/.test(ua);

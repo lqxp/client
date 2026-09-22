@@ -160,10 +160,12 @@ function buildRuntimeConfig(runtime: RuntimeConfigPayload) {
     || webSocketUrlFromHttpBase(apiBaseUrl);
 
   // Accept both TOML-style `servers` and camelCase `turnServers` from the server.
-  const rawServers = (rawRtc as any).servers || (rawRtc as any).turnServers;
+  // Older servers used different key names for the same fields.
+  const rtcExtras = rawRtc as Record<string, unknown>;
+  const rawServers = rtcExtras.servers || rtcExtras.turnServers;
   const servers = normalizeTurnServers(rawServers);
 
-  const defaultTurnServerId = String((rawRtc as any).defaultTurnServer || (rawRtc as any).defaultTurnServerId || "").trim()
+  const defaultTurnServerId = String(rtcExtras.defaultTurnServer || rtcExtras.defaultTurnServerId || "").trim()
     || (servers[0]?.id || "");
 
   return {

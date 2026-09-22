@@ -101,7 +101,7 @@ async function importDevicePublicKey(publicKey: JsonWebKey) {
   );
 }
 
-function signingPayload(envelope: any) {
+function signingPayload(envelope: Record<string, unknown>) {
   return TEXT_ENCODER.encode(JSON.stringify({
     v: envelope.v,
     alg: envelope.alg,
@@ -115,15 +115,16 @@ function signingPayload(envelope: any) {
   }));
 }
 
-export function canonicalDeviceSigningKey(value: any) {
+export function canonicalDeviceSigningKey(value: unknown) {
   if (!value || typeof value !== "object") return "";
+  const key = value as JsonWebKey;
   return JSON.stringify({
-    crv: String(value.crv || ""),
-    ext: value.ext === true,
-    key_ops: Array.isArray(value.key_ops) ? value.key_ops.map(String).sort() : [],
-    kty: String(value.kty || ""),
-    x: String(value.x || ""),
-    y: String(value.y || ""),
+    crv: String(key.crv || ""),
+    ext: key.ext === true,
+    key_ops: Array.isArray(key.key_ops) ? key.key_ops.map(String).sort() : [],
+    kty: String(key.kty || ""),
+    x: String(key.x || ""),
+    y: String(key.y || ""),
   });
 }
 
@@ -189,19 +190,19 @@ async function deriveMessageKey(roomKey: string, roomId: string, salt: Uint8Arra
   );
 }
 
-export function isEncryptedEnvelope(value: any) {
+export function isEncryptedEnvelope(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const envelope = value as Record<string, unknown>;
   return Boolean(
-    value
-    && typeof value === "object"
-    && Number(value.v) === E2EE_ENVELOPE_VERSION
-    && String(value.alg || "") === E2EE_ALGORITHM
-    && typeof value.iv === "string"
-    && typeof value.salt === "string"
-    && Number.isSafeInteger(Number(value.n))
-    && typeof value.ciphertext === "string"
-    && typeof value.senderDeviceId === "string"
-    && value.senderSigningKey
-    && typeof value.signature === "string"
+    Number(envelope.v) === E2EE_ENVELOPE_VERSION
+    && String(envelope.alg || "") === E2EE_ALGORITHM
+    && typeof envelope.iv === "string"
+    && typeof envelope.salt === "string"
+    && Number.isSafeInteger(Number(envelope.n))
+    && typeof envelope.ciphertext === "string"
+    && typeof envelope.senderDeviceId === "string"
+    && envelope.senderSigningKey
+    && typeof envelope.signature === "string"
   );
 }
 
@@ -228,7 +229,7 @@ export async function encryptRoomPayload(
     key,
     strictBuffer(plaintext)
   );
-  const envelope: any = {
+  const envelope: Record<string, unknown> = {
     v: E2EE_ENVELOPE_VERSION,
     alg: E2EE_ALGORITHM,
     n,
@@ -243,13 +244,33 @@ export async function encryptRoomPayload(
   const signature = await globalThis.crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" },
     privateKey,
-    strictBuffer(signingPayload(envelope))
+    strictBuffer(signingPayload(envelope as unknown as Record<string, unknown>))
   );
   envelope.signature = encodeBase64Url(new Uint8Array(signature));
   return envelope;
 }
 
-export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: any, trustedSigningKey?: JsonWebKey | null) {
+/**
+ * A sealed room payload as it arrives.
+ *
+ * Transcribed from `EncryptedPayload` in the backend's core/models.rs. Every
+ * field is required here because `isEncryptedEnvelope` has already checked
+ * them by the time this shape is used.
+ */
+export interface EncryptedEnvelope {
+  v: number;
+  alg: string;
+  iv: string;
+  salt: string;
+  n: number;
+  senderDeviceId: string;
+  senderSigningKey: JsonWebKey;
+  signature: string;
+  ciphertext: string;
+  roomId?: string;
+}
+
+export async function decryptRoomPayload(roomKey: string, roomId: string, envelope: EncryptedEnvelope, trustedSigningKey?: JsonWebKey | null) {
   if (!isEncryptedEnvelope(envelope)) throw new Error("Invalid encrypted payload.");
   if (trustedSigningKey && canonicalDeviceSigningKey(envelope.senderSigningKey) !== canonicalDeviceSigningKey(trustedSigningKey)) {
     throw new Error("Encrypted payload sender key mismatch.");
@@ -259,7 +280,7 @@ export async function decryptRoomPayload(roomKey: string, roomId: string, envelo
     { name: "ECDSA", hash: "SHA-256" },
     publicKey,
     strictBuffer(decodeBase64Url(envelope.signature)),
-    strictBuffer(signingPayload(envelope))
+    strictBuffer(signingPayload(envelope as unknown as Record<string, unknown>))
   );
   if (!validSignature) throw new Error("Invalid encrypted payload signature.");
   const normalizedRoomId = String(roomId || "");
