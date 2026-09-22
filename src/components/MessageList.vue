@@ -389,10 +389,6 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--red) 55%, transparent);
 }
 
-.unread-divider::after {
-  flex: 0 0 12px;
-}
-
 :global(:root[data-theme="light"] .unread-divider) {
   color: color-mix(in srgb, var(--red) 70%, #000);
 }
