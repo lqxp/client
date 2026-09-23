@@ -46,6 +46,7 @@ import {
 import {
   apiUrl,
   appRuntimeConfig,
+  fetchRtcCredentials,
   turnServerList,
   selectedTurnServerId as runtimeDefaultTurnServerId,
 } from "@/config/runtime";
@@ -4350,6 +4351,61 @@ function createMessenger() {
     return true;
   }
 
+  function refreshRtcCredentials(): Promise<boolean> {
+    const token = String(state.authToken || "").trim();
+    if (!token) return Promise.resolve(false);
+    return fetchRtcCredentials(token).catch(() => false);
+  }
+
+  async function solveAuthChallenge(action: string, username: string) {
+    const challengeData = await apiRequest(
+      `/api/auth/challenge?action=${encodeURIComponent(action)}&target=${encodeURIComponent(username)}`,
+      {
+        method: "GET",
+      },
+    );
+    if (!challengeData) {
+      throw new Error(t("errors.challengeFailed"));
+    }
+    let quotaToken = null;
+    let nullifier = null;
+    if (
+      challengeData.quotaToken?.ticket &&
+      challengeData.quotaToken?.epoch !== undefined
+    ) {
+      quotaToken = challengeData.quotaToken;
+      nullifier = await computeNullifier(
+        quotaToken.ticket,
+        quotaToken.epoch,
+        action,
+      );
+    }
+    if (
+      !challengeData.vdf?.x ||
+      !challengeData.vdf?.modulus ||
+      !challengeData.vdf?.t
+    ) {
+      throw new Error(t("errors.vdfInvalid"));
+    }
+    const vdfChallenge = challengeData.vdf;
+    const vdfProof = await solveVdf(
+      vdfChallenge.x,
+      vdfChallenge.t,
+      vdfChallenge.modulus,
+    );
+    if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.ekHex) {
+      throw new Error(t("errors.pqcMissing"));
+    }
+    let pqcCiphertext = null;
+    try {
+      const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
+      pqcCiphertext = pqcRes.ciphertext;
+    } catch {
+      throw new Error(t("errors.pqcUnsupported"));
+    }
+    return { vdfChallenge, vdfProof, quotaToken, nullifier, pqcCiphertext };
+  }
+
   async function registerAccount(username: string, password: string, capToken: string | null = null) {
     const validation = validateRegistrationUsername(username);
     if (validation) {
@@ -4368,65 +4424,12 @@ function createMessenger() {
       if (capToken) {
         payload.capToken = capToken;
       } else {
-        const challengeData = await apiRequest(
-          `/api/auth/challenge?action=register&target=${encodeURIComponent(cleanUsername)}`,
-          {
-            method: "GET",
-          },
-        );
-        if (!challengeData) {
-          throw new Error(t("errors.challengeFailed"));
-        }
-
-        let vdfProof = null;
-        let vdfChallenge = null;
-        let nullifier = null;
-        let quotaToken = null;
-
-        if (
-          challengeData.quotaToken?.ticket &&
-          challengeData.quotaToken?.epoch !== undefined
-        ) {
-          quotaToken = challengeData.quotaToken;
-          nullifier = await computeNullifier(
-            quotaToken.ticket,
-            quotaToken.epoch,
-            "register",
-          );
-        }
-
-        if (
-          challengeData.vdf?.x &&
-          challengeData.vdf?.modulus &&
-          challengeData.vdf?.t
-        ) {
-          vdfChallenge = challengeData.vdf;
-          vdfProof = await solveVdf(
-            vdfChallenge.x,
-            vdfChallenge.t,
-            vdfChallenge.modulus,
-          );
-        } else {
-          throw new Error(t("errors.vdfInvalid"));
-        }
-
-        if (!challengeData.pqcKey?.keyId || !challengeData.pqcKey?.ekHex) {
-          throw new Error(t("errors.pqcMissing"));
-        }
-
-        let pqcCiphertext = null;
-        try {
-          const pqcRes = await encapsulatePqcSecret(challengeData.pqcKey);
-          pqcCiphertext = pqcRes.ciphertext;
-        } catch {
-          throw new Error(t("errors.pqcUnsupported"));
-        }
-
-        payload.vdfChallenge = vdfChallenge;
-        payload.vdfProof = vdfProof;
-        payload.quotaToken = quotaToken;
-        payload.nullifier = nullifier;
-        payload.pqcCiphertext = pqcCiphertext;
+        const solved = await solveAuthChallenge("register", cleanUsername);
+        payload.vdfChallenge = solved.vdfChallenge;
+        payload.vdfProof = solved.vdfProof;
+        payload.quotaToken = solved.quotaToken;
+        payload.nullifier = solved.nullifier;
+        payload.pqcCiphertext = solved.pqcCiphertext;
       }
 
       const data = await apiRequest("/api/auth/register", {
@@ -4434,6 +4437,7 @@ function createMessenger() {
         body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
+      refreshRtcCredentials().catch(() => false);
       if (downloadRecoveryWords()) state.recoveryNotice = "register";
       connect();
       return true;
@@ -4485,6 +4489,7 @@ function createMessenger() {
       }
       state.requireCaptcha = false;
       applyAuthenticatedPayload(data);
+      refreshRtcCredentials().catch(() => false);
       connect();
       return true;
     } catch (error) {
@@ -4510,25 +4515,42 @@ function createMessenger() {
     }
     state.authLoading = true;
     try {
+      const cleanUsername = sanitizeUsername(username);
       const payload: Record<string, unknown> = {
-        username: sanitizeUsername(username),
+        username: cleanUsername,
         recoveryWords: String(recoveryWords || ""),
         newPassword,
       };
       if (capToken) {
         payload.capToken = capToken;
+      } else {
+        const solved = await solveAuthChallenge("recover", cleanUsername);
+        payload.vdfChallenge = solved.vdfChallenge;
+        payload.vdfProof = solved.vdfProof;
+        payload.quotaToken = solved.quotaToken;
+        payload.nullifier = solved.nullifier;
+        payload.pqcCiphertext = solved.pqcCiphertext;
       }
       const data = await apiRequest("/api/auth/recover", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       applyAuthenticatedPayload(data);
+      refreshRtcCredentials().catch(() => false);
       state.recoveryWords = normalizeRecoveryWords(recoveryWords);
       persist();
       if (downloadRecoveryWords()) state.recoveryNotice = "recover";
       connect();
       return true;
     } catch (error) {
+      const msg = String(errorMessage(error) || "").toLowerCase();
+      if (
+        msg.includes("security challenge") ||
+        msg.includes("challenge") ||
+        msg.includes("too many")
+      ) {
+        state.requireCaptcha = true;
+      }
       state.lastError = errorMessage(error) || t("errors.recoveryFailed");
       showToast(state.lastError);
       return false;
@@ -4542,6 +4564,7 @@ function createMessenger() {
     try {
       const data = await apiRequest("/api/auth/me");
       applyAuthenticatedPayload(data);
+      refreshRtcCredentials().catch(() => false);
       state.sessionExpired = false;
       return true;
     } catch {
@@ -7822,6 +7845,7 @@ function createMessenger() {
       showToast(state.lastError);
       return;
     }
+    await refreshRtcCredentials().catch(() => false);
     const turnServer = resolveTurnServerForCall();
     if (!relayCallsConfigured(state.selectedTurnServerId, turnServer)) {
       const message = relayCallsRequirementMessage();

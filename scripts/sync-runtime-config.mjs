@@ -264,8 +264,6 @@ async function buildConfigRuntimePayload() {
 
     // Legacy flat fields
     const turnUrls = Array.isArray(rtc.turnUrls) ? rtc.turnUrls.map(String).filter(Boolean) : [];
-    const turnUsername = String(rtc.turnUsername || "").trim();
-    const turnCredential = String(rtc.turnCredential || "").trim();
     const relayOnly = typeof rtc.relayOnly === "boolean" ? rtc.relayOnly : undefined;
     const defaultTurnServer = String(rtc.defaultTurnServer || "").trim();
 
@@ -278,11 +276,11 @@ async function buildConfigRuntimePayload() {
         label: String(s.label || s.id || "").trim(),
         hint: String(s.hint || "").trim(),
         urls: s.turnUrls.map(String).filter(Boolean),
-        username: String(s.turnUsername || "").trim(),
-        credential: String(s.turnCredential || "").trim()
+        username: "",
+        credential: ""
       }));
 
-    const hasRtc = turnUrls.length || turnUsername || turnCredential || relayOnly !== undefined || servers.length > 0;
+    const hasRtc = turnUrls.length || relayOnly !== undefined || servers.length > 0;
     const hasApp = serverOrigin || apiBaseUrl || wsUrl;
     if (!hasApp && !hasRtc) return null;
 
@@ -295,8 +293,6 @@ async function buildConfigRuntimePayload() {
             rtc: {
               ...(relayOnly !== undefined ? { relayOnly } : {}),
               ...(turnUrls.length ? { turnUrls } : {}),
-              ...(turnUsername ? { turnUsername } : {}),
-              ...(turnCredential ? { turnCredential } : {}),
               ...(servers.length ? { servers } : {}),
               ...(defaultTurnServer ? { defaultTurnServer } : {}),
               callsEnabled: true,
@@ -315,8 +311,6 @@ function buildEnvRuntimePayload() {
   const apiBaseUrlRaw = argValue("--api-base-url") || firstEnv("QXP_API_BASE_URL", "VITE_QXP_API_BASE_URL");
   const wsUrlRaw = argValue("--ws-url") || firstEnv("QXP_WS_URL", "VITE_QXP_WS_URL");
   const turnUrlsRaw = argValue("--turn-urls") || firstEnv("QXP_TURN_URLS", "VITE_QXP_TURN_URLS");
-  const turnUsernameRaw = argValue("--turn-username") || firstEnv("QXP_TURN_USERNAME", "VITE_QXP_TURN_USERNAME");
-  const turnCredentialRaw = argValue("--turn-credential") || firstEnv("QXP_TURN_CREDENTIAL", "VITE_QXP_TURN_CREDENTIAL");
   const relayOnlyRaw = argValue("--relay-only") || firstEnv("QXP_RELAY_ONLY", "VITE_QXP_RELAY_ONLY");
   const callsEnabledRaw = argValue("--calls-enabled") || firstEnv("QXP_CALLS_ENABLED", "VITE_QXP_CALLS_ENABLED");
   const callsUnavailableReasonRaw = argValue("--calls-unavailable-reason") || firstEnv("QXP_CALLS_UNAVAILABLE_REASON", "VITE_QXP_CALLS_UNAVAILABLE_REASON");
@@ -329,7 +323,7 @@ function buildEnvRuntimePayload() {
   const callsEnabled = parseBool(callsEnabledRaw);
   const callsUnavailableReason = String(callsUnavailableReasonRaw || "").trim();
 
-  const hasRtc = turnUrls.length || turnUsernameRaw || turnCredentialRaw || relayOnly !== undefined || callsEnabled !== undefined || callsUnavailableReason;
+  const hasRtc = turnUrls.length || relayOnly !== undefined || callsEnabled !== undefined || callsUnavailableReason;
   const hasApp = serverOrigin || apiBaseUrl || wsUrl;
   if (!hasApp && !hasRtc) return null;
 
@@ -342,8 +336,6 @@ function buildEnvRuntimePayload() {
           rtc: {
             ...(relayOnly !== undefined ? { relayOnly } : {}),
             ...(turnUrls.length ? { turnUrls } : {}),
-            ...(turnUsernameRaw ? { turnUsername: String(turnUsernameRaw).trim() } : {}),
-            ...(turnCredentialRaw ? { turnCredential: String(turnCredentialRaw).trim() } : {}),
             ...(callsEnabled !== undefined ? { callsEnabled } : {}),
             ...(callsUnavailableReason ? { callsUnavailableReason } : {})
           }

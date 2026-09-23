@@ -292,3 +292,54 @@ export function turnServerById(id: string): TurnServerConfig | undefined {
 export function selectedTurnServerId(): string {
   return rtcRuntimeConfig.defaultTurnServer || turnServerList()[0]?.id || "google-stun";
 }
+
+interface RtcCredentialsResponse {
+  relayOnly?: boolean;
+  servers?: TurnServerConfig[];
+  defaultTurnServer?: string;
+  turnUrls?: string[];
+  turnUsername?: string;
+  turnCredential?: string;
+}
+
+export async function fetchRtcCredentials(authToken: string): Promise<boolean> {
+  const token = String(authToken || "").trim();
+  if (!token) return false;
+  let response: Response;
+  try {
+    response = await fetch(apiUrl("/api/rtc/credentials"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return false;
+  }
+  if (!response.ok) return false;
+  let data: RtcCredentialsResponse;
+  try {
+    data = (await response.json()) as RtcCredentialsResponse;
+  } catch {
+    return false;
+  }
+  if (!data || typeof data !== "object") return false;
+  const incoming = normalizeTurnServers((data as Record<string, unknown>).servers);
+  if (incoming.length > 0) {
+    const current = Array.isArray(rtcRuntimeConfig.turnServers) ? [...rtcRuntimeConfig.turnServers] : [];
+    for (const server of incoming) {
+      const index = current.findIndex((s) => s.id === server.id);
+      if (index >= 0) {
+        current[index] = { ...current[index], username: server.username, credential: server.credential, urls: server.urls.length ? server.urls : current[index].urls };
+      } else {
+        current.push(server);
+      }
+    }
+    rtcRuntimeConfig.turnServers = current;
+  }
+  const flatUsername = String(data.turnUsername || "").trim();
+  const flatCredential = String(data.turnCredential || "").trim();
+  if (flatUsername) rtcRuntimeConfig.turnUsername = flatUsername;
+  if (flatCredential) rtcRuntimeConfig.turnCredential = flatCredential;
+  if (typeof data.relayOnly === "boolean") rtcRuntimeConfig.relayOnly = data.relayOnly;
+  const defaultId = String(data.defaultTurnServer || "").trim();
+  if (defaultId) rtcRuntimeConfig.defaultTurnServer = defaultId;
+  return true;
+}
