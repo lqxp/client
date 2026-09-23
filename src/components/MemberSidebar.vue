@@ -528,6 +528,7 @@ onBeforeUnmount(() => {
           v-if="selectedProfile"
           :messenger="messenger"
           :username="selectedProfile"
+          docked
           @close="closeProfile"
         />
       </Transition>

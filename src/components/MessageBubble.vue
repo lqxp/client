@@ -617,13 +617,13 @@ function onSpoilerActivate(event: MouseEvent | KeyboardEvent): boolean {
 /** Each part needs the prefix; `"x " + "a, b"` would only scope `a`. */
 const PEEKABLE_SELECTOR = [
   "[data-spoiler]",
-  ...".msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media"
+  ...".msg__avatar, .reply-ref__avatar, .bubble__author > :is(span,button):first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media"
     .split(", ")
     .map((part) => `.msg.is-streamer-blur ${part}`)
 ].join(", ");
 
 const COVERED_SELECTOR =
-  ".msg__avatar, .reply-ref__avatar, .bubble__author > span:first-child, .jumbo__author," +
+  ".msg__avatar, .reply-ref__avatar, .bubble__author > :is(span,button):first-child, .jumbo__author," +
   " .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text," +
   " .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph," +
   " .att-image-link, .audio-player, .video-player, .embed__media";
@@ -873,6 +873,13 @@ function onOpenProfile() {
   closeContextMenu();
 }
 
+function openAuthorProfile() {
+  if (deleted.value) return;
+  const name = String(props.message.username || "").trim().toLowerCase();
+  if (!name) return;
+  selectedProfile.value = name;
+}
+
 function onStartReply() {
   if (deleted.value) return;
   props.messenger.startReply(props.message);
@@ -934,10 +941,11 @@ onBeforeUnmount(() => {
       <Icon name="reply" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" />
     </span>
-    <span v-if="showAvatar && !isSystem" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`">
+    <button v-if="showAvatar && !isSystem" type="button" class="msg__avatar" :class="avatarSrc ? 'msg__avatar--image' : `avatar--${avatarAccent}`"
+      :aria-label="t('members.openProfile', { username: message.username })" @click="openAuthorProfile">
       <img v-if="avatarSrc" :src="avatarSrc" :alt="t('message.avatarOf', { name: message.username })" />
       <template v-else>{{ avatarInitials }}</template>
-    </span>
+    </button>
     <span v-else class="msg__spacer"></span>
 
     <div v-if="jumbo" class="jumbo" :class="{ 'jumbo--discord': isDiscordStyle }"
@@ -967,7 +975,7 @@ onBeforeUnmount(() => {
       </button>
 
       <div v-if="showAuthor" class="jumbo__author">
-        {{ message.username }}
+        <button type="button" class="bubble__author-name" :aria-label="t('members.openProfile', { username: message.username })" @click="openAuthorProfile">{{ message.username }}</button>
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
       <div class="jumbo__glyph" v-html="renderDiscordEmoji(message.text)"></div>
@@ -1074,7 +1082,7 @@ onBeforeUnmount(() => {
       </button>
 
       <div v-if="showAuthor && !isSystem" class="bubble__author">
-        <span>{{ message.username }}</span>
+        <button type="button" class="bubble__author-name" :aria-label="t('members.openProfile', { username: message.username })" @click="openAuthorProfile">{{ message.username }}</button>
         <span v-if="isDiscordStyle" class="bubble__author-time">{{ messenger.formatTime(message.timestamp) }}</span>
       </div>
 
@@ -1437,7 +1445,7 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
     <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
-      <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
+      <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" docked @close="closeProfile" />
     </Transition>
   </Teleport>
 </template>
@@ -1965,7 +1973,7 @@ onBeforeUnmount(() => {
   --redact-blur: 5px;
 }
 
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
+.msg.is-streamer-blur :is(.bubble__author > :is(span,button):first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph) {
   filter: blur(var(--redact-blur)) saturate(0.85);
   cursor: pointer;
   transition: filter 460ms var(--ease-out);
@@ -1993,7 +2001,7 @@ onBeforeUnmount(() => {
   transition: filter 460ms var(--ease-out);
 }
 
-.msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media):is(.is-revealed, .is-peeking),
+.msg.is-streamer-blur :is(.bubble__author > :is(span,button):first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media):is(.is-revealed, .is-peeking),
 .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar):is(.is-revealed, .is-peeking) > * {
   filter: none;
   cursor: auto;
@@ -2004,7 +2012,7 @@ onBeforeUnmount(() => {
 }
 
 /* Leaving streamer mode lifts every blur at once instead of snapping. */
-.msg.is-streamer-blur.is-streamer-leaving :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
+.msg.is-streamer-blur.is-streamer-leaving :is(.bubble__author > :is(span,button):first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
 .msg.is-streamer-blur.is-streamer-leaving :is(.msg__avatar, .reply-ref__avatar) > * {
   filter: none;
 }
@@ -2014,7 +2022,7 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .msg.is-streamer-blur :is(.bubble__author > span:first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
+  .msg.is-streamer-blur :is(.bubble__author > :is(span,button):first-child, .jumbo__author, .reply-ref__username, .reply-ref__text, .reply-card__author, .reply-card__text, .bubble__text, .att-file-meta, .embed__body, .reactions, .jumbo__glyph, .att-image-link, .audio-player, .video-player, .embed__media),
   .msg.is-streamer-blur :is(.msg__avatar, .reply-ref__avatar) > * {
     transition: none;
   }
@@ -2955,5 +2963,34 @@ button.poll__option:active {
 .thread-pill__time {
   font-weight: 500;
   opacity: 0.65;
+}
+
+button.msg__avatar {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
+button.msg__avatar.msg__avatar--image {
+  background: var(--surface-2);
+}
+
+.bubble__author-name,
+.jumbo__author .bubble__author-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.bubble__author-name:hover,
+.jumbo__author .bubble__author-name:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 </style>

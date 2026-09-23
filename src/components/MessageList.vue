@@ -5,6 +5,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } fr
 import { useI18n } from "@/composables/useI18n";
 import MessageBubble from "./MessageBubble.vue";
 import Avatar from "@/components/Avatar.vue";
+import ProfileCard from "@/components/ProfileCard.vue";
 
 const props = defineProps({
   messenger: { type: Object as PropType<Messenger>, required: true }
@@ -136,6 +137,18 @@ const messages = computed(() => props.messenger.sortedMessages.value || []);
 const idOf = (m: ChatMessage) => String(m.messageId || "");
 
 const typingUsers = computed(() => props.messenger.typingUsers?.value || []);
+const selectedTyperProfile = ref("");
+
+function openTyperProfile() {
+  if (typingUsers.value.length !== 1) return;
+  const name = String(typingUsers.value[0] || "").trim().toLowerCase();
+  if (!name) return;
+  selectedTyperProfile.value = name;
+}
+
+function closeTyperProfile() {
+  selectedTyperProfile.value = "";
+}
 const typingText = computed(() => {
   const users = typingUsers.value;
   if (!users.length) return "";
@@ -328,13 +341,19 @@ onBeforeUnmount(() => {
         </template>
       </div>
       <Transition name="typing-bubble">
-        <div v-if="typingUsers.length" class="typing-row" role="status" aria-live="polite">
+        <div v-if="typingUsers.length" class="typing-row" :class="{ 'is-clickable': typingUsers.length === 1 }" role="status" aria-live="polite"
+          @click="openTyperProfile">
           <Avatar :name="typingUsers[0]" :accent="messenger.accentFor(typingUsers[0])"
             :src="messenger.profileImageSrc(messenger.profileFor(typingUsers[0])?.avatar, 'avatar')" size="sm" />
           <span class="typing-bubble" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="typing-row__who">{{ typingText }}</span>
         </div>
       </Transition>
+      <Teleport to="body">
+        <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
+          <ProfileCard v-if="selectedTyperProfile" :messenger="messenger" :username="selectedTyperProfile" docked @close="closeTyperProfile" />
+        </Transition>
+      </Teleport>
     </section>
 
     <Transition name="feed-pill">
@@ -599,6 +618,15 @@ onBeforeUnmount(() => {
   align-self: center;
   color: var(--muted);
   font-size: 12px;
+}
+
+.typing-row.is-clickable {
+  cursor: pointer;
+}
+
+.typing-row.is-clickable:hover .typing-row__who {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .typing-bubble-enter-active {
