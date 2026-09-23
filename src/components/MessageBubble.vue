@@ -1445,7 +1445,7 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
     <Transition name="qx-modal" :duration="{ enter: 340, leave: 220 }">
-      <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" docked @close="closeProfile" />
+      <ProfileCard v-if="selectedProfile" :messenger="messenger" :username="selectedProfile" @close="closeProfile" />
     </Transition>
   </Teleport>
 </template>

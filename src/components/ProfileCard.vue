@@ -15,8 +15,7 @@ const phantom = inject<Phantom | null>("phantom", null);
 
 const props = defineProps({
   messenger: { type: Object as PropType<Messenger>, required: true },
-  username: { type: String, required: true },
-  docked: { type: Boolean, default: false }
+  username: { type: String, required: true }
 });
 
 const emit = defineEmits(["close"]);
@@ -227,21 +226,15 @@ function updateMobileProfile() {
   isMobileProfile.value = typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches;
 }
 
-function onDockedKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") emit("close");
-}
-
 onMounted(() => {
   updateMobileProfile();
   if (typeof window === "undefined" || !window.matchMedia) return;
   mobileMedia = window.matchMedia("(max-width: 820px)");
   mobileMedia.addEventListener?.("change", updateMobileProfile);
-  if (props.docked) window.addEventListener("keydown", onDockedKeydown);
 });
 
 onBeforeUnmount(() => {
   mobileMedia?.removeEventListener?.("change", updateMobileProfile);
-  window.removeEventListener("keydown", onDockedKeydown);
 });
 
 function badgeLabel(badge: string) {
@@ -318,14 +311,10 @@ function renderProfileMarkdown(value: unknown) {
 </script>
 
 <template>
-  <div class="profile-card" :class="{ 'is-docked': docked }" role="dialog" aria-modal="true" :aria-label="t('members.openProfile', { username })"
+  <div class="profile-card" role="dialog" aria-modal="true" :aria-label="t('members.openProfile', { username })"
     @click="emit('close')">
     <section v-sheet-dismiss="() => emit('close')" class="profile-card__panel" @click.stop>
       <div class="profile-card__handle" aria-hidden="true"></div>
-      <button v-if="docked" type="button" class="profile-card__dock-close" :aria-label="t('profile.close')"
-        @click="emit('close')">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-      </button>
       <div class="profile-card__body">
         <div class="profile-card__left">
           <div class="profile-card__left-box">
@@ -1760,65 +1749,5 @@ function renderProfileMarkdown(value: unknown) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.profile-card.is-docked {
-  inset: auto 0 0 auto;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: auto;
-  width: min(400px, calc(100vw - 16px));
-  z-index: 80;
-  display: block;
-  padding: 0;
-  background: transparent;
-  pointer-events: none;
-}
-
-.profile-card.is-docked .profile-card__panel {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  overflow-y: auto;
-  border-radius: 0;
-  border: 0;
-  border-left: 1px solid var(--line-strong);
-  box-shadow: -24px 0 70px rgba(0, 0, 0, 0.45);
-  pointer-events: auto;
-}
-
-.profile-card.is-docked .profile-card__body {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.profile-card.is-docked .profile-card__left {
-  border-right: 0;
-}
-
-.profile-card.is-docked .profile-card__handle {
-  display: none;
-}
-
-.profile-card__dock-close {
-  position: sticky;
-  top: 10px;
-  z-index: 5;
-  float: right;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin: 10px 10px -40px 0;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.profile-card__dock-close:hover {
-  color: var(--text);
-  border-color: var(--accent);
 }
 </style>
