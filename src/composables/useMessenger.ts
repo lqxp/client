@@ -66,6 +66,7 @@ import type { EncryptedEnvelope } from "@/crypto/e2ee";
 import { solveVdf } from "@/crypto/vdf";
 import { computeNullifier } from "@/crypto/rln";
 import { encapsulatePqcSecret } from "@/crypto/pqc";
+import { decideRoomKeyImport, RoomKeyConflictError } from "@/utils/roomKeys";
 import {
   playCameraOffSound,
   playCameraOnSound,
@@ -85,6 +86,7 @@ import { dispatchPhantomMessage } from "./phantomBridge";
 import { dedupeBadgeArtwork } from "@/config/badges";
 import { createNoticeFence } from "@/utils/noticeFence";
 import { usableImage } from "@/utils/brokenImages";
+import { resolveRoomDisplayName, roomRenameTarget, sanitizeLocalRoomNames } from "@/utils/roomNames";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -149,9 +151,6 @@ const THEME_MODES = ["dark", "light", "adaptive", "system"];
 const RANDOM_ROOM_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const E2EE_MESSAGE_PLACEHOLDER = "Encrypted message";
 const LINK_PREVIEW_URL_RE = /https?:\/\/[^\s<>"'`\\]+/i;
-const pendingLinkPreviewRequests = new Set<string>();
-// Paced under the server's per-account budget so a burst of history never trips it.
-const LINK_PREVIEW_SPACING_MS = 900;
 const TYPING_IDLE_MS = 2800;
 const TYPING_REMOTE_TTL_MS = 4500;
 const TYPING_HEARTBEAT_MS = 4000;
@@ -1051,6 +1050,7 @@ function persistedDefaults() {
     channelsCollapsed: false,
     callUserVolumes: {} as ByUser<number>,
     roomNotes: {} as ByRoom<string>,
+    localRoomNames: {} as ByRoom<string>,
     pinnedRooms: [] as string[],
     selectedTurnServerId: runtimeDefaultTurnServerId(),
     customTurnServers: [] as TurnServerConfig[],
@@ -1474,6 +1474,7 @@ function loadPersisted() {
       ),
       callUserVolumes: sanitizeCallUserVolumes(raw.callUserVolumes),
       roomNotes: sanitizeRoomNotes(raw.roomNotes),
+      localRoomNames: sanitizeLocalRoomNames(raw.localRoomNames, (id) => isValidRoomId(sanitizeRoomId(id))),
       selectedTurnServerId: String(
         raw.selectedTurnServerId || runtimeDefaultTurnServerId(),
       ).trim(),
@@ -1857,6 +1858,7 @@ function buildPersistedPayload(state: ReturnType<typeof defaultPersisted>) {
     channelsCollapsed: state.channelsCollapsed,
     callUserVolumes: sanitizeCallUserVolumes(state.callUserVolumes),
     roomNotes: sanitizeRoomNotes(state.roomNotes),
+    localRoomNames: { ...state.localRoomNames },
     bannedRooms: sanitizeBannedRooms(state.bannedRooms),
     selectedTurnServerId: state.selectedTurnServerId,
     customTurnServers: sanitizeCustomTurnServers(state.customTurnServers),
@@ -2881,8 +2883,25 @@ function createMessenger() {
 
   const persisted = loadPersisted();
   const importedInvite = parseInviteLink();
+  // K6: an invite link is an untrusted input (URL hash) just like a pasted
+  // room token or a server-pushed default room. It must never silently
+  // replace a room key this device already trusts for that room id — route
+  // it through the same decision as importRoomKey() (state does not exist
+  // yet at this point, so the toast is deferred until after state is built).
+  let inviteKeyConflictMessage = "";
   if (importedInvite) {
-    persisted.roomKeysByRoom[importedInvite.roomId] = importedInvite.roomKey;
+    const existingInviteKey = String(
+      persisted.roomKeysByRoom[importedInvite.roomId] || "",
+    );
+    const inviteKeyDecision = decideRoomKeyImport(
+      existingInviteKey,
+      importedInvite.roomKey,
+    );
+    if (inviteKeyDecision === "conflict") {
+      inviteKeyConflictMessage = t("errors.roomKeyConflict");
+    } else if (inviteKeyDecision === "store") {
+      persisted.roomKeysByRoom[importedInvite.roomId] = importedInvite.roomKey;
+    }
     persisted.activeRoom = importedInvite.roomId;
     if (
       !persisted.rooms.some((room) => room.roomId === importedInvite.roomId)
@@ -3065,6 +3084,7 @@ function createMessenger() {
     ),
     callUserVolumes: persisted.callUserVolumes,
     roomNotes: persisted.roomNotes,
+    localRoomNames: persisted.localRoomNames,
     audioDevicesLoading: false,
     audioDevicesPermission: "unknown",
     micTestActive: false,
@@ -3110,6 +3130,11 @@ function createMessenger() {
     adminSearchLoading: false,
     adminSearchSearched: false,
   });
+
+  if (inviteKeyConflictMessage) {
+    state.lastError = inviteKeyConflictMessage;
+    showToast(inviteKeyConflictMessage, { error: true });
+  }
 
   // Sync call sounds flag from persisted state
   setCallSoundsActive(state.callSoundsEnabled);
@@ -3409,6 +3434,7 @@ function createMessenger() {
       profile: normalizeProfile(payload?.profile),
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
+      localRoomNames: sanitizeLocalRoomNames(payload?.localRoomNames, (id) => isValidRoomId(sanitizeRoomId(id))),
       selectedTurnServerId: String(
         payload?.selectedTurnServerId || runtimeDefaultTurnServerId(),
       ).trim(),
@@ -3482,6 +3508,7 @@ function createMessenger() {
     state.reconnectMaxDelayMs = normalized.reconnectMaxDelayMs;
     state.callUserVolumes = normalized.callUserVolumes;
     state.roomNotes = normalized.roomNotes;
+    state.localRoomNames = normalized.localRoomNames;
     state.bannedRooms = sanitizeBannedRooms(normalized.bannedRooms);
     state.selectedTurnServerId = normalized.selectedTurnServerId;
     state.customTurnServers = normalized.customTurnServers;
@@ -4265,6 +4292,7 @@ function createMessenger() {
       soundFlags: { ...state.soundFlags },
       callUserVolumes: { ...state.callUserVolumes },
       roomNotes: { ...state.roomNotes },
+      localRoomNames: { ...state.localRoomNames },
     };
     state.authToken = String(data.token || state.authToken || "");
     state.userId = String(authUser.id || "");
@@ -4857,14 +4885,20 @@ function createMessenger() {
     return next;
   }
 
-  function importRoomKey(roomId: string, roomKey: string) {
+  function importRoomKey(roomId: string, roomKey: string, options: { allowReplace?: boolean } = {}) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) throw new Error(t("errors.invalidRoomId"));
     const normalized = normalizeRoomKey(roomKey);
-    state.roomKeysByRoom[id] = normalized;
+    const decision = decideRoomKeyImport(roomKeyFor(id), normalized, options.allowReplace === true);
+    if (decision === "conflict") {
+      throw new RoomKeyConflictError(id, t("errors.roomKeyConflict"));
+    }
+    if (decision === "store") {
+      state.roomKeysByRoom[id] = normalized;
+      persist();
+    }
     touchRoom(id);
-    persist();
-    if (!state.roomKeysByRoom[id] || state.roomKeysByRoom[id] !== normalized) {
+    if (state.roomKeysByRoom[id] !== normalized) {
       throw new Error(t("errors.roomKeyStoreFailed"));
     }
     return normalized;
@@ -5065,9 +5099,7 @@ function createMessenger() {
     if (!id) return "";
     if (state.streamerMode) return t("labels.hiddenChannel");
     const room = state.rooms.find((entry) => entry.roomId === id);
-    const persistedTitle = String(room?.title || "").trim();
-    if (persistedTitle) return persistedTitle;
-    return id;
+    return resolveRoomDisplayName(id, state.localRoomNames, String(room?.title || ""));
   }
 
   function beautifyRoomName(name: string, maxLength = 12) {
@@ -5440,13 +5472,17 @@ function createMessenger() {
     const clean = String(name || "")
       .trim()
       .slice(0, MAX_LOCAL_ROOM_NAME_LENGTH);
-    send({ op: 33, d: { gameId: id, title: clean } });
+    if (roomRenameTarget(isCommunityRoom(id), canManageRoom(id)) === "server") {
+      send({ op: 33, d: { gameId: id, title: clean } });
+      return;
+    }
+    if (clean) state.localRoomNames[id] = clean;
+    else delete state.localRoomNames[id];
+    persist();
   }
 
   function clearLocalRoomName(roomId: string) {
-    const id = sanitizeRoomId(roomId);
-    if (!id) return;
-    send({ op: 33, d: { gameId: id, title: "" } });
+    setLocalRoomName(roomId, "");
   }
 
   // Titre purement local (sans aller-retour serveur) — utilisé pour les salons
@@ -8801,52 +8837,6 @@ function createMessenger() {
     }
   }
 
-  function requestEncryptedLinkPreview(message: ChatMessage) {
-    if (
-      !message?.encrypted ||
-      message.preview ||
-      message.deleted ||
-      message.locked
-    )
-      return;
-    if (
-      !state.connected ||
-      !state.identified ||
-      !state.ws ||
-      state.ws.readyState !== WebSocket.OPEN
-    )
-      return;
-
-    const roomId = sanitizeRoomId(message.roomId || state.activeRoom);
-    const messageId = String(message.messageId || "");
-    if (!roomId || !messageId || !state.joinedRooms.includes(roomId)) return;
-
-    const url = findFirstLinkPreviewUrl(message.rawText || message.text || "");
-    if (!url) return;
-
-    const key = `${roomId}:${messageId}:${url}`;
-    if (pendingLinkPreviewRequests.has(key)) return;
-    pendingLinkPreviewRequests.add(key);
-    linkPreviewQueue.push({ gameId: roomId, messageId, url });
-    drainLinkPreviewQueue();
-  }
-
-  const linkPreviewQueue: { gameId: string; messageId: string; url: string }[] = [];
-  let linkPreviewTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function drainLinkPreviewQueue() {
-    if (linkPreviewTimer) return;
-    const next = linkPreviewQueue.shift();
-    if (!next) return;
-    if (state.connected && state.identified && state.joinedRooms.includes(next.gameId)) {
-      send({ op: 28, d: next });
-    }
-    linkPreviewTimer = setTimeout(() => {
-      linkPreviewTimer = null;
-      drainLinkPreviewQueue();
-    }, LINK_PREVIEW_SPACING_MS);
-  }
-
   function applyDeletion(payload: Record<string, unknown>) {
     const messageId = payload?.messageId;
     if (!messageId) return;
@@ -8960,7 +8950,6 @@ function createMessenger() {
     }
 
     if (roomId === state.activeRoom) scrollToBottom();
-    requestEncryptedLinkPreview(normalized);
     persist();
   }
 
@@ -9082,9 +9071,10 @@ function createMessenger() {
             state.defaultRoomLeavedRoomId !== defaultRoomId
           ) {
             try {
+              const hadKey = Boolean(roomKeyFor(defaultRoomId));
               importRoomKey(defaultRoomId, defaultRoomKey);
               const defaultTitle = String(defaultRoom.title || "");
-              if (defaultTitle) {
+              if (defaultTitle && !hadKey) {
                 const existing = state.rooms.find(
                   (room) => room.roomId === defaultRoomId,
                 );
@@ -9097,7 +9087,7 @@ function createMessenger() {
                 requestJoin(defaultRoomId);
               }
             } catch {
-              /* roomKey par défaut invalide — ignoré silencieusement */
+              /* invalid key, or conflicting with a local key: keep the local key */
             }
           }
         }
@@ -9372,7 +9362,6 @@ function createMessenger() {
 
     upsertCurrentAccount();
     clearActiveSession();
-    linkPreviewQueue.length = 0;
     applyPersistedPayload(target);
     state.sessionExpired = false;
     persist();
@@ -9824,7 +9813,6 @@ function createMessenger() {
     requestPublicProfilesForUsers(messages);
     const last = messages[messages.length - 1];
     touchRoom(roomId, last || localMessages[localMessages.length - 1] || null);
-    for (const message of serverMessages) requestEncryptedLinkPreview(message);
     if (roomId === state.activeRoom) scrollToBottom();
     persist();
   }

@@ -157,6 +157,8 @@ export function renderMarkdown(value: unknown, options: MarkdownOptions): string
   html = html.replace(/``([^`\n]*)``/g, (_, code: string) => hold(`<code>${code}</code>`));
   html = html.replace(/`([^`\n]*)`/g, (_, code: string) => hold(`<code>${code}</code>`));
   html = html.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (match: string, label: string, href: string) => {
+    // An href must never contain a held fragment (code block, etc.).
+    if (href.includes(MARK)) return match;
     // The text is escaped already; the href is checked and escaped from its real value.
     const safe = safeHref(unescapeHtml(href), options.origin);
     if (!safe) return match;

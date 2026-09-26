@@ -8,7 +8,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import { badgeLabel as badgeLabelFor, normalizeBadgeId } from "@/config/badges";
-import { escapeHtml } from "@/utils/twemoji";
+import { renderProfileMarkdown } from "@/utils/profileMarkdown";
 
 const { t, locale } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const phantom = inject<Phantom | null>("phantom", null);
@@ -257,57 +257,6 @@ function openMutualRoom(roomId: string) {
   emit("close");
 }
 
-
-// ── Markdown léger (gras, italique, citation `>`, lien) ──────────────────────
-function safeHref(value: unknown) {
-  const raw = String(value || "").trim();
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (["http:", "https:", "mailto:"].includes(parsed.protocol)) return escapeHtml(raw);
-  } catch {
-    /* ignore */
-  }
-  return "";
-}
-
-function renderProfileMarkdown(value: unknown) {
-  const tokens: Array<[string, string]> = [];
-  const hold = (html: string) => {
-    const token = `@@pf-${tokens.length}@@`;
-    tokens.push([token, html]);
-    return token;
-  };
-
-  let text = String(value ?? "");
-
-  // Citations : lignes consécutives commençant par `>`.
-  text = text.replace(/(^|\n)((?:>[^\n]*(?:\n|$))+)/g, (_match, prefix, block) => {
-    const inner = String(block)
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => escapeHtml(line.replace(/^>\s?/, "").trim()))
-      .join("<br>");
-    return `${prefix}${hold(`<blockquote>${inner}</blockquote>`)}`;
-  });
-
-  // Liens [texte](url).
-  text = text.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
-    const safe = safeHref(href);
-    if (!safe) return match;
-    return hold(`<a href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
-  });
-
-  let html = escapeHtml(text);
-  html = html
-    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
-    .replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>")
-    .replace(/\n/g, "<br>");
-
-  for (const [token, value] of tokens) html = html.replaceAll(token, value);
-  return html;
-}
 </script>
 
 <template>

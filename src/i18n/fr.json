@@ -24,6 +24,7 @@
         "invalidRoomId": "Identifiant de salon invalide.",
         "webCryptoUnavailable": "Web Crypto n'est pas disponible dans ce navigateur.",
         "roomKeyStoreFailed": "Impossible d'enregistrer la clé du salon.",
+        "roomKeyConflict": "Ce salon a déjà une autre clé sur cet appareil. Quittez d’abord le salon si vous voulez vraiment changer de clé.",
         "noRoomKey": "Aucune clé de salon disponible.",
         "roomIconNotImage": "L'icône du salon doit être une image.",
         "roomIconTooLarge": "L'icône du salon doit faire moins de 5 Mo.",

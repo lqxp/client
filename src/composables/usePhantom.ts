@@ -16,6 +16,7 @@ import {
   slotContextual,
   slotGlobal,
   verifyInner,
+  verifyPrekeyBundle,
   type PhantomInner,
   type PhantomOuter,
   type PrekeyBundle,
@@ -25,6 +26,7 @@ import { generateDeviceSigningKeyPair } from "@/crypto/e2ee";
 import { computeNullifier } from "@/crypto/rln";
 import { solveVdf } from "@/crypto/vdf";
 import { encapsulatePqcSecret } from "@/crypto/pqc";
+import { authenticateWelcome } from "@/utils/welcomeAuth";
 import { setPhantomMessageHandler } from "./phantomBridge";
 
 const te = new TextEncoder();
@@ -61,7 +63,7 @@ export interface PhantomMessengerCtx {
   send: (payload: Record<string, unknown>) => void;
   roomKeyFor: (roomId: string) => string;
   ensureRoomKey: (roomId: string) => string;
-  importRoomKey: (roomId: string, roomKey: string) => string;
+  importRoomKey: (roomId: string, roomKey: string, options?: { allowReplace?: boolean }) => string;
   hasRoomKey: (roomId: string) => boolean;
   generateRoomAccessToken: () => {
     roomId: string;
@@ -352,6 +354,13 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     ) {
       return;
     }
+    const authentic = await authenticateWelcome(inner, {
+      fetchPrekey,
+      fingerprint: fp,
+      verifyBundle: verifyPrekeyBundle,
+      verifyInner,
+    });
+    if (!authentic) return; // forged welcome or unknown sender: silently ignored
     try {
       ctx.importRoomKey(inner.welcome.roomId, inner.welcome.roomKey);
       ctx.requestJoin(inner.welcome.roomId);

@@ -24,6 +24,7 @@
         "invalidRoomId": "ID de sala no válido.",
         "webCryptoUnavailable": "Web Crypto no está disponible en este navegador.",
         "roomKeyStoreFailed": "No se pudo guardar la clave de la sala.",
+        "roomKeyConflict": "Esta sala ya tiene otra clave en este dispositivo. Sal primero de la sala si de verdad quieres cambiar de clave.",
         "noRoomKey": "No hay clave de sala disponible.",
         "roomIconNotImage": "El icono de la sala debe ser una imagen.",
         "roomIconTooLarge": "El icono de la sala debe pesar menos de 5 MB.",

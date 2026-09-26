@@ -24,6 +24,7 @@
         "invalidRoomId": "Invalid room ID.",
         "webCryptoUnavailable": "Web Crypto is unavailable in this browser.",
         "roomKeyStoreFailed": "Failed to store room key.",
+        "roomKeyConflict": "This room already has a different key on this device. Leave the room first if you really want to switch keys.",
         "noRoomKey": "No room key available.",
         "roomIconNotImage": "Room icon must be an image.",
         "roomIconTooLarge": "Room icon must be under 5 MB.",
