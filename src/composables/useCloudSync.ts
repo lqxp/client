@@ -112,12 +112,16 @@ interface PeerSession {
   expiresAt: number;
   sendN: number;
   seenN: Set<string>;
+  // Fenêtre anti-replay : high-water par (syncId, epoch) + set borné. Sans
+  // ça, seenN croît sans fin et un restart (set vide) rouvre la fenêtre.
+  recvWindowId: string;
+  recvHighWater: number;
   peerPub: JsonWebKey;
   lastSeen: number;
 }
 
-// Groupes de paramètres synchronisables (la langue vit dans son propre
-// localStorage `qxprotocol-locale`, hors messenger : non synchronisée).
+// Groupes de paramètres synchronisables (la langue vit dans useI18n et part
+// comme collection dédiée via le groupe "general").
 export const PARAM_GROUPS = {
   appearance: ["themeMode", "appAccent", "messageStyle"],
   sounds: ["messageSoundEnabled", "callSoundsEnabled"],
@@ -599,6 +603,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           expiresAt: it.expiresAt || Date.now() + CLOUDSYNC_EPOCH_TTL_MS,
           sendN: it.sendN || 1,
           seenN: new Set(),
+          recvWindowId: "",
+          recvHighWater: 0,
           peerPub: it.peerPub,
           lastSeen: 0,
         });
@@ -1003,7 +1009,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         syncId: signed.syncId,
         master, epochKey: await deriveEpochKey(master, epoch), epoch,
         expiresAt: Date.now() + CLOUDSYNC_EPOCH_TTL_MS,
-        sendN: 1, seenN: new Set(), peerPub: signed.ecdsaPub, lastSeen: Date.now(),
+        sendN: 1, seenN: new Set(), recvWindowId: "", recvHighWater: 0,
+        peerPub: signed.ecdsaPub, lastSeen: Date.now(),
       });
       const slhSelf = await ensureSlhDevice();
       if (!slhSelf) return;
@@ -1042,7 +1049,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         syncId: signed.syncId,
         master, epochKey: await deriveEpochKey(master, epoch), epoch,
         expiresAt: Date.now() + CLOUDSYNC_EPOCH_TTL_MS,
-        sendN: 1, seenN: new Set(), peerPub: signed.ecdsaPub, lastSeen: Date.now(),
+        sendN: 1, seenN: new Set(), recvWindowId: "", recvHighWater: 0,
+        peerPub: signed.ecdsaPub, lastSeen: Date.now(),
       });
       pending.delete(signed.syncId);
       await pushSnapshot(signed.fromDeviceId);
@@ -1383,15 +1391,39 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const sess = sessions.get(outer.from);
     if (!sess) return;
     if (fromWs) sess.peerWs = fromWs;
+    if (outer.epoch !== sess.epoch || outer.syncId !== sess.syncId) return;
+    if (!Number.isSafeInteger(outer.n) || (outer.n as number) <= 0) return;
+    // Fenêtre anti-replay par (syncId, epoch) : le compteur d'envoi redémarre
+    // à 1 à chaque handshake, d'où le recadrage à chaque fenêtre. Au-delà
+    // d'un retard de 5000, rejet (réordonnancement normal absorbé par le set).
+    const winId = `${outer.syncId}:${outer.epoch}`;
+    if (sess.recvWindowId !== winId) {
+      sess.recvWindowId = winId;
+      sess.recvHighWater = 0;
+      sess.seenN.clear();
+    }
+    if ((outer.n as number) <= sess.recvHighWater - 5000) return;
     const key = `${outer.syncId}:${outer.epoch}:${outer.n}`;
     if (sess.seenN.has(key)) return;
-    if (outer.epoch !== sess.epoch || outer.syncId !== sess.syncId) return;
     try {
       const inner = await openData(outer, sess.epochKey, sess.peerPub);
       sess.seenN.add(key);
+      if ((outer.n as number) > sess.recvHighWater) sess.recvHighWater = outer.n as number;
+      if (sess.seenN.size > 6000) {
+        for (const k of sess.seenN) {
+          const kn = Number(k.slice(k.lastIndexOf(":") + 1));
+          if (Number.isSafeInteger(kn) && kn < sess.recvHighWater - 5000) sess.seenN.delete(k);
+        }
+      }
       sess.lastSeen = Date.now();
       state.diag.received += 1;
       if (inner.kind === "revoke") {
+        try {
+          sess.master.fill(0);
+          sess.epochKey.fill(0);
+        } catch {
+          /* ignore */
+        }
         sessions.delete(outer.from);
         syncPeerCards();
         await saveSessions();

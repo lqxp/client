@@ -47,6 +47,7 @@ import {
   apiUrl,
   appRuntimeConfig,
   fetchRtcCredentials,
+  rtcConfigEpoch,
   turnServerList,
   selectedTurnServerId as runtimeDefaultTurnServerId,
 } from "@/config/runtime";
@@ -3301,7 +3302,12 @@ function createMessenger() {
   const roomTitle = computed(() =>
     state.activeRoom ? displayRoomName(state.activeRoom) : "No conversation",
   );
-  const callsAvailable = computed(() => relayCallsConfigured());
+  const callsAvailable = computed(() => {
+    // rtcRuntimeConfig est muté hors réactivité (fetch post-login) : l'epoch
+    // force la réévaluation à chaque arrivée de config/credentials.
+    void rtcConfigEpoch.value;
+    return relayCallsConfigured();
+  });
   const callsUnavailableReason = computed(() =>
     callsAvailable.value ? "" : relayCallsRequirementMessage(),
   );
@@ -10396,10 +10402,13 @@ function createMessenger() {
     callsAvailable,
     callsUnavailableReason,
     callsDisabledByTor,
-    turnServers: computed(() => [
-      ...turnServerList(),
-      ...(state.customTurnServers || []),
-    ]),
+    turnServers: computed(() => {
+      void rtcConfigEpoch.value;
+      return [
+        ...turnServerList(),
+        ...(state.customTurnServers || []),
+      ];
+    }),
     screenShareAvailable,
     screenShareUnavailableReason,
     onlineCount,

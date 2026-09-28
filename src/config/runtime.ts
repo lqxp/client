@@ -1,3 +1,5 @@
+import { ref } from "vue";
+
 function normalizedStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.map((item) => String(item || "").trim()).filter(Boolean)
@@ -191,6 +193,7 @@ function applyRuntimeConfig(runtime: RuntimeConfigPayload) {
   const normalized = buildRuntimeConfig(runtime);
   Object.assign(appRuntimeConfig, normalized.app);
   Object.assign(rtcRuntimeConfig, normalized.rtc);
+  bumpRtcConfigEpoch();
   window.__QXP_RUNTIME__ = {
     ...normalizedRuntimePayload(window.__QXP_RUNTIME__),
     ...runtime,
@@ -231,6 +234,16 @@ const initialConfig = buildRuntimeConfig(initialRuntime);
 export const rtcRuntimeConfig = { ...initialConfig.rtc };
 
 export const appRuntimeConfig = { ...initialConfig.app };
+
+// Compteur réactif de versions de la config RTC : rtcRuntimeConfig est un
+// objet non réactif muté par applyRuntimeConfig/fetchRtcCredentials, donc les
+// `computed` (callsAvailable, turnServers…) ne se réévalueraient jamais sans
+// ça. Incrémenté à chaque application, lu dans les computed concernés.
+export const rtcConfigEpoch = ref(0);
+
+function bumpRtcConfigEpoch() {
+  rtcConfigEpoch.value += 1;
+}
 
 export async function initializeRuntimeConfig() {
   if (runtimeInitPromise) return runtimeInitPromise;
@@ -341,5 +354,6 @@ export async function fetchRtcCredentials(authToken: string): Promise<boolean> {
   if (typeof data.relayOnly === "boolean") rtcRuntimeConfig.relayOnly = data.relayOnly;
   const defaultId = String(data.defaultTurnServer || "").trim();
   if (defaultId) rtcRuntimeConfig.defaultTurnServer = defaultId;
+  bumpRtcConfigEpoch();
   return true;
 }
