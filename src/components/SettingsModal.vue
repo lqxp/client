@@ -2,6 +2,7 @@
 import Avatar from "@/components/Avatar.vue";
 import { initialsOf } from "@/utils/initials";
 import type { Phantom } from "@/composables/usePhantom";
+import type { CloudSync } from "@/composables/useCloudSync";
 import Icon from "@/components/Icon.vue";
 import { errorMessage, type Messenger } from "@/composables/useMessenger";
 import type { PropType } from "vue";
@@ -21,6 +22,7 @@ import SettingsNotifications from "@/components/settings/SettingsNotifications.v
 import SettingsSecurity from "@/components/settings/SettingsSecurity.vue";
 import SettingsAdvanced from "@/components/settings/SettingsAdvanced.vue";
 import SettingsOpsec from "@/components/settings/SettingsOpsec.vue";
+import SettingsSync from "@/components/settings/SettingsSync.vue";
 import ImageCropModal from "@/components/ImageCropModal.vue";
 import { isAnimatedImage } from "@/utils/animatedImage";
 import { takePickedFile } from "@/utils/pickedFile";
@@ -31,6 +33,7 @@ const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t, locale, availableLocales } = i18n;
 const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 const phantom = inject<Phantom>("phantom")!;
+const cloudSync = inject<CloudSync | null>("cloudSync", null);
 const { isTauri, triggerCheckUpdatesEvent } = useUpdater();
 
 const props = defineProps({
@@ -335,6 +338,7 @@ const allSections = computed(() => [
   { id: "calls", label: t("settings.sections.calls") },
   { id: "tor", label: t("settings.sections.tor") },
   { id: "advanced", label: t("settings.sections.advanced") },
+  { id: "sync", label: t("settings.sections.sync") },
   { id: "phantom", label: t("settings.sections.phantom") },
   { id: "admin", label: t("settings.sections.admin") },
   { id: "backups", label: t("settings.sections.backups") },
@@ -844,6 +848,12 @@ onBeforeUnmount(() => {
               d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2 2 0 0 1-2.83 2.83l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.05.05a2 2 0 0 1-2.83-2.83l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H3a2 2 0 0 1 0-4h.1A1.8 1.8 0 0 0 4.75 8.8a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2 2 0 0 1 7.17 3.94l.05.05a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 10.3 2.7V2.6a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2 2 0 0 1 2.83 2.83l-.05.05a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1h.1a2 2 0 0 1 0 4h-.1A1.8 1.8 0 0 0 19.4 15Z" />
           </svg>
           <Icon name="upload" v-else-if="section.id === 'backups'" viewBox="0 0 24 24" />
+          <svg v-else-if="section.id === 'sync'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M8 16H3v5" />
+          </svg>
           <Icon name="heart" v-else-if="section.id === 'donation'" viewBox="0 0 24 24" style="fill: currentColor; stroke: none;" />
           <Icon name="user-plus" v-else-if="section.id === 'phantom'" viewBox="0 0 24 24" />
           <svg v-else viewBox="0 0 24 24">
@@ -1204,6 +1214,8 @@ onBeforeUnmount(() => {
       <SettingsTor v-else-if="activeSection === 'tor'" :messenger="messenger" />
 
       <SettingsAdvanced v-else-if="activeSection === 'advanced'" :messenger="messenger" />
+
+      <SettingsSync v-else-if="activeSection === 'sync' && cloudSync" :messenger="messenger" />
 
       <section v-else-if="activeSection === 'admin'" class="settings-page">
         <AdminSettings :messenger="messenger" />

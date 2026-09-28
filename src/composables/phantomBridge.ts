@@ -1,6 +1,7 @@
 export type PhantomMessageHandler = (op: number, d: Record<string, unknown>) => void;
 
 let handler: PhantomMessageHandler | null = null;
+let cloudSyncHandler: PhantomMessageHandler | null = null;
 
 /**
  * Pont léger entre `useMessenger.handleMessage` et `usePhantom` : les ops WS
@@ -13,4 +14,16 @@ export function setPhantomMessageHandler(next: PhantomMessageHandler | null): vo
 
 export function dispatchPhantomMessage(op: number, d: Record<string, unknown>): void {
   if (handler) handler(op, d);
+}
+
+/**
+ * Pont QxCloudSync : l'op WS 61 (relais pur same-user, op 60→61) est relayée
+ * ici sans coupler useMessenger et useCloudSync. Le serveur ne stocke rien.
+ */
+export function setCloudSyncMessageHandler(next: PhantomMessageHandler | null): void {
+  cloudSyncHandler = next;
+}
+
+export function dispatchCloudSyncMessage(op: number, d: Record<string, unknown>): void {
+  if (cloudSyncHandler) cloudSyncHandler(op, d);
 }

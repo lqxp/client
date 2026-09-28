@@ -5,39 +5,41 @@ export interface CustomTheme {
   tint: string;
 }
 
-const STORAGE_KEY = "qx-custom-theme";
 const HEX = /^#[0-9a-f]{6}$/i;
 const CODE_PREFIX = "QXT1.";
 
-function sanitize(value: unknown): CustomTheme | null {
-  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+/**
+ * Norme un custom theme brut (payload persisté, backup, sync réseau).
+ * Retourne null pour "aucun thème" (légitime) et undefined pour "invalide".
+ * Source unique de vérité pour la validation, partagée par le messenger
+ * (persisté officiel), les backups et QxCloudSync : aucune clé de stockage
+ * ad hoc, tout passe par le persisted state.
+ */
+export function sanitizeCustomThemeValue(
+  value: unknown,
+): { accent: string; tint: string } | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
   const accent = String(source.accent ?? source.a ?? "");
   const tint = String(source.tint ?? source.t ?? "");
-  if (!HEX.test(accent)) return null;
-  return { accent: accent.toLowerCase(), tint: HEX.test(tint) ? tint.toLowerCase() : "" };
+  if (!HEX.test(accent)) return undefined;
+  if (tint && !HEX.test(tint)) return undefined;
+  return { accent: accent.toLowerCase(), tint: tint ? tint.toLowerCase() : "" };
 }
 
-function load(): { theme: CustomTheme | null; enabled: boolean } {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    return { theme: sanitize(raw), enabled: raw?.enabled !== false };
-  } catch {
-    return { theme: null, enabled: true };
-  }
+function sanitize(value: unknown): CustomTheme | null {
+  const out = sanitizeCustomThemeValue(value);
+  return out === undefined ? null : out;
 }
 
-const state = reactive<{ theme: CustomTheme | null; enabled: boolean }>(load());
-let rememberLast = true;
-
-function save(remember: boolean) {
-  rememberLast = remember;
-  try {
-    if (!state.theme || !remember) localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state.theme, enabled: state.enabled }));
-  } catch {
-    // Storage blocked: the theme still applies for this session.
-  }
-}
+// État runtime uniquement : la persistance passe par le persisted state du
+// messenger (aucune clé locale ad hoc). Le messenger adopte le thème persisté
+// au chargement et le réécrit à chaque save.
+const state = reactive<{ theme: CustomTheme | null; enabled: boolean }>({
+  theme: null,
+  enabled: true,
+});
 
 export function encodeTheme(theme: CustomTheme) {
   const json = JSON.stringify({ a: theme.accent, t: theme.tint });
@@ -63,19 +65,21 @@ function animateColors() {
   animationTimer = setTimeout(() => root.classList.remove("theme-animating"), 560);
 }
 
-/** `remember` is false in RAM-only mode, where nothing may reach the disk. */
+/** `remember` est conservé pour l'API (RAM-only géré par le messenger) : le
+ * thème s'applique toujours pour la session, la persistance disque suit les
+ * règles du persisted state (dont le mode RAM-only). */
 export function setCustomTheme(theme: CustomTheme | null, remember: boolean, animate = true) {
+  void remember;
   if (animate) animateColors();
   state.theme = theme ? sanitize(theme) : null;
   if (state.theme) state.enabled = true;
-  save(remember);
 }
 
 /** Turning it off keeps the colors, so turning it back on restores them. */
-export function setCustomThemeEnabled(enabled: boolean, remember = rememberLast) {
+export function setCustomThemeEnabled(enabled: boolean, remember = true) {
+  void remember;
   animateColors();
   state.enabled = enabled;
-  save(remember);
 }
 
 export function installCustomTheme() {
@@ -92,4 +96,15 @@ export function installCustomTheme() {
 
 export function useCustomTheme() {
   return state;
+}
+
+/** Snapshot pour le persisted state officiel (et les backups). */
+export function snapshotCustomTheme(): {
+  theme: CustomTheme | null;
+  enabled: boolean;
+} {
+  return {
+    theme: state.theme ? { ...state.theme } : null,
+    enabled: state.enabled,
+  };
 }

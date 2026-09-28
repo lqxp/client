@@ -81,7 +81,13 @@ import {
   setSoundFlag,
 } from "@/calls/callSounds";
 import { useI18n } from "./useI18n";
-import { dispatchPhantomMessage } from "./phantomBridge";
+import {
+  sanitizeCustomThemeValue,
+  setCustomTheme,
+  setCustomThemeEnabled,
+  snapshotCustomTheme,
+} from "./useCustomTheme";
+import { dispatchPhantomMessage, dispatchCloudSyncMessage } from "./phantomBridge";
 import { dedupeBadgeArtwork } from "@/config/badges";
 import { createNoticeFence } from "@/utils/noticeFence";
 import { usableImage } from "@/utils/brokenImages";
@@ -1179,9 +1185,75 @@ async function deleteClientLockPayload() {
   }
 }
 
+const LEGACY_CUSTOM_THEME_KEY = "qx-custom-theme";
+
+/**
+ * Adopte le custom theme depuis le persisted state officiel (aucune clé ad
+ * hoc). Migration une fois : si le payload n'en a pas mais que l'ancienne clé
+ * `qx-custom-theme` existe, on l'importe puis on la supprime définitivement.
+ */
+function adoptPersistedCustomTheme(raw: unknown) {
+  const purgeLegacy = () => {
+    try {
+      localStorage.removeItem(LEGACY_CUSTOM_THEME_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+  const adopt = (theme: { accent: string; tint: string } | null, enabled: boolean) => {
+    setCustomTheme(theme, true, false);
+    if (!enabled) setCustomThemeEnabled(false, true);
+  };
+  try {
+    const container =
+      raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const stored = container.customTheme as
+      | { theme?: unknown; enabled?: unknown }
+      | undefined;
+    if (stored !== undefined && (typeof stored !== "object" || stored === null)) {
+      purgeLegacy();
+      return;
+    }
+    if (stored !== undefined) {
+      const clean = sanitizeCustomThemeValue(stored.theme);
+      if (clean !== undefined) {
+        adopt(clean, stored.enabled !== false);
+        purgeLegacy();
+        return;
+      }
+      // Payload invalide : on tente la migration legacy avant de purger.
+    }
+    const legacyRaw = localStorage.getItem(LEGACY_CUSTOM_THEME_KEY);
+    if (legacyRaw) {
+      try {
+        const legacy = JSON.parse(legacyRaw) as {
+          theme?: unknown;
+          accent?: unknown;
+          tint?: unknown;
+          enabled?: unknown;
+        };
+        const legacyTheme =
+          legacy.theme !== undefined
+            ? legacy.theme
+            : { accent: legacy.accent, tint: legacy.tint };
+        const legacyClean = sanitizeCustomThemeValue(legacyTheme);
+        if (legacyClean !== undefined) {
+          adopt(legacyClean, legacy.enabled !== false);
+        }
+      } catch {
+        /* clé legacy corrompue : purgée ci-dessous */
+      }
+    }
+    purgeLegacy();
+  } catch {
+    /* jamais bloquant pour le chargement */
+  }
+}
+
 function loadPersisted() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    adoptPersistedCustomTheme(raw);
     if (localDataLockedPayload(raw)) {
       return defaultPersisted({
         clientLockEnabled: true,
@@ -1749,6 +1821,34 @@ async function deriveClientLockKey(pin: string, saltBytes: Uint8Array<ArrayBuffe
 
 let activeClientLockKey: CryptoKey | null = null;
 
+// Abonnés aux transitions verrouillé/déverrouillé (ex. QxCloudSync scelle ses
+// clés sous lock et purge sa RAM au verrouillage). Les callbacks sont
+// synchrones et ne doivent jamais lever.
+type ClientLockListener = (locked: boolean) => void;
+const clientLockListeners = new Set<ClientLockListener>();
+
+function subscribeLockChange(cb: ClientLockListener): () => void {
+  clientLockListeners.add(cb);
+  return () => {
+    clientLockListeners.delete(cb);
+  };
+}
+
+function notifyLockChange(locked: boolean) {
+  for (const cb of [...clientLockListeners]) {
+    try {
+      cb(locked);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Clé AES-GCM du lock, disponible uniquement déverrouillé (null sinon). */
+function getActiveLockKey(): CryptoKey | null {
+  return activeClientLockKey;
+}
+
 function yieldToBrowser() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
@@ -1845,6 +1945,7 @@ function buildPersistedPayload(state: ReturnType<typeof defaultPersisted>) {
     themeMode: state.themeMode,
     appAccent: state.appAccent,
     messageStyle: state.messageStyle,
+    customTheme: snapshotCustomTheme(),
     spotlightSearchEnabled: state.spotlightSearchEnabled,
     androidNotificationsEnabled: state.androidNotificationsEnabled,
     notificationPrivacy: state.notificationPrivacy,
@@ -3484,6 +3585,9 @@ function createMessenger() {
     state.themeMode = normalized.themeMode;
     state.appAccent = normalized.appAccent;
     state.messageStyle = normalized.messageStyle;
+    adoptPersistedCustomTheme({
+      customTheme: (payload as Record<string, unknown>)?.customTheme,
+    });
     state.androidNotificationsEnabled = normalized.androidNotificationsEnabled;
     state.notificationPrivacy = normalized.notificationPrivacy;
     state.serverClearsLocalMessages = normalized.serverClearsLocalMessages;
@@ -3558,7 +3662,31 @@ function createMessenger() {
     syncAccountVault();
   }
 
+  // Abonnés à chaque persist() effectif (mutations internes comprises) : la
+  // couche sync s'y branche pour la propagation d'événements temps réel.
+  // Les callbacks sont synchrones et ne doivent jamais lever.
+  type PersistListener = () => void;
+  const persistListeners = new Set<PersistListener>();
+
+  function subscribePersistChange(cb: PersistListener): () => void {
+    persistListeners.add(cb);
+    return () => {
+      persistListeners.delete(cb);
+    };
+  }
+
+  function notifyPersistChange() {
+    for (const cb of [...persistListeners]) {
+      try {
+        cb();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   function persist() {
+    notifyPersistChange();
     if (state.clientLockLocked) return Promise.resolve();
     if (state.clientLockEnabled && activeClientLockKey) {
       // Debounce: batch rapid persist calls when client lock is enabled
@@ -3939,6 +4067,7 @@ function createMessenger() {
       await applyPersistedPayloadAfterUnlock(payload);
       state.clientLockEnabled = true;
       state.clientLockLocked = false;
+      notifyLockChange(false);
       // If the user toggled the theme on the lock screen, keep that choice
       // after the decrypted settings restore (which resets themeMode).
       if (lockThemeChoice && lockThemeChoice !== state.themeMode) {
@@ -4044,6 +4173,7 @@ function createMessenger() {
       lockedPayload.opsecHideLockIdentity !== false;
     state.clientLockLocked = true;
     state.settingsOpen = false;
+    notifyLockChange(true);
     showToast(t("notices.locked"));
     return true;
   }
@@ -4175,6 +4305,9 @@ function createMessenger() {
     state.clientLockThemeMode = "dark";
     state.clientLockAutolockEnabled = false;
     clearClientLockAutolockTimer();
+    // Prévenir avant de jeter la clé : les abonnés migrent leurs secrets
+    // hors enveloppe lock tant qu'ils peuvent encore déchiffrer.
+    notifyLockChange(false);
     activeClientLockKey = null;
     await deleteClientLockPayload();
     await persist();
@@ -9374,6 +9507,9 @@ function createMessenger() {
       case 39:
         dispatchPhantomMessage(op, d);
         break;
+      case 61:
+        dispatchCloudSyncMessage(op, d);
+        break;
       case 13:
         break;
       case 87:
@@ -10069,6 +10205,7 @@ function createMessenger() {
       themeMode: state.themeMode,
       appAccent: state.appAccent,
       messageStyle: state.messageStyle,
+      customTheme: snapshotCustomTheme(),
       androidNotificationsEnabled: state.androidNotificationsEnabled,
       notificationPrivacy: state.notificationPrivacy,
       serverClearsLocalMessages: state.serverClearsLocalMessages,
@@ -10203,6 +10340,8 @@ function createMessenger() {
           }
         }
         if (typeof data.appAccent === "string") setAppAccent(data.appAccent);
+        if (data.customTheme && typeof data.customTheme === "object")
+          adoptPersistedCustomTheme(data);
         if (typeof data.messageStyle === "string")
           setMessageStyle(data.messageStyle);
         if (typeof data.androidNotificationsEnabled === "boolean")
@@ -10316,6 +10455,7 @@ function createMessenger() {
     showToast,
 
     persist,
+    subscribePersistChange,
     registerAccount,
     loginAccount,
     recoverAccount,
@@ -10339,6 +10479,8 @@ function createMessenger() {
     verifyClientLockPin,
     lockClient,
     disableClientLock,
+    subscribeLockChange,
+    getActiveLockKey,
     clientLockAutolockTimeoutsMs: CLIENT_LOCK_AUTOLOCK_TIMEOUTS_MS,
     setClientLockAutolockEnabled,
     setClientLockAutolockTimeoutMs,

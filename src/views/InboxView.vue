@@ -5,7 +5,10 @@ import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch, watc
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
+import { useCustomTheme } from "@/composables/useCustomTheme";
 import { usePhantom } from "@/composables/usePhantom";
+import { useCloudSync } from "@/composables/useCloudSync";
+import { setCloudSyncMessageHandler } from "@/composables/phantomBridge";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
@@ -36,6 +39,34 @@ import CapWidget from "@/components/CapWidget.vue";
 
 const messenger = useMessenger();
 const phantom = usePhantom(messenger);
+const cloudSync = useCloudSync(messenger);
+provide("cloudSync", cloudSync);
+// Propagation d'événements : chaque persist() (mutations internes comprises)
+// déclenche un push debouncé vers les pairs. L'application d'un snapshot
+// distant ne re-notifie jamais (garde interne anti-boucle).
+const unsubCloudSyncPersist = messenger.subscribePersistChange(() => {
+  cloudSync.notifyLocalChange();
+});
+setCloudSyncMessageHandler((op, d) => {
+  if (op === 61) void cloudSync.handleSyncMessage(d);
+});
+// Le client lock scelle les secrets QxCloudSync : au verrouillage la RAM est
+// purgée, au déverrouillage les sessions sont restaurées.
+const unsubCloudSyncLock = messenger.subscribeLockChange((locked) => {
+  cloudSync.onLockEvent(locked);
+});
+// Le custom theme vit dans son propre module (source runtime), persisté via
+// le persisted state officiel : toute modification locale l'écrit sur disque.
+// (La propagation réseau est gérée par le watcher de useCloudSync.)
+const customThemeState = useCustomTheme();
+watch(
+  () => [customThemeState.theme?.accent, customThemeState.theme?.tint, customThemeState.enabled],
+  () => {
+    if (cloudSync.isApplying()) return;
+    messenger.persist();
+  },
+  { flush: "sync" },
+);
 const dialog = useDialog();
 const permissions = usePermissions();
 const background = useBackground();
@@ -53,6 +84,7 @@ watch(
     phantom.ensurePrekey().catch(() => {});
     phantom.loadRoster().catch(() => {});
     phantom.startScheduler();
+    cloudSync.startRekeyScheduler();
   },
   { immediate: true },
 );
@@ -555,6 +587,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unsubCloudSyncPersist();
+  unsubCloudSyncLock();
+  cloudSync.stopRekeyScheduler();
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
   systemThemeMedia?.removeEventListener("change", applyAppearance);
   window.removeEventListener("resize", syncTitlebarCompact);
