@@ -46,8 +46,9 @@ async function send() {
 }
 
 function onInputFocus() {
-  // Même logique que le composer principal : le padding --keyboard-inset
-  // remonte le champ, on pinne le fil au-dessus du clavier.
+  // Panneau en position:fixed ancré au viewport plein : le padding
+  // --keyboard-inset remonte le champ au-dessus du clavier overlay, et on
+  // pinne le fil en bas une fois l'animation d'ouverture terminée.
   setTimeout(() => {
     if (bodyRef.value) bodyRef.value.scrollTop = bodyRef.value.scrollHeight;
     try {

@@ -57,6 +57,24 @@ function readVirtualKeyboardHeight(): number {
   }
 }
 
+/**
+ * Tauri Android edge-to-edge forwards the IME bottom inset (physical px) via
+ * index.html's __lqxpSetKeyboardInset. Convert with the live DPR so it stays
+ * correct across displays / foldables. 0 everywhere else (web, desktop, iOS).
+ */
+function readNativeKeyboardHeight(): number {
+  try {
+    const raw = Number(
+      (window as unknown as { __lqxpNativeKeyboardPx?: unknown }).__lqxpNativeKeyboardPx ?? 0,
+    );
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    const dpr = window.devicePixelRatio || 1;
+    return Math.max(0, raw / dpr);
+  } catch {
+    return 0;
+  }
+}
+
 function syncViewportHeight() {
   const viewport = window.visualViewport;
   // While the WebView is natively pinch-zoomed (scale !== 1) the visual
@@ -75,22 +93,34 @@ function syncViewportHeight() {
   // Overlay keyboard height: the bottom strip of the layout viewport hidden
   // behind the virtual keyboard. 0 when the layout already resized
   // (resizes-content / adjustResize) — the app shell shrank on its own and no
-  // extra padding is needed. >0 on iOS Safari / resizes-visual / overlaid
-  // VirtualKeyboard — the shell stays tall and the composer must be padded up
-  // by exactly this amount. Three independent sources, take the max:
-  // visualViewport diff, VirtualKeyboard.boundingRect (Chrome/Samsung even
-  // when no viewport event fires, e.g. WebViews), native ime forwarding.
+  // compensation is needed. >0 on iOS Safari / resizes-visual / overlaid
+  // VirtualKeyboard / Tauri Android edge-to-edge — the shell would otherwise
+  // stay tall with its bottom (composer included) buried under the keyboard.
+  // Four independent sources, take the max: visualViewport diff,
+  // VirtualKeyboard.boundingRect (Chrome/Samsung even when no viewport event
+  // fires, e.g. WebViews), native IME forwarding (Tauri Android, the only
+  // signal that moves there since adjustResize is ignored in edge-to-edge).
   const vkHeight = readVirtualKeyboardHeight();
+  const nativeHeight = readNativeKeyboardHeight();
   const keyboardRaw = nativePinch
     ? 0
-    : Math.max(0, layoutHeight - visualHeight - offsetTop, vkHeight);
+    : Math.max(0, layoutHeight - visualHeight - offsetTop, vkHeight, nativeHeight);
   // CSS `zoom` does NOT rescale viewport units (vh/vw/dvh) nor
   // window.innerHeight/innerWidth: they stay in unzoomed pixels. Divide by
   // the current zoom so both vars always equal the *visual* viewport and
   // full-screen shells keep filling exactly one screen at any zoom level.
-  const height = Math.max(1, Math.round(layoutHeight / windowScale));
   const width = Math.max(1, Math.round(layoutWidth / windowScale));
   const keyboardHeight = Math.max(0, Math.round(keyboardRaw / windowScale));
+  // The app shell REDIMENSIONS itself above an overlaid keyboard
+  // (layout - keyboard = the actually visible strip), emulating adjustResize
+  // where the platform refuses to do it. In-flow content (feed, composer,
+  // sidebar) follows automatically since every shell height derives from
+  // this var; --keyboard-inset is then only for position:fixed overlays
+  // (thread panel, bottom sheets) still anchored to the full layout viewport.
+  const height = Math.max(
+    1,
+    Math.round(layoutHeight / windowScale) - keyboardHeight,
+  );
   const root = document.documentElement;
   root.style.setProperty("--app-viewport-height", `${height}px`);
   root.style.setProperty("--app-viewport-width", `${width}px`);
@@ -271,28 +301,52 @@ function setupScrollLockdown() {
     requestAnimationFrame(syncViewportHeight);
   };
 
-  window.addEventListener("scroll", resetRootScroll, { passive: true });
+  // Window-scroll lockdown with one exception: while an editable holds focus,
+  // the browser is panning to keep the caret above the keyboard, and yanking
+  // the scroll back to zero would bury the field. The lockdown resumes on
+  // focusout (see below).
+  const onWindowScroll = () => {
+    if (isEditableTarget(document.activeElement)) return;
+    resetRootScroll();
+  };
+
+  window.addEventListener("scroll", onWindowScroll, { passive: true });
   window.visualViewport?.addEventListener("scroll", scheduleSync, { passive: true });
   window.visualViewport?.addEventListener("resize", scheduleSync, { passive: true });
 
   // Forcing scrollTo(0,0) while an input is focused fights the browser's
-  // "keep the caret above the keyboard" pan: on iOS Safari the field ends up
-  // stuck under the keyboard and the visual viewport never settles. When the
-  // focus lands in an editable, sync the keyboard vars (with a delayed pass
-  // for the opening animation) and let the composer padding do the lifting
-  // instead of yanking the scroll back to zero.
+  // "keep the caret above the keyboard" pan: on iOS Safari / adjustPan
+  // WebViews the field ends up stuck under the keyboard and the visual
+  // viewport never settles. When the focus lands in an editable, sync the
+  // keyboard vars (with delayed passes for slow opening animations) and let
+  // the caret pan plus the composer padding do the lifting instead of
+  // yanking the scroll back to zero. The lockdown resumes on focusout.
   document.addEventListener(
     "focusin",
     (event) => {
       scheduleSync();
       setTimeout(syncViewportHeight, 120);
       setTimeout(syncViewportHeight, 350);
+      // Slow WebViews animate the keyboard with few or no geometry events:
+      // one late pass catches the settled size.
+      setTimeout(syncViewportHeight, 800);
       if (isEditableTarget(event.target)) {
         // Once the keyboard has (mostly) opened, pin the feed to the bottom
-        // so the latest messages + composer stay visible above it.
+        // so the latest messages + composer stay visible above it, and bring
+        // the focused field itself into view: on login/onboarding/settings
+        // screens there is no feed, and the shell shrink alone does not
+        // scroll a field that sits low in a scrollable container.
         setTimeout(() => {
           const feed = document.querySelector(".feed");
           if (feed) feed.scrollTop = feed.scrollHeight;
+          try {
+            const el = document.activeElement as HTMLElement | null;
+            if (el && isEditableTarget(el)) {
+              el.scrollIntoView({ block: "nearest" });
+            }
+          } catch {
+            /* scrollIntoView unavailable */
+          }
         }, 350);
         return;
       }
@@ -305,27 +359,29 @@ function setupScrollLockdown() {
     () => {
       scheduleSync();
       setTimeout(syncViewportHeight, 120);
+      setTimeout(syncViewportHeight, 350);
       scheduleReset();
     },
     { passive: true },
   );
   window.addEventListener("orientationchange", scheduleReset, { passive: true });
 
-  // Opt into overlaying content: WE move the composer via --keyboard-height /
-  // env(keyboard-inset-height) instead of letting the browser shrink the
-  // layout viewport underneath our fixed shell (which, combined with
-  // position:fixed + overflow:hidden, leaves the field stuck under the
-  // keyboard on several mobile browsers). geometrychange fires per animation
-  // frame while the keyboard opens/closes, even when neither window.resize
-  // nor visualViewport.resize fires (Samsung Internet, some WebViews).
+  // NOTE: do NOT force `overlaysContent = true` here. Opting into the
+  // overlay disables the native resize path (Android `adjustResize` +
+  // `interactive-widget=resizes-content`) that the app shell follows through
+  // `--app-viewport-height`, and leaves every platform fully dependent on the
+  // measured `--keyboard-height` fallback. On WebViews where neither the
+  // visual viewport nor boundingRect moves, that means no shrink AND no lift:
+  // the field ends up buried under the keyboard with no recovery. Let each
+  // platform do its native thing instead — resizes-content browsers shrink
+  // the layout (the shell follows), genuine overlay platforms (iOS Safari,
+  // resizes-visual) are still measured below and lift the composer through
+  // `--keyboard-inset`. `geometrychange` still fires per animation frame
+  // while the keyboard opens/closes, even when neither window.resize nor
+  // visualViewport.resize fires (Samsung Internet, some WebViews).
   try {
     const vk = readVirtualKeyboard();
     if (vk) {
-      try {
-        if ("overlaysContent" in vk) vk.overlaysContent = true;
-      } catch {
-        /* keep default overlay behavior */
-      }
       vk.addEventListener?.("geometrychange", scheduleSync);
     }
   } catch {
@@ -333,7 +389,7 @@ function setupScrollLockdown() {
   }
 
   // Remote-diagnosis helper (adb/devtools console): __lqxpKbDebug() shows why
-  // the composer does or does not lift above the keyboard.
+  // the app shell does or does not shrink above the keyboard.
   try {
     (window as unknown as { __lqxpKbDebug?: () => unknown }).__lqxpKbDebug = () => {
       const viewport = window.visualViewport;
@@ -345,6 +401,8 @@ function setupScrollLockdown() {
         offsetTop: viewport?.offsetTop ?? null,
         scale: viewport?.scale ?? null,
         vkHeight: readVirtualKeyboardHeight(),
+        nativeKbCss: readNativeKeyboardHeight(),
+        shellVar: getComputedStyle(document.documentElement).getPropertyValue("--app-viewport-height").trim(),
         keyboardVar: getComputedStyle(document.documentElement).getPropertyValue("--keyboard-height").trim(),
         keyboardOpen: document.documentElement.classList.contains("is-keyboard-open"),
         vkOverlay: (() => {
@@ -358,6 +416,18 @@ function setupScrollLockdown() {
     };
   } catch {
     /* debug helper unavailable */
+  }
+
+  // Called by the native keyboard bridge (index.html __lqxpSetKeyboardInset)
+  // right after it stores the IME height: Tauri Android edge-to-edge fires
+  // neither window.resize nor visualViewport events for the keyboard, so
+  // without this explicit kick the shell would never shrink.
+  try {
+    (window as unknown as { __lqxpSyncViewport?: () => void }).__lqxpSyncViewport = () => {
+      syncViewportHeight();
+    };
+  } catch {
+    /* sync hook unavailable */
   }
 }
 

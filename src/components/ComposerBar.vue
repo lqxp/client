@@ -318,10 +318,11 @@ function onComposerClick() {
 
 function onComposerFocus() {
   syncCursor();
-  // Le clavier visuel recouvre le bas de l'écran (iOS / resizes-visual) :
-  // le padding --keyboard-inset remonte le composer, mais le feed doit suivre
-  // pour que le dernier message reste visible au-dessus du clavier. On attend
-  // la fin de l'animation d'ouverture avant de pinner en bas.
+  // Le clavier visuel recouvre le bas de l'écran (iOS / resizes-visual /
+  // Tauri Android edge-to-edge) : le shell rétréci remonte le composer, mais
+  // le feed doit suivre pour que le dernier message reste visible au-dessus
+  // du clavier. On attend la fin de l'animation d'ouverture avant de pinner
+  // en bas.
   setTimeout(() => {
     const feed = document.querySelector(".feed");
     if (feed) feed.scrollTop = feed.scrollHeight;

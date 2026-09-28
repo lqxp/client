@@ -46,6 +46,21 @@
             Math.max(b, readEnvInset("padding-bottom")) + "px"
           );
         };
+        // Native keyboard height (Tauri Android edge-to-edge: adjustResize is
+        // ignored there, so the WebView never shrinks on its own). Physical
+        // px from MainActivity's IME inset; main.ts converts with the live
+        // devicePixelRatio and re-syncs the viewport vars immediately, since
+        // WebViews in this mode may fire neither window.resize nor
+        // visualViewport events when the keyboard opens/closes.
+        window.__lqxpNativeKeyboardPx = 0;
+        window.__lqxpSetKeyboardInset = function (imeBottom) {
+          var raw = Number(imeBottom) || 0;
+          if (!isFinite(raw)) raw = 0;
+          window.__lqxpNativeKeyboardPx = Math.max(0, Math.round(raw));
+          try {
+            if (window.__lqxpSyncViewport) window.__lqxpSyncViewport();
+          } catch (e) { /* sync unavailable (pre-hydration) */ }
+        };
       })();
     </script>
     <meta
