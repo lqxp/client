@@ -83,6 +83,13 @@
   --header-h: 64px;
   --app-viewport-height: 100dvh;
   --app-viewport-width: 100vw;
+  /* Virtual-keyboard overlay height (iOS Safari, Android resizes-visual):
+     0 when the layout viewport already shrank (resizes-content). Synced from
+     window.innerHeight - visualViewport.height in main.ts; env() covers the
+     VirtualKeyboard API path. Used as bottom padding so the composer floats
+     above the keyboard instead of sliding underneath it. */
+  --keyboard-height: 0px;
+  --keyboard-inset: max(var(--keyboard-height, 0px), env(keyboard-inset-height, 0px));
   --app-system-inset-top: 0px;
   --app-system-inset-bottom: 0px;
   /* Android WebView reports env(safe-area-inset-*) as 0 even in edge-to-edge:
@@ -2965,7 +2972,7 @@ textarea {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 16px 10px;
+  padding: 10px 16px calc(10px + var(--keyboard-inset, 0px));
   flex: none;
 }
 
@@ -6570,7 +6577,7 @@ textarea.settings-input {
 
   .side__foot {
     min-height: 62px;
-    padding: 8px 8px calc(8px + var(--app-safe-bottom));
+    padding: 8px 8px calc(8px + var(--app-safe-bottom) + var(--keyboard-inset));
   }
 
   .side-foot__link {
@@ -6707,7 +6714,10 @@ textarea.settings-input {
 
   .composer {
     gap: 5px;
-    padding: 8px 8px calc(8px + var(--app-safe-bottom));
+    /* --keyboard-inset lifts the field above the overlaid virtual keyboard
+       (iOS Safari / resizes-visual). 0 when the layout viewport already
+       shrank (Android resizes-content), so no double offset. */
+    padding: 8px 8px calc(8px + var(--app-safe-bottom) + var(--keyboard-inset));
     background: color-mix(in srgb, var(--surface) 96%, var(--bg) 4%);
     border-top: 1px solid var(--line);
   }

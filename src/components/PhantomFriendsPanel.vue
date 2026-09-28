@@ -21,6 +21,21 @@ function toggleCollapsed() {
 
 const friends = computed<PhantomFriend[]>(() => Object.values(props.phantom.state.friendsByUser || {}) as PhantomFriend[]);
 const requests = computed(() => props.phantom.state.pendingIncoming || []);
+const checking = computed(() => Boolean(props.phantom.state.pollBusy));
+const lastPollAt = computed(() => Number(props.phantom.state.lastPollAt) || 0);
+const lastPollError = computed(() => String(props.phantom.state.lastPollError || ""));
+const checkTitle = computed(() =>
+  checking.value
+    ? t("phantom.checking")
+    : lastPollAt.value
+      ? t("phantom.lastCheck", { time: props.messenger.formatTime(lastPollAt.value) })
+      : t("phantom.checkNow")
+);
+
+function checkNow() {
+  if (checking.value) return;
+  props.phantom.pollNow();
+}
 const recoveryReady = computed(
   () =>
     Array.isArray(props.messenger.state.recoveryWords) &&
@@ -112,10 +127,18 @@ function friendMenuAction(action: string) {
         <Icon name="chevron-down" class="phantom-toggle__chevron" :class="{ 'is-collapsed': collapsed }" viewBox="0 0 24 24" />
         <strong>{{ t("phantom.title") }}</strong>
       </button>
-      <button class="phantom-add-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">
-        <Icon name="plus" viewBox="0 0 24 24" />
-      </button>
+      <span class="phantom-head-actions">
+        <button class="phantom-add-btn" type="button" :aria-label="t('phantom.checkNow')" :title="checkTitle"
+          :disabled="checking" @click="checkNow">
+          <Icon name="refresh" viewBox="0 0 24 24" :class="{ 'is-spinning': checking }" />
+        </button>
+        <button class="phantom-add-btn" type="button" :aria-label="t('phantom.send')" @click="addOpen = true">
+          <Icon name="plus" viewBox="0 0 24 24" />
+        </button>
+      </span>
     </header>
+
+    <p v-if="lastPollError" class="phantom-poll-error" role="alert">{{ lastPollError }}</p>
 
     <template v-if="!collapsed">
 
@@ -252,6 +275,30 @@ function friendMenuAction(action: string) {
 .phantom-add-btn:hover {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent);
+}
+.phantom-add-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.phantom-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.phantom-add-btn svg.is-spinning {
+  animation: phantom-spin 0.9s linear infinite;
+}
+@keyframes phantom-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.phantom-poll-error {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--red);
 }
 .phantom-friends__list {
   list-style: none;

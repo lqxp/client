@@ -45,6 +45,17 @@ async function send() {
   inputRef.value?.focus();
 }
 
+function onInputFocus() {
+  // Même logique que le composer principal : le padding --keyboard-inset
+  // remonte le champ, on pinne le fil au-dessus du clavier.
+  setTimeout(() => {
+    if (bodyRef.value) bodyRef.value.scrollTop = bodyRef.value.scrollHeight;
+    try {
+      inputRef.value?.scrollIntoView({ block: "nearest" });
+    } catch { /* scrollIntoView indisponible */ }
+  }, 350);
+}
+
 watch(() => replies.value.length, scrollToEnd);
 watch(thread, (value) => {
   if (!value) return;
@@ -76,7 +87,8 @@ watch(() => props.messenger.state.activeRoom, (room) => {
         </div>
         <form class="thread-panel__composer" @submit.prevent="send">
           <textarea ref="inputRef" v-model="draft" rows="1" maxlength="2000" class="qx-field"
-            :placeholder="t('threads.placeholder')" @keydown.enter.exact.prevent="send"></textarea>
+            :placeholder="t('threads.placeholder')" autocapitalize="sentences" enterkeyhint="send"
+            @focus="onInputFocus" @keydown.enter.exact.prevent="send"></textarea>
           <button type="submit" class="thread-panel__send" :disabled="!draft.trim() || sending" :aria-label="t('composer.send')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
               stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
@@ -155,7 +167,7 @@ watch(() => props.messenger.state.activeRoom, (room) => {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 12px max(12px, var(--app-safe-bottom));
+  padding: 10px 12px calc(max(12px, var(--app-safe-bottom)) + var(--keyboard-inset, 0px));
   border-top: 1px solid var(--line);
 }
 

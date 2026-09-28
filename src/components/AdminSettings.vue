@@ -23,6 +23,7 @@ import { useI18n } from "@/composables/useI18n";
 import type { useDialog } from "@/composables/useDialog";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import SelectMenu from "@/components/SelectMenu.vue";
+import type { SelectValue } from "@/components/SelectMenu.vue";
 import {
   ASSIGNABLE_BADGE_IDS,
   badgeArtworkKey,
@@ -325,13 +326,130 @@ const searchResults = computed<AdminUser[]>(() => state.value.adminSearchResults
 const searchLoading = computed(() => Boolean(state.value.adminSearchLoading));
 const searched = computed(() => Boolean(state.value.adminSearchSearched));
 
-/** The account in the detail pane, re-read from the list so it stays current. */
-const detailUser = computed<AdminUser | null>(
-  () => searchResults.value.find((entry) => String(entry?.id || "") === detailId.value) ?? null
+/** Users center: ranked server search vs paginated full-table browse. */
+type AdminUserMode = "search" | "browse";
+const USER_MODES: AdminUserMode[] = ["search", "browse"];
+const userMode = ref<AdminUserMode>("search");
+const userModeIndex = computed(() => USER_MODES.indexOf(userMode.value));
+
+const browseQuery = ref("");
+const browseStatus = ref<"all" | "active" | "disabled" | "banned" | "admin">("all");
+const browseBadge = ref("");
+const browseFrom = ref("");
+const browseTo = ref("");
+const browseSort = ref<"newest" | "oldest" | "username">("newest");
+
+const userList = computed<AdminUser[]>(() => state.value.adminUserList || []);
+const userListLoading = computed(() => Boolean(state.value.adminUserListLoading));
+const userListLoaded = computed(() => Boolean(state.value.adminUserListLoaded));
+const userListExhausted = computed(() => Boolean(state.value.adminUserListExhausted));
+
+const browseStatusOptions = computed(() =>
+  (["all", "active", "disabled", "banned", "admin"] as const).map((value) => ({
+    value,
+    label: t(`settings.admin.userStatus.${value}`),
+  }))
+);
+const browseSortOptions = computed(() =>
+  (["newest", "oldest", "username"] as const).map((value) => ({
+    value,
+    label: t(`settings.admin.userSort.${value}`),
+  }))
 );
 
+function enterBrowseMode() {
+  if (!userListLoaded.value && !userListLoading.value) props.messenger.listAdminUsers(true);
+}
+
+watch(userMode, (mode) => {
+  if (mode === "browse") enterBrowseMode();
+});
+
+function reloadUserList() {
+  props.messenger.listAdminUsers(true);
+}
+
+function loadMoreUsers() {
+  props.messenger.listAdminUsers(false);
+}
+
+function setBrowseStatus(value: SelectValue) {
+  const next = String(value);
+  if (next === "all" || next === "active" || next === "disabled" || next === "banned" || next === "admin") {
+    browseStatus.value = next;
+  }
+}
+
+function setBrowseSort(value: SelectValue) {
+  const next = String(value);
+  if (next === "newest" || next === "oldest" || next === "username") {
+    browseSort.value = next;
+  }
+}
+
+/** Start of a `yyyy-mm-dd` date input as ms, 0 when unparseable. */
+function dateInputMs(value: string) {
+  const ms = Date.parse(`${String(value || "").trim()}T00:00:00`);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Loaded pages narrowed by the browse filters, then sorted. */
+const filteredUsers = computed<AdminUser[]>(() => {
+  const needle = browseQuery.value.trim().toLowerCase();
+  const badgeNeedle = browseBadge.value.trim().toLowerCase();
+  const fromMs = browseFrom.value ? dateInputMs(browseFrom.value) : 0;
+  const toMs = browseTo.value ? dateInputMs(browseTo.value) + DAY_MS - 1 : 0;
+  const rows = userList.value.filter((user) => {
+    if (needle) {
+      const hay = `${String(user?.username || "")} ${String(user?.id || "")}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    if (browseStatus.value !== "all") {
+      const banned = Boolean(user?.banned);
+      const disabled = Boolean(user?.disabled);
+      if (browseStatus.value === "active" && (banned || disabled)) return false;
+      if (browseStatus.value === "disabled" && !disabled) return false;
+      if (browseStatus.value === "banned" && !banned) return false;
+      if (browseStatus.value === "admin" && !user?.admin) return false;
+    }
+    if (badgeNeedle) {
+      const badges = [
+        ...(Array.isArray(user?.badges) ? user.badges : []),
+        ...(Array.isArray(user?.customBadges) ? user.customBadges : []),
+      ].map((badge) => String(badge || "").toLowerCase());
+      if (!badges.some((badge) => badge.includes(badgeNeedle))) return false;
+    }
+    const created = Number(user?.createdAt) || 0;
+    if ((fromMs || toMs) && !created) return false;
+    if (fromMs && created < fromMs) return false;
+    if (toMs && created > toMs) return false;
+    return true;
+  });
+  const sorted = rows.slice();
+  if (browseSort.value === "username") {
+    sorted.sort((a, b) => String(a?.username || "").localeCompare(String(b?.username || "")));
+  } else if (browseSort.value === "oldest") {
+    sorted.sort(
+      (a, b) =>
+        (Number(a?.createdAt) || Number.MAX_SAFE_INTEGER) - (Number(b?.createdAt) || Number.MAX_SAFE_INTEGER)
+    );
+  } else {
+    sorted.sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0));
+  }
+  return sorted;
+});
+
+/** The account in the detail pane, re-read from either list so it stays current. */
+const detailUser = computed<AdminUser | null>(() => {
+  const id = String(detailId.value || "");
+  if (!id) return null;
+  return searchResults.value.find((entry) => String(entry?.id || "") === id)
+    ?? userList.value.find((entry) => String(entry?.id || "") === id)
+    ?? null;
+});
+
 // A deleted account cannot stay on screen.
-watch([detailId, searchResults], () => {
+watch([detailId, searchResults, userList], () => {
   if (detailId.value && !detailUser.value) detailId.value = "";
 });
 
@@ -1233,36 +1351,114 @@ async function clearDefaultRoom() {
 
           <!-- Users -->
           <template v-else-if="view === 'users'">
-            <label class="search">
-              <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                aria-hidden="true" />
-              <input v-model="userQuery" type="search" autocomplete="off" spellcheck="false"
-                :placeholder="t('settings.admin.searchUsers')" :aria-label="t('settings.admin.searchUsers')" />
-            </label>
+            <div class="seg seg--duo user-modes" role="tablist" :aria-label="t('settings.admin.userModeLabel')">
+              <span class="seg__thumb" :style="{ transform: `translateX(${userModeIndex * 100}%)` }" aria-hidden="true"></span>
+              <button v-for="id in USER_MODES" :key="id" type="button" role="tab" class="seg__item"
+                :class="{ 'is-on': userMode === id }" :aria-selected="userMode === id" @click="userMode = id">
+                {{ t(`settings.admin.userMode.${id}`) }}
+              </button>
+            </div>
 
-            <p v-if="!userQuery.trim()" class="empty">{{ t('settings.admin.searchUsersNote') }}</p>
-            <p v-else-if="searchLoading" class="empty">{{ t('settings.admin.loading') }}</p>
-            <p v-else-if="searched && !searchResults.length" class="empty">{{ t('settings.admin.noUsersFound') }}</p>
+            <template v-if="userMode === 'search'">
+              <label class="search">
+                <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  aria-hidden="true" />
+                <input v-model="userQuery" type="search" autocomplete="off" spellcheck="false"
+                  :placeholder="t('settings.admin.searchUsers')" :aria-label="t('settings.admin.searchUsers')" />
+              </label>
 
-            <section v-if="searchResults.length" class="grp">
-              <div class="grp__box">
-                <button v-for="user in searchResults" :key="user.id" type="button" class="row row--nav"
-                  @click="openUser(user)">
-                  <span class="row__stack">
-                    <span class="row__title">{{ user.username }}</span>
-                    <span class="row__sub">{{ user.id }} · {{ t('settings.admin.joined', { date: formatDate(user.createdAt) }) }}</span>
-                  </span>
-                  <span class="row__trail">
-                    <span v-if="user.admin" class="pill pill--admin">{{ t('settings.admin.roleAdmin') }}</span>
-                    <span class="row__state dot" :class="accountStateClass(user)">
-                      <i aria-hidden="true"></i>{{ accountStateLabel(user) }}
+              <p v-if="!userQuery.trim()" class="empty">{{ t('settings.admin.searchUsersNote') }}</p>
+              <p v-else-if="searchLoading" class="empty">{{ t('settings.admin.loading') }}</p>
+              <p v-else-if="searched && !searchResults.length" class="empty">{{ t('settings.admin.noUsersFound') }}</p>
+
+              <section v-if="searchResults.length" class="grp">
+                <div class="grp__box">
+                  <button v-for="user in searchResults" :key="user.id" type="button" class="row row--nav"
+                    @click="openUser(user)">
+                    <span class="row__stack">
+                      <span class="row__title">{{ user.username }}</span>
+                      <span class="row__sub">{{ user.id }} · {{ t('settings.admin.joined', { date: formatDate(user.createdAt) }) }}</span>
                     </span>
-                  </span>
-                  <Icon name="caret-right" class="row__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
-                </button>
+                    <span class="row__trail">
+                      <span v-if="user.admin" class="pill pill--admin">{{ t('settings.admin.roleAdmin') }}</span>
+                      <span class="row__state dot" :class="accountStateClass(user)">
+                        <i aria-hidden="true"></i>{{ accountStateLabel(user) }}
+                      </span>
+                    </span>
+                    <Icon name="caret-right" class="row__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
+                  </button>
+                </div>
+              </section>
+            </template>
+
+            <template v-else>
+              <div class="browse-filters">
+                <label class="search">
+                  <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    aria-hidden="true" />
+                  <input v-model="browseQuery" type="search" autocomplete="off" spellcheck="false"
+                    :placeholder="t('settings.admin.browseQuery')" :aria-label="t('settings.admin.browseQuery')" />
+                </label>
+                <div class="browse-filters__row">
+                  <SelectMenu :aria-label="t('settings.admin.browseStatus')" :model-value="browseStatus" :options="browseStatusOptions"
+                    @update:model-value="setBrowseStatus" />
+                  <SelectMenu :aria-label="t('settings.admin.browseSort')" :model-value="browseSort" :options="browseSortOptions"
+                    @update:model-value="setBrowseSort" />
+                </div>
+                <div class="browse-filters__row">
+                  <label class="search">
+                    <Icon name="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                      aria-hidden="true" />
+                    <input v-model="browseBadge" type="search" autocomplete="off" spellcheck="false"
+                      :placeholder="t('settings.admin.browseBadge')" :aria-label="t('settings.admin.browseBadge')" />
+                  </label>
+                </div>
+                <div class="browse-filters__row">
+                  <input v-model="browseFrom" type="date" class="browse-date"
+                    :aria-label="t('settings.admin.browseFrom')" :title="t('settings.admin.browseFrom')" />
+                  <input v-model="browseTo" type="date" class="browse-date"
+                    :aria-label="t('settings.admin.browseTo')" :title="t('settings.admin.browseTo')" />
+                </div>
               </div>
-            </section>
+
+              <p v-if="!userListLoaded && userListLoading" class="empty">{{ t('settings.admin.loading') }}</p>
+              <p v-else-if="!userListLoaded" class="empty">{{ t('settings.admin.browseEmpty') }}</p>
+              <p v-else-if="!filteredUsers.length && userListExhausted" class="empty">{{ t('settings.admin.noUsersFound') }}</p>
+
+              <section v-if="userListLoaded && (filteredUsers.length || !userListExhausted)" class="grp">
+                <div v-if="filteredUsers.length" class="grp__box">
+                  <button v-for="user in filteredUsers" :key="user.id" type="button" class="row row--nav"
+                    @click="openUser(user)">
+                    <span class="row__stack">
+                      <span class="row__title">{{ user.username }}</span>
+                      <span class="row__sub">{{ user.id }} · {{ t('settings.admin.joined', { date: formatDate(user.createdAt) }) }}</span>
+                    </span>
+                    <span class="row__trail">
+                      <span v-if="user.admin" class="pill pill--admin">{{ t('settings.admin.roleAdmin') }}</span>
+                      <span class="row__state dot" :class="accountStateClass(user)">
+                        <i aria-hidden="true"></i>{{ accountStateLabel(user) }}
+                      </span>
+                    </span>
+                    <Icon name="caret-right" class="row__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" />
+                  </button>
+                </div>
+                <p v-else class="empty">{{ t('settings.admin.noUsersFound') }}</p>
+                <p class="grp__note">
+                  {{ t('settings.admin.browseCount', { shown: String(filteredUsers.length), total: String(userList.length) }) }}
+                  <template v-if="!userListExhausted">{{ t('settings.admin.browseMoreHint') }}</template>
+                </p>
+                <div v-if="!userListExhausted" class="settings-actions">
+                  <button type="button" class="btn settings-btn" :disabled="userListLoading" @click="loadMoreUsers">
+                    {{ userListLoading ? t('settings.admin.loading') : t('settings.admin.browseMore') }}
+                  </button>
+                  <button type="button" class="btn settings-btn" :disabled="userListLoading" @click="reloadUserList">
+                    {{ t('settings.admin.refresh') }}
+                  </button>
+                </div>
+              </section>
+            </template>
           </template>
 
           <!-- Rooms -->
@@ -1423,6 +1619,47 @@ async function clearDefaultRoom() {
 .seg__item.is-on {
   color: var(--text);
   font-weight: 600;
+}
+
+/* Two-item twin of the view switcher (search / browse-all). */
+.seg--duo .seg__thumb {
+  width: calc((100% - 4px) / 2);
+}
+
+.user-modes {
+  margin-bottom: 10px;
+}
+
+/* Admin user-center filters: text, status/sort selects, badge, dates. */
+.browse-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.browse-filters__row {
+  display: flex;
+  gap: 8px;
+}
+
+.browse-filters__row > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.browse-date {
+  height: 32px;
+  min-width: 0;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  color-scheme: light dark;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
 }
 
 .ax__refresh {

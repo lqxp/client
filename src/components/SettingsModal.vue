@@ -1963,6 +1963,40 @@ onBeforeUnmount(() => {
   cursor: default;
 }
 
+/* Phone (same breakpoint as the settings sheet): the pill docks as a bottom
+   bar so the label and both buttons fit narrow screens without clipping. */
+@media (max-width: 820px) {
+  .settings-save-bar {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + var(--app-safe-bottom, 0px));
+    transform: none;
+    gap: 10px;
+    max-width: none;
+    padding: 10px 10px 10px 16px;
+    border-radius: 18px;
+  }
+
+  .settings-save-bar__hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .settings-save-bar__revert,
+  .settings-save-bar__btn {
+    padding: 9px 14px;
+    font-size: 12.5px;
+  }
+
+  .save-bar-enter-from,
+  .save-bar-leave-to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
 .save-bar-enter-active,
 .save-bar-leave-active {
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out);

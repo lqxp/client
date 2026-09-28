@@ -6,7 +6,7 @@ import { installBrokenImageWatch } from "@/utils/brokenImages";
 import { installCustomTheme } from "@/composables/useCustomTheme";
 import router from "./router";
 import { initializeRuntimeConfig } from "./config/runtime";
-import { isWindowZoomEnabled } from "./utils/windowZoom";
+import { WINDOW_ZOOM_EVENT, isWindowZoomEnabled } from "./utils/windowZoom";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -25,6 +25,38 @@ function resetRootScroll() {
   }
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return Boolean(target.closest?.("input, textarea, select, [contenteditable='true']"));
+}
+
+type VirtualKeyboardHandle = {
+  overlaysContent?: boolean;
+  boundingRect?: { height?: number };
+  addEventListener?: (type: string, cb: () => void) => void;
+};
+
+function readVirtualKeyboard(): VirtualKeyboardHandle | undefined {
+  try {
+    return (navigator as unknown as { virtualKeyboard?: VirtualKeyboardHandle }).virtualKeyboard;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Chrome/Edge/Samsung Internet: keyboard rect even when no viewport resizes. CSS px. */
+function readVirtualKeyboardHeight(): number {
+  try {
+    const h = Number(readVirtualKeyboard()?.boundingRect?.height ?? 0);
+    return Number.isFinite(h) ? Math.max(0, h) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function syncViewportHeight() {
   const viewport = window.visualViewport;
   // While the WebView is natively pinch-zoomed (scale !== 1) the visual
@@ -32,18 +64,40 @@ function syncViewportHeight() {
   // shrink/shift the fixed app shell and push the sidebar header under the
   // Android status bar. Fall back to the (unzoomed) layout viewport instead.
   const nativePinch = (viewport?.scale ?? 1) !== 1;
-  const rawHeight = Math.round((nativePinch ? undefined : viewport?.height) || window.innerHeight);
-  const rawWidth = Math.round((nativePinch ? undefined : viewport?.width) || window.innerWidth);
+  // Layout viewport: already shrunk by the keyboard when the browser uses
+  // `interactive-widget=resizes-content` (Android Chrome). Stays full height
+  // when the keyboard overlays instead (iOS Safari, resizes-visual).
+  const layoutHeight = window.innerHeight;
+  const layoutWidth = window.innerWidth;
+  const visualHeight = nativePinch ? layoutHeight : Math.round(viewport?.height ?? layoutHeight);
+  const visualWidth = nativePinch ? layoutWidth : Math.round(viewport?.width ?? layoutWidth);
+  const offsetTop = nativePinch ? 0 : Math.max(0, Math.round(viewport?.offsetTop ?? 0));
+  // Overlay keyboard height: the bottom strip of the layout viewport hidden
+  // behind the virtual keyboard. 0 when the layout already resized
+  // (resizes-content / adjustResize) — the app shell shrank on its own and no
+  // extra padding is needed. >0 on iOS Safari / resizes-visual / overlaid
+  // VirtualKeyboard — the shell stays tall and the composer must be padded up
+  // by exactly this amount. Three independent sources, take the max:
+  // visualViewport diff, VirtualKeyboard.boundingRect (Chrome/Samsung even
+  // when no viewport event fires, e.g. WebViews), native ime forwarding.
+  const vkHeight = readVirtualKeyboardHeight();
+  const keyboardRaw = nativePinch
+    ? 0
+    : Math.max(0, layoutHeight - visualHeight - offsetTop, vkHeight);
   // CSS `zoom` does NOT rescale viewport units (vh/vw/dvh) nor
   // window.innerHeight/innerWidth: they stay in unzoomed pixels. Divide by
   // the current zoom so both vars always equal the *visual* viewport and
   // full-screen shells keep filling exactly one screen at any zoom level.
-  const height = Math.max(1, Math.round(rawHeight / windowScale));
-  const width = Math.max(1, Math.round(rawWidth / windowScale));
+  const height = Math.max(1, Math.round(layoutHeight / windowScale));
+  const width = Math.max(1, Math.round(layoutWidth / windowScale));
+  const keyboardHeight = Math.max(0, Math.round(keyboardRaw / windowScale));
   const root = document.documentElement;
   root.style.setProperty("--app-viewport-height", `${height}px`);
   root.style.setProperty("--app-viewport-width", `${width}px`);
-  resetRootScroll();
+  root.style.setProperty("--keyboard-height", `${keyboardHeight}px`);
+  // >4px filters out rounding noise / URL-bar transitions: only a real
+  // keyboard counts as "open" (drives composer padding + feed pinning).
+  root.classList.toggle("is-keyboard-open", keyboardHeight > 4);
 }
 
 function syncPlatformChromeOffset() {
@@ -148,6 +202,13 @@ function applyWindowZoom(scale: number) {
   // Viewport units don't follow `zoom`: re-resolve the compensated viewport
   // vars so heights (and fullscreen widths) track the new visual viewport.
   syncViewportHeight();
+  // CSS `zoom` reflows without firing `resize`: tell positioned overlays to
+  // recompute their placement (SelectMenu re-places, context menus reopen).
+  try {
+    window.dispatchEvent(new CustomEvent(WINDOW_ZOOM_EVENT, { detail: { scale: windowScale } }));
+  } catch {
+    /* DOM unavailable (SSR/tests) */
+  }
 }
 
 function zoomIn() {
@@ -202,13 +263,102 @@ function setupScrollLockdown() {
     setTimeout(resetRootScroll, 150);
   };
 
-  window.addEventListener("scroll", resetRootScroll, { passive: true });
-  window.visualViewport?.addEventListener("scroll", scheduleReset, { passive: true });
-  window.visualViewport?.addEventListener("resize", syncViewportHeight, { passive: true });
+  // Sync on every visualViewport change (keyboard open/close animates through
+  // several resize+scroll events): this keeps --keyboard-height tracking the
+  // real keyboard instead of jumping once at the end.
+  const scheduleSync = () => {
+    syncViewportHeight();
+    requestAnimationFrame(syncViewportHeight);
+  };
 
-  document.addEventListener("focusin", scheduleReset, { passive: true });
-  document.addEventListener("focusout", scheduleReset, { passive: true });
+  window.addEventListener("scroll", resetRootScroll, { passive: true });
+  window.visualViewport?.addEventListener("scroll", scheduleSync, { passive: true });
+  window.visualViewport?.addEventListener("resize", scheduleSync, { passive: true });
+
+  // Forcing scrollTo(0,0) while an input is focused fights the browser's
+  // "keep the caret above the keyboard" pan: on iOS Safari the field ends up
+  // stuck under the keyboard and the visual viewport never settles. When the
+  // focus lands in an editable, sync the keyboard vars (with a delayed pass
+  // for the opening animation) and let the composer padding do the lifting
+  // instead of yanking the scroll back to zero.
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      scheduleSync();
+      setTimeout(syncViewportHeight, 120);
+      setTimeout(syncViewportHeight, 350);
+      if (isEditableTarget(event.target)) {
+        // Once the keyboard has (mostly) opened, pin the feed to the bottom
+        // so the latest messages + composer stay visible above it.
+        setTimeout(() => {
+          const feed = document.querySelector(".feed");
+          if (feed) feed.scrollTop = feed.scrollHeight;
+        }, 350);
+        return;
+      }
+      scheduleReset();
+    },
+    { passive: true },
+  );
+  document.addEventListener(
+    "focusout",
+    () => {
+      scheduleSync();
+      setTimeout(syncViewportHeight, 120);
+      scheduleReset();
+    },
+    { passive: true },
+  );
   window.addEventListener("orientationchange", scheduleReset, { passive: true });
+
+  // Opt into overlaying content: WE move the composer via --keyboard-height /
+  // env(keyboard-inset-height) instead of letting the browser shrink the
+  // layout viewport underneath our fixed shell (which, combined with
+  // position:fixed + overflow:hidden, leaves the field stuck under the
+  // keyboard on several mobile browsers). geometrychange fires per animation
+  // frame while the keyboard opens/closes, even when neither window.resize
+  // nor visualViewport.resize fires (Samsung Internet, some WebViews).
+  try {
+    const vk = readVirtualKeyboard();
+    if (vk) {
+      try {
+        if ("overlaysContent" in vk) vk.overlaysContent = true;
+      } catch {
+        /* keep default overlay behavior */
+      }
+      vk.addEventListener?.("geometrychange", scheduleSync);
+    }
+  } catch {
+    /* VirtualKeyboard API unavailable */
+  }
+
+  // Remote-diagnosis helper (adb/devtools console): __lqxpKbDebug() shows why
+  // the composer does or does not lift above the keyboard.
+  try {
+    (window as unknown as { __lqxpKbDebug?: () => unknown }).__lqxpKbDebug = () => {
+      const viewport = window.visualViewport;
+      return {
+        layoutH: window.innerHeight,
+        layoutW: window.innerWidth,
+        visualH: viewport?.height ?? null,
+        visualW: viewport?.width ?? null,
+        offsetTop: viewport?.offsetTop ?? null,
+        scale: viewport?.scale ?? null,
+        vkHeight: readVirtualKeyboardHeight(),
+        keyboardVar: getComputedStyle(document.documentElement).getPropertyValue("--keyboard-height").trim(),
+        keyboardOpen: document.documentElement.classList.contains("is-keyboard-open"),
+        vkOverlay: (() => {
+          try {
+            return (readVirtualKeyboard() as { overlaysContent?: unknown } | undefined)?.overlaysContent ?? null;
+          } catch {
+            return null;
+          }
+        })(),
+      };
+    };
+  } catch {
+    /* debug helper unavailable */
+  }
 }
 
 // applyWindowZoom() also syncs the zoom-compensated viewport vars, so it

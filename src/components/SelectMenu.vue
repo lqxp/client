@@ -12,6 +12,7 @@
  * without a second stylesheet.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { WINDOW_ZOOM_EVENT, currentWindowZoom } from "@/utils/windowZoom";
 
 export type SelectValue = string | number;
 
@@ -53,18 +54,34 @@ const selected = computed(() => props.options.find((option) => option.value === 
 const label = computed(() => selected.value?.label || props.placeholder);
 const selectable = computed(() => props.options.filter((option) => !option.disabled));
 
-/** Measured against the viewport: the list is a child of `body`, not of us. */
+/**
+ * Measured against the viewport: the list is a child of `body`, not of us.
+ *
+ * `getBoundingClientRect()` reports visual (unzoomed) pixels while the fixed
+ * list's top/left live in zoomed CSS pixels, so the rect is converted with
+ * the app-level zoom (Ctrl/Cmd + +/- in main.ts). Without this the list
+ * drifts away from its trigger as soon as the window is scaled.
+ */
 function place() {
   const el = trigger.value;
   if (!el) return;
+  const zoom = currentWindowZoom();
   const rect = el.getBoundingClientRect();
-  const room = window.innerHeight - rect.bottom;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  const top = rect.top / zoom;
+  const bottom = rect.bottom / zoom;
+  const width = rect.width / zoom;
+  const room = vh - bottom;
   const wanted = Math.min(288, props.options.length * 32 + 12);
-  const drop = room < wanted + 16 && rect.top > room ? "up" : "down";
+  const drop = room < wanted + 16 && top > room ? "up" : "down";
+  // A zoomed trigger near the right edge would otherwise push the list
+  // off-screen: clamp it back into the visual viewport.
+  const left = Math.max(8, Math.min(rect.left / zoom, vw - width - 8));
   placement.value = {
-    top: drop === "down" ? rect.bottom + 6 : rect.top - 6,
-    left: rect.left,
-    width: rect.width,
+    top: drop === "down" ? bottom + 6 : top - 6,
+    left,
+    width,
     drop
   };
 }
@@ -165,19 +182,28 @@ function onPointerDown(event: PointerEvent) {
 
 // Repositioning a teleported list on every scroll frame is jittery; closing is
 // both cheaper and what a native pop-up does.
-function onScrollOrResize() {
+function onScroll() {
   closeMenu();
+}
+
+// A resize or an app-level zoom (Ctrl/Cmd + +/-) only moves the trigger: the
+// list follows it by recomputing its placement instead of closing.
+function onResizeOrZoom() {
+  if (!open.value) return;
+  place();
 }
 
 watch(open, (isOpen) => {
   if (isOpen) {
     window.addEventListener("pointerdown", onPointerDown, true);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResizeOrZoom);
+    window.addEventListener(WINDOW_ZOOM_EVENT, onResizeOrZoom);
   } else {
     window.removeEventListener("pointerdown", onPointerDown, true);
-    window.removeEventListener("scroll", onScrollOrResize, true);
-    window.removeEventListener("resize", onScrollOrResize);
+    window.removeEventListener("scroll", onScroll, true);
+    window.removeEventListener("resize", onResizeOrZoom);
+    window.removeEventListener(WINDOW_ZOOM_EVENT, onResizeOrZoom);
   }
 });
 
@@ -190,8 +216,9 @@ watch(
 
 onBeforeUnmount(() => {
   window.removeEventListener("pointerdown", onPointerDown, true);
-  window.removeEventListener("scroll", onScrollOrResize, true);
-  window.removeEventListener("resize", onScrollOrResize);
+  window.removeEventListener("scroll", onScroll, true);
+  window.removeEventListener("resize", onResizeOrZoom);
+  window.removeEventListener(WINDOW_ZOOM_EVENT, onResizeOrZoom);
 });
 </script>
 

@@ -6,6 +6,7 @@ import { useI18n } from "@/composables/useI18n";
 import type { useDialog } from "@/composables/useDialog";
 import { takePickedFile } from "@/utils/pickedFile";
 import SelectMenu from "@/components/SelectMenu.vue";
+import ChangePasswordModal from "@/components/ChangePasswordModal.vue";
 import { targetChecked } from "@/utils/inputEvent";
 
 const props = defineProps({
@@ -112,6 +113,8 @@ async function onDisableClientLock() {
   lockPin.value = "";
   lockPinConfirm.value = "";
 }
+
+const passwordModalOpen = ref(false);
 </script>
 
 <template>
@@ -140,6 +143,20 @@ async function onDisableClientLock() {
         {{ t('settings.security.recoveryNote') }}
       </p>
     </div>
+
+    <div class="settings-group">
+      <h4>{{ t('settings.security.passwordTitle') }}</h4>
+      <p class="settings-note">
+        {{ t('settings.security.passwordModalLead') }}
+      </p>
+      <div class="settings-actions">
+        <button type="button" class="btn settings-btn" @click="passwordModalOpen = true">
+          {{ t('settings.security.changePassword') }}
+        </button>
+      </div>
+    </div>
+
+    <ChangePasswordModal :messenger="messenger" :open="passwordModalOpen" @close="passwordModalOpen = false" />
 
     <div class="settings-group">
       <h4>{{ t("settings.security.recoveryTitle") }}</h4>

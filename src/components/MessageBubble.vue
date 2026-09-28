@@ -11,6 +11,7 @@ import { useDialog } from "@/composables/useDialog";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 import ImageViewer from "@/components/ImageViewer.vue";
 import EmojiPicker from "@/components/EmojiPicker.vue";
+import PdfViewer from "@/components/PdfViewer.vue";
 import ProfileCard from "@/components/ProfileCard.vue";
 import TextFilePreview from "@/components/TextFilePreview.vue";
 import VideoPlayer from "@/components/VideoPlayer.vue";
@@ -44,6 +45,7 @@ function previewTextFor(target: ChatMessage | null | undefined, fallbackId = "")
   if (target.deleted) return target.deletedByModerator ? t("message.deletedByModerator") : t("message.messageDeleted");
   if (target.kind === "image") return t("message.photo");
   if (target.kind === "video") return t("message.video");
+  if (target.kind === "pdf") return t("message.pdfDocument");
   if (target.kind === "audio" || target.kind === "voice") return t("message.voiceMessage");
   if (target.kind === "file") return target.attachment?.filename || t("message.fileAttachment");
   return target.text || t("composer.placeholder");
@@ -151,6 +153,7 @@ const effectiveMentioned = computed(() => {
 
 const imageViewerOpen = ref(false);
 const textViewerOpen = ref(false);
+const pdfViewerOpen = ref(false);
 const expandedText = ref(false);
 const selectedProfile = ref("");
 const contextMenuOpen = ref(false);
@@ -773,6 +776,11 @@ function openImageViewer() {
   imageViewerOpen.value = true;
 }
 
+function openPdfViewer() {
+  if (!attachmentUrl.value) return;
+  pdfViewerOpen.value = true;
+}
+
 function closeContextMenu() {
   contextMenuOpen.value = false;
 }
@@ -1209,6 +1217,46 @@ onBeforeUnmount(() => {
         <div class="att-expired" role="status">
           {{ message.voiceDuration ? t('message.voiceMessageExpired') : t('message.attachmentExpired') }}
         </div>
+      </template>
+
+      <template v-else-if="attachmentKind === 'pdf' && message.attachment">
+        <button class="att-file" type="button" @click="openPdfViewer" :disabled="!attachmentUrl"
+          :aria-label="t('pdfViewer.openLabel', { name: String(message.attachment.filename || '') })"
+          @contextmenu.prevent.stop="onMessageContextMenu">
+          <span class="att-file-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+              <path d="M14 2v6h6" />
+              <path d="M9 13h6" />
+              <path d="M9 17h4" />
+            </svg>
+          </span>
+          <span class="att-file-meta">
+            <span class="att-file-name">{{ message.attachment.filename }}</span>
+            <span class="att-file-sub">
+              PDF · {{ messenger.formatSize(message.attachment.size) }}
+              <span v-if="!attachmentUrl"> · expired</span>
+            </span>
+          </span>
+          <span v-if="attachmentUrl" class="att-file-dl">
+            <Icon name="open-external" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </span>
+        </button>
+        <PdfViewer v-if="pdfViewerOpen && attachmentUrl" :src="attachmentUrl"
+          :filename="message.attachment.filename" :mime-type="message.attachment.mimeType"
+          :size-label="messenger.formatSize(message.attachment.size)" @close="pdfViewerOpen = false" />
+        <div v-if="message.text" class="bubble__body">
+          <div class="bubble__text markdown" :class="{ 'bubble__text--collapsed': isTextCollapsible && !expandedText }"
+            @click="onMarkdownClick" @keydown="onSpoilerKeydown"
+            @contextmenu.prevent.stop="onMessageContextMenu" v-html="markdown(message.text)">
+          </div>
+          <span v-if="isDiscordStyle && edited" class="bubble__edited">(edited)</span>
+        </div>
+        <button v-if="isTextCollapsible" type="button" class="bubble__more" @click="expandedText = !expandedText">
+          {{ expandedText ? t('message.seeLess') : t('message.seeMore') }}
+        </button>
       </template>
 
       <template v-else-if="attachmentKind === 'file' && message.attachment">

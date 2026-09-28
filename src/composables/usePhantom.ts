@@ -140,6 +140,11 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     pollingEnabled: true,
     schedulerRunning: false,
     lastError: "",
+    // Observabilité du poll (sinon un poll qui échoue est totalement silencieux
+    // et l'utilisateur croit que le temps réel est cassé).
+    pollBusy: false,
+    lastPollAt: 0,
+    lastPollError: "",
   });
 
   // Persistance locale immédiate (indépendante du blob roster / réseau).
@@ -224,56 +229,108 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   }
 
   // ── Prékey ──────────────────────────────────────────────────────────────────
-  function publishPrekey(prekey: StoredPrekey): void {
-    if (!prekey.bundle) return;
+  // True while the last publish could not go out (socket not ready): the
+  // scheduler tick and the retry loop below keep re-emitting the idempotent
+  // op 36 until the server holds our bundle. Without this a dropped publish
+  // leaves the account unreachable and every friend request fails with
+  // "hasn't published a prekey yet".
+  let prekeyPublishPending = false;
+  let prekeyRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function socketReadyForPublish(): boolean {
+    try {
+      const connected = Boolean(ctx.state?.connected);
+      const identified = Boolean(ctx.state?.identified);
+      return connected && identified;
+    } catch {
+      return false;
+    }
+  }
+
+  function publishPrekey(prekey: StoredPrekey): boolean {
+    if (!prekey?.bundle) return false;
+    if (!socketReadyForPublish()) return false;
     // Publie via op 36 (idempotent — UPSERT serveur). Réémis à chaque
     // `ensurePrekey` pour réparer les cas où l'op 36 a été lâché faute de WS
     // prêt lors du premier essai.
-    ctx.send({
-      op: 36,
-      d: { ...prekey.bundle, requestId: globalThis.crypto.randomUUID() },
-    });
+    try {
+      ctx.send({
+        op: 36,
+        d: { ...prekey.bundle, requestId: globalThis.crypto.randomUUID() },
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Bounded retry while the socket is down; a reconnect flips `identified`
+   * and re-triggers `ensurePrekey` through the InboxView watcher anyway. */
+  function schedulePrekeyRetry(attemptsLeft = 10): void {
+    if (prekeyRetryTimer || attemptsLeft <= 0) return;
+    prekeyRetryTimer = setTimeout(() => {
+      prekeyRetryTimer = null;
+      if (!prekeyPublishPending || !state.prekey) return;
+      if (publishPrekey(state.prekey)) {
+        prekeyPublishPending = false;
+        return;
+      }
+      schedulePrekeyRetry(attemptsLeft - 1);
+    }, 3000);
+  }
+
+  function trackPrekeyPublish(published: boolean): void {
+    prekeyPublishPending = !published;
+    if (prekeyPublishPending) schedulePrekeyRetry();
   }
 
   async function ensurePrekey(): Promise<StoredPrekey | null> {
     if (state.prekey) {
-      publishPrekey(state.prekey);
+      trackPrekeyPublish(publishPrekey(state.prekey));
       return state.prekey;
     }
 
     const stored = loadPrekey();
-    if (stored?.mlkemSecretKeyHex && stored?.mldsaSecretKeyHex) {
+    // A stored prekey without bundle (written by an older build) can never be
+    // published: regenerate instead of reusing it, otherwise op 36 silently
+    // no-ops forever and nobody can send us a friend request.
+    if (stored?.mlkemSecretKeyHex && stored?.mldsaSecretKeyHex && stored?.bundle) {
       state.prekey = stored;
       state.ready = true;
-      publishPrekey(stored);
+      trackPrekeyPublish(publishPrekey(stored));
       return stored;
     }
 
-    const mlkem = generateMlKem768KeyPair();
-    const mldsa = generateMlDsa65KeyPair();
-    const ecdsa = await generateDeviceSigningKeyPair();
-    const bundle = await generatePrekeyBundle({
-      mlkemPublicKey: mlkem.publicKey,
-      ecdsaPublicJwk: ecdsa.publicKey,
-      ecdsaPrivateJwk: ecdsa.privateKey,
-      mldsaKeyPair: mldsa,
-      blockFilter: state.blockList,
-    });
+    try {
+      const mlkem = generateMlKem768KeyPair();
+      const mldsa = generateMlDsa65KeyPair();
+      const ecdsa = await generateDeviceSigningKeyPair();
+      const bundle = await generatePrekeyBundle({
+        mlkemPublicKey: mlkem.publicKey,
+        ecdsaPublicJwk: ecdsa.publicKey,
+        ecdsaPrivateJwk: ecdsa.privateKey,
+        mldsaKeyPair: mldsa,
+        blockFilter: state.blockList,
+      });
 
-    const prekey: StoredPrekey = {
-      mlkemPublicKeyHex: bytesToHex(mlkem.publicKey),
-      mlkemSecretKeyHex: bytesToHex(mlkem.secretKey),
-      mldsaSecretKeyHex: bytesToHex(mldsa.secretKey),
-      ecdsaPublicJwk: ecdsa.publicKey,
-      ecdsaPrivateJwk: ecdsa.privateKey,
-      bundle,
-    };
+      const prekey: StoredPrekey = {
+        mlkemPublicKeyHex: bytesToHex(mlkem.publicKey),
+        mlkemSecretKeyHex: bytesToHex(mlkem.secretKey),
+        mldsaSecretKeyHex: bytesToHex(mldsa.secretKey),
+        ecdsaPublicJwk: ecdsa.publicKey,
+        ecdsaPrivateJwk: ecdsa.privateKey,
+        bundle,
+      };
 
-    publishPrekey(prekey);
-    savePrekey(prekey);
-    state.prekey = prekey;
-    state.ready = true;
-    return prekey;
+      trackPrekeyPublish(publishPrekey(prekey));
+      savePrekey(prekey);
+      state.prekey = prekey;
+      state.ready = true;
+      return prekey;
+    } catch {
+      setError("Could not generate the encryption prekey. Friend requests are unavailable.");
+      return null;
+    }
   }
 
   async function fetchPrekey(username: string): Promise<PrekeyBundle | null> {
@@ -371,19 +428,42 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     }
   }
 
-  async function pollNow(): Promise<void> {
-    const slots = await mySlots();
-    if (!slots.length) return;
-    try {
-      const data = await anonymousFetch("/api/phantom/poll", {
-        method: "POST",
-        body: JSON.stringify({ slots, want: 8 }),
-      });
-      for (const frame of data?.frames || []) {
-        if (frame) await handleFrame(frame);
+  async function pollNow(): Promise<boolean> {
+    // Un seul vol à la fois : deux polls concurrents se partageraient le même
+    // dépilement côté serveur et feraient croire à un poll manqué.
+    if (pollInFlight) return pollInFlight;
+    pollInFlight = (async () => {
+      state.pollBusy = true;
+      state.lastPollAt = Date.now();
+      try {
+        const slots = await mySlots();
+        if (!slots.length) {
+          state.lastPollError = "No local prekey available.";
+          return false;
+        }
+        const data = await anonymousFetch("/api/phantom/poll", {
+          method: "POST",
+          body: JSON.stringify({ slots, want: 8 }),
+        });
+        state.lastPollError = "";
+        for (const frame of data?.frames || []) {
+          if (frame) await handleFrame(frame);
+        }
+        return true;
+      } catch (error) {
+        state.lastPollError =
+          error instanceof Error && error.message
+            ? error.message
+            : "Friend poll failed.";
+        return false;
+      } finally {
+        state.pollBusy = false;
       }
-    } catch {
-      /* silencieux */
+    })();
+    try {
+      return await pollInFlight;
+    } finally {
+      pollInFlight = null;
     }
   }
 
@@ -552,6 +632,10 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   ): Promise<boolean> {
     const prekey = await ensurePrekey();
     if (!prekey) return false;
+    if (!socketReadyForPublish()) {
+      setError("Not connected — reconnect and try sending the request again.");
+      return false;
+    }
     const target = await fetchPrekey(username);
     if (!target) {
       setError(
@@ -623,15 +707,19 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       return true;
     }
 
-    const { roomId, roomKey } = ctx.generateRoomAccessToken();
-    ctx.importRoomKey(roomId, roomKey);
-    ctx.requestJoin(roomId);
-
-    const prekey = state.prekey;
+    // The prekey may never have been generated on this client (fresh login
+    // whose first publish was dropped, older stored bundle, …): ensure it
+    // before creating the room, or the peer could never answer the welcome.
+    const prekey = await ensurePrekey();
     if (!prekey) {
       setError("No local prekey available.");
       return false;
     }
+
+    const { roomId, roomKey } = ctx.generateRoomAccessToken();
+    ctx.importRoomKey(roomId, roomKey);
+    ctx.requestJoin(roomId);
+
     const day = epochDay(Date.now());
     const recipientFp = incoming.sender.prekeyFp;
     // Le destinataire (émetteur de l'intro) poll toujours son slot global ; on y
@@ -853,6 +941,8 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
 
   // ── Scheduler (poll cadencé + jitter) ───────────────────────────────────────
   let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
+  // Vol de poll partagé (voir pollNow) : évite deux dépilements concurrents.
+  let pollInFlight: Promise<boolean> | null = null;
 
   // Délai avant le prochain poll : intervalle utilisateur explicite (3–40 s)
   // si défini, sinon jitter par défaut (15–30 s) pour la discrétion.
@@ -881,7 +971,23 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
         schedulerTimer = null;
         return;
       }
-      pollNow();
+      // A publish dropped while the socket was down heals here: op 36 is an
+      // idempotent UPSERT, so re-emitting a pending bundle is always safe.
+      if (prekeyPublishPending && state.prekey && publishPrekey(state.prekey)) {
+        prekeyPublishPending = false;
+      }
+      if (!state.prekey) {
+        // Prékey jamais établie (génération ratée plus tôt ?) : la re-tenter
+        // ici plutôt que de laisser le scheduler tourner à vide — sinon les
+        // demandes n'arrivent qu'après un refresh.
+        ensurePrekey()
+          .catch(() => {})
+          .finally(() => {
+            pollNow();
+          });
+      } else {
+        pollNow();
+      }
       schedulerTimer = setTimeout(tick, pollDelayMs());
     };
     tick();

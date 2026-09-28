@@ -316,6 +316,23 @@ function onComposerClick() {
   syncCursor();
 }
 
+function onComposerFocus() {
+  syncCursor();
+  // Le clavier visuel recouvre le bas de l'écran (iOS / resizes-visual) :
+  // le padding --keyboard-inset remonte le composer, mais le feed doit suivre
+  // pour que le dernier message reste visible au-dessus du clavier. On attend
+  // la fin de l'animation d'ouverture avant de pinner en bas.
+  setTimeout(() => {
+    const feed = document.querySelector(".feed");
+    if (feed) feed.scrollTop = feed.scrollHeight;
+    // Filet de sécurité si le navigateur n'a pas amené le caret en vue
+    // (root en position:fixed, scroll verrouillé dans main.ts).
+    try {
+      inputRef.value?.scrollIntoView({ block: "nearest" });
+    } catch { /* scrollIntoView indisponible */ }
+  }, 350);
+}
+
 function onComposerContainerClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
   // Clicking the padding around the field puts the caret back in the message,
@@ -895,8 +912,8 @@ onBeforeUnmount(() => {
         </button>
 
         <textarea ref="inputRef" v-model="messenger.state.messageInput" :maxlength="messenger.MESSAGE_LIMIT" rows="1"
-          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" spellcheck="false"
-          @input="onInput" @click="onComposerClick" @keyup="onComposerKeyup"
+          :placeholder="composerPlaceholder" :disabled="disabled" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" spellcheck="false"
+          @input="onInput" @click="onComposerClick" @focus="onComposerFocus" @keyup="onComposerKeyup"
           @keydown="onComposerKeydown"></textarea>
 
         <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('whiteboard.title')"

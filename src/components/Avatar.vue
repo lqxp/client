@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { initialsOf } from "@/utils/initials";
 
 const props = withDefaults(
@@ -13,11 +13,27 @@ const props = withDefaults(
 );
 
 const initials = computed(() => initialsOf(props.name));
+
+/**
+ * A src that 404s (expired room icon, revoked blob URL, offline avatar)
+ * must not leave a blank circle: fall back to the default initials avatar,
+ * exactly like a missing src. The flag resets whenever the src changes so a
+ * fresh URL is always attempted.
+ */
+const failed = ref(false);
+watch(
+  () => props.src,
+  () => {
+    failed.value = false;
+  }
+);
+
+const showImage = computed(() => Boolean(props.src) && !failed.value);
 </script>
 
 <template>
-  <span class="avatar" :class="[`avatar--${size}`, src ? 'avatar--image' : `avatar--${accent}`]">
-    <img v-if="src" :src="src" alt="" draggable="false" />
+  <span class="avatar" :class="[`avatar--${size}`, showImage ? 'avatar--image' : `avatar--${accent}`]">
+    <img v-if="showImage" :src="src" alt="" draggable="false" @error="failed = true" />
     <template v-else>{{ initials }}</template>
   </span>
 </template>

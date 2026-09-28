@@ -39,6 +39,7 @@ export const ICONS = {
   "phone-hangup": [{ tag: "path", attrs: {"d": "M6.6 15.4c3.3-2.1 7.5-2.1 10.8 0l1.45.92c.7.44.92 1.37.48 2.07l-1.15 1.84c-.44.7-1.37.92-2.07.48l-1.55-.97a4.95 4.95 0 0 0-5.12 0l-1.55.97c-.7.44-1.63.22-2.07-.48l-1.15-1.84c-.44-.7-.22-1.63.48-2.07l1.45-.92Z"} }, { tag: "path", attrs: {"d": "M6 8.5C9.7 6.2 14.3 6.2 18 8.5"} }, { tag: "path", attrs: {"d": "M3.5 5.2c5.2-3.4 11.8-3.4 17 0"} }],
   "plus": [{ tag: "path", attrs: {"d": "M12 5v14M5 12h14"} }],
   "plus-circle": [{ tag: "circle", attrs: {"cx": "12", "cy": "12", "r": "9"} }, { tag: "path", attrs: {"d": "M12 8.5v7M8.5 12h7"} }],
+  "refresh": [{ tag: "path", attrs: {"d": "M20 11A8 8 0 0 0 6.3 6.3L4 8.5"} }, { tag: "path", attrs: {"d": "M4 13a8 8 0 0 0 13.7 4.7L20 15.5"} }, { tag: "path", attrs: {"d": "M4 4.5v4h4"} }, { tag: "path", attrs: {"d": "M20 19.5v-4h-4"} }],
   "reply": [{ tag: "path", attrs: {"d": "M9 17 4 12l5-5"} }, { tag: "path", attrs: {"d": "M20 18v-2a4 4 0 0 0-4-4H4"} }],
   "search": [{ tag: "circle", attrs: {"cx": "11", "cy": "11", "r": "6.5"} }, { tag: "path", attrs: {"d": "m16 16 4 4"} }],
   "search-lg": [{ tag: "circle", attrs: {"cx": "11", "cy": "11", "r": "7"} }, { tag: "path", attrs: {"d": "m20 20-3.5-3.5"} }],

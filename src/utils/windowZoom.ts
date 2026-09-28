@@ -10,6 +10,14 @@
 const STORAGE_KEY = "lqxp:window-zoom";
 
 /**
+ * Window event fired by `applyWindowZoom()` (see main.ts) every time the
+ * app-level zoom changes. CSS `zoom` reflows layout without firing `resize`,
+ * so overlays positioned in CSS pixels (SelectMenu, context menus, …) listen
+ * to this to recompute their placement instead of going stale.
+ */
+export const WINDOW_ZOOM_EVENT = "lqxp:window-zoom";
+
+/**
  * Window zoom is a desktop affordance (Ctrl/Cmd + keyboard/wheel). On touch
  * runtimes (coarse primary pointer, iOS) CSS `zoom` interacts badly with the
  * edge-to-edge WebView and the visual viewport: fixed shells drift and the

@@ -358,6 +358,7 @@ function attachmentKindFromFilename(filename: string) {
   if (AUDIO_ATTACHMENT_EXTENSIONS.has(ext)) return "audio";
   if (IMAGE_ATTACHMENT_EXTENSIONS.has(ext)) return "image";
   if (VIDEO_ATTACHMENT_EXTENSIONS.has(ext)) return "video";
+  if (ext === "pdf") return "pdf";
   return "";
 }
 
@@ -2699,6 +2700,11 @@ function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
   else if (attachment) {
     if (isTextAttachmentByFilename(attachment.filename) || isScriptableMimeType(attachment.mimeType))
       kind = "file";
+    else if (
+      String(attachment.mimeType || "").toLowerCase() === "application/pdf" ||
+      /\.pdf$/i.test(String(attachment.filename || ""))
+    )
+      kind = "pdf";
     else if ((attachment.mimeType || "").startsWith("audio/")) kind = "audio";
     else if ((attachment.mimeType || "").startsWith("image/")) kind = "image";
     else if ((attachment.mimeType || "").startsWith("video/")) kind = "video";
@@ -3109,6 +3115,14 @@ function createMessenger() {
     adminSearchResults: [] as AdminUser[],
     adminSearchLoading: false,
     adminSearchSearched: false,
+    // Paginated full-table browse (`GET /api/admin/users`). Pages accumulate
+    // here; filters/sorts in AdminSettings run client-side over the loaded
+    // pages so the server never dumps the whole table at once.
+    adminUserList: [] as AdminUser[],
+    adminUserListLoading: false,
+    adminUserListLoaded: false,
+    adminUserListCursor: null as string | null,
+    adminUserListExhausted: false,
   });
 
   // Sync call sounds flag from persisted state
@@ -4602,15 +4616,17 @@ function createMessenger() {
     const id = String(user?.id || "");
     const username = String(user?.username || "");
     if (!id) return;
-    const index = state.adminSearchResults.findIndex((entry: AdminUser) => String(entry?.id || "") === id);
-    if (index >= 0) {
-      const previous = state.adminSearchResults[index];
-      state.adminSearchResults[index] = {
-        ...previous,
-        ...(user as Partial<AdminUser>),
-        id,
-        username: username || previous.username,
-      };
+    for (const list of [state.adminSearchResults, state.adminUserList]) {
+      const index = list.findIndex((entry: AdminUser) => String(entry?.id || "") === id);
+      if (index >= 0) {
+        const previous = list[index];
+        list[index] = {
+          ...previous,
+          ...(user as Partial<AdminUser>),
+          id,
+          username: username || previous.username,
+        };
+      }
     }
   }
 
@@ -4659,6 +4675,67 @@ function createMessenger() {
       return [];
     } finally {
       if (isCurrent()) state.adminSearchLoading = false;
+    }
+  }
+
+  /**
+   * Paginated browse of the whole account table for the admin user center.
+   * Requires a server implementing `GET /api/admin/users?limit=&cursor=`
+   * answering `{ users: AdminUser[], nextCursor?: string | null }`. Pages
+   * accumulate in `state.adminUserList`; call with `reset=true` to restart
+   * from the first page. On failure the loaded pages are kept and the error
+   * is toasted, so a missing server endpoint degrades to search-only mode.
+   */
+  const ADMIN_USER_LIST_PAGE = 100;
+  let adminUserListRequestId = 0;
+
+  function resetAdminUserList() {
+    adminUserListRequestId += 1;
+    state.adminUserList = [];
+    state.adminUserListLoading = false;
+    state.adminUserListLoaded = false;
+    state.adminUserListCursor = null;
+    state.adminUserListExhausted = false;
+  }
+
+  async function listAdminUsers(reset = false) {
+    if (!state.admin) return [];
+    if (state.adminUserListLoading) return state.adminUserList;
+    if (!reset && state.adminUserListExhausted) return state.adminUserList;
+    const requestId = ++adminUserListRequestId;
+    const requestedBy = state.userId;
+    const isCurrent = () => requestId === adminUserListRequestId && state.admin && state.userId === requestedBy;
+    if (reset) {
+      state.adminUserList = [];
+      state.adminUserListCursor = null;
+      state.adminUserListExhausted = false;
+    }
+    state.adminUserListLoading = true;
+    try {
+      const params = new URLSearchParams({ limit: String(ADMIN_USER_LIST_PAGE) });
+      if (state.adminUserListCursor) params.set("cursor", state.adminUserListCursor);
+      const data = await apiRequest(`/api/admin/users?${params.toString()}`);
+      if (!isCurrent()) return state.adminUserList;
+      const page = Array.isArray(data?.users) ? (data.users as AdminUser[]) : [];
+      const seen = new Set(state.adminUserList.map((entry) => String(entry?.id || "")));
+      for (const user of page) {
+        const id = String((user as AdminUser)?.id || "");
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        state.adminUserList.push(user as AdminUser);
+      }
+      const nextCursor = data?.nextCursor != null ? String(data.nextCursor) : null;
+      state.adminUserListCursor = nextCursor;
+      if (!nextCursor || page.length < ADMIN_USER_LIST_PAGE) state.adminUserListExhausted = true;
+      state.adminUserListLoaded = true;
+      return state.adminUserList;
+    } catch (error) {
+      if (!isCurrent()) return state.adminUserList;
+      state.lastError = errorMessage(error) || t("errors.adminListFailed");
+      showToast(state.lastError);
+      return state.adminUserList;
+    } finally {
+      if (isCurrent()) state.adminUserListLoading = false;
     }
   }
 
@@ -8712,6 +8789,45 @@ function createMessenger() {
     logoutLocal();
   }
 
+  /**
+   * Changes the account password without re-registering: the server verifies
+   * the current password, stores the new hash and keeps the session alive, so
+   * recovery words, local keys and rooms are untouched. The password itself
+   * is never persisted locally. Requires a server implementing
+   * `POST /api/auth/change-password`; otherwise the server error is surfaced.
+   */
+  async function changePassword(currentPassword: string, newPassword: string) {
+    if (!state.authToken) throw new Error(t("errors.notAuthenticated"));
+    const current = String(currentPassword || "");
+    const next = String(newPassword || "");
+    if (!current) {
+      state.lastError = t("settings.security.currentPasswordMissing");
+      showToast(state.lastError);
+      return false;
+    }
+    if (next.length < 8 || next.length > 128) {
+      state.lastError = t("settings.security.passwordTooShort");
+      showToast(state.lastError);
+      return false;
+    }
+    if (next === current) {
+      state.lastError = t("settings.security.passwordSame");
+      showToast(state.lastError);
+      return false;
+    }
+    try {
+      await apiRequest("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+      });
+      return true;
+    } catch (error) {
+      state.lastError = errorMessage(error) || t("errors.passwordChangeFailed");
+      showToast(state.lastError);
+      return false;
+    }
+  }
+
   async function renewSession(password: string, capToken?: string | null) {
     const username = sanitizeUsername(state.username);
     if (!username) {
@@ -10213,6 +10329,7 @@ function createMessenger() {
     addAccount,
     MAX_ACCOUNTS,
     deleteAccount,
+    changePassword,
     downloadRecoveryWords,
     recoveryFileName,
     dismissRecoveryNotice,
@@ -10234,6 +10351,8 @@ function createMessenger() {
     loadAdminOverview,
     searchAdminUsers,
     cancelAdminUserSearch,
+    listAdminUsers,
+    resetAdminUserList,
     setAdminFeature,
     setServerDefaultRoom,
     clearServerDefaultRoom,

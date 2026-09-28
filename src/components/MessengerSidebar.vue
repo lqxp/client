@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import PresenceDot, { type Presence } from "@/components/PresenceDot.vue";
 import Avatar from "@/components/Avatar.vue";
-import { initialsOf } from "@/utils/initials";
 import type { Phantom } from "@/composables/usePhantom";
 import Icon from "@/components/Icon.vue";
 import type { Messenger } from "@/composables/useMessenger";
@@ -209,11 +208,6 @@ function togglePinRoomFromContext() {
 
 function roomIcon(roomId: string) {
   return props.messenger.roomIcon?.(roomId) || "";
-}
-
-function roomIconIsImage(roomId: string) {
-  const icon = roomIcon(roomId);
-  return !!icon && !icon.startsWith("data:");
 }
 
 async function positionContextMenu(
@@ -436,11 +430,7 @@ onBeforeUnmount(() => {
           <div v-for="c in pinnedConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
             role="button" tabindex="0" @click="openConversation(c.roomId)"
             @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
-            <span class="avatar avatar--lg conv__icon"
-              :class="roomIconIsImage(c.roomId) ? 'conv__icon--image' : `avatar--${c.accent}`">
-              <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
-              <template v-else>{{ initialsOf(c.name) }}</template>
-            </span>
+            <Avatar :name="c.name" :src="roomIcon(c.roomId)" :accent="c.accent" size="lg" class="conv__icon" />
 
             <span class="conv__head">
               <span class="conv__name">
@@ -468,11 +458,7 @@ onBeforeUnmount(() => {
         <div v-for="c in regularConversations" :key="c.roomId" class="conv" :class="{ 'is-active': c.active }"
           role="button" tabindex="0" @click="openConversation(c.roomId)"
           @keydown.enter.prevent="openConversation(c.roomId)" @contextmenu="onRoomContext($event, c.roomId)">
-          <span class="avatar avatar--lg conv__icon"
-            :class="roomIconIsImage(c.roomId) ? 'conv__icon--image' : `avatar--${c.accent}`">
-            <img v-if="roomIconIsImage(c.roomId)" class="conv__icon-image" :src="roomIcon(c.roomId)" alt="" />
-            <template v-else>{{ initialsOf(c.name) }}</template>
-          </span>
+          <Avatar :name="c.name" :src="roomIcon(c.roomId)" :accent="c.accent" size="lg" class="conv__icon" />
 
           <span class="conv__head">
             <span class="conv__name">
