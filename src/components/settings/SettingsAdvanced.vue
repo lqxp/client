@@ -3,7 +3,7 @@ import { inject, onMounted, ref, type PropType } from "vue";
 import type { Messenger } from "@/composables/useMessenger";
 import { useI18n } from "@/composables/useI18n";
 import { isTauriDesktopRuntime as isDesktopRuntime } from "@/calls/tor";
-import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcStatus } from "@/calls/discordRpc";
+import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcSettings } from "@/calls/discordRpc";
 import { targetChecked } from "@/utils/inputEvent";
 
 defineProps({
@@ -17,10 +17,12 @@ const discordRpcShowPlatform = ref(true);
 const discordRpcConnected = ref(false);
 const discordRpcReady = ref<boolean | null>(null);
 
-function applyDiscordRpc(s: DiscordRpcStatus) {
+function applyDiscordRpc(s: DiscordRpcSettings & { connected?: boolean }) {
   discordRpcEnabled.value = s.enabled;
   discordRpcShowPlatform.value = s.show_platform;
-  discordRpcConnected.value = s.connected;
+  // set_enabled / set_show_platform answer with the settings only (no live
+  // connection state): keep the previous value instead of flashing offline.
+  discordRpcConnected.value = s.connected ?? discordRpcConnected.value;
   discordRpcReady.value = true;
 }
 
@@ -32,7 +34,7 @@ async function loadDiscordRpc() {
   }
 }
 
-async function updateDiscordRpc(change: () => Promise<DiscordRpcStatus>) {
+async function updateDiscordRpc(change: () => Promise<DiscordRpcSettings>) {
   try {
     applyDiscordRpc(await change());
   } catch {
