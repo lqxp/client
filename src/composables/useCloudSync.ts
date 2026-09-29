@@ -43,6 +43,7 @@ import {
   SLHDSA_SK_BYTES,
 } from "@/crypto/slhdsa";
 import { useCustomTheme, setCustomTheme, sanitizeCustomThemeValue } from "@/composables/useCustomTheme";
+import { normalizeMessage } from "@/composables/useMessenger";
 import { useI18n } from "@/composables/useI18n";
 
 const SETTINGS_KEY = "qxcloudsync-settings-v1";
@@ -1446,21 +1447,54 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const messagesByRoom = s.messagesByRoom as Record<string, Array<Record<string, unknown>>>;
       for (const [roomId, incoming] of byRoom) {
         const cached = (await idbGet(roomId)) as Array<Record<string, unknown>>;
-        const cur = [...cached, ...(messagesByRoom[roomId] || [])] as Array<
-          Record<string, unknown> & { messageId: string; timestamp: number }
-        >;
-        const mergedMsgs = mergeMessages(
-          cur
-            .filter((m) => m.messageId)
-            .map((m) => ({
-              messageId: String(m.messageId), roomId, text: String(m.text || ""),
-              timestamp: Number(m.timestamp || 0), editedAt: m.editedAt ? Number(m.editedAt) : undefined,
-              deleted: Boolean(m.deleted) || undefined, encrypted: m.encrypted,
-            })),
-          incoming,
-        );
-        await idbPut(roomId, mergedMsgs);
-        messagesByRoom[roomId] = (mergedMsgs.slice(-500) as unknown) as Array<Record<string, unknown>>;
+        // Index des objets locaux COMPLETS (RAM plus fraîche que le cache).
+        const fullById = new Map<string, Record<string, unknown>>();
+        for (const m of [...cached, ...(messagesByRoom[roomId] || [])]) {
+          const id = String((m as Record<string, unknown>)?.messageId || "");
+          if (id) fullById.set(id, m as Record<string, unknown>);
+        }
+        const views: Array<{
+          messageId: string; roomId: string; text?: string; timestamp: number;
+          editedAt?: number; deleted?: boolean; encrypted?: unknown; from?: string;
+        }> = [];
+        for (const [id, m] of fullById) {
+          views.push({
+            messageId: id, roomId, text: String(m.text || ""),
+            timestamp: Number(m.timestamp || 0),
+            editedAt: m.editedAt ? Number(m.editedAt) : undefined,
+            deleted: Boolean(m.deleted) || undefined, encrypted: m.encrypted,
+          });
+        }
+        const winners = mergeMessages(views, incoming);
+        // Stockage : uniquement des messages NORMALISÉS (forme complète avec
+        // reactions: [], etc.). Un partiel stocké tel quel fait crasher le
+        // rendu (MessageBubble). Ça guérit aussi les caches partiels anciens.
+        const out: Record<string, unknown>[] = [];
+        for (const w of winners) {
+          const local = fullById.get(w.messageId);
+          if (local && Array.isArray(local.reactions)) {
+            const localTs = Number(
+              (local.editedAt as number | undefined) || local.timestamp || 0,
+            );
+            const winTs = w.editedAt || w.timestamp;
+            if (localTs >= winTs) {
+              out.push(local);
+              continue;
+            }
+          }
+          out.push(normalizeMessage(
+            {
+              messageId: w.messageId, roomId,
+              text: w.text, timestamp: w.timestamp || Date.now(),
+              editedAt: w.editedAt, deleted: w.deleted,
+              username: w.from, encrypted: w.encrypted as never,
+            },
+            roomId,
+          ) as unknown as Record<string, unknown>);
+        }
+        out.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+        await idbPut(roomId, out);
+        messagesByRoom[roomId] = out.slice(-500);
       }
     }
     state.lastSyncAt = Date.now();

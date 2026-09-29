@@ -2764,7 +2764,13 @@ function isOnlyEmoji(text: string) {
 
 export type ChatMessage = ReturnType<typeof normalizeMessage>;
 
-function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
+/**
+ * Normalise un message brut (wire, stockage, sync) vers la forme complète
+ * attendue par le rendu. Exporté pour QxCloudSync : tout ce qui entre dans
+ * `messagesByRoom` depuis le réseau doit passer par ici (reactions garanties,
+ * etc.), sinon MessageBubble/MessageList crashent sur des champs absents.
+ */
+export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
   const voiceInfo = parseVoiceLabel(message.text || "");
   const voiceDuration = voiceInfo.duration;
   const voiceWaveform = voiceInfo.waveform;
