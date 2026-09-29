@@ -23,7 +23,7 @@ const shortId = (id: string) =>
 const peerSince = (ts: number) =>
   ts ? new Date(ts).toLocaleString() : "—";
 const platformIcon = (p: string) =>
-  p === "mobile" ? "smartphone" : p === "desktop" ? "app" : "monitor";
+  p === "mobile" ? "smartphone" : p === "desktop" ? "monitor" : "globe";
 const platformLabel = (p: string) =>
   p === "mobile" ? t("cloudsync.platformMobile") : p === "desktop" ? t("cloudsync.platformDesktop") : t("cloudsync.platformWeb");
 </script>

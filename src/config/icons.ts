@@ -23,6 +23,7 @@ export const ICONS = {
   "external-link": [{ tag: "path", attrs: {"d": "M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"} }, { tag: "path", attrs: {"d": "M15 3h6v6"} }, { tag: "path", attrs: {"d": "M10 14 21 3"} }],
   "eye": [{ tag: "path", attrs: {"d": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"} }, { tag: "circle", attrs: {"cx": "12", "cy": "12", "r": "3"} }],
   "eye-off": [{ tag: "path", attrs: {"d": "M3 3l18 18"} }, { tag: "path", attrs: {"d": "M10.6 10.6A2 2 0 0 0 13.4 13.4"} }, { tag: "path", attrs: {"d": "M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9 4.5 10 8a12.4 12.4 0 0 1-2.1 3.8"} }, { tag: "path", attrs: {"d": "M6.1 6.1A12.1 12.1 0 0 0 2 12c1 3.5 5 8 10 8 1.5 0 2.9-.4 4.1-1.1"} }],
+  "globe": [{ tag: "circle", attrs: {"cx": "12", "cy": "12", "r": "10"} }, { tag: "line", attrs: {"x1": "2", "y1": "12", "x2": "22", "y2": "12"} }, { tag: "path", attrs: {"d": "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"} }],
   "headphones": [{ tag: "path", attrs: {"d": "M3 14h3v5H3z"} }, { tag: "path", attrs: {"d": "M18 14h3v5h-3z"} }, { tag: "path", attrs: {"d": "M4 14a8 8 0 0 1 16 0"} }],
   "headphones-off": [{ tag: "path", attrs: {"d": "M3 14h3v5H3z"} }, { tag: "path", attrs: {"d": "M18 14h3v5h-3z"} }, { tag: "path", attrs: {"d": "M4 14a8 8 0 0 1 16 0"} }, { tag: "line", attrs: {"x1": "4", "y1": "4", "x2": "20", "y2": "20"} }],
   "heart": [{ tag: "path", attrs: {"d": "M12 21s-7.5-4.7-9.8-9.2C.4 8.6 2.7 5 6.5 5c2.2 0 3.9 1.2 5.5 3.2C13.6 6.2 15.3 5 17.5 5c3.8 0 6.1 3.6 4.3 6.8C19.5 16.3 12 21 12 21Z"} }],
