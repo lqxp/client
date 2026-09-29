@@ -35,12 +35,12 @@
 
 ## Features
 
-★ **Encrypted rooms & DMs** — AES-GCM client-side, token invites, roles, threads, reactions.
-★ **Voice calls** — WebRTC P2P audio, TURN fallback, per-user volume, noise gate.
-★ **Device sync** — QxCloudSync pairs phone, desktop and web with a 12-word secret.
-★ **Tor view** — live circuit map, relay directory, per-hop geo (desktop).
-★ **Privacy modes** — client lock, RAM-only OPSEC, decoy vault, streamer mode.
-★ **Expression** — polls, whiteboard, spoiler particles, custom themes, EN/FR/RU/ES.
+- ★ **Encrypted rooms & DMs** — AES-GCM client-side, token invites, roles, threads, reactions.
+- ★ **Voice calls** — WebRTC P2P audio, TURN fallback, per-user volume, noise gate.
+- ★ **Device sync** — QxCloudSync pairs phone, desktop and web with a 12-word secret.
+- ★ **Tor view** — live circuit map, relay directory, per-hop geo (desktop).
+- ★ **Privacy modes** — client lock, RAM-only OPSEC, decoy vault, streamer mode.
+- ★ **Expression** — polls, whiteboard, spoiler particles, custom themes, EN/FR/RU/ES.
 
 ---
 
