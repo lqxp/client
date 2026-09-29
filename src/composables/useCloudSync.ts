@@ -515,17 +515,18 @@ export function useCloudSync(ctx: CloudSyncCtx) {
 
   function sendTo(peerWs: string, encrypted: unknown): string {
     const requestId = globalThis.crypto.randomUUID();
-    ctx.send({
-      op: 60,
-      d: { toClientId: peerWs || "", encrypted, requestId },
-    });
-    // Tracked for the server ack: leak bound (acks or the sweep remove
-    // them; past the TTL they are forgotten).
+    // Track BEFORE send: a (mock or loopback) transport may deliver the ack
+    // synchronously inside ctx.send(), and the ack must find its frame.
+    // Leak bound: acks or the sweep remove entries past the TTL.
     inflight.set(requestId, { to: peerWs || "", encrypted, at: Date.now() });
     if (inflight.size > 500) {
       const oldest = [...inflight.entries()].sort((a, b) => a[1].at - b[1].at);
       for (const [id] of oldest.slice(0, inflight.size - 500)) inflight.delete(id);
     }
+    ctx.send({
+      op: 60,
+      d: { toClientId: peerWs || "", encrypted, requestId },
+    });
     return requestId;
   }
 
@@ -1149,12 +1150,16 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const existing = sessions.get(signed.fromDeviceId);
       if (existing && Date.now() - (existing.lastInboundAt || 0) <= STALE_ROUTE_MS) return;
       // "Pair" race from both sides: the smallest deviceId wins, the other
-      // drops its attempt and answers.
+      // answers. Our own attempt is KEPT (never deleted here): deleting it
+      // would also destroy the initiator state needed to complete legs
+      // where we are the designated answerer, which deadlocks mutual
+      // handshakes at 3+ devices (each side's accept references a hello
+      // the other side already dropped). Unanswered own hellos are swept
+      // after 120 s; each pair completes exactly once via the larger id.
       const ownRecent = [...pending.values()].find(
         (p) => !p.peerHello && Date.now() - p.createdAt < 60_000,
       );
       if (ownRecent && d.id < signed.fromDeviceId) return;
-      if (ownRecent) pending.delete(ownRecent.syncId);
       const eph = await generateEphKeyPair();
       const mlkemB = ml_kem768.keygen();
       const slh = await ensureSlhDevice();
