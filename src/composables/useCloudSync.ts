@@ -311,6 +311,32 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   const lastRekeyResendAt = new Map<string, number>();
   // Saut d'epoch maximal absorbé sans re-handshake (rekey manqué).
   const MAX_EPOCH_JUMP = 10;
+  // ── Relais maillé (serveur ≥ op 62/63 + acks op 60 enrichis) ─────────────
+  // Chaque frame op 60 part avec un requestId suivi ici : l'ack serveur
+  // ({ ok, delivered, dropped, peers, peerCount }) permet de détecter une
+  // route unicast morte immédiatement au lieu d'attendre STALE_ROUTE_MS.
+  interface InflightFrame {
+    to: string;
+    encrypted: unknown;
+    at: number;
+  }
+  const inflight = new Map<string, InflightFrame>();
+  const INFLIGHT_TTL_MS = 120_000;
+  // Cooldowns anti-tempête : fallback broadcast 1/30s/pair, retry même route
+  // 1/10s/pair, hello proactif (annuaire/présence) 1/30s global.
+  const lastAutoFallbackAt = new Map<string, number>();
+  const lastAckRetryAt = new Map<string, number>();
+  let lastProactiveHelloAt = 0;
+  const AUTO_FALLBACK_MS = 30_000;
+  const ACK_RETRY_MS = 10_000;
+  const PROACTIVE_HELLO_MS = 30_000;
+  // Annuaire op 62 : requestIds en vol (réponses périmées ignorées).
+  const pendingPeersReq = new Set<string>();
+  // Capacités du relais : true dès le premier ack op 60 portant `delivered`
+  // (nouveau serveur). RAM-only : un vieux serveur n'active jamais fetchPeers
+  // (pas de toast "Unknown operation"), un serveur mis à jour l'active au
+  // premier ack.
+  let relayMeshCaps = false;
 
   function routeFor(sess: PeerSession): string {
     if (!sess.peerWs) return "";
@@ -488,11 +514,27 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  function sendTo(peerWs: string, encrypted: unknown): void {
+  function sendTo(peerWs: string, encrypted: unknown): string {
+    const requestId = globalThis.crypto.randomUUID();
     ctx.send({
       op: 60,
-      d: { toClientId: peerWs || "", encrypted, requestId: globalThis.crypto.randomUUID() },
+      d: { toClientId: peerWs || "", encrypted, requestId },
     });
+    // Suivi pour l'ack serveur : borne anti-fuites (les acks ou le sweep
+    // les retirent ; au-delà du TTL elles sont oubliées).
+    inflight.set(requestId, { to: peerWs || "", encrypted, at: Date.now() });
+    if (inflight.size > 500) {
+      const oldest = [...inflight.entries()].sort((a, b) => a[1].at - b[1].at);
+      for (const [id] of oldest.slice(0, inflight.size - 500)) inflight.delete(id);
+    }
+    return requestId;
+  }
+
+  function sweepInflight(): void {
+    const cutoff = Date.now() - INFLIGHT_TTL_MS;
+    for (const [id, f] of inflight) {
+      if (f.at < cutoff) inflight.delete(id);
+    }
   }
 
   // Identité SLH-DSA (FIPS 205) du device : paire long-terme. Au repos elle
@@ -1816,12 +1858,162 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
+  // ── Ack op 60 : rapport de livraison du relais ───────────────────────────
+  // { ok, delivered, dropped, peers, peerCount, requestId } — ou { error }.
+  // Un unicast à delivered == 0 = route morte : on renvoie UNE fois en
+  // broadcast (cooldown 30s/pair) puis on relit l'annuaire, au lieu de
+  // pousser dans le vide jusqu'au fallback STALE_ROUTE_MS.
+  async function handleSyncAck(d: Record<string, unknown>): Promise<void> {
+    if (!state.enabled || suspended()) return;
+    const err = String(d.error || "");
+    if (err) {
+      // Erreurs relais rendues visibles (avant : aucun case 60, donc
+      // invisibles). Rate limit : diagnostic discret, pas de toast en boucle.
+      state.lastError = err;
+      state.diag.failed += 1;
+      if (err !== "Rate limit exceeded") setError(err);
+      return;
+    }
+    if (d.ok !== true) return;
+    // Vieux serveur (ack { ok, requestId } sans rapport) : rien à déduire,
+    // surtout pas delivered == 0 → sinon chaque unicast déclencherait un
+    // broadcast redondant + un annuaire inexistant.
+    if (!("delivered" in d)) return;
+    relayMeshCaps = true;
+    const reqId = String(d.requestId || "");
+    const frame = reqId ? inflight.get(reqId) : undefined;
+    if (reqId) inflight.delete(reqId);
+    if (!frame) return;
+    const delivered = Number(d.delivered || 0);
+    const dropped = Number(d.dropped || 0);
+    const to = frame.to;
+    if (!to) return; // broadcast : rien à réparer, le fan-out a parlé.
+    const sess = [...sessions.values()].find((s) => s.peerWs === to);
+    if (delivered === 0) {
+      // Route unicast morte (pair déconnecté, onglet rechargé…).
+      if (sess) sess.lastInboundAt = 0; // force le broadcast dès le prochain push.
+      const now = Date.now();
+      if (now - (lastAutoFallbackAt.get(to) || 0) >= AUTO_FALLBACK_MS) {
+        lastAutoFallbackAt.set(to, now);
+        sendTo("", frame.encrypted); // un seul rattrapage broadcast.
+        void fetchPeers().catch(() => {});
+      }
+      return;
+    }
+    if (dropped > 0 && sess) {
+      // File du pair congestionnée : UN retry même route, pas de broadcast
+      // (inutile : le pair est connecté, sa queue est juste pleine).
+      const now = Date.now();
+      if (now - (lastAckRetryAt.get(to) || 0) >= ACK_RETRY_MS) {
+        lastAckRetryAt.set(to, now);
+        sendTo(to, frame.encrypted);
+      }
+    }
+  }
+
+  // ── Annuaire op 62 : réapprendre le maillage ──────────────────────────────
+  function fetchPeers(): Promise<void> {
+    if (!state.enabled || suspended() || !hasWordsQuiet()) return Promise.resolve();
+    if (!relayMeshCaps) return Promise.resolve(); // vieux serveur : op 62 inconnue.
+    const requestId = globalThis.crypto.randomUUID();
+    pendingPeersReq.add(requestId);
+    ctx.send({ op: 62, d: { requestId } });
+    return Promise.resolve();
+  }
+
+  // Hello proactif vers un pair sans session (annuaire/présence) : un seul
+  // broadcast suffit (tous les siblings le reçoivent, seul le détenteur des
+  // mots répond). Garde globale 30s + logique anti-course Pair existante.
+  function proactiveHello(): void {
+    if (!state.enabled || suspended() || !hasWordsQuiet()) return;
+    const now = Date.now();
+    if (now - lastProactiveHelloAt < PROACTIVE_HELLO_MS) return;
+    lastProactiveHelloAt = now;
+    void sendHello().catch(() => {});
+  }
+
+  // Réconcilie l'annuaire/présence avec nos sessions : tout clientId listé
+  // sans session live (et sans handshake récent) déclenche un hello.
+  function reconcileMeshPeers(listed: Array<{ clientId: string }>, selfWs: string): void {
+    if (!state.enabled || suspended() || !hasWordsQuiet()) return;
+    const knownWs = new Set<string>();
+    for (const s of sessions.values()) {
+      if (s.peerWs) knownWs.add(s.peerWs);
+    }
+    for (const p of pending.values()) {
+      if (p.peerWs) knownWs.add(p.peerWs);
+    }
+    const missing = listed
+      .map((p) => String(p?.clientId || ""))
+      .filter((id) => id && id !== selfWs && !knownWs.has(id));
+    if (missing.length) proactiveHello();
+  }
+
+  async function handlePeersDirectory(d: Record<string, unknown>): Promise<void> {
+    if (!state.enabled || suspended()) return;
+    if (d.ok !== true) return;
+    const reqId = String(d.requestId || "");
+    if (reqId) {
+      if (!pendingPeersReq.has(reqId)) return; // réponse périmée.
+      pendingPeersReq.delete(reqId);
+    }
+    const peers = Array.isArray(d.peers) ? d.peers as Array<{ clientId: string }> : [];
+    reconcileMeshPeers(peers, String(d.self || ""));
+  }
+
+  // ── Présence op 63 : join/update/leave ─────────────────────────────────────
+  async function handlePresenceEvent(d: Record<string, unknown>): Promise<void> {
+    if (!state.enabled || suspended()) return;
+    const event = String(d.event || "");
+    const clientId = String(d.clientId || "");
+    if (!clientId) return;
+    if (event === "leave") {
+      // Le pair est parti : marquer la leg stale aussitôt (le prochain push
+      // part en broadcast via routeFor) au lieu de pousser dans le vide.
+      let touched = false;
+      for (const s of sessions.values()) {
+        if (s.peerWs === clientId) {
+          s.lastInboundAt = 0;
+          touched = true;
+        }
+      }
+      if (touched) {
+        syncPeerCards();
+        notifyLocalChange(); // push de rattrapage (broadcast) sous 2,5 s.
+      }
+      return;
+    }
+    if (event === "join") {
+      const known = [...sessions.values()].some((s) => s.peerWs === clientId)
+        || [...pending.values()].some((p) => p.peerWs === clientId);
+      if (!known) proactiveHello();
+      return;
+    }
+    if (event === "update") {
+      const platform = normalizePlatform(d.platform);
+      let touched = false;
+      for (const s of sessions.values()) {
+        if (s.peerWs === clientId && s.platform !== platform) {
+          s.platform = platform;
+          touched = true;
+        }
+      }
+      if (touched) {
+        syncPeerCards();
+        await saveSessions();
+      }
+    }
+  }
+
   // ── Rotation auto 7j + auto-sync 90s ───────────────────────────────────────
   function startRekeyScheduler() {
     stopRekeyScheduler();
     void tryRestore().then(() => {
       syncPeerCards();
       scheduleAutoHello();
+      // Maillage : relire l'annuaire au boot pour handshaker les pairs déjà
+      // en ligne (fetchPeers → reconcile → hello proactif si manquant).
+      void fetchPeers().catch(() => {});
     });
     try {
       if (!themeWatchInstalled) {
@@ -1853,11 +2045,14 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     autoSyncTimer = setInterval(() => {
       void (async () => {
         if (!state.enabled || suspended()) return;
-        // Balaye les handshakes orphelins (> 2 min).
+        // Balaye les handshakes orphelins (> 2 min) et les frames op 60 sans
+        // ack (> 2 min : le relais ne répondra plus).
         const now = Date.now();
         for (const [id, p] of pending) {
           if (now - p.createdAt > 120_000) pending.delete(id);
         }
+        sweepInflight();
+        if (pendingPeersReq.size > 20) pendingPeersReq.clear();
         // Montée en gamme : le lock vient d'être activé, on scelle les blobs.
         await migrateBlobsToLock().catch(() => {});
         // Les mots sont arrivés après le boot ? Restaure les pairs connus.
@@ -2007,6 +2202,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     markRoomLeft,
     clearRoomLeft,
     handleSyncMessage,
+    handleSyncAck,
+    handlePeersDirectory,
+    handlePresenceEvent,
+    fetchPeers,
     startRekeyScheduler,
     stopRekeyScheduler,
     setEnabled,

@@ -49,6 +49,9 @@ const unsubCloudSyncPersist = messenger.subscribePersistChange(() => {
 });
 setCloudSyncMessageHandler((op, d) => {
   if (op === 61) void cloudSync.handleSyncMessage(d);
+  else if (op === 60) void cloudSync.handleSyncAck(d);
+  else if (op === 62) void cloudSync.handlePeersDirectory(d);
+  else if (op === 63) void cloudSync.handlePresenceEvent(d);
 });
 setRoomDeletedListener((roomId) => {
   cloudSync.markRoomDeleted(roomId);

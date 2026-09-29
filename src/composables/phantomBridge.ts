@@ -17,8 +17,10 @@ export function dispatchPhantomMessage(op: number, d: Record<string, unknown>): 
 }
 
 /**
- * Pont QxCloudSync : l'op WS 61 (relais pur same-user, op 60→61) est relayée
- * ici sans coupler useMessenger et useCloudSync. Le serveur ne stocke rien.
+ * Pont QxCloudSync : les ops WS 60 (ack + erreurs), 61 (relais pur same-user,
+ * op 60→61), 62 (annuaire des pairs) et 63 (présence join/update/leave) sont
+ * relayées ici sans coupler useMessenger et useCloudSync. Le serveur ne
+ * stocke rien.
  */
 export function setCloudSyncMessageHandler(next: PhantomMessageHandler | null): void {
   cloudSyncHandler = next;
