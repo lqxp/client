@@ -23,7 +23,7 @@ function hideThemeSwitch() {
 const pinLength = computed(() => Number(props.messenger.state.clientLockPinLength) || 6);
 const failedAttempts = computed(() => Number(props.messenger.state.clientLockFailedAttempts) || 0);
 const remainingAttempts = computed(() => Math.max(0, Number(props.messenger.state.clientLockMaxFailedAttempts || 10) - failedAttempts.value));
-const FALLBACK_LOGO = "https://qxch.at/app-icon.svg";
+const FALLBACK_LOGO = "/favicon.svg";
 const lockIdentityHidden = computed(() => props.messenger.state.opsecHideLockIdentity !== false);
 const username = computed(() => String(props.messenger.state.username || props.messenger.state.clientLockDisplayName || "").trim());
 const displayName = computed(() => lockIdentityHidden.value ? t("lock.hiddenUser") : username.value || "QxChat");
