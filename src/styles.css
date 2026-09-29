@@ -1529,6 +1529,47 @@ textarea {
   transition: color var(--dur-fast) var(--ease-out);
 }
 
+.status-custom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 9px;
+}
+
+.status-custom__input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.status-custom__input::placeholder {
+  color: var(--muted);
+}
+
+.status-custom__save,
+.status-custom__clear {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+.status-custom__save svg,
+.status-custom__clear svg {
+  width: 15px;
+  height: 15px;
+}
+
+.status-custom__save {
+  color: var(--accent);
+}
+
 /* The platform's menu highlight: the row fills with the accent and every
    piece of text on it turns white, the check included. Pointer devices only:
    the phone sheet keeps its own pressed state, and white text on it would

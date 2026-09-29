@@ -43,3 +43,29 @@ export function setRoomDeletedListener(next: RoomDeletedListener | null): void {
 export function notifyRoomDeleted(roomId: string): void {
   if (roomDeletedListener && roomId) roomDeletedListener(roomId);
 }
+
+export type RoomLeaveListener = (roomId: string) => void;
+
+let roomLeftListener: RoomLeaveListener | null = null;
+let roomJoinedListener: RoomLeaveListener | null = null;
+
+/**
+ * Pont leave/join : quand ce client quitte (ou rejoint) une room, QxCloudSync
+ * propage l'action aux pairs (tombstones `left`, 30 j). Sans ça le merge
+ * union-only ne fait jamais partir l'autre client.
+ */
+export function setRoomLeftListener(next: RoomLeaveListener | null): void {
+  roomLeftListener = next;
+}
+
+export function setRoomJoinedListener(next: RoomLeaveListener | null): void {
+  roomJoinedListener = next;
+}
+
+export function notifyRoomLeft(roomId: string): void {
+  if (roomLeftListener && roomId) roomLeftListener(roomId);
+}
+
+export function notifyRoomJoined(roomId: string): void {
+  if (roomJoinedListener && roomId) roomJoinedListener(roomId);
+}

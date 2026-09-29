@@ -66,7 +66,8 @@ export interface CloudSyncCtx {
   send: (payload: Record<string, unknown>) => void;
   persist?: () => void;
   importRoomKey?: (roomId: string, roomKey: string) => void;
-  requestJoin?: (roomId: string) => void;
+  requestJoin?: (roomId: string, options?: Record<string, unknown>) => void;
+  leaveRoom?: (roomId: string) => void;
   showToast?: (msg: string, opts?: { error?: boolean }) => void;
   /** Clé AES-GCM du client lock, disponible uniquement déverrouillé. */
   getActiveLockKey?: () => CryptoKey | null;
@@ -133,6 +134,10 @@ export const PARAM_GROUPS = {
     "spotlightSearchEnabled",
     "notificationPrivacy",
     "androidNotificationsEnabled",
+    "status",
+    // Clé pointée : le customStatus vit dans state.profile, géré en
+    // special-case dans build/apply (pas de lecture/écriture directe).
+    "profile.customStatus",
   ],
   // Groupe logique uniquement (la langue vit dans useI18n, pas dans le
   // messenger) : exclu de enabledParamKeys(), géré comme collection dédiée.
@@ -269,9 +274,13 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     lastThemeAt: (persisted.lastThemeAt || 0) as number,
     lastLocaleAt: (persisted.lastLocaleAt || 0) as number,
     lastPinsAt: (persisted.lastPinsAt || 0) as number,
+    lastCustomStatusAt: (persisted.lastCustomStatusAt || 0) as number,
     // Tombstones (roomId → deletedAt) + suppressions appliquées : 30 j.
     tombstones: ((persisted.tombstones || {}) as Record<string, number>),
     appliedDeletes: ((persisted.appliedDeletes || {}) as Record<string, number>),
+    // Leaves synchronisés (roomId → leftAt) + leaves appliqués : 30 j.
+    leftRooms: ((persisted.leftRooms || {}) as Record<string, number>),
+    appliedLeft: ((persisted.appliedLeft || {}) as Record<string, number>),
     phase: "idle" as "idle" | "hello-sent" | "paired",
     diag: { sent: 0, received: 0, applied: 0, failed: 0 },
     conflicts: [] as RoomKeyConflict[],
@@ -296,8 +305,11 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       lastThemeAt: state.lastThemeAt,
       lastLocaleAt: state.lastLocaleAt,
       lastPinsAt: state.lastPinsAt,
+      lastCustomStatusAt: state.lastCustomStatusAt,
       tombstones: { ...state.tombstones },
       appliedDeletes: { ...state.appliedDeletes },
+      leftRooms: { ...state.leftRooms },
+      appliedLeft: { ...state.appliedLeft },
     });
   }
 
@@ -318,6 +330,18 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         changed = true;
       }
     }
+    for (const [roomId, at] of Object.entries(state.leftRooms)) {
+      if (!at || at < cutoff) {
+        delete state.leftRooms[roomId];
+        changed = true;
+      }
+    }
+    for (const [roomId, at] of Object.entries(state.appliedLeft)) {
+      if (!at || at < cutoff) {
+        delete state.appliedLeft[roomId];
+        changed = true;
+      }
+    }
     if (changed) persistSettings();
   }
 
@@ -335,8 +359,35 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const now = Date.now();
     state.tombstones[id] = Math.max(state.tombstones[id] || 0, now);
     state.appliedDeletes[id] = Math.max(state.appliedDeletes[id] || 0, now);
+    delete state.leftRooms[id];
+    delete state.appliedLeft[id];
     pruneTombstones();
     persistSettings();
+  }
+
+  // Enregistre un leave local (via notifyRoomLeft) : les pairs quitteront à
+  // leur tour (leur propre op 4). Un rejoin explicite efface la marque.
+  function markRoomLeft(roomId: string): void {
+    const id = String(roomId || "");
+    if (!id || isRoomDeleted(id)) return;
+    state.leftRooms[id] = state.leftRooms[id] || Date.now();
+    pruneTombstones();
+    persistSettings();
+  }
+
+  function clearRoomLeft(roomId: string): void {
+    const id = String(roomId || "");
+    if (!id) return;
+    if (id in state.leftRooms || id in state.appliedLeft) {
+      delete state.leftRooms[id];
+      delete state.appliedLeft[id];
+      persistSettings();
+    }
+  }
+
+  function isRoomLeft(roomId: string): boolean {
+    const at = state.leftRooms[String(roomId || "")];
+    return !!at && at > Date.now() - TOMBSTONE_TTL_MS;
   }
 
   function syncPeerCards() {
@@ -1173,6 +1224,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         .filter(([, at]) => at && at > Date.now() - TOMBSTONE_TTL_MS)
         .map(([roomId, at]) => ({ roomId, deletedAt: at, by: device().id }));
       if (tombEntries.length) collections.deleted = tombEntries;
+      const leftEntries = Object.entries(state.leftRooms)
+        .filter(([roomId, at]) => at && at > Date.now() - TOMBSTONE_TTL_MS && !isRoomDeleted(roomId))
+        .map(([roomId, at]) => ({ roomId, leftAt: at, by: device().id }));
+      if (leftEntries.length) collections.left = leftEntries;
       const notes = (s.roomNotes as Record<string, string>) || {};
       if (Object.keys(notes).length) {
         collections.notes = Object.fromEntries(
@@ -1204,7 +1259,14 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (state.domains.params) {
       const params: NonNullable<SyncCollections["params"]> = {};
       for (const k of enabledParamKeys()) {
+        if (k === "profile.customStatus") continue;
         if (s[k] !== undefined) params[k] = { value: s[k], updatedAt: Date.now(), by: device().id };
+      }
+      if (state.paramGroups.behavior) {
+        const cs = String(
+          (s.profile as Record<string, unknown> | undefined)?.customStatus || "",
+        ).slice(0, 60);
+        params["profile.customStatus"] = { value: cs, updatedAt: Date.now(), by: device().id };
       }
       collections.params = params;
     }
@@ -1313,12 +1375,25 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const merged = mergeParams(
         Object.fromEntries(
           Object.keys(c.params)
-            .filter((k) => allowed.has(k))
+            .filter((k) => allowed.has(k) && k !== "profile.customStatus")
             .map((k) => [k, { value: (s as Record<string, unknown>)[k], updatedAt: 0, by: "" }]),
         ),
-        Object.fromEntries(Object.entries(c.params).filter(([k]) => allowed.has(k))),
+        Object.fromEntries(
+          Object.entries(c.params).filter(([k]) => allowed.has(k) && k !== "profile.customStatus"),
+        ),
       );
-      for (const [k, v] of Object.entries(merged)) (s as Record<string, unknown>)[k] = v.value;
+      for (const [k, v] of Object.entries(merged)) {
+        if (k === "status" && !["online", "invisible", "dnd"].includes(String(v.value))) continue;
+        (s as Record<string, unknown>)[k] = v.value;
+      }
+      const pcs = c.params["profile.customStatus"];
+      if (pcs && state.paramGroups.behavior && typeof pcs.updatedAt === "number") {
+        if (pcs.updatedAt > state.lastCustomStatusAt && typeof pcs.value === "string") {
+          const cur = (s.profile as Record<string, unknown>) || {};
+          s.profile = { ...cur, customStatus: pcs.value.slice(0, 60) };
+          state.lastCustomStatusAt = pcs.updatedAt;
+        }
+      }
     }
     if (c.notes && state.domains.rooms && s.roomNotes) {
       const cur = s.roomNotes as Record<string, string>;
@@ -1351,6 +1426,21 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       }
       pruneTombstones();
     }
+    if (c.left && state.domains.rooms) {
+      for (const e of c.left) {
+        const roomId = String(e.roomId || "");
+        if (!roomId || isRoomDeleted(roomId)) continue;
+        if (!(e.leftAt > (state.appliedLeft[roomId] || 0))) continue;
+        state.appliedLeft[roomId] = e.leftAt;
+        const joined = ((s.joinedRooms as string[]) || []).includes(roomId);
+        if (joined) {
+          // Quitte aussi ici (propre op 4 serveur) ; le leaveRoom local
+          // re-marque sans changer le stamp, donc pas de ping-pong.
+          ctx.leaveRoom?.(roomId);
+        }
+      }
+      pruneTombstones();
+    }
     if (c.pinned && state.domains.rooms) {
       if (c.pinned.updatedAt > state.lastPinsAt) {
         const clean = [...new Set(
@@ -1370,6 +1460,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         const local = localKeys[r.roomId];
         if (!local) {
           // Nouvelle room : unwrap + import + join + titre + membres.
+          // Sauf si quittée ici (tombstone left) : on garde la clé sans join.
+          if (isRoomLeft(r.roomId)) continue;
           try {
             const raw = await unwrapRoomKey(r.roomKeyWrapped, r.roomKeyIv, wrapKey);
             ctx.importRoomKey?.(r.roomId, raw);
@@ -1381,7 +1473,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
                 s.usersByRoom = usersByRoom;
               }
             }
-            if (!(s.joinedRooms as string[] || []).includes(r.roomId)) ctx.requestJoin?.(r.roomId);
+            if (!(s.joinedRooms as string[] || []).includes(r.roomId)) {
+              ctx.requestJoin?.(r.roomId, { clearLeftMark: false });
+            }
           } catch {
             /* enveloppe illisible : silence */
           }
@@ -1802,7 +1896,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     notifyLocalChange,
     isApplying: () => applying,
     isRoomDeleted,
+    isRoomLeft,
     markRoomDeleted,
+    markRoomLeft,
+    clearRoomLeft,
     handleSyncMessage,
     startRekeyScheduler,
     stopRekeyScheduler,

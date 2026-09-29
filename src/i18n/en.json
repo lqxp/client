@@ -260,7 +260,10 @@
     "statusOptions": "Status",
     "onlineHint": "Visible to everyone",
     "invisibleHint": "Appear offline to others",
-    "dndHint": "Mute every notification"
+    "dndHint": "Mute every notification",
+    "statusCustomPlaceholder": "Custom status…",
+    "statusSave": "Save status",
+    "statusClear": "Clear status"
   },
   "members": {
     "presence": "Presence",

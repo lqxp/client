@@ -116,6 +116,9 @@ export interface SyncCollections {
   // Tombstones de rooms supprimées (30 j) : empêchent la résurrection par un
   // vieux snapshot. Appliquées une fois par deletedAt croissant.
   deleted?: Array<{ roomId: string; deletedAt: number; by: string }>;
+  // Leaves synchronisés (30 j) : quitter ici fait quitter les pairs (qui
+  // envoient leur propre op 4). Appliqués une fois par leftAt croissant.
+  left?: Array<{ roomId: string; leftAt: number; by: string }>;
 }
 
 export interface RoomKeyConflict {
@@ -369,6 +372,7 @@ export function splitCollectionsForRelay(inner: SyncInner): SyncInner[] {
   if (c.locale) head.locale = c.locale;
   if (c.pinned) head.pinned = c.pinned;
   if (c.deleted?.length) head.deleted = c.deleted;
+  if (c.left?.length) head.left = c.left;
   if (Object.keys(head).length) {
     parts.push({ kind: inner.kind, vv: inner.vv, collections: head });
   }

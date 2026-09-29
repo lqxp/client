@@ -253,7 +253,10 @@
     "statusOptions": "Estado",
     "onlineHint": "Visible para todos",
     "invisibleHint": "Desconectado para los demás",
-    "dndHint": "Silenciar todas las notificaciones"
+    "dndHint": "Silenciar todas las notificaciones",
+    "statusCustomPlaceholder": "Estado personalizado…",
+    "statusSave": "Guardar",
+    "statusClear": "Borrar estado"
   },
   "members": {
     "presence": "Presencia",

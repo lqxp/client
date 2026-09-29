@@ -260,7 +260,10 @@
     "statusOptions": "Statut",
     "onlineHint": "Visible par tout le monde",
     "invisibleHint": "Hors ligne pour les autres",
-    "dndHint": "Couper toutes les notifications"
+    "dndHint": "Couper toutes les notifications",
+    "statusCustomPlaceholder": "Statut personnalisé…",
+    "statusSave": "Enregistrer",
+    "statusClear": "Effacer le statut"
   },
   "members": {
     "presence": "Présence",

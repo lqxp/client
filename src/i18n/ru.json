@@ -285,7 +285,10 @@
     "statusOptions": "Статус",
     "onlineHint": "Виден всем",
     "invisibleHint": "Не в сети для других",
-    "dndHint": "Отключить все уведомления"
+    "dndHint": "Отключить все уведомления",
+    "statusCustomPlaceholder": "Свой статус…",
+    "statusSave": "Сохранить",
+    "statusClear": "Убрать статус"
   },
   "members": {
     "presence": "Присутствие",

@@ -88,7 +88,7 @@ import {
   setCustomThemeEnabled,
   snapshotCustomTheme,
 } from "./useCustomTheme";
-import { dispatchPhantomMessage, dispatchCloudSyncMessage, notifyRoomDeleted } from "./phantomBridge";
+import { dispatchPhantomMessage, dispatchCloudSyncMessage, notifyRoomDeleted, notifyRoomLeft, notifyRoomJoined } from "./phantomBridge";
 import { dedupeBadgeArtwork } from "@/config/badges";
 import { createNoticeFence } from "@/utils/noticeFence";
 import { usableImage } from "@/utils/brokenImages";
@@ -5445,7 +5445,14 @@ function createMessenger() {
     if (!roomId) return false;
     const meta = roomMeta(roomId);
     if (meta.kind !== "community") {
-      return isOwnMessage(message) || Boolean(state.admin);
+      // Bouton affiché seulement pour ses propres messages (user_id vérifié
+      // quand connu : les pseudos peuvent être repris) ou aux admins serveur.
+      // Le serveur réapplique le contrôle par user_id de toute façon.
+      return (
+        (isOwnMessage(message) &&
+          (!message.userId || message.userId === state.userId)) ||
+        Boolean(state.admin)
+      );
     }
     if (isOwnMessage(message)) return true;
     const actorRole = myRoleInRoom(roomId);
@@ -7143,6 +7150,9 @@ function createMessenger() {
       return;
     }
     if (!state.identified) return;
+    // Un join explicite annule un "leave" synchronisé en attente, sauf quand
+    // l'appel vient d'un import d'état distant (sync) plutôt que d'un vrai join.
+    if (options?.clearLeftMark !== false) notifyRoomJoined(id);
     if (state.joinedRooms.includes(id)) return;
     if (state.pendingJoinRooms.includes(id)) {
       if (!options?.force) return;
@@ -7205,13 +7215,15 @@ function createMessenger() {
   function leaveRoom(roomId: string) {
     const id = sanitizeRoomId(roomId || state.activeRoom);
     if (!id || !isValidRoomId(id)) return;
+    const wasJoined = state.joinedRooms.includes(id);
 
     if (
       !state.connected ||
       !state.identified ||
-      !state.joinedRooms.includes(id)
+      !wasJoined
     ) {
       removeRoom(id);
+      if (wasJoined) notifyRoomLeft(id);
       return;
     }
 
@@ -7236,6 +7248,9 @@ function createMessenger() {
       persist();
     }
     send({ op: 4, d: { gameId: id } });
+    // Propage le leave aux pairs QxCloudSync (tombstone `left`) : le merge
+    // union-only ne le ferait jamais partir de l'autre client.
+    notifyRoomLeft(id);
   }
 
   function leaveAllRooms(deleteMessages = false) {
@@ -8818,12 +8833,29 @@ function createMessenger() {
     }
   }
 
+  // Snapshots pré-suppression optimiste : si le serveur refuse (op 21 en
+  // erreur : pas l'auteur), on restaure le message au lieu de laisser une
+  // suppression locale fantôme. Sans ça, un refus serveur restait affiché
+  // comme supprimé uniquement pour le demandeur.
+  const pendingDeleteStash = new Map<
+    string,
+    { roomId: string; snapshot: string }
+  >();
+
   function deleteMessage(message: ChatMessage) {
     if (!message?.messageId) return;
     const gameId = sanitizeRoomId(message.roomId || state.activeRoom);
     if (!gameId) return;
     if (state.editingMessage?.messageId === message.messageId)
       cancelEditMessage();
+    try {
+      pendingDeleteStash.set(String(message.messageId), {
+        roomId: gameId,
+        snapshot: JSON.stringify(message),
+      });
+    } catch {
+      /* pas de rollback possible, on envoie quand même */
+    }
     // Optimistic local delete: mark the message as deleted right away so the
     // bubble shows the "Message Deleted" placeholder immediately, matching
     // what the server history returns after a reload.
@@ -9449,6 +9481,38 @@ function createMessenger() {
       case 20:
         applyReactions(d);
         break;
+      case 21: {
+        // Ack suppression : ok → on oublie le snapshot ; erreur (pas
+        // l'auteur, message inconnu…) → rollback du delete optimiste.
+        const ackId = String(d?.messageId || "");
+        const stashed = ackId ? pendingDeleteStash.get(ackId) : undefined;
+        if (ackId) pendingDeleteStash.delete(ackId);
+        if (d?.error) {
+          if (stashed) {
+            try {
+              const restored = JSON.parse(stashed.snapshot) as Record<string, unknown>;
+              const list = state.messagesByRoom[stashed.roomId] || [];
+              const idx = list.findIndex(
+                (m) => String((m as Record<string, unknown>)?.messageId || "") === ackId,
+              );
+              if (idx >= 0) list.splice(idx, 1, restored as never);
+              else list.push(restored as never);
+              list.sort(
+                (a, b) =>
+                  Number((a as Record<string, unknown>)?.timestamp || 0) -
+                  Number((b as Record<string, unknown>)?.timestamp || 0),
+              );
+              state.messagesByRoom[stashed.roomId] = list;
+              persist();
+            } catch {
+              /* le prochain historique remettra d'équerre */
+            }
+          }
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""), { error: true });
+        }
+        break;
+      }
       case 22:
         applyDeletion(d);
         break;

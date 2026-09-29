@@ -364,12 +364,31 @@ function joinRoomFromAddServer() {
 
 function toggleStatusMenu(event: MouseEvent) {
   event.stopPropagation();
+  if (!statusMenuOpen.value) openStatusMenu();
   statusMenuOpen.value = !statusMenuOpen.value;
 }
 
 function setStatus(value: string) {
   props.messenger.setPresenceStatus(value);
   statusMenuOpen.value = false;
+}
+
+const customStatusDraft = ref("");
+
+function openStatusMenu() {
+  customStatusDraft.value = String(
+    (props.messenger.state.profile as unknown as Record<string, unknown>)?.customStatus || "",
+  );
+}
+
+function saveCustomStatus() {
+  props.messenger.setProfileExtras?.({ customStatus: customStatusDraft.value.slice(0, 60) });
+  statusMenuOpen.value = false;
+}
+
+function clearCustomStatus() {
+  customStatusDraft.value = "";
+  props.messenger.setProfileExtras?.({ customStatus: "" });
 }
 
 function toggleAccountMenu(event: MouseEvent) {
@@ -651,6 +670,37 @@ onBeforeUnmount(() => {
                   <path d="M5 12.5l4.5 4.5L19 7.5" />
                 </svg>
               </button>
+              <!-- Statut personnalisé du profil -->
+              <div class="status-custom" @click.stop>
+                <input
+                  v-model="customStatusDraft"
+                  class="status-custom__input"
+                  type="text"
+                  maxlength="60"
+                  autocomplete="off"
+                  :placeholder="t('sidebar.statusCustomPlaceholder')"
+                  @keydown.enter="saveCustomStatus"
+                />
+                <button
+                  v-if="customStatusDraft"
+                  type="button"
+                  class="icon-btn status-custom__clear"
+                  :aria-label="t('sidebar.statusClear')"
+                  :title="t('sidebar.statusClear')"
+                  @click="clearCustomStatus"
+                >
+                  <Icon name="close" viewBox="0 0 24 24" />
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn status-custom__save"
+                  :aria-label="t('sidebar.statusSave')"
+                  :title="t('sidebar.statusSave')"
+                  @click="saveCustomStatus"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                </button>
+              </div>
               <!-- Cancel (mobile only) -->
               <div class="status-menu__separator" aria-hidden="true"></div>
               <button type="button" class="status-menu__cancel" role="menuitem" @click="statusMenuOpen = false">
