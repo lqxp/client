@@ -163,13 +163,55 @@ async function requestRelays() {
     relaysConsent.value = true;
   }
   await loadRelays();
+  // Fetching the directory is routed through the Tor SOCKS proxy, which is
+  // exactly what establishes a circuit on a fresh boot — reload it so the
+  // map appears immediately instead of on the next Settings open.
+  if (!circuit.value?.hops?.length) {
+    await loadCircuit();
+  }
+}
+
+/** (Re)loads everything the map needs once Tor is usable. */
+async function refreshTorView() {
+  if (!torReady.value) return;
+  await loadCircuit();
+  if (!geo.value) await loadGeo();
+  autoLoad();
+  if (!circuit.value?.hops?.length) {
+    scheduleCircuitRetry();
+  }
+}
+
+// The backend only reports a circuit once real traffic has flowed through
+// the Tor SOCKS proxy, so the first read can legitimately be empty (fresh
+// boot, no traffic yet). Retry briefly: background traffic usually
+// establishes a circuit within seconds, and the map then pops in on its
+// own without reopening Settings.
+let circuitRetries = 0;
+const MAX_CIRCUIT_RETRIES = 3;
+let circuitRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearCircuitRetry() {
+  if (circuitRetryTimer) {
+    clearTimeout(circuitRetryTimer);
+    circuitRetryTimer = null;
+  }
+}
+
+function scheduleCircuitRetry() {
+  if (circuitRetryTimer || circuitRetries >= MAX_CIRCUIT_RETRIES) return;
+  circuitRetryTimer = setTimeout(async () => {
+    circuitRetryTimer = null;
+    if (!torReady.value || circuit.value?.hops?.length) return;
+    circuitRetries += 1;
+    await loadCircuit();
+    if (!circuit.value?.hops?.length) scheduleCircuitRetry();
+  }, 5000);
 }
 
 watch(torReady, (ready) => {
   if (!ready) return;
-  void loadCircuit();
-  void loadGeo();
-  autoLoad();
+  void refreshTorView();
 });
 
 let unsubscribe: (() => void) | null = null;
@@ -181,11 +223,17 @@ onMounted(() => {
   });
   fetchTorStatus().then((s) => {
     torStatus.value = s;
+    // Explicit (the watcher already covers the false→true transition, but a
+    // live tor:status event can win the race and leave no transition behind).
+    void refreshTorView();
   }).catch(() => {});
   autoLoad();
 });
 
-onBeforeUnmount(() => unsubscribe?.());
+onBeforeUnmount(() => {
+  clearCircuitRetry();
+  unsubscribe?.();
+});
 </script>
 
 <template>
