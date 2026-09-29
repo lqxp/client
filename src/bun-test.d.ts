@@ -18,6 +18,7 @@ declare module "bun:test" {
     toBeGreaterThan(expected: number): void;
     toBeLessThanOrEqual(expected: number): void;
     toBeDefined(): void;
+    toBeNull(): void;
     toThrow(...args: unknown[]): void;
     not: Matchers;
     rejects: { toThrow(...args: unknown[]): void };
