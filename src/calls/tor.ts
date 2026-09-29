@@ -111,6 +111,16 @@ export async function getCircuit(): Promise<CircuitPath | null> {
   return invoke<CircuitPath | null>("plugin:tor|circuit");
 }
 
+/**
+ * Warms up the Tor circuit with a minimal first-party request (qxch.at)
+ * through the local SOCKS proxy. No third party, no consent needed — unlike
+ * the Onionoo relay directory. Any proxied stream publishes its circuit, so
+ * the Settings map can render without waiting for unrelated app traffic.
+ */
+export async function warmupTorCircuit(): Promise<void> {
+  await invoke("plugin:tor|warmup");
+}
+
 export interface GeoPoint {
   ip: string;
   countryCode: string | null;

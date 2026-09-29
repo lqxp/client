@@ -3,7 +3,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch, type PropType
 import type { Messenger } from "@/composables/useMessenger";
 import { useI18n } from "@/composables/useI18n";
 import type { useDialog } from "@/composables/useDialog";
-import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
+import { onTorStatus, getCircuit, getGeo, getGeoIp, torStatus as fetchTorStatus, isTauriDesktopRuntime as isTorRuntime, warmupTorCircuit, type CircuitPath, type GeoInfo, type TorStatus } from "@/calls/tor";
 import { relayDetailUrl } from "@/calls/torRelays";
 import { countryCoord } from "@/calls/geo";
 import WorldMap from "@/components/WorldMap.vue";
@@ -172,41 +172,56 @@ async function requestRelays() {
 }
 
 /** (Re)loads everything the map needs once Tor is usable. */
+let lastWarmupAt = 0;
+const WARMUP_COOLDOWN_MS = 30_000;
+
 async function refreshTorView() {
   if (!torReady.value) return;
   await loadCircuit();
+  if (!circuit.value?.hops?.length && Date.now() - lastWarmupAt > WARMUP_COOLDOWN_MS) {
+    // No circuit yet (fresh boot, no traffic through the proxy so far):
+    // warm one up with a minimal first-party request — no Onionoo, no
+    // relay-directory consent involved — then read the published circuit.
+    // The TOR map therefore initializes on subsection open instead of
+    // waiting for the relay Refresh button.
+    lastWarmupAt = Date.now();
+    try {
+      await warmupTorCircuit();
+      await loadCircuit();
+    } catch {
+      // Tor still bootstrapping or unreachable: the poll below retries.
+    }
+  }
   if (!geo.value) await loadGeo();
   autoLoad();
   if (!circuit.value?.hops?.length) {
-    scheduleCircuitRetry();
+    scheduleCircuitPoll();
   }
 }
 
 // The backend only reports a circuit once real traffic has flowed through
-// the Tor SOCKS proxy, so the first read can legitimately be empty (fresh
-// boot, no traffic yet). Retry briefly: background traffic usually
-// establishes a circuit within seconds, and the map then pops in on its
-// own without reopening Settings.
-let circuitRetries = 0;
-const MAX_CIRCUIT_RETRIES = 3;
-let circuitRetryTimer: ReturnType<typeof setTimeout> | null = null;
+// the Tor SOCKS proxy. Besides the warm-up above, background app traffic
+// can establish one at any moment, so keep polling (cheap backend-local
+// read) for as long as the section stays open — the map then pops in on
+// its own without reopening Settings and without the relay button.
+let circuitPollTimer: ReturnType<typeof setTimeout> | null = null;
+const CIRCUIT_POLL_MS = 5000;
 
-function clearCircuitRetry() {
-  if (circuitRetryTimer) {
-    clearTimeout(circuitRetryTimer);
-    circuitRetryTimer = null;
+function clearCircuitPoll() {
+  if (circuitPollTimer) {
+    clearTimeout(circuitPollTimer);
+    circuitPollTimer = null;
   }
 }
 
-function scheduleCircuitRetry() {
-  if (circuitRetryTimer || circuitRetries >= MAX_CIRCUIT_RETRIES) return;
-  circuitRetryTimer = setTimeout(async () => {
-    circuitRetryTimer = null;
+function scheduleCircuitPoll() {
+  if (circuitPollTimer) return;
+  circuitPollTimer = setTimeout(async () => {
+    circuitPollTimer = null;
     if (!torReady.value || circuit.value?.hops?.length) return;
-    circuitRetries += 1;
     await loadCircuit();
-    if (!circuit.value?.hops?.length) scheduleCircuitRetry();
-  }, 5000);
+    if (!circuit.value?.hops?.length) scheduleCircuitPoll();
+  }, CIRCUIT_POLL_MS);
 }
 
 watch(torReady, (ready) => {
@@ -231,7 +246,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearCircuitRetry();
+  clearCircuitPoll();
   unsubscribe?.();
 });
 </script>
