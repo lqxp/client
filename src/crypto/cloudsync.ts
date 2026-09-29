@@ -79,6 +79,8 @@ export interface SyncRoomEntry {
   lastRead?: number;
   updatedAt: number;
   by: string;
+  // Membres (usernames, plafonnés) : appliqués uniquement aux rooms importées.
+  members?: string[];
 }
 
 export interface SyncMsgEntry {
@@ -109,6 +111,11 @@ export interface SyncCollections {
   };
   // Langue de l'interface (i18n) : LWW par updatedAt, validée côté réception.
   locale?: { value: string; updatedAt: number; by: string };
+  // Pins (roomIds, ≤5) : LWW sur la liste entière.
+  pinned?: { rooms: string[]; updatedAt: number; by: string };
+  // Tombstones de rooms supprimées (30 j) : empêchent la résurrection par un
+  // vieux snapshot. Appliquées une fois par deletedAt croissant.
+  deleted?: Array<{ roomId: string; deletedAt: number; by: string }>;
 }
 
 export interface RoomKeyConflict {
@@ -360,6 +367,8 @@ export function splitCollectionsForRelay(inner: SyncInner): SyncInner[] {
   if (c.notes && Object.keys(c.notes).length) head.notes = c.notes;
   if (c.customTheme) head.customTheme = c.customTheme;
   if (c.locale) head.locale = c.locale;
+  if (c.pinned) head.pinned = c.pinned;
+  if (c.deleted?.length) head.deleted = c.deleted;
   if (Object.keys(head).length) {
     parts.push({ kind: inner.kind, vv: inner.vv, collections: head });
   }

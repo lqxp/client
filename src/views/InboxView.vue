@@ -8,7 +8,7 @@ import { useMessenger } from "@/composables/useMessenger";
 import { useCustomTheme } from "@/composables/useCustomTheme";
 import { usePhantom } from "@/composables/usePhantom";
 import { useCloudSync } from "@/composables/useCloudSync";
-import { setCloudSyncMessageHandler } from "@/composables/phantomBridge";
+import { setCloudSyncMessageHandler, setRoomDeletedListener } from "@/composables/phantomBridge";
 import { useDialog } from "@/composables/useDialog";
 import { usePermissions } from "@/composables/usePermissions";
 import { useBackground } from "@/composables/useBackground";
@@ -49,6 +49,10 @@ const unsubCloudSyncPersist = messenger.subscribePersistChange(() => {
 });
 setCloudSyncMessageHandler((op, d) => {
   if (op === 61) void cloudSync.handleSyncMessage(d);
+});
+setRoomDeletedListener((roomId) => {
+  cloudSync.markRoomDeleted(roomId);
+  void cloudSync.pushSnapshot().catch(() => {});
 });
 // Le client lock scelle les secrets QxCloudSync : au verrouillage la RAM est
 // purgée, au déverrouillage les sessions sont restaurées.
@@ -587,6 +591,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  setRoomDeletedListener(null);
   unsubCloudSyncPersist();
   unsubCloudSyncLock();
   cloudSync.stopRekeyScheduler();

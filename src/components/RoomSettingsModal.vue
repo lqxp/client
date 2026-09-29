@@ -5,9 +5,11 @@ import type { Messenger } from "@/composables/useMessenger";
 import type { PropType } from "vue";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import { useDialog } from "@/composables/useDialog";
 import ImageCropModal from "@/components/ImageCropModal.vue";
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const dialog = inject<ReturnType<typeof useDialog>>("dialog");
 
 const props = defineProps({
   messenger: { type: Object as PropType<Messenger>, required: true },
@@ -38,6 +40,14 @@ const permissions = ref({
 
 const banned = computed(() => props.messenger.bannedMembers?.(props.roomId) || []);
 const canConfigurePermissions = computed(() => props.messenger.canConfigureModeratorPermissions?.(props.roomId) === true);
+const amOwner = computed(() => props.messenger.isRoomOwner?.(props.roomId) === true);
+const canModerate = computed(() => props.messenger.canModerateRoom?.(props.roomId) === true);
+const members = computed(() => {
+  const list = (props.messenger.state.usersByRoom as Record<string, string[]> | undefined)?.[props.roomId] || [];
+  const self = props.messenger.state.username;
+  return [...new Set(list.map((u) => String(u)).filter(Boolean))].filter((u) => u !== self);
+});
+const deleting = ref(false);
 
 const sections = computed(() => [
   { id: "general", label: t("rooms.sectionGeneral") },
@@ -157,6 +167,26 @@ async function onCropConfirm(file: File) {
 function unban(userId: string) {
   props.messenger.unbanMember?.(props.roomId, userId);
 }
+
+function kickOut(username: string) {
+  const id = props.messenger.userIdForUsername?.(username) || "";
+  if (id) props.messenger.kickMember?.(props.roomId, id);
+}
+
+async function deleteRoomCompletely() {
+  if (deleting.value) return;
+  const ok = dialog
+    ? await dialog.showConfirm(t("rooms.deleteRoomConfirm"), "", { danger: true, confirmLabel: t("rooms.deleteRoom") })
+    : window.confirm(t("rooms.deleteRoomConfirm"));
+  if (!ok) return;
+  deleting.value = true;
+  try {
+    props.messenger.deleteRoom?.(props.roomId);
+    emit("close");
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -238,6 +268,13 @@ function unban(userId: string) {
                 <button type="button" class="btn--ghost" @click="saveDescription">{{ t('rooms.save') }}</button>
               </div>
             </div>
+            <div v-if="amOwner" class="room-settings__field room-settings__danger">
+              <span class="room-settings__label">{{ t('rooms.deleteZone') }}</span>
+              <p class="room-settings__empty">{{ t('rooms.deleteZoneHint') }}</p>
+              <div class="room-settings__actions room-settings__actions--start">
+                <button type="button" class="btn--ghost room-settings__delete" :disabled="deleting" @click="deleteRoomCompletely">{{ t('rooms.deleteRoom') }}</button>
+              </div>
+            </div>
           </section>
 
           <section v-else-if="activeSection === 'moderation'" class="room-settings-page">
@@ -260,8 +297,7 @@ function unban(userId: string) {
             </div>
 
             <div v-if="canConfigurePermissions" class="room-settings__field">
-              <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>
-              <div class="room-settings__perms">
+              <span class="room-settings__label">{{ t('rooms.moderatorPermissions') }}</span>              <div class="room-settings__perms">
                 <label class="room-settings__switch">
                   <input type="checkbox" :checked="permissions.canBan" @change="setPermission('canBan', ($event.target as HTMLInputElement).checked)" />
                   <span class="room-settings__switch-track"></span>
@@ -283,6 +319,16 @@ function unban(userId: string) {
                   <span class="room-settings__switch-label">{{ t('rooms.permCanDelete') }}</span>
                 </label>
               </div>
+            </div>
+            <div v-if="canModerate" class="room-settings__field">
+              <span class="room-settings__label">{{ t('rooms.members') }}</span>
+              <div v-if="members.length" class="room-settings__banned">
+                <div v-for="username in members" :key="username" class="room-settings__banned-row">
+                  <span class="room-settings__banned-name">@{{ username }}</span>
+                  <button type="button" class="btn--ghost" @click="kickOut(username)">{{ t('rooms.kickMemberOut') }}</button>
+                </div>
+              </div>
+              <div v-else class="room-settings__empty">{{ t('rooms.noMembers') }}</div>
             </div>
           </section>
 
@@ -474,6 +520,20 @@ function unban(userId: string) {
   margin-top: 8px;
   display: flex;
   justify-content: flex-end;
+}
+
+.room-settings__actions--start {
+  justify-content: flex-start;
+}
+
+.room-settings__delete {
+  color: #f87171;
+}
+
+.room-settings__danger {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .room-settings__avatar-row {

@@ -230,6 +230,20 @@ export function normalizePlatform(raw: unknown): SyncPlatform {
 
 export type CloudSync = ReturnType<typeof useCloudSync>;
 
+async function idbDelete(roomId: string): Promise<void> {
+  try {
+    const db = await idb();
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).delete(roomId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useCloudSync(ctx: CloudSyncCtx) {
   const persisted = loadSettings() || {};
   const state = reactive({
@@ -253,6 +267,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     lastHandshakeAt: 0,
     lastThemeAt: (persisted.lastThemeAt || 0) as number,
     lastLocaleAt: (persisted.lastLocaleAt || 0) as number,
+    lastPinsAt: (persisted.lastPinsAt || 0) as number,
+    // Tombstones (roomId → deletedAt) + suppressions appliquées : 30 j.
+    tombstones: ((persisted.tombstones || {}) as Record<string, number>),
+    appliedDeletes: ((persisted.appliedDeletes || {}) as Record<string, number>),
     phase: "idle" as "idle" | "hello-sent" | "paired",
     diag: { sent: 0, received: 0, applied: 0, failed: 0 },
     conflicts: [] as RoomKeyConflict[],
@@ -276,7 +294,48 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       vv: state.vv,
       lastThemeAt: state.lastThemeAt,
       lastLocaleAt: state.lastLocaleAt,
+      lastPinsAt: state.lastPinsAt,
+      tombstones: { ...state.tombstones },
+      appliedDeletes: { ...state.appliedDeletes },
     });
+  }
+
+  const TOMBSTONE_TTL_MS = 30 * 24 * 3600 * 1000;
+
+  function pruneTombstones(): void {
+    const cutoff = Date.now() - TOMBSTONE_TTL_MS;
+    let changed = false;
+    for (const [roomId, at] of Object.entries(state.tombstones)) {
+      if (!at || at < cutoff) {
+        delete state.tombstones[roomId];
+        changed = true;
+      }
+    }
+    for (const [roomId, at] of Object.entries(state.appliedDeletes)) {
+      if (!at || at < cutoff) {
+        delete state.appliedDeletes[roomId];
+        changed = true;
+      }
+    }
+    if (changed) persistSettings();
+  }
+
+  function isRoomDeleted(roomId: string): boolean {
+    const at = state.tombstones[roomId];
+    return !!at && at > Date.now() - TOMBSTONE_TTL_MS;
+  }
+
+  // Enregistre une suppression locale (UI delete / event op 58) : la room ne
+  // sera ni réimportée ni rediffusée pendant 30 j, et la tombstone part aux
+  // pairs au prochain push.
+  function markRoomDeleted(roomId: string): void {
+    const id = String(roomId || "");
+    if (!id) return;
+    const now = Date.now();
+    state.tombstones[id] = Math.max(state.tombstones[id] || 0, now);
+    state.appliedDeletes[id] = Math.max(state.appliedDeletes[id] || 0, now);
+    pruneTombstones();
+    persistSettings();
   }
 
   function syncPeerCards() {
@@ -1083,16 +1142,14 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const s = ctx.state as Record<string, unknown>;
     const collections: SyncCollections = {};
     if (state.domains.rooms) {
+      pruneTombstones();
       const rooms = (s.rooms as Array<{ roomId: string; title?: string }> | undefined) || [];
       const roomKeys = (s.roomKeysByRoom as Record<string, string> | undefined) || {};
-      const sess = [...sessions.values()][0];
-      const wrapKey = sess ? await deriveWrapKey(sess.epochKey) : null;
-      // Note : chaque pair a sa propre epochKey ; on wrappe avec la première
-      // session et on re-wrappe par pair dans pushSnapshot si besoin. Ici les
-      // roomKeys wrappées sont re-chiffrées par pair avant envoi.
-      void wrapKey;
+      const usersByRoom = (s.usersByRoom as Record<string, string[]> | undefined) || {};
+      // Note : chaque pair a sa propre epochKey ; les roomKeys en clair ici
+      // sont re-wrappées par pair dans pushSnapshot avant envoi.
       collections.rooms = rooms
-        .filter((r) => roomKeys[r.roomId])
+        .filter((r) => roomKeys[r.roomId] && !isRoomDeleted(r.roomId))
         .map((r) => ({
           roomId: r.roomId,
           roomKeyWrapped: roomKeys[r.roomId],
@@ -1100,7 +1157,21 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           title: r.title,
           updatedAt: Date.now(),
           by: device().id,
+          members: Array.isArray(usersByRoom[r.roomId])
+            ? usersByRoom[r.roomId].slice(0, 200).map((u) => String(u).slice(0, 32))
+            : undefined,
         }));
+      const pins = (s.pinnedRooms as string[] | undefined) || [];
+      state.lastPinsAt = Date.now();
+      collections.pinned = {
+        rooms: [...new Set(pins.map((r) => String(r)).filter(Boolean))].slice(0, 5),
+        updatedAt: state.lastPinsAt,
+        by: device().id,
+      };
+      const tombEntries = Object.entries(state.tombstones)
+        .filter(([, at]) => at && at > Date.now() - TOMBSTONE_TTL_MS)
+        .map(([roomId, at]) => ({ roomId, deletedAt: at, by: device().id }));
+      if (tombEntries.length) collections.deleted = tombEntries;
       const notes = (s.roomNotes as Record<string, string>) || {};
       if (Object.keys(notes).length) {
         collections.notes = Object.fromEntries(
@@ -1113,6 +1184,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const messagesByRoom = (s.messagesByRoom as Record<string, Array<Record<string, unknown>>> | undefined) || {};
       const msgEntries: NonNullable<SyncCollections["messages"]> = [];
       for (const [roomId, list] of Object.entries(messagesByRoom)) {
+        if (isRoomDeleted(roomId)) continue;
         const cached = (await idbGet(roomId)) as Array<Record<string, unknown>>;
         const merged = [...cached, ...list].slice(-2000);
         for (const m of merged.slice(-500)) {
@@ -1268,17 +1340,46 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       }
       s.trustedSenderKeysByRoom = next;
     }
+    if (c.deleted && state.domains.rooms) {
+      for (const e of c.deleted) {
+        const roomId = String(e.roomId || "");
+        if (!roomId || !(e.deletedAt > (state.appliedDeletes[roomId] || 0))) continue;
+        state.appliedDeletes[roomId] = e.deletedAt;
+        state.tombstones[roomId] = Math.max(state.tombstones[roomId] || 0, e.deletedAt);
+        await dropRoomLocal(roomId);
+      }
+      pruneTombstones();
+    }
+    if (c.pinned && state.domains.rooms) {
+      if (c.pinned.updatedAt > state.lastPinsAt) {
+        const clean = [...new Set(
+          (Array.isArray(c.pinned.rooms) ? c.pinned.rooms : [])
+            .map((r) => String(r || ""))
+            .filter((r) => r && !isRoomDeleted(r)),
+        )].slice(0, 5);
+        (s.pinnedRooms as string[]) = clean;
+        state.lastPinsAt = c.pinned.updatedAt;
+      }
+    }
     if (c.rooms && state.domains.rooms && sess) {
       const wrapKey = await deriveWrapKey(sess.epochKey);
       const localKeys = ((s.roomKeysByRoom as Record<string, string>) || {});
       for (const r of c.rooms) {
+        if (isRoomDeleted(r.roomId)) continue;
         const local = localKeys[r.roomId];
         if (!local) {
-          // Nouvelle room : unwrap + import + join + titre.
+          // Nouvelle room : unwrap + import + join + titre + membres.
           try {
             const raw = await unwrapRoomKey(r.roomKeyWrapped, r.roomKeyIv, wrapKey);
             ctx.importRoomKey?.(r.roomId, raw);
             applyRoomTitle(r.roomId, r.title);
+            if (Array.isArray(r.members) && r.members.length) {
+              const usersByRoom = (s.usersByRoom as Record<string, string[]>) || {};
+              if (!usersByRoom[r.roomId]) {
+                usersByRoom[r.roomId] = r.members.slice(0, 200).map((u) => String(u).slice(0, 32));
+                s.usersByRoom = usersByRoom;
+              }
+            }
             if (!(s.joinedRooms as string[] || []).includes(r.roomId)) ctx.requestJoin?.(r.roomId);
           } catch {
             /* enveloppe illisible : silence */
@@ -1338,6 +1439,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (c.messages && state.domains.messages) {
       const byRoom = new Map<string, NonNullable<typeof c.messages>>();
       for (const m of c.messages) {
+        if (isRoomDeleted(m.roomId)) continue;
         if (!byRoom.has(m.roomId)) byRoom.set(m.roomId, []);
         byRoom.get(m.roomId)?.push(m);
       }
@@ -1375,6 +1477,27 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const rooms = s.rooms as Array<{ roomId: string; title?: string }> | undefined;
     const entry = rooms?.find((r) => r.roomId === roomId);
     if (entry && !entry.title) entry.title = title;
+  }
+
+  // Suppression locale complète d'une room (tombstone reçue ou event op 58
+  // traité côté messenger) : listes, messages, clés, pins, IndexedDB.
+  async function dropRoomLocal(roomId: string): Promise<void> {
+    const s = ctx.state as Record<string, unknown>;
+    const id = String(roomId || "");
+    if (!id) return;
+    s.rooms = ((s.rooms as Array<{ roomId: string }>) || []).filter((r) => r.roomId !== id);
+    for (const mapKey of [
+      "messagesByRoom", "usersByRoom", "roomKeysByRoom", "roomRatchetsByRoom",
+      "trustedSenderKeysByRoom", "unreadByRoom",
+    ]) {
+      const m = s[mapKey] as Record<string, unknown> | undefined;
+      if (m && typeof m === "object") delete m[id];
+    }
+    s.joinedRooms = ((s.joinedRooms as string[]) || []).filter((r) => r !== id);
+    s.pinnedRooms = ((s.pinnedRooms as string[]) || []).filter((r) => r !== id);
+    if (s.activeRoom === id) s.activeRoom = "";
+    state.conflicts = state.conflicts.filter((c) => c.roomId !== id);
+    await idbDelete(id);
   }
 
   // ── Réception op 61 ────────────────────────────────────────────────────────
@@ -1636,12 +1759,16 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     persistSettings();
   }
 
+  pruneTombstones();
+
   return {
     state,
     startPairing,
     pushSnapshot,
     notifyLocalChange,
     isApplying: () => applying,
+    isRoomDeleted,
+    markRoomDeleted,
     handleSyncMessage,
     startRekeyScheduler,
     stopRekeyScheduler,

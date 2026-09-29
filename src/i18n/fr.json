@@ -1134,7 +1134,16 @@
     "demote": "Rétrograder en Membre",
     "transferOwnership": "Transférer la propriété",
     "lockChat": "Verrouiller le chat",
-    "unlockChat": "Déverrouiller le chat"
+    "unlockChat": "Déverrouiller le chat",
+    "deleteZone": "Zone dangereuse",
+    "deleteZoneHint": "Supprimer détruit la room pour tous les membres (messages, clés et pins inclus).",
+    "deleteRoom": "Supprimer la room",
+    "deleteRoomConfirm": "Supprimer cette room pour tout le monde ? Irréversible.",
+    "roomDeleted": "Room supprimée.",
+    "roomDeletedBy": "Room supprimée par {user}.",
+    "members": "Membres",
+    "kickMemberOut": "Faire partir",
+    "noMembers": "Aucun autre membre."
   },
   "updater": {
     "checking": "Recherche de mises à jour",

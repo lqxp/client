@@ -27,3 +27,19 @@ export function setCloudSyncMessageHandler(next: PhantomMessageHandler | null): 
 export function dispatchCloudSyncMessage(op: number, d: Record<string, unknown>): void {
   if (cloudSyncHandler) cloudSyncHandler(op, d);
 }
+
+export type RoomDeletedListener = (roomId: string) => void;
+
+let roomDeletedListener: RoomDeletedListener | null = null;
+
+/**
+ * Pont suppression de room : quand le messenger traite l'éviction serveur
+ * (op 58), QxCloudSync enregistre la tombstone pour les pairs offline.
+ */
+export function setRoomDeletedListener(next: RoomDeletedListener | null): void {
+  roomDeletedListener = next;
+}
+
+export function notifyRoomDeleted(roomId: string): void {
+  if (roomDeletedListener && roomId) roomDeletedListener(roomId);
+}

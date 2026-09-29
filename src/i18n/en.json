@@ -1134,7 +1134,16 @@
     "demote": "Demote to Member",
     "transferOwnership": "Transfer ownership",
     "lockChat": "Lock chat",
-    "unlockChat": "Unlock chat"
+    "unlockChat": "Unlock chat",
+    "deleteZone": "Danger zone",
+    "deleteZoneHint": "Deleting destroys the room for every member (messages, keys and pins included).",
+    "deleteRoom": "Delete room",
+    "deleteRoomConfirm": "Delete this room for everyone? This cannot be undone.",
+    "roomDeleted": "Room deleted.",
+    "roomDeletedBy": "Room deleted by {user}.",
+    "members": "Members",
+    "kickMemberOut": "Remove",
+    "noMembers": "No other members."
   },
   "updater": {
     "checking": "Looking for Updates",

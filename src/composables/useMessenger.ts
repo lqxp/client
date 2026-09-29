@@ -88,7 +88,7 @@ import {
   setCustomThemeEnabled,
   snapshotCustomTheme,
 } from "./useCustomTheme";
-import { dispatchPhantomMessage, dispatchCloudSyncMessage } from "./phantomBridge";
+import { dispatchPhantomMessage, dispatchCloudSyncMessage, notifyRoomDeleted } from "./phantomBridge";
 import { dedupeBadgeArtwork } from "@/config/badges";
 import { createNoticeFence } from "@/utils/noticeFence";
 import { usableImage } from "@/utils/brokenImages";
@@ -5830,6 +5830,35 @@ function createMessenger() {
     send({ op: 45, d: { gameId: id, targetUserId } });
   }
 
+  // Suppression complète d'une room communautaire (owner ou admin serveur).
+  // La suppression effective arrive par broadcast serveur (op 58) ; ici on
+  // ne fait qu'émettre la demande, les erreurs serveur remontent en toast.
+  function deleteRoom(roomId: string) {
+    const id = sanitizeRoomId(roomId);
+    if (!id || !isValidRoomId(id)) return;
+    send({ op: 57, d: { gameId: id } });
+  }
+
+  // Éviction serveur (op 58) : suppression locale totale + tombstone sync
+  // pour les pairs offline (via notifyRoomDeleted → QxCloudSync).
+  function applyRoomDeleted(d: Record<string, unknown>) {
+    const id = sanitizeRoomId(d?.gameId);
+    if (!id) return;
+    const by = sanitizeUsername(d?.by);
+    removeRoom(id);
+    delete state.roomKeysByRoom[id];
+    delete state.roomRatchetsByRoom[id];
+    const trusted = state.trustedSenderKeysByRoom;
+    if (trusted && typeof trusted === "object") delete trusted[id];
+    state.pinnedRooms = (state.pinnedRooms || []).filter((r) => r !== id);
+    notifyRoomDeleted(id);
+    persist();
+    state.lastError = "";
+    showToast(
+      by ? t("rooms.roomDeletedBy", { user: by }) : t("rooms.roomDeleted"),
+    );
+  }
+
   function timeoutMember(roomId: string, targetUserId: string, seconds: number) {
     const id = sanitizeRoomId(roomId);
     if (!id || !isValidRoomId(id)) return;
@@ -9402,6 +9431,15 @@ function createMessenger() {
       case 56:
         void applyRoomSignal(d);
         break;
+      case 57:
+        if (d?.error) {
+          state.lastError = String(d.error || "");
+          showToast(String(d.error || ""), { error: true });
+        }
+        break;
+      case 58:
+        if (d?.deleted) applyRoomDeleted(d);
+        break;
       case 20:
         applyReactions(d);
         break;
@@ -10615,6 +10653,7 @@ function createMessenger() {
     banMember,
     unbanMember,
     kickMember,
+    deleteRoom,
     timeoutMember,
     unmuteMember,
     transferOwnership,

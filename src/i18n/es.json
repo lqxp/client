@@ -1158,7 +1158,16 @@
     "demote": "Degradar a Miembro",
     "transferOwnership": "Transferir la propiedad",
     "lockChat": "Bloquear chat",
-    "unlockChat": "Desbloquear chat"
+    "unlockChat": "Desbloquear chat",
+    "deleteZone": "Zona peligrosa",
+    "deleteZoneHint": "Eliminar destruye la sala para todos los miembros (mensajes, claves y fijados incluidos).",
+    "deleteRoom": "Eliminar sala",
+    "deleteRoomConfirm": "¿Eliminar esta sala para todos? Irreversible.",
+    "roomDeleted": "Sala eliminada.",
+    "roomDeletedBy": "Sala eliminada por {user}.",
+    "members": "Miembros",
+    "kickMemberOut": "Expulsar",
+    "noMembers": "Sin otros miembros."
   },
   "updater": {
     "checking": "Buscando actualizaciones",
