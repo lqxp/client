@@ -92,6 +92,10 @@ export interface SyncMsgEntry {
   deleted?: boolean;
   encrypted?: unknown;
   from?: string;
+  // Messages système (appel, présence) : sans ces flags le pair les rend
+  // comme de vrais messages au lieu du petit texte système.
+  system?: boolean;
+  systemKind?: string;
 }
 
 export interface SyncCollections {

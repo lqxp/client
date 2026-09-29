@@ -1251,6 +1251,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
             timestamp: Number(m.timestamp || 0), editedAt: m.editedAt ? Number(m.editedAt) : undefined,
             deleted: Boolean(m.deleted) || undefined,
             encrypted: m.encrypted, from: typeof m.username === "string" ? (m.username as string) : undefined,
+            system: Boolean(m.system) || undefined,
+            systemKind: typeof m.systemKind === "string" && m.systemKind ? String(m.systemKind).slice(0, 32) : undefined,
           });
         }
       }
@@ -1550,6 +1552,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         const views: Array<{
           messageId: string; roomId: string; text?: string; timestamp: number;
           editedAt?: number; deleted?: boolean; encrypted?: unknown; from?: string;
+          system?: boolean; systemKind?: string;
         }> = [];
         for (const [id, m] of fullById) {
           views.push({
@@ -1557,6 +1560,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
             timestamp: Number(m.timestamp || 0),
             editedAt: m.editedAt ? Number(m.editedAt) : undefined,
             deleted: Boolean(m.deleted) || undefined, encrypted: m.encrypted,
+            system: Boolean(m.system) || undefined,
+            systemKind: typeof m.systemKind === "string" && m.systemKind ? String(m.systemKind) : undefined,
           });
         }
         const winners = mergeMessages(views, incoming);
@@ -1582,6 +1587,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
               text: w.text, timestamp: w.timestamp || Date.now(),
               editedAt: w.editedAt, deleted: w.deleted,
               username: w.from, encrypted: w.encrypted as never,
+              system: w.system, systemKind: w.systemKind,
             },
             roomId,
           ) as unknown as Record<string, unknown>);

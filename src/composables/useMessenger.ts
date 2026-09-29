@@ -2769,8 +2769,17 @@ export type ChatMessage = ReturnType<typeof normalizeMessage>;
  * attendue par le rendu. Exporté pour QxCloudSync : tout ce qui entre dans
  * `messagesByRoom` depuis le réseau doit passer par ici (reactions garanties,
  * etc.), sinon MessageBubble/MessageList crashent sur des champs absents.
+ *
+ * Les ids `system-*` (créés par announceCallStarted/showTransientSystemRoomEvent)
+ * sont des messages système par construction : le flag est inféré quand il
+ * manque (vieux caches partiels d'avant la sync des flags).
  */
 export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: string) {
+  const messageId = String(message.messageId || "");
+  const looksSystem = messageId === "system" || messageId.startsWith("system-");
+  const system = Boolean(message.system) || looksSystem;
+  const systemKind = String(message.systemKind || "") ||
+    (looksSystem ? (messageId.includes("-call-") ? "call" : "presence") : "");
   const voiceInfo = parseVoiceLabel(message.text || "");
   const voiceDuration = voiceInfo.duration;
   const voiceWaveform = voiceInfo.waveform;
@@ -2822,7 +2831,7 @@ export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: stri
 
   const rawText = message.text || "";
   const jumboEmoji =
-    !attachment && !voiceDuration && !poll && !message.deleted && isOnlyEmoji(rawText);
+    !attachment && !voiceDuration && !poll && !message.deleted && !system && isOnlyEmoji(rawText);
 
   const preview =
     message.preview && typeof message.preview === "object"
@@ -2839,10 +2848,10 @@ export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: stri
     messageId: message.messageId,
     roomId: message.roomId || fallbackRoomId || "",
     clientNonce: String(message.clientNonce || ""),
-    user: message.system
+    user: system
       ? SYSTEM_USERNAME
       : message.user || message.username || "Unknown",
-    username: message.system
+    username: system
       ? SYSTEM_USERNAME
       : message.username || extractUsername(message.user || ""),
     userId: String(message.userId || ""),
@@ -2850,8 +2859,8 @@ export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: stri
     rawText,
     timestamp: message.timestamp || Date.now(),
     profile: normalizeProfile(message.profile),
-    system: Boolean(message.system),
-    systemKind: String(message.systemKind || ""),
+    system,
+    systemKind,
     deleted: Boolean(message.deleted),
     deletedBy: String(message.deletedBy || ""),
     deletedByModerator: Boolean(message.deletedByModerator),
