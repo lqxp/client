@@ -219,13 +219,28 @@ function extractRuntimeConfigFromHtml(html: string) {
 }
 
 async function fetchEmbeddedRuntimeConfig(serverOrigin: string) {
-  try {
-    const response = await fetch(serverOrigin, { cache: "no-store" });
-    if (!response.ok) return null;
-    return extractRuntimeConfigFromHtml(await response.text());
-  } catch {
-    return null;
+  // The bootstrap payload (window.__QXP_RUNTIME__) lives in the webchat page,
+  // not at the bare origin root: fetching the root can hit a cross-origin
+  // redirect (e.g. qxch.at → getqxchat.com) which the WebView refuses under
+  // CORS, while /app/ answers with open CORS headers. Try the webchat page
+  // first, keep the bare origin as fallback (servers embedding the payload
+  // at root), dedupe when both resolve to the same URL.
+  const webchatPage = /\/app\/?$/.test(serverOrigin)
+    ? serverOrigin
+    : joinBasePath(serverOrigin, "/app/");
+  const candidates = [webchatPage, serverOrigin]
+    .filter((url, index, all) => url && all.indexOf(url) === index);
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) continue;
+      const config = extractRuntimeConfigFromHtml(await response.text());
+      if (config) return config;
+    } catch {
+      // try the next candidate
+    }
   }
+  return null;
 }
 
 const initialRuntime = normalizedRuntimePayload(window.__QXP_RUNTIME__);
