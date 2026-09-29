@@ -47,16 +47,16 @@ import { normalizeMessage } from "@/composables/useMessenger";
 import { useI18n } from "@/composables/useI18n";
 
 const SETTINGS_KEY = "qxcloudsync-settings-v1";
-// v2 : les sessions v1 ont été dérivées avec un transcript non canonique
-// (JSON.stringify, ordre de clés instable via le serveur) et sont invalides.
+// v2: v1 sessions were derived with a non-canonical transcript
+// (JSON.stringify, unstable key order via the server) and are invalid.
 const SESSIONS_KEY = "qxcloudsync-sessions-v2";
 const te = new TextEncoder();
 const td = new TextDecoder();
 
-// Sérialisation canonique (clés triées) : le serveur re-sérialise le JSON en
-// clés triées (serde), donc JSON.stringify diffère entre les deux pairs et
-// produirait des clés dérivées différentes. Tout ce qui entre dans un hash
-// partagé (transcript) DOIT passer par ici.
+// Canonical serialization (sorted keys): the server re-serializes JSON with
+// sorted keys (serde), so JSON.stringify differs between both peers and
+// would produce different derived keys. Anything entering a shared hash
+// (transcript) MUST go through here.
 function canonicalBytes(value: unknown): Uint8Array {
   return te.encode(canonicalJson(value));
 }
@@ -69,7 +69,7 @@ export interface CloudSyncCtx {
   requestJoin?: (roomId: string, options?: Record<string, unknown>) => void;
   leaveRoom?: (roomId: string) => void;
   showToast?: (msg: string, opts?: { error?: boolean }) => void;
-  /** Clé AES-GCM du client lock, disponible uniquement déverrouillé. */
+  /** Client-lock AES-GCM key, available only while unlocked. */
   getActiveLockKey?: () => CryptoKey | null;
 }
 
@@ -114,21 +114,21 @@ interface PeerSession {
   expiresAt: number;
   sendN: number;
   seenN: Set<string>;
-  // Fenêtre anti-replay : high-water par (syncId, epoch) + set borné. Sans
-  // ça, seenN croît sans fin et un restart (set vide) rouvre la fenêtre.
+  // Anti-replay window: high-water per (syncId, epoch) + bounded set. Without
+  // this, seenN grows unbounded and a restart (empty set) reopens the window.
   recvWindowId: string;
   recvHighWater: number;
   peerPub: JsonWebKey;
   lastSeen: number;
-  // Dernier contact ENTRANT vérifié (message ouvert ou handshake abouti).
-  // lastSeen est aussi rafraîchi à l'envoi (affichage), donc inutilisable
-  // pour détecter une route morte : un push dans le vide marquerait le pair
-  // "frais" et interdirait à jamais le fallback broadcast.
+  // Last verified INBOUND contact (opened message or completed handshake).
+  // lastSeen is also refreshed on send (display), so it cannot be used
+  // to detect a dead route: a push into the void would mark the peer
+  // "fresh" and forever forbid the broadcast fallback.
   lastInboundAt: number;
 }
 
-// Groupes de paramètres synchronisables (la langue vit dans useI18n et part
-// comme collection dédiée via le groupe "general").
+// Syncable param groups (the language lives in useI18n and travels as a
+// dedicated collection via the "general" group).
 export const PARAM_GROUPS = {
   appearance: ["themeMode", "appAccent", "messageStyle"],
   sounds: ["messageSoundEnabled", "callSoundsEnabled"],
@@ -140,12 +140,12 @@ export const PARAM_GROUPS = {
     "notificationPrivacy",
     "androidNotificationsEnabled",
     "status",
-    // Clé pointée : le customStatus vit dans state.profile, géré en
-    // special-case dans build/apply (pas de lecture/écriture directe).
+    // Dotted key: customStatus lives in state.profile, handled as a
+    // special case in build/apply (no direct read/write).
     "profile.customStatus",
   ],
-  // Groupe logique uniquement (la langue vit dans useI18n, pas dans le
-  // messenger) : exclu de enabledParamKeys(), géré comme collection dédiée.
+  // Logical group only (the language lives in useI18n, not in the
+  // messenger): excluded from enabledParamKeys(), handled as a dedicated collection.
   general: ["locale"],
 } as const;
 
@@ -168,7 +168,7 @@ function saveSettings(s: unknown) {
   }
 }
 
-// ── IndexedDB : historique complet au-delà des 500/room du localStorage ─────
+// ── IndexedDB: full history beyond the 500/room localStorage cap ─────
 const IDB_NAME = "qxcloudsync-v1";
 const IDB_STORE = "messages";
 
@@ -213,8 +213,8 @@ async function idbPut(roomId: string, items: unknown[]): Promise<void> {
   }
 }
 
-// Plateforme locale normalisée en 3 catégories (même logique que le
-// messenger : Tauri → desktop, UA mobile → mobile, sinon web).
+// Local platform normalized into 3 categories (same logic as the
+// messenger: Tauri → desktop, mobile UA → mobile, otherwise web).
 export type SyncPlatform = "mobile" | "web" | "desktop";
 
 export function localPlatform(): SyncPlatform {
@@ -280,10 +280,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     lastLocaleAt: (persisted.lastLocaleAt || 0) as number,
     lastPinsAt: (persisted.lastPinsAt || 0) as number,
     lastCustomStatusAt: (persisted.lastCustomStatusAt || 0) as number,
-    // Tombstones (roomId → deletedAt) + suppressions appliquées : 30 j.
+    // Tombstones (roomId → deletedAt) + applied deletions: 30d.
     tombstones: ((persisted.tombstones || {}) as Record<string, number>),
     appliedDeletes: ((persisted.appliedDeletes || {}) as Record<string, number>),
-    // Leaves synchronisés (roomId → leftAt) + leaves appliqués : 30 j.
+    // Synced leaves (roomId → leftAt) + applied leaves: 30d.
     leftRooms: ((persisted.leftRooms || {}) as Record<string, number>),
     appliedLeft: ((persisted.appliedLeft || {}) as Record<string, number>),
     phase: "idle" as "idle" | "hello-sent" | "paired",
@@ -300,21 +300,20 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
   let restoredOnce = false;
   const AUTO_SYNC_MS = 90_000;
-  // Au-delà de ce silence, l'adresse de routage serveur (peerWs = ws client_id
-  // du pair) est présumée périmée (reconnexion, reload d'onglet, téléphone qui
-  // se réveille) : on diffuse en broadcast, que le serveur relaie à toutes les
-  // sessions du compte. À la réception, le pair recadre notre peerWs via
-  // fromClientId et son ack recadre le nôtre — auto-guérison en un aller-retour.
+  // Past this silence, the server routing address (peerWs = peer's ws client_id)
+  // is assumed stale (reconnect, tab reload, waking phone): we broadcast, which
+  // the server relays to all account sessions. On receipt, the peer reframes our
+  // peerWs via fromClientId and its ack reframes theirs — self-healing in one round trip.
   const STALE_ROUTE_MS = 3 * 60_000;
-  // Garde-fous anti-tempête : re-handshake / renvoi de rekey, max 1/min/pair.
+  // Anti-storm guards: re-handshake / rekey resend, max 1/min/peer.
   const lastRehandshakeAt = new Map<string, number>();
   const lastRekeyResendAt = new Map<string, number>();
-  // Saut d'epoch maximal absorbé sans re-handshake (rekey manqué).
+  // Max epoch jump absorbed without re-handshake (missed rekey).
   const MAX_EPOCH_JUMP = 10;
-  // ── Relais maillé (serveur ≥ op 62/63 + acks op 60 enrichis) ─────────────
-  // Chaque frame op 60 part avec un requestId suivi ici : l'ack serveur
-  // ({ ok, delivered, dropped, peers, peerCount }) permet de détecter une
-  // route unicast morte immédiatement au lieu d'attendre STALE_ROUTE_MS.
+  // ── Mesh relay (server ≥ op 62/63 + enriched op 60 acks) ─────────────
+  // Each op 60 frame leaves with a requestId tracked here: the server ack
+  // ({ ok, delivered, dropped, peers, peerCount }) detects a dead unicast
+  // route immediately instead of waiting for STALE_ROUTE_MS.
   interface InflightFrame {
     to: string;
     encrypted: unknown;
@@ -322,20 +321,20 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   }
   const inflight = new Map<string, InflightFrame>();
   const INFLIGHT_TTL_MS = 120_000;
-  // Cooldowns anti-tempête : fallback broadcast 1/30s/pair, retry même route
-  // 1/10s/pair, hello proactif (annuaire/présence) 1/30s global.
+  // Anti-storm cooldowns: broadcast fallback 1/30s/peer, same-route retry
+  // 1/10s/peer, proactive hello (directory/presence) 1/30s global.
   const lastAutoFallbackAt = new Map<string, number>();
   const lastAckRetryAt = new Map<string, number>();
   let lastProactiveHelloAt = 0;
   const AUTO_FALLBACK_MS = 30_000;
   const ACK_RETRY_MS = 10_000;
   const PROACTIVE_HELLO_MS = 30_000;
-  // Annuaire op 62 : requestIds en vol (réponses périmées ignorées).
+  // Op 62 directory: in-flight requestIds (stale responses ignored).
   const pendingPeersReq = new Set<string>();
-  // Capacités du relais : true dès le premier ack op 60 portant `delivered`
-  // (nouveau serveur). RAM-only : un vieux serveur n'active jamais fetchPeers
-  // (pas de toast "Unknown operation"), un serveur mis à jour l'active au
-  // premier ack.
+  // Relay capabilities: true from the first op 60 ack carrying `delivered`
+  // (new server). RAM-only: an old server never enables fetchPeers
+  // (no "Unknown operation" toast), an upgraded server enables it at the
+  // first ack.
   let relayMeshCaps = false;
 
   function routeFor(sess: PeerSession): string {
@@ -398,9 +397,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     return !!at && at > Date.now() - TOMBSTONE_TTL_MS;
   }
 
-  // Enregistre une suppression locale (UI delete / event op 58) : la room ne
-  // sera ni réimportée ni rediffusée pendant 30 j, et la tombstone part aux
-  // pairs au prochain push.
+  // Records a local deletion (UI delete / op 58 event): the room will be
+  // neither reimported nor rebroadcast for 30d, and the tombstone goes to
+  // peers on the next push.
   function markRoomDeleted(roomId: string): void {
     const id = String(roomId || "");
     if (!id) return;
@@ -413,8 +412,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     persistSettings();
   }
 
-  // Enregistre un leave local (via notifyRoomLeft) : les pairs quitteront à
-  // leur tour (leur propre op 4). Un rejoin explicite efface la marque.
+  // Records a local leave (via notifyRoomLeft): peers will leave in turn
+  // (their own op 4). An explicit rejoin clears the mark.
   function markRoomLeft(roomId: string): void {
     const id = String(roomId || "");
     if (!id || isRoomDeleted(id)) return;
@@ -494,8 +493,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     };
   }
 
-  // L'identité device n'est créée que paresseusement par le messenger (au
-  // premier message chiffré). Le pairing la génère si besoin.
+  // The device identity is only created lazily by the messenger (on the
+  // first encrypted message). Pairing generates it if needed.
   async function ensureLocalIdentity(): Promise<{ id: string; pub: JsonWebKey; priv: JsonWebKey } | null> {
     try {
       const s = ctx.state as Record<string, unknown>;
@@ -520,8 +519,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       op: 60,
       d: { toClientId: peerWs || "", encrypted, requestId },
     });
-    // Suivi pour l'ack serveur : borne anti-fuites (les acks ou le sweep
-    // les retirent ; au-delà du TTL elles sont oubliées).
+    // Tracked for the server ack: leak bound (acks or the sweep remove
+    // them; past the TTL they are forgotten).
     inflight.set(requestId, { to: peerWs || "", encrypted, at: Date.now() });
     if (inflight.size > 500) {
       const oldest = [...inflight.entries()].sort((a, b) => a[1].at - b[1].at);
@@ -537,10 +536,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // Identité SLH-DSA (FIPS 205) du device : paire long-terme. Au repos elle
-  // suit la même règle que tout le persisted state : chiffrée sous enveloppe
-  // lock quand le client lock est actif, sinon en clair namespacé (même
-  // modèle que le prekey PHANTOM). La clé publique est annoncée dans les hello.
+  // Device SLH-DSA (FIPS 205) identity: long-term pair. At rest it follows
+  // the same rule as all persisted state: sealed under a lock envelope
+  // when client lock is active, otherwise plaintext namespaced (same
+  // model as the PHANTOM prekey). The public key is announced in hellos.
   const SLH_DEVICE_KEY = "qxcloudsync-device-v1";
 
   interface LockEnvelope {
@@ -654,7 +653,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (isLockEnvelope(raw)) {
       const key = lockKey();
       if (!key) {
-        // Verrouillé : fail closed. Lock désactivé sans clé : blob orphelin.
+        // Locked: fail closed. Lock disabled without key: orphan blob.
         if (!lockEnabled()) removeKey(SLH_DEVICE_KEY);
         return null;
       }
@@ -673,12 +672,12 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const k = slhFromB64(raw as { pub?: unknown; sec?: unknown });
       if (k) {
         slhCache = k;
-        // Montée en gamme immédiate : le lock est actif, on scelle.
+        // Immediate upgrade: lock is active, seal it.
         if (lockEnabled() && lockKey()) {
           try {
             writeJsonKey(SLH_DEVICE_KEY, await lockSeal(slhToB64(k)));
           } catch {
-            /* garde la forme en clair */
+            /* keep the plaintext shape */
           }
         }
         return k;
@@ -695,16 +694,16 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       if (lockEnabled() && lockKey()) writeJsonKey(SLH_DEVICE_KEY, await lockSeal(slhToB64(kp)));
       else writeJsonKey(SLH_DEVICE_KEY, slhToB64(kp));
     } catch {
-      /* RAM seule en dernier recours */
+      /* RAM-only as a last resort */
     }
     return kp;
   }
 
-  // ── Sessions persistées ───────────────────────────────────────────────────
-  // Sans ça, chaque restart du navigateur casserait le pairing (master en RAM).
-  // Enveloppe au repos : lock (AES-GCM clé du client lock) quand le lock est
-  // actif, sinon sync (AES-GCM clé dérivée de syncRoot). On ne réécrit jamais
-  // vers une enveloppe plus faible : en cas de doute on ne touche à rien.
+  // ── Persisted sessions ───────────────────────────────────────────────────
+  // Without this, every browser restart would break pairing (RAM-only master).
+  // At-rest envelope: lock (AES-GCM with the client-lock key) when the lock is
+  // active, otherwise sync (AES-GCM with a key derived from syncRoot). Never
+  // rewrite toward a weaker envelope: when in doubt, touch nothing.
   interface SessionItem {
     peerId: string;
     platform?: string;
@@ -737,10 +736,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
 
   async function saveSessions(): Promise<void> {
     try {
-      if (suspended() === "locked") return; // au repos verrouillé : intouchable.
+      if (suspended() === "locked") return; // locked at rest: untouchable.
       if (lockEnabled()) {
         const key = lockKey();
-        if (!key) return; // pas de clé → pas de downgrade vers sync/pass.
+        if (!key) return; // no key → no downgrade to sync/pass.
         writeJsonKey(SESSIONS_KEY, await lockSeal(sessionItems()));
         return;
       }
@@ -785,7 +784,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           lastInboundAt: 0,
         });
       } catch {
-        /* entrée illisible : ignorée */
+        /* unreadable entry: ignored */
       }
     }
     if (sessions.size) {
@@ -814,9 +813,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // Ne verrouille le "déjà tenté" que quand c'est définitif (pas de blob, ou
-  // mots présents). Si les mots manquent, on retentera quand ils arriveront.
-  // Les enveloppes lock sont restaurées par onLockEvent (clé lock requise).
+  // Only latch "already attempted" when final (no blob, or words present).
+  // If the words are missing, retry when they arrive. Lock envelopes are
+  // restored by onLockEvent (lock key required).
   async function tryRestore(): Promise<void> {
     if (restoredOnce || sessions.size) return;
     const raw = readJsonKey(SESSIONS_KEY);
@@ -827,8 +826,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (isLockEnvelope(raw)) {
       const key = lockKey();
       if (!key) {
-        // Verrouillé : onLockEvent s'en chargera. Lock désactivé sans clé :
-        // blob orphelin, auto-réparation.
+        // Locked: onLockEvent will handle it. Lock disabled without key:
+        // orphan blob, self-healing.
         if (!lockEnabled()) {
           removeKey(SESSIONS_KEY);
           restoredOnce = true;
@@ -845,18 +844,18 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       }
     }
     const words = ctx.state.recoveryWords as string[] | undefined;
-    if (!Array.isArray(words) || words.length < 12) return; // retry plus tard.
+    if (!Array.isArray(words) || words.length < 12) return; // retry later.
     restoredOnce = true;
     const items = await loadLegacySessionItems(raw);
     if (!items) {
-      // Blob corrompu ou mots différents : on le jette, on re-pairera.
+      // Corrupt blob or different words: drop it, will re-pair.
       removeKey(SESSIONS_KEY);
       return;
     }
     await rebuildSessions(items);
   }
 
-  // Montée en gamme vers l'enveloppe lock (appelée déverrouillé, lock actif).
+  // Upgrade toward the lock envelope (called unlocked, lock active).
   async function migrateBlobsToLock(): Promise<void> {
     try {
       if (suspended() === "locked" || !lockEnabled() || !lockKey()) return;
@@ -866,17 +865,17 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         if (items) writeJsonKey(SESSIONS_KEY, await lockSeal(items));
         else removeKey(SESSIONS_KEY);
       }
-      // SLH : ensureSlhDevice() fait déjà la montée en gamme à la lecture.
+      // SLH: ensureSlhDevice() already upgrades on read.
       await ensureSlhDevice();
     } catch {
       /* ignore */
     }
   }
 
-  // ── Client lock : scellement des secrets ────────────────────────────────
-  // Verrouillé : toute la RAM sensible est effacée (masters, clés d'epoch,
-  // racine sync, identité SLH) ; au repos il ne reste que des enveloppes
-  // AES-GCM (clé du lock ou clé syncRoot). Déverrouillé : restauration.
+  // ── Client lock: sealing secrets ────────────────────────────────
+  // Locked: all sensitive RAM is wiped (masters, epoch keys, sync root,
+  // SLH identity); at rest only AES-GCM envelopes remain (lock key or
+  // syncRoot key). Unlocked: restore.
   function wipeSecretsFromRAM(): void {
     for (const s of sessions.values()) {
       try {
@@ -905,7 +904,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   async function onUnlocked(): Promise<void> {
     const lockOn = lockEnabled();
     const key = lockKey();
-    // Identité SLH.
+    // SLH identity.
     slhCache = null;
     const rawSlh = readJsonKey(SLH_DEVICE_KEY);
     if (isLockEnvelope(rawSlh)) {
@@ -918,7 +917,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
             if (!lockOn) writeJsonKey(SLH_DEVICE_KEY, slhToB64(k));
           }
         } catch {
-          /* enveloppe illisible : on re-pairera l'identité si besoin */
+          /* unreadable envelope: will re-pair the identity if needed */
         }
       } else if (!lockOn) {
         removeKey(SLH_DEVICE_KEY);
@@ -930,7 +929,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         try {
           writeJsonKey(SLH_DEVICE_KEY, await lockSeal(slhToB64(k)));
         } catch {
-          /* garde la forme en clair */
+          /* keep the plaintext shape */
         }
       }
     }
@@ -941,13 +940,13 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         try {
           const items = await lockOpen<SessionItem[]>(rawSess);
           if (!lockOn) {
-            // Lock désactivé : redescend vers l'enveloppe sync si possible.
+            // Lock disabled: step back down to the sync envelope if possible.
             const ok = await rewriteSessionsAsSync(Array.isArray(items) ? items : []);
             void ok;
           }
           await rebuildSessions(Array.isArray(items) ? items : []);
         } catch {
-          /* illisible : re-pair */
+          /* unreadable: re-pair */
         }
       } else if (!lockOn) {
         removeKey(SESSIONS_KEY);
@@ -1018,8 +1017,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     return Array.isArray(words) && words.length >= 12;
   }
 
-  // Envoie un hello signé (preuve HMAC des 12 mots + signature device +
-  // plateforme). Utilisé par le bouton manuel et l'auto-pairing.
+  // Sends a signed hello (HMAC proof of the 12 words + device signature +
+  // platform). Used by the manual button and auto-pairing.
   async function sendHello(): Promise<boolean> {
     if (!(await ensureRoot())) return false;
     const d = await ensureLocalIdentity();
@@ -1052,9 +1051,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         mlkemSk: mlkem.secretKey, mlkemPkHex: bytesToHex(mlkem.publicKey),
         helloSelf: hello, createdAt: Date.now(),
       });
-      // Borne anti-fuites : on ne garde que les 5 handshakes récents.
+      // Leak bound: keep only recent handshakes (16 to absorb an
+      // 8-device join: 7 concurrent accepts + margin).
       const all = [...pending.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt);
-      for (const [id] of all.slice(0, Math.max(0, all.length - 5))) pending.delete(id);
+      for (const [id] of all.slice(0, Math.max(0, all.length - 16))) pending.delete(id);
       state.phase = sessions.size ? "paired" : "hello-sent";
       state.lastHandshakeAt = Date.now();
       sendTo("", hello);
@@ -1065,10 +1065,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // ── Pairing : saisie des 12 mots sur chaque device ─────────────────────────
-  // Le bouton reste un déclencheur manuel ("chercher maintenant"), mais le
-  // pairing est surtout automatique (voir scheduleAutoHello) : plus de re-pair
-  // manuel à chaque fois, la confiance est prouvée par HMAC + signatures.
+  // ── Pairing: entering the 12 words on each device ─────────────────────────
+  // The button stays a manual trigger ("search now"), but pairing is mostly
+  // automatic (see scheduleAutoHello): no manual re-pair each time, trust is
+  // proven by HMAC + signatures.
   async function startPairing(): Promise<void> {
     if (state.pairingBusy) return;
     if (suspended() && suspended() !== "disabled") {
@@ -1086,15 +1086,15 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   let lastAutoHello = 0;
   let bootHelloTimer: ReturnType<typeof setTimeout> | null = null;
   let themeWatchInstalled = false;
-  // Garde anti-boucle + debounce d'événements : toute mutation locale qui
-  // persiste (message, room, réglage…) notifie via notifyLocalChange, coalescé
-  // en un push 2,5 s après la dernière modification. L'application d'un
-  // snapshot distant ne re-notifie jamais (applying).
+  // Loop guard + event debounce: every local mutation that persists
+  // (message, room, setting…) notifies via notifyLocalChange, coalesced into
+  // a push 2.5s after the last change. Applying a remote snapshot never
+  // re-notifies (applying).
   let applying = false;
   let dirtyTimer: ReturnType<typeof setTimeout> | null = null;
   const DIRTY_DEBOUNCE_MS = 2500;
-  // Le custom theme ne passe pas par messenger.persist() : on l'observe
-  // directement (flush sync pour que la garde anti-écho soit fiable).
+  // The custom theme does not go through messenger.persist(): it is observed
+  // directly (sync flush so the anti-echo guard stays reliable).
   let suppressThemeWatch = false;
 
   function sanitizeCustomTheme(
@@ -1113,9 +1113,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }, DIRTY_DEBOUNCE_MS);
   }
 
-  // Auto-pairing : annonce signée au boot (jitter 2–6 s) puis rappel discret
-  // toutes les 15 min max si toujours aucun pair. Les pairs déjà connus sont
-  // restaurés via tryRestore, donc aucun geste en routine.
+  // Auto-pairing: signed announcement at boot (2–6s jitter) then a quiet
+  // reminder every 15 min max while still peerless. Known peers are restored
+  // via tryRestore, so no routine gesture needed.
   function scheduleAutoHello(): void {
     if (bootHelloTimer) clearTimeout(bootHelloTimer);
     bootHelloTimer = setTimeout(() => {
@@ -1134,18 +1134,22 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const d = await ensureLocalIdentity();
     if (!d) return;
     const ok = await verifyHello(signed, authKey as CryptoKey);
-    if (!ok) return; // HMAC faux = pas les mêmes 12 mots → silence.
-    if (signed.fromDeviceId === d.id) return; // notre propre broadcast.
+    if (!ok) return; // wrong HMAC = different 12 words → silence.
+    if (signed.fromDeviceId === d.id) return; // our own broadcast.
+    // Unicast hygiene: a hello/accept/confirm/rekey addressed to another
+    // device (third-party broadcast catch-up) does not concern us.
+    const destId = String((signed as unknown as Record<string, unknown>).toDeviceId || "");
+    if (destId && destId !== d.id) return;
 
     if (signed.kind === "hello") {
-      // Session vivante (contact entrant récent) : déjà pairé, on ignore les
-      // hello redondants (double-clic sur Pair, etc.). Session périmée ou
-      // inconnue : le pair tente un re-pairing (état perdu, divergence) et on
-      // lui répond — le handshake remplace l'ancienne session via trackSession.
+      // Live session (recent inbound contact): already paired, ignore
+      // redundant hellos (double-click on Pair, etc.). Stale or unknown
+      // session: the peer is attempting a re-pairing (lost state, divergence)
+      // and we answer — the handshake replaces the old session via trackSession.
       const existing = sessions.get(signed.fromDeviceId);
       if (existing && Date.now() - (existing.lastInboundAt || 0) <= STALE_ROUTE_MS) return;
-      // Course "Pair" des deux côtés : le plus petit deviceId gagne, l'autre
-      // abandonne sa tentative et répond.
+      // "Pair" race from both sides: the smallest deviceId wins, the other
+      // drops its attempt and answers.
       const ownRecent = [...pending.values()].find(
         (p) => !p.peerHello && Date.now() - p.createdAt < 60_000,
       );
@@ -1176,7 +1180,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       state.lastHandshakeAt = Date.now();
       sendTo(fromWs, accept);
     } else if (signed.kind === "accept") {
-      // Transcript = helloA || accept (identique des 2 côtés).
+      // Transcript = helloA || accept (identical on both sides).
       const hs = pending.get(signed.syncId);
       if (!hs || !hs.helloSelf) return;
       const { cipherText, sharedSecret } = ml_kem768.encapsulate(hexToBytes(signed.mlkemPk));
@@ -1218,7 +1222,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       pending.delete(signed.syncId);
       await pushSnapshot(signed.fromDeviceId);
     } else if (signed.kind === "confirm") {
-      // Transcript = helloA || acceptA (son propre accept).
+      // Transcript = helloA || acceptA (its own accept).
       const hs = pending.get(signed.syncId);
       if (!hs || !hs.peerHello || !hs.ss1 || !hs.acceptSelf) return;
       const ss2 = ml_kem768.decapsulate(hexToBytes(signed.mlkemCt as string), hs.mlkemSk);
@@ -1260,9 +1264,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // Envoie (ou renvoie) un rekey signé pour l'epoch donnée, sans muter la
-  // session : l'avancement local reste à l'appelant (scheduler).
-  // Retourne true si le rekey est parti (pour ne jamais avancer sans envoi).
+  // Sends (or resends) a signed rekey for the given epoch without mutating
+  // the session: local advancement stays with the caller (scheduler).
+  // Returns true if the rekey was sent (never advance without sending).
   async function sendRekeyMessage(sess: PeerSession, epoch: number): Promise<boolean> {
     const d2 = device();
     if (!d2.priv || !authKey) return false;
@@ -1281,8 +1285,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     return true;
   }
 
-  // Le pair nous parle avec un syncId inconnu (re-pair ailleurs, session
-  // restaurée différente) : on relance un handshake, sans tempête.
+  // The peer talks with an unknown syncId (re-pair elsewhere, different
+  // restored session): restart a handshake, storm-free.
   function maybeRehandshake(peerId: string): void {
     const now = Date.now();
     if (now - (lastRehandshakeAt.get(peerId) || 0) < 60_000) return;
@@ -1291,8 +1295,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     void sendHello().catch(() => {});
   }
 
-  // Le pair est en arrière d'epoch (notre rekey s'est perdu dans un peerWs
-  // périmé) : on lui renvoie le rekey courant au lieu de le laisser décroché.
+  // The peer lags in epoch (our rekey was lost in a stale peerWs): resend
+  // the current rekey instead of leaving it stranded.
   function maybeResendRekey(sess: PeerSession): void {
     const now = Date.now();
     if (now - (lastRekeyResendAt.get(sess.peerId) || 0) < 60_000) return;
@@ -1305,7 +1309,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   function enabledParamKeys(): string[] {
     const out: string[] = [];
     for (const [group, keys] of Object.entries(PARAM_GROUPS)) {
-      if (group === "general") continue; // collection dédiée, pas du messenger.
+      if (group === "general") continue; // dedicated collection, not messenger.
       if (state.paramGroups[group as ParamGroup]) out.push(...keys);
     }
     return out;
@@ -1319,8 +1323,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const rooms = (s.rooms as Array<{ roomId: string; title?: string }> | undefined) || [];
       const roomKeys = (s.roomKeysByRoom as Record<string, string> | undefined) || {};
       const usersByRoom = (s.usersByRoom as Record<string, string[]> | undefined) || {};
-      // Note : chaque pair a sa propre epochKey ; les roomKeys en clair ici
-      // sont re-wrappées par pair dans pushSnapshot avant envoi.
+      // Note: each peer has its own epochKey; plaintext roomKeys here are
+      // re-wrapped per peer in pushSnapshot before sending.
       collections.rooms = rooms
         .filter((r) => roomKeys[r.roomId] && !isRoomDeleted(r.roomId))
         .map((r) => ({
@@ -1428,7 +1432,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     return collections;
   }
 
-  // Wrappe les roomKeys en clair de la collection avec la wrapKey du pair.
+  // Wraps the collection's plaintext roomKeys with the peer's wrapKey.
   async function wrapRoomsFor(
     rooms: NonNullable<SyncCollections["rooms"]>,
     sess: PeerSession,
@@ -1557,8 +1561,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         state.appliedLeft[roomId] = e.leftAt;
         const joined = ((s.joinedRooms as string[]) || []).includes(roomId);
         if (joined) {
-          // Quitte aussi ici (propre op 4 serveur) ; le leaveRoom local
-          // re-marque sans changer le stamp, donc pas de ping-pong.
+          // Also leave here (clean server op 4); the local leaveRoom
+          // re-marks without changing the stamp, so no ping-pong.
           ctx.leaveRoom?.(roomId);
         }
       }
@@ -1582,8 +1586,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         if (isRoomDeleted(r.roomId)) continue;
         const local = localKeys[r.roomId];
         if (!local) {
-          // Nouvelle room : unwrap + import + join + titre + membres.
-          // Sauf si quittée ici (tombstone left) : on garde la clé sans join.
+          // New room: unwrap + import + join + title + members.
+          // Except when left here (left tombstone): keep the key without joining.
           if (isRoomLeft(r.roomId)) continue;
           try {
             const raw = await unwrapRoomKey(r.roomKeyWrapped, r.roomKeyIv, wrapKey);
@@ -1600,12 +1604,12 @@ export function useCloudSync(ctx: CloudSyncCtx) {
               ctx.requestJoin?.(r.roomId, { clearLeftMark: false });
             }
           } catch {
-            /* enveloppe illisible : silence */
+            /* unreadable envelope: silence */
           }
           continue;
         }
-        // Les deux ont une clé : on déwrappe la remote et on compare en clair.
-        // Politique "refuser + demander" : jamais d'écrasement auto.
+        // Both sides have a key: unwrap the remote one and compare in plaintext.
+        // "Decline + ask" policy: never auto-overwrite.
         try {
           const remoteRaw = await unwrapRoomKey(r.roomKeyWrapped, r.roomKeyIv, wrapKey);
           if (remoteRaw !== local) {
@@ -1646,7 +1650,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           const { locale, availableLocales } = useI18n();
           const value = String(c.locale.value || "");
           if (availableLocales.includes(value) && locale.value !== value) {
-            locale.value = value; // persiste lui-même sur sa clé.
+            locale.value = value; // persists itself on its own key.
           }
           state.lastLocaleAt = c.locale.updatedAt;
         } catch {
@@ -1664,7 +1668,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const messagesByRoom = s.messagesByRoom as Record<string, Array<Record<string, unknown>>>;
       for (const [roomId, incoming] of byRoom) {
         const cached = (await idbGet(roomId)) as Array<Record<string, unknown>>;
-        // Index des objets locaux COMPLETS (RAM plus fraîche que le cache).
+        // Index of full local objects (RAM fresher than the cache).
         const fullById = new Map<string, Record<string, unknown>>();
         for (const m of [...cached, ...(messagesByRoom[roomId] || [])]) {
           const id = String((m as Record<string, unknown>)?.messageId || "");
@@ -1686,9 +1690,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           });
         }
         const winners = mergeMessages(views, incoming);
-        // Stockage : uniquement des messages NORMALISÉS (forme complète avec
-        // reactions: [], etc.). Un partiel stocké tel quel fait crasher le
-        // rendu (MessageBubble). Ça guérit aussi les caches partiels anciens.
+        // Storage: only NORMALIZED messages (full shape with reactions: [],
+        // etc.). A partial stored as-is crashes rendering (MessageBubble).
+        // This also heals old partial caches.
         const out: Record<string, unknown>[] = [];
         for (const w of winners) {
           const local = fullById.get(w.messageId);
@@ -1734,8 +1738,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (entry && !entry.title) entry.title = title;
   }
 
-  // Suppression locale complète d'une room (tombstone reçue ou event op 58
-  // traité côté messenger) : listes, messages, clés, pins, IndexedDB.
+  // Full local deletion of a room (received tombstone or op 58 event handled
+  // messenger-side): lists, messages, keys, pins, IndexedDB.
   async function dropRoomLocal(roomId: string): Promise<void> {
     const s = ctx.state as Record<string, unknown>;
     const id = String(roomId || "");
@@ -1755,7 +1759,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     await idbDelete(id);
   }
 
-  // ── Réception op 61 ────────────────────────────────────────────────────────
+  // ── Op 61 receive ────────────────────────────────────────────────────────
   async function handleSyncMessage(d: Record<string, unknown>): Promise<void> {
     const fromWs = String(d.fromClientId || "");
     const enc = d.encrypted as Record<string, unknown> | undefined;
@@ -1768,10 +1772,13 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const outer = enc as unknown as SyncDataOuter;
     const sess = sessions.get(outer.from);
     if (!sess) return;
-    if (fromWs) sess.peerWs = fromWs;
+    // §9.3: only envelopes addressed to this device are processed —
+    // catch-up broadcasts from another pair are ignored BEFORE anything
+    // (no epoch fast-forward, no third-party peerWs reframing).
+    if (outer.to !== device().id) return;
     if (outer.epoch !== sess.epoch || outer.syncId !== sess.syncId) {
-      // Enveloppe adressée à un autre pair (broadcast de rattrapage d'un
-      // tiers) : elle ne nous concerne pas, on l'ignore sans réagir.
+      // Envelope addressed to another peer (third-party catch-up broadcast):
+      // not for us, ignore without reacting.
       if (outer.to !== device().id) return;
       if (outer.syncId !== sess.syncId) {
         maybeRehandshake(outer.from);
@@ -1780,9 +1787,9 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       const epoch = Number(outer.epoch);
       if (!Number.isSafeInteger(epoch) || epoch <= 0) return;
       if (epoch > sess.epoch) {
-        // Rekey manqué de notre côté : on avance localement (borné), puis le
-        // openData ci-dessous authentifie — seul le détenteur du master peut
-        // produire une enveloppe valide, donc l'adoption est sûre.
+        // Missed rekey on our side: advance locally (bounded), then the
+        // openData below authenticates — only the master holder can produce
+        // a valid envelope, so adoption is safe.
         if (epoch - sess.epoch > MAX_EPOCH_JUMP) {
           maybeRehandshake(outer.from);
           return;
@@ -1793,17 +1800,17 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         syncPeerCards();
         await saveSessions();
       } else {
-        // Pair en arrière (notre rekey s'est perdu, typiquement peerWs
-        // périmé) : on lui renvoie le rekey courant au lieu du drop sec
-        // qui, avant, figeait la paire définitivement.
+        // Peer behind (our rekey was lost, typically stale peerWs): resend
+        // the current rekey instead of the hard drop that used to freeze
+        // the pair for good.
         maybeResendRekey(sess);
         return;
       }
     }
     if (!Number.isSafeInteger(outer.n) || (outer.n as number) <= 0) return;
-    // Fenêtre anti-replay par (syncId, epoch) : le compteur d'envoi redémarre
-    // à 1 à chaque handshake, d'où le recadrage à chaque fenêtre. Au-delà
-    // d'un retard de 5000, rejet (réordonnancement normal absorbé par le set).
+    // Anti-replay window per (syncId, epoch): the send counter restarts at
+    // 1 on every handshake, hence the reframing at each window. Beyond a
+    // lag of 5000, reject (normal reordering absorbed by the set).
     const winId = `${outer.syncId}:${outer.epoch}`;
     if (sess.recvWindowId !== winId) {
       sess.recvWindowId = winId;
@@ -1825,6 +1832,10 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       }
       sess.lastSeen = Date.now();
       sess.lastInboundAt = Date.now();
+      // Route learned only from verified INBOUND traffic (openData
+      // succeeded): fromWs is an unauthenticated server hint; freezing it
+      // earlier would open an intra-account route hijack.
+      if (fromWs) sess.peerWs = fromWs;
       state.diag.received += 1;
       if (inner.kind === "revoke") {
         try {
@@ -1852,32 +1863,32 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         sendTo(sess.peerWs, ack);
       }
     } catch {
-      // Enveloppe illisible : comptée (diagnostic) mais silencieuse, le
-      // serveur étant aveugle il n'y a pas de NACK possible.
+      // Unreadable envelope: counted (diagnostics) but silent, since the
+      // blind server allows no NACK.
       state.diag.failed += 1;
     }
   }
 
-  // ── Ack op 60 : rapport de livraison du relais ───────────────────────────
-  // { ok, delivered, dropped, peers, peerCount, requestId } — ou { error }.
-  // Un unicast à delivered == 0 = route morte : on renvoie UNE fois en
-  // broadcast (cooldown 30s/pair) puis on relit l'annuaire, au lieu de
-  // pousser dans le vide jusqu'au fallback STALE_ROUTE_MS.
+  // ── Op 60 ack: relay delivery report ───────────────────────────
+  // { ok, delivered, dropped, peers, peerCount, requestId } — or { error }.
+  // A unicast with delivered == 0 = dead route: resend ONCE via broadcast
+  // (30s/peer cooldown) then reread the directory, instead of pushing into
+  // the void until the STALE_ROUTE_MS fallback.
   async function handleSyncAck(d: Record<string, unknown>): Promise<void> {
     if (!state.enabled || suspended()) return;
     const err = String(d.error || "");
     if (err) {
-      // Erreurs relais rendues visibles (avant : aucun case 60, donc
-      // invisibles). Rate limit : diagnostic discret, pas de toast en boucle.
+      // Relay errors made visible (before: no case 60, so invisible).
+      // Rate limit: quiet diagnostic, no looping toast.
       state.lastError = err;
       state.diag.failed += 1;
       if (err !== "Rate limit exceeded") setError(err);
       return;
     }
     if (d.ok !== true) return;
-    // Vieux serveur (ack { ok, requestId } sans rapport) : rien à déduire,
-    // surtout pas delivered == 0 → sinon chaque unicast déclencherait un
-    // broadcast redondant + un annuaire inexistant.
+    // Old server (ack { ok, requestId } without report): nothing to infer,
+    // especially not delivered == 0 → otherwise every unicast would trigger
+    // a redundant broadcast + a nonexistent directory.
     if (!("delivered" in d)) return;
     relayMeshCaps = true;
     const reqId = String(d.requestId || "");
@@ -1887,22 +1898,22 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const delivered = Number(d.delivered || 0);
     const dropped = Number(d.dropped || 0);
     const to = frame.to;
-    if (!to) return; // broadcast : rien à réparer, le fan-out a parlé.
+    if (!to) return; // broadcast: nothing to repair, fan-out did its job.
     const sess = [...sessions.values()].find((s) => s.peerWs === to);
     if (delivered === 0) {
-      // Route unicast morte (pair déconnecté, onglet rechargé…).
-      if (sess) sess.lastInboundAt = 0; // force le broadcast dès le prochain push.
+      // Dead unicast route (peer disconnected, tab reloaded…).
+      if (sess) sess.lastInboundAt = 0; // force broadcast from the next push.
       const now = Date.now();
       if (now - (lastAutoFallbackAt.get(to) || 0) >= AUTO_FALLBACK_MS) {
         lastAutoFallbackAt.set(to, now);
-        sendTo("", frame.encrypted); // un seul rattrapage broadcast.
+        sendTo("", frame.encrypted); // single broadcast catch-up.
         void fetchPeers().catch(() => {});
       }
       return;
     }
     if (dropped > 0 && sess) {
-      // File du pair congestionnée : UN retry même route, pas de broadcast
-      // (inutile : le pair est connecté, sa queue est juste pleine).
+      // Congested peer queue: ONE same-route retry, no broadcast
+      // (pointless: the peer is connected, its queue is just full).
       const now = Date.now();
       if (now - (lastAckRetryAt.get(to) || 0) >= ACK_RETRY_MS) {
         lastAckRetryAt.set(to, now);
@@ -1911,19 +1922,19 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // ── Annuaire op 62 : réapprendre le maillage ──────────────────────────────
+  // ── Op 62 directory: relearn the mesh ──────────────────────────────
   function fetchPeers(): Promise<void> {
     if (!state.enabled || suspended() || !hasWordsQuiet()) return Promise.resolve();
-    if (!relayMeshCaps) return Promise.resolve(); // vieux serveur : op 62 inconnue.
+    if (!relayMeshCaps) return Promise.resolve(); // old server: unknown op 62.
     const requestId = globalThis.crypto.randomUUID();
     pendingPeersReq.add(requestId);
     ctx.send({ op: 62, d: { requestId } });
     return Promise.resolve();
   }
 
-  // Hello proactif vers un pair sans session (annuaire/présence) : un seul
-  // broadcast suffit (tous les siblings le reçoivent, seul le détenteur des
-  // mots répond). Garde globale 30s + logique anti-course Pair existante.
+  // Proactive hello to a sessionless peer (directory/presence): a single
+  // broadcast is enough (all siblings receive it, only the holder of the
+  // words answers). Global 30s guard + existing Pair race logic.
   function proactiveHello(): void {
     if (!state.enabled || suspended() || !hasWordsQuiet()) return;
     const now = Date.now();
@@ -1932,8 +1943,8 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     void sendHello().catch(() => {});
   }
 
-  // Réconcilie l'annuaire/présence avec nos sessions : tout clientId listé
-  // sans session live (et sans handshake récent) déclenche un hello.
+  // Reconciles the directory/presence with our sessions: any listed clientId
+  // without a live session (and without a recent handshake) triggers a hello.
   function reconcileMeshPeers(listed: Array<{ clientId: string }>, selfWs: string): void {
     if (!state.enabled || suspended() || !hasWordsQuiet()) return;
     const knownWs = new Set<string>();
@@ -1954,22 +1965,22 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (d.ok !== true) return;
     const reqId = String(d.requestId || "");
     if (reqId) {
-      if (!pendingPeersReq.has(reqId)) return; // réponse périmée.
+      if (!pendingPeersReq.has(reqId)) return; // stale response.
       pendingPeersReq.delete(reqId);
     }
     const peers = Array.isArray(d.peers) ? d.peers as Array<{ clientId: string }> : [];
     reconcileMeshPeers(peers, String(d.self || ""));
   }
 
-  // ── Présence op 63 : join/update/leave ─────────────────────────────────────
+  // ── Op 63 presence: join/update/leave ─────────────────────────────────────
   async function handlePresenceEvent(d: Record<string, unknown>): Promise<void> {
     if (!state.enabled || suspended()) return;
     const event = String(d.event || "");
     const clientId = String(d.clientId || "");
     if (!clientId) return;
     if (event === "leave") {
-      // Le pair est parti : marquer la leg stale aussitôt (le prochain push
-      // part en broadcast via routeFor) au lieu de pousser dans le vide.
+      // The peer left: mark the leg stale right away (next push goes out
+      // via broadcast through routeFor) instead of pushing into the void.
       let touched = false;
       for (const s of sessions.values()) {
         if (s.peerWs === clientId) {
@@ -1979,7 +1990,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       }
       if (touched) {
         syncPeerCards();
-        notifyLocalChange(); // push de rattrapage (broadcast) sous 2,5 s.
+        notifyLocalChange(); // catch-up push (broadcast) within 2.5s.
       }
       return;
     }
@@ -2005,14 +2016,14 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     }
   }
 
-  // ── Rotation auto 7j + auto-sync 90s ───────────────────────────────────────
+  // ── 7d auto-rotation + 90s auto-sync ───────────────────────────────────────
   function startRekeyScheduler() {
     stopRekeyScheduler();
     void tryRestore().then(() => {
       syncPeerCards();
       scheduleAutoHello();
-      // Maillage : relire l'annuaire au boot pour handshaker les pairs déjà
-      // en ligne (fetchPeers → reconcile → hello proactif si manquant).
+      // Mesh: reread the directory at boot to handshake peers already
+      // online (fetchPeers → reconcile → proactive hello if missing).
       void fetchPeers().catch(() => {});
     });
     try {
@@ -2031,33 +2042,42 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         watch(
           () => i18n.locale.value,
           () => {
-            // Garde anti-écho : pendant applyInner, applying vaut true et le
-            // notify est ignoré (le setter i18n persiste lui-même sur disque).
+            // Anti-echo guard: during applyInner, applying is true and the
+            // notify is ignored (the i18n setter persists itself to disk).
             notifyLocalChange();
           },
           { flush: "sync" },
         );
       }
     } catch {
-      /* contexte non-Vue : pas d'observation temps réel */
+      /* non-Vue context: no realtime observation */
     }
     if (bootHelloTimer) clearTimeout(bootHelloTimer);
     autoSyncTimer = setInterval(() => {
       void (async () => {
         if (!state.enabled || suspended()) return;
-        // Balaye les handshakes orphelins (> 2 min) et les frames op 60 sans
-        // ack (> 2 min : le relais ne répondra plus).
+        // Sweep orphan handshakes (> 2 min) and op 60 frames without an
+        // ack (> 2 min: the relay will no longer answer).
         const now = Date.now();
         for (const [id, p] of pending) {
           if (now - p.createdAt > 120_000) pending.delete(id);
         }
         sweepInflight();
         if (pendingPeersReq.size > 20) pendingPeersReq.clear();
-        // Montée en gamme : le lock vient d'être activé, on scelle les blobs.
+        // Upgrade: the lock was just enabled, seal the blobs.
         await migrateBlobsToLock().catch(() => {});
-        // Les mots sont arrivés après le boot ? Restaure les pairs connus.
+        // Words arrived after boot? Restore known peers.
         if (!sessions.size && hasWordsQuiet()) {
           await tryRestore().catch(() => {});
+          syncPeerCards();
+        }
+        // Still isolated (lost boot hello, aborted handshake)? Re-beacon
+        // every 5 min max: without this, a failed join stayed silent until
+        // the Pair button or unlock.
+        if (!sessions.size && !pending.size && hasWordsQuiet()
+          && Date.now() - lastAutoHello > 5 * 60_000) {
+          lastAutoHello = Date.now();
+          await sendHello().catch(() => {});
           syncPeerCards();
         }
         if (!sessions.size) return;
@@ -2097,7 +2117,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     bootHelloTimer = null;
   }
 
-  // ── Conflits manuels roomKey ───────────────────────────────────────────────
+  // ── Manual roomKey conflicts ───────────────────────────────────────────────
   async function resolveConflict(roomId: string, choice: "local" | "remote"): Promise<void> {
     const i = state.conflicts.findIndex((c) => c.roomId === roomId);
     if (i < 0) return;
@@ -2118,7 +2138,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         setError("Remote key unreadable.");
       }
     }
-    // "local" : on garde, et le prochain snapshot l'imposera au pair via LWW.
+    // "local": keep it, and the next snapshot will impose it on the peer via LWW.
     await pushSnapshot().catch(() => {});
   }
 
@@ -2139,7 +2159,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     persistSettings();
   }
 
-  // Retire un seul pair (revoke ciblé + wipe local de sa session).
+  // Remove a single peer (targeted revoke + local wipe of its session).
   async function unpairPeer(peerId: string): Promise<void> {
     const sess = sessions.get(peerId);
     if (!sess) return;

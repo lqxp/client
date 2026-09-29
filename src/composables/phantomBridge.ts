@@ -4,9 +4,9 @@ let handler: PhantomMessageHandler | null = null;
 let cloudSyncHandler: PhantomMessageHandler | null = null;
 
 /**
- * Pont léger entre `useMessenger.handleMessage` et `usePhantom` : les ops WS
- * 36/37/38/39 (PREKEY_PUBLISH/FETCH, LINK_CREATE, BLOCK_UPDATE) sont relayées
- * ici sans coupler les deux composables.
+ * Lightweight bridge between `useMessenger.handleMessage` and `usePhantom`:
+ * WS ops 36/37/38/39 (PREKEY_PUBLISH/FETCH, LINK_CREATE, BLOCK_UPDATE) are
+ * relayed here without coupling the two composables.
  */
 export function setPhantomMessageHandler(next: PhantomMessageHandler | null): void {
   handler = next;
@@ -17,10 +17,10 @@ export function dispatchPhantomMessage(op: number, d: Record<string, unknown>): 
 }
 
 /**
- * Pont QxCloudSync : les ops WS 60 (ack + erreurs), 61 (relais pur same-user,
- * op 60→61), 62 (annuaire des pairs) et 63 (présence join/update/leave) sont
- * relayées ici sans coupler useMessenger et useCloudSync. Le serveur ne
- * stocke rien.
+ * QxCloudSync bridge: WS ops 60 (ack + errors), 61 (pure same-user relay,
+ * op 60→61), 62 (peer directory) and 63 (join/update/leave presence) are
+ * relayed here without coupling useMessenger and useCloudSync. The server
+ * stores nothing.
  */
 export function setCloudSyncMessageHandler(next: PhantomMessageHandler | null): void {
   cloudSyncHandler = next;
@@ -35,8 +35,8 @@ export type RoomDeletedListener = (roomId: string) => void;
 let roomDeletedListener: RoomDeletedListener | null = null;
 
 /**
- * Pont suppression de room : quand le messenger traite l'éviction serveur
- * (op 58), QxCloudSync enregistre la tombstone pour les pairs offline.
+ * Room-deletion bridge: when the messenger processes the server eviction
+ * (op 58), QxCloudSync records the tombstone for offline peers.
  */
 export function setRoomDeletedListener(next: RoomDeletedListener | null): void {
   roomDeletedListener = next;
@@ -52,9 +52,9 @@ let roomLeftListener: RoomLeaveListener | null = null;
 let roomJoinedListener: RoomLeaveListener | null = null;
 
 /**
- * Pont leave/join : quand ce client quitte (ou rejoint) une room, QxCloudSync
- * propage l'action aux pairs (tombstones `left`, 30 j). Sans ça le merge
- * union-only ne fait jamais partir l'autre client.
+ * Leave/join bridge: when this client leaves (or joins) a room, QxCloudSync
+ * propagates the action to peers (`left` tombstones, 30d). Without this the
+ * union-only merge never removes the other client.
  */
 export function setRoomLeftListener(next: RoomLeaveListener | null): void {
   roomLeftListener = next;

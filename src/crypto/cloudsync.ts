@@ -2,12 +2,12 @@ import { decodeBase64Url, encodeBase64Url } from "./e2ee";
 import { canonicalJson, hkdfSha256, bytesToHex, hexToBytes } from "./phantom";
 import { signSlhDsa, verifySlhDsa } from "./slhdsa";
 
-// ── QxCloudSync : primitives pures (aucun I/O, aucun stockage) ───────────────
-// Relais pur op 60→61 : le serveur ne voit qu'un objet opaque ≤64 KiB.
-// Racine de confiance : masterSecret dérivé des 12 mots recovery (saisis sur
-// chaque device, jamais transmis). Décisions figées : relais pur uniquement,
-// pairing par saisie des 12 mots, epoch 7j, conflit roomKey = refus + choix
-// manuel, historique complet via IndexedDB côté composable.
+// ── QxCloudSync: pure primitives (no I/O, no storage) ───────────────
+// Pure relay op 60→61: the server only sees an opaque object ≤64 KiB.
+// Trust root: masterSecret derived from the 12 recovery words (entered on
+// each device, never transmitted). Frozen decisions: pure relay only,
+// pairing by entering the 12 words, 7d epoch, roomKey conflict = reject +
+// manual choice, full history via IndexedDB on the composable side.
 
 export const CLOUDP_SYNC_PV = 1;
 export const CLOUDSYNC_OP_SEND = 60;
@@ -37,16 +37,16 @@ export interface SyncHelloUnsigned {
   ecdsaPub: JsonWebKey;
   nonce: string;
   mlkemCt?: string;
-  // Plateforme normalisée ("mobile" | "web" | "desktop"), signée avec le hello.
+  // Normalized platform ("mobile" | "web" | "desktop"), signed with the hello.
   platform?: string;
-  // Clé publique SLH-DSA-SHA2-128f du device (FIPS 205), b64url 32 o.
+  // Device SLH-DSA-SHA2-128f public key (FIPS 205), 32-byte b64url.
   slhdsaPk: string;
 }
 
 export type SyncHelloSigned = SyncHelloUnsigned & {
   auth: string;
   sigEcdsa: string;
-  // Signature hybride post-quantique du même canonique (FIPS 205).
+  // Hybrid post-quantum signature of the same canonical bytes (FIPS 205).
   sigSlh: string;
 };
 
@@ -79,7 +79,7 @@ export interface SyncRoomEntry {
   lastRead?: number;
   updatedAt: number;
   by: string;
-  // Membres (usernames, plafonnés) : appliqués uniquement aux rooms importées.
+  // Members (usernames, capped): applied only to imported rooms.
   members?: string[];
 }
 
@@ -92,8 +92,8 @@ export interface SyncMsgEntry {
   deleted?: boolean;
   encrypted?: unknown;
   from?: string;
-  // Messages système (appel, présence) : sans ces flags le pair les rend
-  // comme de vrais messages au lieu du petit texte système.
+  // System messages (call, presence): without these flags the peer renders
+  // them as regular messages instead of the small system text.
   system?: boolean;
   systemKind?: string;
 }
@@ -105,23 +105,23 @@ export interface SyncCollections {
   ratchets?: Record<string, number>;
   trusted?: Array<{ roomId: string; deviceId: string; key: JsonWebKey }>;
   notes?: Record<string, { value: string; updatedAt: number; by: string }>;
-  // Custom theme (couleur d'accent + teinte) : persisté dans le persisted
-  // state officiel du messenger, LWW par updatedAt.
+  // Custom theme (accent color + tint): persisted in the official messenger
+  // persisted state, LWW by updatedAt.
   customTheme?: {
     theme: { accent: string; tint: string } | null;
     enabled: boolean;
     updatedAt: number;
     by: string;
   };
-  // Langue de l'interface (i18n) : LWW par updatedAt, validée côté réception.
+  // UI locale (i18n): LWW by updatedAt, validated on receipt.
   locale?: { value: string; updatedAt: number; by: string };
-  // Pins (roomIds, ≤5) : LWW sur la liste entière.
+  // Pins (roomIds, ≤5): LWW over the whole list.
   pinned?: { rooms: string[]; updatedAt: number; by: string };
-  // Tombstones de rooms supprimées (30 j) : empêchent la résurrection par un
-  // vieux snapshot. Appliquées une fois par deletedAt croissant.
+  // Deleted-room tombstones (30d): prevent resurrection by an old
+  // snapshot. Applied once in increasing deletedAt order.
   deleted?: Array<{ roomId: string; deletedAt: number; by: string }>;
-  // Leaves synchronisés (30 j) : quitter ici fait quitter les pairs (qui
-  // envoient leur propre op 4). Appliqués une fois par leftAt croissant.
+  // Synced leaves (30d): leaving here makes peers leave (they
+  // send their own op 4). Applied once in increasing leftAt order.
   left?: Array<{ roomId: string; leftAt: number; by: string }>;
 }
 
@@ -133,7 +133,7 @@ export interface RoomKeyConflict {
   at: number;
 }
 
-// ── Dérivations ─────────────────────────────────────────────────────────────
+// ── Derivations ─────────────────────────────────────────────────────────────
 
 export async function deriveMasterSecretFromWords(words: string[]): Promise<Uint8Array> {
   const phrase = words.map((w) => String(w || "").trim().toLowerCase()).filter(Boolean).join(" ");
@@ -189,7 +189,7 @@ async function importEpochAesKey(epochKey: Uint8Array): Promise<CryptoKey> {
   return subtle.importKey("raw", epochKey as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-// ── Éphémère P-256 ──────────────────────────────────────────────────────────
+// ── P-256 ephemeral ──────────────────────────────────────────────────────────
 
 export async function generateEphKeyPair(): Promise<SyncEphKeyPair> {
   const kp = await subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
@@ -207,7 +207,7 @@ export async function deriveEcdh(priv: CryptoKey, pubJwk: JsonWebKey): Promise<U
   return new Uint8Array(bits);
 }
 
-// ── Hello : HMAC (preuve des 12 mots) + ECDSA device ────────────────────────
+// ── Hello: HMAC (12-word proof) + device ECDSA ────────────────────────
 
 export function canonicalHelloBytes(h: SyncHelloUnsigned): Uint8Array {
   return te.encode(canonicalJson(h));
@@ -243,8 +243,8 @@ export async function verifyHello(
   signed: SyncHelloSigned,
   authKey: CryptoKey,
 ): Promise<boolean> {
-  // Reconstruction par exclusion (pas de whitelist) : tout champ signé —
-  // y compris platform et slhdsaPk — est couvert par le HMAC et les signatures.
+  // Rebuild by exclusion (no whitelist): every signed field —
+  // including platform and slhdsaPk — is covered by the HMAC and signatures.
   const { auth, sigEcdsa, sigSlh, ...unsigned } = signed as unknown as Record<string, unknown>;
   void auth;
   const canonical = te.encode(canonicalJson(unsigned));
@@ -261,7 +261,7 @@ export async function verifyHello(
     ecdsaOk = false;
   }
   if (!ecdsaOk) return false;
-  // FIPS 205 obligatoire : un hello sans SLH-DSA valide est rejeté (fail closed).
+  // Mandatory FIPS 205: a hello without a valid SLH-DSA is rejected (fail closed).
   try {
     if (typeof signed.slhdsaPk !== "string" || typeof sigSlh !== "string") return false;
     return verifySlhDsa(
@@ -285,7 +285,7 @@ export function transcriptHash(parts: Uint8Array[]): Promise<Uint8Array> {
   return subtle.digest("SHA-256", buf as BufferSource).then((d) => new Uint8Array(d));
 }
 
-// ── Enveloppes data (AES-GCM epoch + signature ECDSA device) ────────────────
+// ── Data envelopes (epoch AES-GCM + device ECDSA signature) ────────────────
 
 function canonicalDataBytes(o: Omit<SyncDataOuter, "sig">): Uint8Array {
   return te.encode(canonicalJson(o));
@@ -353,9 +353,9 @@ export async function unwrapRoomKey(wrapped: string, ivB64: string, wrapKey: Cry
   return bytesToHex(pt);
 }
 
-// ── Chunking (relais ≤64 KiB) ───────────────────────────────────────────────
-// Stratégie : sous-snapshots valides fusionnables via deepMerge, découpés par
-// taille JSON mesurée (marge sous le cap : base64 + signatures + enveloppe).
+// ── Chunking (≤64 KiB relay) ───────────────────────────────────────────────
+// Strategy: valid mergeable sub-snapshots via deepMerge, split by
+// measured JSON size (headroom under the cap: base64 + signatures + envelope).
 const PART_BUDGET = 44_000;
 
 function partSize(p: SyncInner): number {
@@ -394,8 +394,8 @@ export function splitCollectionsForRelay(inner: SyncInner): SyncInner[] {
       batch.pop();
       flush();
       batch.push(m);
-      // Un message seul dépasse le budget (pièce jointe inline ?) : on le
-      // transporte sans son enveloppe chiffrée d'origine, jamais droppé.
+      // A lone message exceeds the budget (inline attachment?): carry it
+      // without its original encrypted envelope, never dropped.
       if (partSize({ kind: inner.kind, vv: inner.vv, collections: { messages: batch } }) > PART_BUDGET) {
         batch[batch.length - 1] = { ...m, encrypted: undefined };
       }
@@ -426,8 +426,8 @@ export async function sealChunked(
 }
 
 // ── DeepMerge ───────────────────────────────────────────────────────────────
-// Règles : union + LWW (_ts/updatedAt, tie-break deviceId). Conflit roomKey :
-// REFUS + demande manuelle (jamais d'écrasement auto).
+// Rules: union + LWW (_ts/updatedAt, deviceId tie-break). RoomKey conflict:
+// REJECT + manual prompt (never auto-overwrite).
 
 export function maxRatchets(local: Record<string, number>, remote: Record<string, number>): Record<string, number> {
   const out = { ...local };
@@ -489,14 +489,14 @@ export function mergeRoomEntries(
       continue;
     }
     if (cur.roomKeyWrapped !== r.roomKeyWrapped) {
-      // Politique "refuser + demander" : on garde le local, on signale.
+      // "Reject + prompt" policy: keep local, report it.
       if (!localById[r.roomId] || localById[r.roomId] !== r.roomKeyWrapped) {
         conflicts.push({
           roomId: r.roomId, localWrapped: cur.roomKeyWrapped,
           remoteWrapped: r.roomKeyWrapped, remoteBy: r.by, at: Date.now(),
         });
       }
-      // LWW pour les métadonnées non-clé (titre, lastRead).
+      // LWW for non-key metadata (title, lastRead).
       if (r.updatedAt > cur.updatedAt) {
         byId.set(r.roomId, { ...r, roomKeyWrapped: cur.roomKeyWrapped, roomKeyIv: cur.roomKeyIv });
       }
@@ -522,8 +522,8 @@ export function mergeTrusted(
       map.set(key(t), t);
       continue;
     }
-    // Comparaison canonique : l'ordre des clés JWK peut varier après un
-    // aller-retour JSON (le serveur re-sérialise en clés triées).
+    // Canonical comparison: JWK key order may vary after a
+    // JSON round-trip (the server re-serializes with sorted keys).
     if (canonicalJson(cur.key) !== canonicalJson(t.key)) conflicts.push(key(t));
   }
   return { merged: [...map.values()], conflicts };
