@@ -120,6 +120,11 @@ interface PeerSession {
   recvHighWater: number;
   peerPub: JsonWebKey;
   lastSeen: number;
+  // Dernier contact ENTRANT vérifié (message ouvert ou handshake abouti).
+  // lastSeen est aussi rafraîchi à l'envoi (affichage), donc inutilisable
+  // pour détecter une route morte : un push dans le vide marquerait le pair
+  // "frais" et interdirait à jamais le fallback broadcast.
+  lastInboundAt: number;
 }
 
 // Groupes de paramètres synchronisables (la langue vit dans useI18n et part
@@ -295,6 +300,23 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
   let restoredOnce = false;
   const AUTO_SYNC_MS = 90_000;
+  // Au-delà de ce silence, l'adresse de routage serveur (peerWs = ws client_id
+  // du pair) est présumée périmée (reconnexion, reload d'onglet, téléphone qui
+  // se réveille) : on diffuse en broadcast, que le serveur relaie à toutes les
+  // sessions du compte. À la réception, le pair recadre notre peerWs via
+  // fromClientId et son ack recadre le nôtre — auto-guérison en un aller-retour.
+  const STALE_ROUTE_MS = 3 * 60_000;
+  // Garde-fous anti-tempête : re-handshake / renvoi de rekey, max 1/min/pair.
+  const lastRehandshakeAt = new Map<string, number>();
+  const lastRekeyResendAt = new Map<string, number>();
+  // Saut d'epoch maximal absorbé sans re-handshake (rekey manqué).
+  const MAX_EPOCH_JUMP = 10;
+
+  function routeFor(sess: PeerSession): string {
+    if (!sess.peerWs) return "";
+    if (Date.now() - (sess.lastInboundAt || 0) > STALE_ROUTE_MS) return "";
+    return sess.peerWs;
+  }
 
   function persistSettings() {
     saveSettings({
@@ -718,6 +740,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           recvHighWater: 0,
           peerPub: it.peerPub,
           lastSeen: 0,
+          lastInboundAt: 0,
         });
       } catch {
         /* entrée illisible : ignorée */
@@ -934,6 +957,15 @@ export function useCloudSync(ctx: CloudSyncCtx) {
   }
 
   function trackSession(s: PeerSession): void {
+    const prev = sessions.get(s.peerId);
+    if (prev && prev !== s) {
+      try {
+        prev.master.fill(0);
+        prev.epochKey.fill(0);
+      } catch {
+        /* ignore */
+      }
+    }
     sessions.set(s.peerId, s);
     syncPeerCards();
     void saveSessions();
@@ -1064,7 +1096,12 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     if (signed.fromDeviceId === d.id) return; // notre propre broadcast.
 
     if (signed.kind === "hello") {
-      if (sessions.has(signed.fromDeviceId)) return; // déjà pairé avec lui.
+      // Session vivante (contact entrant récent) : déjà pairé, on ignore les
+      // hello redondants (double-clic sur Pair, etc.). Session périmée ou
+      // inconnue : le pair tente un re-pairing (état perdu, divergence) et on
+      // lui répond — le handshake remplace l'ancienne session via trackSession.
+      const existing = sessions.get(signed.fromDeviceId);
+      if (existing && Date.now() - (existing.lastInboundAt || 0) <= STALE_ROUTE_MS) return;
       // Course "Pair" des deux côtés : le plus petit deviceId gagne, l'autre
       // abandonne sa tentative et répond.
       const ownRecent = [...pending.values()].find(
@@ -1121,7 +1158,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         master, epochKey: await deriveEpochKey(master, epoch), epoch,
         expiresAt: Date.now() + CLOUDSYNC_EPOCH_TTL_MS,
         sendN: 1, seenN: new Set(), recvWindowId: "", recvHighWater: 0,
-        peerPub: signed.ecdsaPub, lastSeen: Date.now(),
+        peerPub: signed.ecdsaPub, lastSeen: Date.now(), lastInboundAt: Date.now(),
       });
       const slhSelf = await ensureSlhDevice();
       if (!slhSelf) return;
@@ -1161,7 +1198,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         master, epochKey: await deriveEpochKey(master, epoch), epoch,
         expiresAt: Date.now() + CLOUDSYNC_EPOCH_TTL_MS,
         sendN: 1, seenN: new Set(), recvWindowId: "", recvHighWater: 0,
-        peerPub: signed.ecdsaPub, lastSeen: Date.now(),
+        peerPub: signed.ecdsaPub, lastSeen: Date.now(), lastInboundAt: Date.now(),
       });
       pending.delete(signed.syncId);
       await pushSnapshot(signed.fromDeviceId);
@@ -1173,11 +1210,53 @@ export function useCloudSync(ctx: CloudSyncCtx) {
       sess.epoch = signed.epoch;
       sess.expiresAt = Date.now() + CLOUDSYNC_EPOCH_TTL_MS;
       sess.lastSeen = Date.now();
+      sess.lastInboundAt = Date.now();
       sess.platform = normalizePlatform((signed as unknown as Record<string, unknown>).platform) || sess.platform;
       if (fromWs) sess.peerWs = fromWs;
       syncPeerCards();
       await saveSessions();
     }
+  }
+
+  // Envoie (ou renvoie) un rekey signé pour l'epoch donnée, sans muter la
+  // session : l'avancement local reste à l'appelant (scheduler).
+  // Retourne true si le rekey est parti (pour ne jamais avancer sans envoi).
+  async function sendRekeyMessage(sess: PeerSession, epoch: number): Promise<boolean> {
+    const d2 = device();
+    if (!d2.priv || !authKey) return false;
+    const slh = await ensureSlhDevice();
+    if (!slh) return false;
+    const rekey = await signHello(
+      {
+        pv: 1, kind: "rekey", syncId: sess.syncId, epoch,
+        fromDeviceId: d2.id, toDeviceId: sess.peerId, ephPub: {} as JsonWebKey,
+        mlkemPk: "", ecdsaPub: d2.pub as JsonWebKey, nonce: randomNonceB64(),
+        platform: localPlatform(), slhdsaPk: encodeBase64Url(slh.publicKey),
+      },
+      authKey as CryptoKey, d2.priv as JsonWebKey, slh.secretKey,
+    );
+    sendTo(routeFor(sess), rekey);
+    return true;
+  }
+
+  // Le pair nous parle avec un syncId inconnu (re-pair ailleurs, session
+  // restaurée différente) : on relance un handshake, sans tempête.
+  function maybeRehandshake(peerId: string): void {
+    const now = Date.now();
+    if (now - (lastRehandshakeAt.get(peerId) || 0) < 60_000) return;
+    lastRehandshakeAt.set(peerId, now);
+    if (!state.enabled || suspended() || !hasWordsQuiet()) return;
+    void sendHello().catch(() => {});
+  }
+
+  // Le pair est en arrière d'epoch (notre rekey s'est perdu dans un peerWs
+  // périmé) : on lui renvoie le rekey courant au lieu de le laisser décroché.
+  function maybeResendRekey(sess: PeerSession): void {
+    const now = Date.now();
+    if (now - (lastRekeyResendAt.get(sess.peerId) || 0) < 60_000) return;
+    lastRekeyResendAt.set(sess.peerId, now);
+    if (!state.enabled || suspended()) return;
+    void sendRekeyMessage(sess, sess.epoch).catch(() => {});
   }
 
   // ── Snapshot deepMerge ─────────────────────────────────────────────────────
@@ -1350,7 +1429,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         );
         sess.sendN += outs.length;
         state.diag.sent += outs.length;
-        for (const o of outs) sendTo(sess.peerWs, o);
+        for (const o of outs) sendTo(routeFor(sess), o);
         sess.lastSeen = Date.now();
       }
       state.lastSyncAt = Date.now();
@@ -1648,7 +1727,37 @@ export function useCloudSync(ctx: CloudSyncCtx) {
     const sess = sessions.get(outer.from);
     if (!sess) return;
     if (fromWs) sess.peerWs = fromWs;
-    if (outer.epoch !== sess.epoch || outer.syncId !== sess.syncId) return;
+    if (outer.epoch !== sess.epoch || outer.syncId !== sess.syncId) {
+      // Enveloppe adressée à un autre pair (broadcast de rattrapage d'un
+      // tiers) : elle ne nous concerne pas, on l'ignore sans réagir.
+      if (outer.to !== device().id) return;
+      if (outer.syncId !== sess.syncId) {
+        maybeRehandshake(outer.from);
+        return;
+      }
+      const epoch = Number(outer.epoch);
+      if (!Number.isSafeInteger(epoch) || epoch <= 0) return;
+      if (epoch > sess.epoch) {
+        // Rekey manqué de notre côté : on avance localement (borné), puis le
+        // openData ci-dessous authentifie — seul le détenteur du master peut
+        // produire une enveloppe valide, donc l'adoption est sûre.
+        if (epoch - sess.epoch > MAX_EPOCH_JUMP) {
+          maybeRehandshake(outer.from);
+          return;
+        }
+        sess.epochKey = await deriveEpochKey(sess.master, epoch);
+        sess.epoch = epoch;
+        sess.expiresAt = Date.now() + CLOUDSYNC_EPOCH_TTL_MS;
+        syncPeerCards();
+        await saveSessions();
+      } else {
+        // Pair en arrière (notre rekey s'est perdu, typiquement peerWs
+        // périmé) : on lui renvoie le rekey courant au lieu du drop sec
+        // qui, avant, figeait la paire définitivement.
+        maybeResendRekey(sess);
+        return;
+      }
+    }
     if (!Number.isSafeInteger(outer.n) || (outer.n as number) <= 0) return;
     // Fenêtre anti-replay par (syncId, epoch) : le compteur d'envoi redémarre
     // à 1 à chaque handshake, d'où le recadrage à chaque fenêtre. Au-delà
@@ -1673,6 +1782,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         }
       }
       sess.lastSeen = Date.now();
+      sess.lastInboundAt = Date.now();
       state.diag.received += 1;
       if (inner.kind === "revoke") {
         try {
@@ -1771,21 +1881,11 @@ export function useCloudSync(ctx: CloudSyncCtx) {
         for (const sess of sessions.values()) {
           if (Date.now() < sess.expiresAt - CLOUDSYNC_REKEY_MARGIN_MS) continue;
           const next = sess.epoch + 1;
-          const slh = await ensureSlhDevice();
-          if (!slh) continue;
-          const rekey = await signHello(
-            {
-              pv: 1, kind: "rekey", syncId: sess.syncId, epoch: next,
-              fromDeviceId: d2.id, toDeviceId: sess.peerId, ephPub: {} as JsonWebKey,
-              mlkemPk: "", ecdsaPub: d2.pub as JsonWebKey, nonce: randomNonceB64(),
-              platform: localPlatform(), slhdsaPk: encodeBase64Url(slh.publicKey),
-            },
-            authKey as CryptoKey, d2.priv as JsonWebKey, slh.secretKey,
-          );
+          const sent = await sendRekeyMessage(sess, next).catch(() => false);
+          if (!sent) continue;
           sess.epochKey = await deriveEpochKey(sess.master, next);
           sess.epoch = next;
           sess.expiresAt = Date.now() + CLOUDSYNC_EPOCH_TTL_MS;
-          sendTo(sess.peerWs, rekey);
         }
         syncPeerCards();
         await saveSessions();
@@ -1856,7 +1956,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
           { syncId: sess.syncId, epoch: sess.epoch, n: sess.sendN, from: dev.id, to: sess.peerId },
           dev.priv,
         );
-        sendTo(sess.peerWs, outer);
+        sendTo(routeFor(sess), outer);
       } catch {
         /* ignore */
       }
@@ -1877,7 +1977,7 @@ export function useCloudSync(ctx: CloudSyncCtx) {
             { kind: "revoke", vv: { ...state.vv }, reason: "user" }, sess.epochKey,
             { syncId: sess.syncId, epoch: sess.epoch, n: sess.sendN, from: dev.id, to: sess.peerId },
             dev.priv,
-          ).then((outer) => sendTo(sess.peerWs, outer)).catch(() => {});
+          ).then((outer) => sendTo(routeFor(sess), outer)).catch(() => {});
         }
         sess.master.fill(0);
       }
