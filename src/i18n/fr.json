@@ -843,6 +843,8 @@
       "browseEmpty": "Aucun utilisateur chargé.",
       "browseCount": "{shown} sur {total} utilisateurs chargés",
       "browseMoreHint": "Charge plus pour élargir les filtres.",
+      "browseMore": "Charger plus d'utilisateurs",
+      "skippedRows": "{count} lignes illisibles ignorées",
       "browseMore": "Charger plus d’utilisateurs",
       "view": {
         "overview": "Aperçu",

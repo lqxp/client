@@ -12,7 +12,7 @@ import type { Messenger } from "@/composables/useMessenger";
  */
 import type { PropType } from "vue";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { AdminOverview, AdminRoom, AdminUser } from "@/types/messenger";
+import type { AdminOverview, AdminRoom, AdminUser, AdminUserListFilters } from "@/types/messenger";
 import type { LineSeries } from "@/components/charts/LineChart.vue";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import LineChart from "@/components/charts/LineChart.vue";
@@ -358,16 +358,49 @@ const browseSortOptions = computed(() =>
 );
 
 function enterBrowseMode() {
-  if (!userListLoaded.value && !userListLoading.value) props.messenger.listAdminUsers(true);
+  if (!userListLoaded.value && !userListLoading.value) props.messenger.listAdminUsers(true, browseFilters());
 }
 
 watch(userMode, (mode) => {
   if (mode === "browse") enterBrowseMode();
 });
 
-function reloadUserList() {
-  props.messenger.listAdminUsers(true);
+/** Filters as the server expects them; dates become ms bounds like below. */
+function browseFilters(): AdminUserListFilters {
+  const fromMs = browseFrom.value ? dateInputMs(browseFrom.value) : 0;
+  const toMs = browseTo.value ? dateInputMs(browseTo.value) + DAY_MS - 1 : 0;
+  return {
+    q: browseQuery.value.trim() || undefined,
+    status: browseStatus.value,
+    badge: browseBadge.value.trim() || undefined,
+    from: fromMs > 0 ? fromMs : undefined,
+    to: toMs > 0 ? toMs : undefined,
+    sort: browseSort.value,
+  };
 }
+
+function reloadUserList() {
+  props.messenger.listAdminUsers(true, browseFilters());
+}
+
+let browseTimer: number | null = null;
+
+function scheduleBrowseReload(immediate = false) {
+  if (userMode.value !== "browse") return;
+  if (browseTimer) window.clearTimeout(browseTimer);
+  if (immediate) {
+    props.messenger.listAdminUsers(true, browseFilters());
+    return;
+  }
+  browseTimer = window.setTimeout(() => props.messenger.listAdminUsers(true, browseFilters()), 300);
+}
+
+// Server-side filtering: any filter change restarts pagination with the new
+// filters (text inputs debounced like the username search).
+watch([browseQuery, browseBadge], () => scheduleBrowseReload(false));
+watch([browseStatus, browseSort, browseFrom, browseTo], () => scheduleBrowseReload(true));
+
+const userListSkipped = computed(() => Number(state.value.adminUserListSkipped) || 0);
 
 function loadMoreUsers() {
   props.messenger.listAdminUsers(false);
@@ -545,6 +578,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (searchTimer) window.clearTimeout(searchTimer);
+  if (browseTimer) window.clearTimeout(browseTimer);
   if (flashTimer) window.clearTimeout(flashTimer);
   props.messenger.cancelAdminUserSearch();
 });
@@ -1448,6 +1482,9 @@ async function clearDefaultRoom() {
                 <p class="grp__note">
                   {{ t('settings.admin.browseCount', { shown: String(filteredUsers.length), total: String(userList.length) }) }}
                   <template v-if="!userListExhausted">{{ t('settings.admin.browseMoreHint') }}</template>
+                </p>
+                <p v-if="userListSkipped > 0" class="grp__note">
+                  {{ t('settings.admin.skippedRows', { count: String(userListSkipped) }) }}
                 </p>
                 <div v-if="!userListExhausted" class="settings-actions">
                   <button type="button" class="btn settings-btn" :disabled="userListLoading" @click="loadMoreUsers">

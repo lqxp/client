@@ -837,6 +837,7 @@
       "browseCount": "{shown} de {total} usuarios cargados",
       "browseMoreHint": "Carga más para ampliar los filtros.",
       "browseMore": "Cargar más usuarios",
+      "skippedRows": "{count} filas ilegibles omitidas",
       "view": {
         "overview": "Resumen",
         "users": "Usuarios",

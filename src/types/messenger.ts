@@ -253,5 +253,20 @@ export interface AdminUser {
   createdAt?: number;
 }
 
+/**
+ * Server-side filters for `GET /api/admin/users` (backend
+ * `UserListFilter`): username/id substring, account status, custom badge,
+ * `createdAt` millisecond bounds, and page order. Sent on every page so the
+ * server — not the client — narrows 33k-account tables.
+ */
+export interface AdminUserListFilters {
+  q?: string;
+  status?: "all" | "active" | "disabled" | "banned" | "admin";
+  badge?: string;
+  from?: number;
+  to?: number;
+  sort?: "newest" | "oldest" | "username";
+}
+
 /** One room row of the admin overview. */
 export type AdminRoom = NonNullable<AdminOverview["rooms"]>[number] & { title?: string };

@@ -5,6 +5,7 @@ import type {
   ActiveRecording,
   AdminOverview,
   AdminUser,
+  AdminUserListFilters,
   ByRoom,
   SocketFrame,
   IncomingModPermissions,
@@ -3240,6 +3241,10 @@ function createMessenger() {
     adminUserListLoaded: false,
     adminUserListCursor: null as string | null,
     adminUserListExhausted: false,
+    // Filters last sent to the server (re-applied to follow-up pages) and
+    // malformed rows the server skipped while paging.
+    adminUserListFilters: null as AdminUserListFilters | null,
+    adminUserListSkipped: 0,
   });
 
   // Sync call sounds flag from persisted state
@@ -4834,11 +4839,15 @@ function createMessenger() {
 
   /**
    * Paginated browse of the whole account table for the admin user center.
-   * Requires a server implementing `GET /api/admin/users?limit=&cursor=`
-   * answering `{ users: AdminUser[], nextCursor?: string | null }`. Pages
-   * accumulate in `state.adminUserList`; call with `reset=true` to restart
-   * from the first page. On failure the loaded pages are kept and the error
-   * is toasted, so a missing server endpoint degrades to search-only mode.
+   * Requires a server implementing
+   * `GET /api/admin/users?limit=&cursor=&q=&status=&badge=&from=&to=&sort=`
+   * answering `{ users: AdminUser[], nextCursor?: string | null, skipped?: number }`.
+   * Pages accumulate in `state.adminUserList`; call with `reset=true` (and the
+   * current filters) to restart from the first page — follow-up pages reuse
+   * the stored filters so every page is narrowed the same way. On failure
+   * the loaded pages are kept and the error is toasted, so a missing server
+   * endpoint degrades to search-only mode (unknown params are ignored by old
+   * servers, whose pages the client-side sieve still narrows).
    */
   const ADMIN_USER_LIST_PAGE = 100;
   let adminUserListRequestId = 0;
@@ -4850,9 +4859,11 @@ function createMessenger() {
     state.adminUserListLoaded = false;
     state.adminUserListCursor = null;
     state.adminUserListExhausted = false;
+    state.adminUserListFilters = null;
+    state.adminUserListSkipped = 0;
   }
 
-  async function listAdminUsers(reset = false) {
+  async function listAdminUsers(reset = false, filters?: AdminUserListFilters) {
     if (!state.admin) return [];
     if (state.adminUserListLoading) return state.adminUserList;
     if (!reset && state.adminUserListExhausted) return state.adminUserList;
@@ -4863,14 +4874,25 @@ function createMessenger() {
       state.adminUserList = [];
       state.adminUserListCursor = null;
       state.adminUserListExhausted = false;
+      state.adminUserListSkipped = 0;
+      if (filters) state.adminUserListFilters = { ...filters };
     }
+    const active = reset && filters ? filters : state.adminUserListFilters || undefined;
     state.adminUserListLoading = true;
     try {
       const params = new URLSearchParams({ limit: String(ADMIN_USER_LIST_PAGE) });
       if (state.adminUserListCursor) params.set("cursor", state.adminUserListCursor);
+      if (active?.q?.trim()) params.set("q", active.q.trim());
+      if (active?.status && active.status !== "all") params.set("status", active.status);
+      if (active?.badge?.trim()) params.set("badge", active.badge.trim());
+      if (Number.isFinite(active?.from) && (active?.from as number) > 0) params.set("from", String(active?.from));
+      if (Number.isFinite(active?.to) && (active?.to as number) > 0) params.set("to", String(active?.to));
+      if (active?.sort) params.set("sort", active.sort);
       const data = await apiRequest(`/api/admin/users?${params.toString()}`);
       if (!isCurrent()) return state.adminUserList;
       const page = Array.isArray(data?.users) ? (data.users as AdminUser[]) : [];
+      const skipped = Number(data?.skipped) || 0;
+      if (skipped > 0) state.adminUserListSkipped += skipped;
       const seen = new Set(state.adminUserList.map((entry) => String(entry?.id || "")));
       for (const user of page) {
         const id = String((user as AdminUser)?.id || "");

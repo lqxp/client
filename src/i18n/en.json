@@ -844,6 +844,7 @@
       "browseCount": "{shown} of {total} loaded users",
       "browseMoreHint": "Load more to extend the filters.",
       "browseMore": "Load more users",
+      "skippedRows": "{count} unreadable rows skipped",
       "view": {
         "overview": "Overview",
         "users": "Users",
