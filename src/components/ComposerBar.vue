@@ -652,6 +652,8 @@ function toggleComposerActionLocation(action: ComposerTrayAction) {
   if (isInComposerTray(action)) composerTrayItems.value = composerTrayItems.value.filter((item) => item !== action);
   else composerTrayItems.value = [...composerTrayItems.value, action];
   persistComposerTrayItems();
+  // The "+" button hides when the tray empties: dismiss its popup too.
+  if (composerTrayEmpty.value) trayOpen.value = false;
 }
 
 /** Runs a stowed action from the tray, then dismisses it. */
@@ -1034,7 +1036,7 @@ onBeforeUnmount(() => {
           <Icon name="camera" viewBox="0 0 24 24" />
         </button>
 
-        <span v-if="!isMobile" ref="trayRef" class="composer__tray">
+        <span v-if="!isMobile && !composerTrayEmpty" ref="trayRef" class="composer__tray">
           <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.moreActions')"
             :title="t('composer.moreActions')" :aria-expanded="trayOpen" :class="{ 'is-active': trayOpen }"
             :disabled="disabled" @click="toggleTray">
