@@ -1,4 +1,4 @@
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
 import { apiUrl } from "@/config/runtime";
 import {
   bytesToHex,
@@ -29,8 +29,8 @@ import { setPhantomMessageHandler } from "./phantomBridge";
 
 const te = new TextEncoder();
 
-const PREKEY_STORAGE_KEY = "qxphantom-prekey-v1";
-const SETTINGS_STORAGE_KEY = "qxphantom-settings-v1";
+const LEGACY_PREKEY_KEY = "qxphantom-prekey-v1";
+const LEGACY_SETTINGS_KEY = "qxphantom-settings-v1";
 // Cadence de poll des enveloppes (dead-drops). HTTP anonyme volontaire : un
 // push WS trahirait la corrélation compte↔slot (S6/INV13).
 const PHANTOM_POLL_MIN_MS = 15 * 1000;
@@ -76,15 +76,99 @@ export interface PhantomMessengerCtx {
     username: string,
   ) => Array<{ roomId: string; name: string; icon: string }>;
   showToast?: (msg: string, opts?: { badge?: string; error?: boolean }) => void;
+  // Persists the current account snapshot (active payload + accounts vault).
+  // Phantom state lives inside that snapshot, so every mutation must flush it.
+  persistAccountSnapshot?: () => void;
 }
 
-interface StoredPrekey {
+export interface StoredPrekey {
   mlkemPublicKeyHex: string;
   mlkemSecretKeyHex: string;
   mldsaSecretKeyHex: string;
   ecdsaPublicJwk: JsonWebKey | null;
   ecdsaPrivateJwk: JsonWebKey | null;
   bundle: PrekeyBundle | null;
+}
+
+export interface PhantomPersistedSettings {
+  acceptUnknown: "off" | "filter" | "all";
+  blockList: string[];
+  friendsCollapsed: boolean;
+  pollIntervalSeconds: number | null;
+  pollingEnabled: boolean;
+}
+
+export function defaultPhantomSettings(): PhantomPersistedSettings {
+  return {
+    acceptUnknown: "all",
+    blockList: [],
+    friendsCollapsed: false,
+    pollIntervalSeconds: null,
+    pollingEnabled: true,
+  };
+}
+
+function sanitizeHex(value: unknown, maxLen: number): string {
+  const text = String(value || "");
+  return /^[0-9a-fA-F]*$/.test(text) ? text.slice(0, maxLen) : "";
+}
+
+function sanitizeJwk(value: unknown): JsonWebKey | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonWebKey)
+    : null;
+}
+
+export function sanitizePhantomPrekey(raw: unknown): StoredPrekey | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const input = raw as Record<string, unknown>;
+  const mlkemPublicKeyHex = sanitizeHex(input.mlkemPublicKeyHex, 8192);
+  const mlkemSecretKeyHex = sanitizeHex(input.mlkemSecretKeyHex, 16384);
+  const mldsaSecretKeyHex = sanitizeHex(input.mldsaSecretKeyHex, 16384);
+  if (!mlkemPublicKeyHex || !mlkemSecretKeyHex || !mldsaSecretKeyHex) return null;
+  if (!input.bundle || typeof input.bundle !== "object") return null;
+  return {
+    mlkemPublicKeyHex,
+    mlkemSecretKeyHex,
+    mldsaSecretKeyHex,
+    ecdsaPublicJwk: sanitizeJwk(input.ecdsaPublicJwk),
+    ecdsaPrivateJwk: sanitizeJwk(input.ecdsaPrivateJwk),
+    bundle: input.bundle as PrekeyBundle,
+  };
+}
+
+export function sanitizePhantomSettings(raw: unknown): PhantomPersistedSettings {
+  const out = defaultPhantomSettings();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  const input = raw as Record<string, unknown>;
+  if (input.acceptUnknown === "off" || input.acceptUnknown === "filter" || input.acceptUnknown === "all") {
+    out.acceptUnknown = input.acceptUnknown;
+  }
+  if (Array.isArray(input.blockList)) {
+    out.blockList = input.blockList
+      .map((entry) => String(entry || "").slice(0, 256))
+      .filter(Boolean)
+      .slice(0, 1000);
+  }
+  if (typeof input.friendsCollapsed === "boolean") out.friendsCollapsed = input.friendsCollapsed;
+  if (typeof input.pollIntervalSeconds === "number" && Number.isFinite(input.pollIntervalSeconds)) {
+    const seconds = Math.floor(input.pollIntervalSeconds);
+    if (seconds >= PHANTOM_POLL_USER_MIN_SEC && seconds <= PHANTOM_POLL_USER_MAX_SEC) {
+      out.pollIntervalSeconds = seconds;
+    }
+  }
+  if (typeof input.pollingEnabled === "boolean") out.pollingEnabled = input.pollingEnabled;
+  return out;
+}
+
+export function isDefaultPhantomSettings(settings: PhantomPersistedSettings): boolean {
+  return (
+    settings.acceptUnknown === "all" &&
+    settings.blockList.length === 0 &&
+    settings.friendsCollapsed === false &&
+    settings.pollIntervalSeconds === null &&
+    settings.pollingEnabled === true
+  );
 }
 
 function bytesToB64(bytes: Uint8Array): string {
@@ -107,21 +191,59 @@ function randomHex64(): string {
   return bytesToHex(bytes);
 }
 
-function loadPrekey(): StoredPrekey | null {
+// Phantom state lives inside the per-account snapshot (messenger persisted
+// payload): storage keys are gone, one JSON per account holds everything.
+function accountScope(ctx: PhantomMessengerCtx): string {
+  return String(ctx.state?.userId || "").trim();
+}
+
+function legacyScopedKey(base: string, ctx: PhantomMessengerCtx): string {
+  const scope = accountScope(ctx);
+  return scope ? `${base}:${scope}` : base;
+}
+
+function readLegacyJson(key: string): unknown {
   try {
-    const raw = localStorage.getItem(PREKEY_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredPrekey) : null;
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as unknown) : null;
   } catch {
     return null;
   }
 }
 
-function savePrekey(prekey: StoredPrekey): void {
+function deleteLegacyKey(key: string): void {
   try {
-    localStorage.setItem(PREKEY_STORAGE_KEY, JSON.stringify(prekey));
+    localStorage.removeItem(key);
   } catch {
     /* ignore */
   }
+}
+
+// Fallback migration: a snapshot without prekey adopts the old standalone
+// key (per-account flavor first, then the historical global one). Adopted
+// values are written back into the snapshot and the old keys deleted.
+function readLegacyPrekey(ctx: PhantomMessengerCtx): StoredPrekey | null {
+  const scoped = sanitizePhantomPrekey(readLegacyJson(legacyScopedKey(LEGACY_PREKEY_KEY, ctx)));
+  if (scoped) return scoped;
+  return sanitizePhantomPrekey(readLegacyJson(LEGACY_PREKEY_KEY));
+}
+
+function deleteLegacyPrekeyKeys(ctx: PhantomMessengerCtx): void {
+  deleteLegacyKey(legacyScopedKey(LEGACY_PREKEY_KEY, ctx));
+  deleteLegacyKey(LEGACY_PREKEY_KEY);
+}
+
+function readLegacySettings(ctx: PhantomMessengerCtx): PhantomPersistedSettings | null {
+  const scopedRaw = readLegacyJson(legacyScopedKey(LEGACY_SETTINGS_KEY, ctx));
+  if (scopedRaw && typeof scopedRaw === "object") return sanitizePhantomSettings(scopedRaw);
+  const globalRaw = readLegacyJson(LEGACY_SETTINGS_KEY);
+  if (globalRaw && typeof globalRaw === "object") return sanitizePhantomSettings(globalRaw);
+  return null;
+}
+
+function deleteLegacySettingsKeys(ctx: PhantomMessengerCtx): void {
+  deleteLegacyKey(legacyScopedKey(LEGACY_SETTINGS_KEY, ctx));
+  deleteLegacyKey(LEGACY_SETTINGS_KEY);
 }
 
 export type Phantom = ReturnType<typeof usePhantom>;
@@ -147,45 +269,86 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     lastPollError: "",
   });
 
-  // Persistance locale immédiate (indépendante du blob roster / réseau).
+  // Settings live in the account snapshot; every mutation flushes it.
+  function writeSnapshotSettings(settings: PhantomPersistedSettings): void {
+    ctx.state.phantomSettings = sanitizePhantomSettings(settings);
+    ctx.persistAccountSnapshot?.();
+  }
+
+  // Immediate local persistence (independent from the roster blob / network).
   function loadSettings(): void {
-    try {
-      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed.acceptUnknown) state.acceptUnknown = parsed.acceptUnknown;
-      if (Array.isArray(parsed.blockList)) state.blockList = parsed.blockList;
-      if (typeof parsed.friendsCollapsed === "boolean")
-        state.friendsCollapsed = parsed.friendsCollapsed;
-      if (typeof parsed.pollIntervalSeconds === "number")
-        state.pollIntervalSeconds = parsed.pollIntervalSeconds;
-      if (typeof parsed.pollingEnabled === "boolean")
-        state.pollingEnabled = parsed.pollingEnabled;
-    } catch {
-      /* ignore */
+    const shaped = sanitizePhantomSettings(ctx.state?.phantomSettings);
+    // Upgrade path: a snapshot that still carries defaults adopts the old
+    // standalone settings once, then the old keys are deleted.
+    const legacy = isDefaultPhantomSettings(shaped) ? readLegacySettings(ctx) : null;
+    const final = legacy ?? shaped;
+    state.acceptUnknown = final.acceptUnknown;
+    state.blockList = [...final.blockList];
+    state.friendsCollapsed = final.friendsCollapsed;
+    state.pollIntervalSeconds = final.pollIntervalSeconds;
+    state.pollingEnabled = final.pollingEnabled;
+    if (legacy) {
+      writeSnapshotSettings(final);
+      deleteLegacySettingsKeys(ctx);
     }
   }
 
   function saveSettings(): void {
-    try {
-      localStorage.setItem(
-        SETTINGS_STORAGE_KEY,
-        JSON.stringify({
-          acceptUnknown: state.acceptUnknown,
-          blockList: state.blockList,
-          friendsCollapsed: state.friendsCollapsed,
-          pollIntervalSeconds: state.pollIntervalSeconds,
-          pollingEnabled: state.pollingEnabled,
-        }),
-      );
-    } catch {
-      /* ignore */
-    }
+    writeSnapshotSettings({
+      acceptUnknown: state.acceptUnknown,
+      blockList: [...state.blockList],
+      friendsCollapsed: state.friendsCollapsed,
+      pollIntervalSeconds: state.pollIntervalSeconds,
+      pollingEnabled: state.pollingEnabled,
+    });
   }
 
   loadSettings();
 
-  // Affiche l'erreur ET émet un toast (lastError alimente aussi la modale).
+  // Per-account isolation (account switcher): track the bound account and drop
+  // the previous account's friend state, pendings and in-memory prekey as soon
+  // as the user id changes, then reload settings from the new account's
+  // snapshot. Without this the new account inherits the old friend list
+  // (loadRoster only merges, and a fresh account has no roster blob at all).
+  let boundAccountId = accountScope(ctx);
+  let sessionEpoch = 0;
+
+  function clearFriendState(): void {
+    for (const key of Object.keys(state.friendsByUser)) delete state.friendsByUser[key];
+    state.pendingIncoming.length = 0;
+    state.pendingOutgoing.length = 0;
+  }
+
+  function handleAccountSwitch(nextId: string): void {
+    if (nextId === boundAccountId) return;
+    boundAccountId = nextId;
+    sessionEpoch += 1;
+    prekeyPublishPending = false;
+    if (prekeyRetryTimer) {
+      clearTimeout(prekeyRetryTimer);
+      prekeyRetryTimer = null;
+    }
+    state.prekey = null;
+    state.ready = false;
+    state.lastError = "";
+    state.lastPollError = "";
+    clearFriendState();
+    state.acceptUnknown = "all";
+    state.blockList = [];
+    state.friendsCollapsed = false;
+    state.pollIntervalSeconds = null;
+    state.pollingEnabled = true;
+    loadSettings();
+  }
+
+  watch(
+    () => accountScope(ctx),
+    (nextId) => {
+      handleAccountSwitch(String(nextId || ""));
+    },
+  );
+
+  // Shows the error AND emits a toast (lastError also feeds the modal).
   function setError(message: string): void {
     state.lastError = message;
     if (ctx.showToast) ctx.showToast(message, { error: true });
@@ -284,23 +447,41 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     if (prekeyPublishPending) schedulePrekeyRetry();
   }
 
+  function writeSnapshotPrekey(prekey: StoredPrekey | null): void {
+    ctx.state.phantomPrekey = prekey ? sanitizePhantomPrekey(prekey) : null;
+    ctx.persistAccountSnapshot?.();
+  }
+
   async function ensurePrekey(): Promise<StoredPrekey | null> {
     if (state.prekey) {
       trackPrekeyPublish(publishPrekey(state.prekey));
       return state.prekey;
     }
 
-    const stored = loadPrekey();
-    // A stored prekey without bundle (written by an older build) can never be
-    // published: regenerate instead of reusing it, otherwise op 36 silently
-    // no-ops forever and nobody can send us a friend request.
-    if (stored?.mlkemSecretKeyHex && stored?.mldsaSecretKeyHex && stored?.bundle) {
-      state.prekey = stored;
+    // Snapshot first: each account owns its prekey inside its persisted
+    // payload, so switching accounts can never reuse another one's identity.
+    const fromSnapshot = sanitizePhantomPrekey(ctx.state?.phantomPrekey);
+    if (fromSnapshot) {
+      state.prekey = fromSnapshot;
       state.ready = true;
-      trackPrekeyPublish(publishPrekey(stored));
-      return stored;
+      trackPrekeyPublish(publishPrekey(fromSnapshot));
+      return fromSnapshot;
     }
 
+    // Fallback migration: adopt the old standalone key once, flush it into
+    // the snapshot, then delete the old keys.
+    const legacy = readLegacyPrekey(ctx);
+    if (legacy) {
+      state.prekey = legacy;
+      state.ready = true;
+      writeSnapshotPrekey(legacy);
+      deleteLegacyPrekeyKeys(ctx);
+      trackPrekeyPublish(publishPrekey(legacy));
+      return legacy;
+    }
+    // No usable prekey anywhere (a stored one without bundle can never be
+    // published): generate fresh, otherwise op 36 silently no-ops forever
+    // and nobody can send us a friend request.
     try {
       const mlkem = generateMlKem768KeyPair();
       const mldsa = generateMlDsa65KeyPair();
@@ -323,7 +504,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       };
 
       trackPrekeyPublish(publishPrekey(prekey));
-      savePrekey(prekey);
+      writeSnapshotPrekey(prekey);
       state.prekey = prekey;
       state.ready = true;
       return prekey;
@@ -433,6 +614,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     // dépilement côté serveur et feraient croire à un poll manqué.
     if (pollInFlight) return pollInFlight;
     pollInFlight = (async () => {
+      const epoch = sessionEpoch;
       state.pollBusy = true;
       state.lastPollAt = Date.now();
       try {
@@ -446,6 +628,9 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
           body: JSON.stringify({ slots, want: 8 }),
         });
         state.lastPollError = "";
+        // Account switched mid-poll: drop frames fetched for the old account
+        // instead of mixing them into the new account's pendings.
+        if (epoch !== sessionEpoch) return false;
         for (const frame of data?.frames || []) {
           if (frame) await handleFrame(frame);
         }
@@ -918,10 +1103,24 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       );
       const roster = JSON.parse(new TextDecoder().decode(plaintext));
       if (Array.isArray(roster.friends)) {
+        // Replace, never merge: entries removed on another device (or left
+        // over from a previous account) must disappear from the sidebar
+        // instead of sticking around.
+        const seen = new Set<string>();
         for (const friend of roster.friends) {
           if (friend?.peerDisplayName) {
+            seen.add(friend.peerDisplayName);
             state.friendsByUser[friend.peerDisplayName] = friend;
           }
+        }
+        for (const name of Object.keys(state.friendsByUser)) {
+          if (!seen.has(name)) {
+            const stale = state.friendsByUser[name];
+            if (stale?.roomId) ctx.unregisterFriendRoom?.(stale.roomId);
+            delete state.friendsByUser[name];
+          }
+        }
+        for (const friend of roster.friends) {
           if (friend?.roomId) {
             ctx.setLocalRoomTitle?.(
               friend.roomId,
@@ -1022,6 +1221,7 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
   return {
     state,
     ensurePrekey,
+    handleAccountSwitch,
     fetchPrekey,
     mySlots,
     pollNow,

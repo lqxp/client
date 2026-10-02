@@ -1,5 +1,14 @@
 import { computed, inject, nextTick, reactive, toRaw } from "vue";
 import type { TurnServerConfig } from "@/config/runtime";
+import {
+  defaultPhantomSettings,
+  sanitizePhantomPrekey,
+  sanitizePhantomSettings,
+} from "./usePhantom";
+import type {
+  PhantomPersistedSettings,
+  StoredPrekey,
+} from "./usePhantom";
 
 import type {
   ActiveRecording,
@@ -1014,6 +1023,10 @@ function persistedDefaults() {
     deviceSigningPublicKey: null as JsonWebKey | null,
     deviceSigningPrivateKey: null as JsonWebKey | null,
     trustedSenderKeysByRoom: {} as ByRoom<Record<string, JsonWebKey>>,
+    // Phantom identity lives in the per-account snapshot (one JSON per
+    // account) instead of standalone storage keys.
+    phantomPrekey: null as StoredPrekey | null,
+    phantomSettings: defaultPhantomSettings(),
     bannedRooms: {} as ByRoom<boolean>,
     selectedAudioInputId: "",
     selectedAudioOutputId: "",
@@ -1927,6 +1940,8 @@ function buildPersistedPayload(state: ReturnType<typeof defaultPersisted>) {
     deviceSigningPublicKey: state.deviceSigningPublicKey || null,
     deviceSigningPrivateKey: state.deviceSigningPrivateKey || null,
     trustedSenderKeysByRoom: state.trustedSenderKeysByRoom,
+    phantomPrekey: sanitizePhantomPrekey(state.phantomPrekey),
+    phantomSettings: sanitizePhantomSettings(state.phantomSettings),
     selectedAudioInputId: state.selectedAudioInputId,
     selectedAudioOutputId: state.selectedAudioOutputId,
     selectedVideoInputId: state.selectedVideoInputId,
@@ -3106,6 +3121,8 @@ function createMessenger() {
     deviceSigningPublicKey: persisted.deviceSigningPublicKey || null,
     deviceSigningPrivateKey: persisted.deviceSigningPrivateKey || null,
     trustedSenderKeysByRoom: persisted.trustedSenderKeysByRoom || {},
+    phantomPrekey: persisted.phantomPrekey,
+    phantomSettings: { ...persisted.phantomSettings },
 
     joinedRooms: persisted.joinedRooms,
     pinnedRooms: persisted.pinnedRooms,
@@ -3547,6 +3564,8 @@ function createMessenger() {
           ? (payload.unreadByRoom as PersistedState["unreadByRoom"])
           : {},
       roomKeysByRoom: sanitizeRoomKeys(payload?.roomKeysByRoom),
+      phantomPrekey: sanitizePhantomPrekey(payload?.phantomPrekey),
+      phantomSettings: sanitizePhantomSettings(payload?.phantomSettings),
       profile: normalizeProfile(payload?.profile),
       callUserVolumes: sanitizeCallUserVolumes(payload?.callUserVolumes),
       roomNotes: sanitizeRoomNotes(payload?.roomNotes),
@@ -3593,6 +3612,8 @@ function createMessenger() {
     state.messagesByRoom = normalized.messagesByRoom;
     state.unreadByRoom = normalized.unreadByRoom;
     state.roomKeysByRoom = normalized.roomKeysByRoom;
+    state.phantomPrekey = normalized.phantomPrekey;
+    state.phantomSettings = { ...normalized.phantomSettings };
     state.selectedAudioInputId = normalized.selectedAudioInputId;
     state.selectedAudioOutputId = normalized.selectedAudioOutputId;
     state.selectedVideoInputId = normalized.selectedVideoInputId;
@@ -3686,6 +3707,15 @@ function createMessenger() {
       state.accounts.push(snapshot);
     }
     syncAccountVault();
+  }
+
+  // Flushes the live session into the active payload and the per-account
+  // vault. Owners of snapshot-backed state (e.g. Phantom prekey/settings)
+  // call this after mutating so nothing is lost before the next switch.
+  // Safe no-op while logged out or locked.
+  function persistAccountSnapshot() {
+    upsertCurrentAccount();
+    void persist();
   }
 
   // Abonnés à chaque persist() effectif (mutations internes comprises) : la
@@ -9003,6 +9033,8 @@ function createMessenger() {
     state.deviceId = "";
     state.deviceSigningPublicKey = null;
     state.deviceSigningPrivateKey = null;
+    state.phantomPrekey = null;
+    state.phantomSettings = defaultPhantomSettings();
     persist();
   }
 
@@ -9728,6 +9760,10 @@ function createMessenger() {
     state.callClientsByRoom = {};
     state.deafenedByUser = {};
     state.clientPlatformsByUser = {};
+    // Friend-room labels are per-account runtime state (rebuilt from the
+    // phantom roster): never carry them over to the next account.
+    state.friendRoomIdsByRoom = {};
+    state.friendRoomsByRoom = {};
     state.roomMetaByRoom = {};
     state.myRoleByRoom = {};
     state.callAccessOpenByRoom = {};
@@ -9739,6 +9775,10 @@ function createMessenger() {
     state.deviceId = "";
     state.deviceSigningPublicKey = null;
     state.deviceSigningPrivateKey = null;
+    // Same for the Phantom identity: it is restored from the target account's
+    // snapshot by applyPersistedPayload, never carried over.
+    state.phantomPrekey = null;
+    state.phantomSettings = defaultPhantomSettings();
   }
 
   function resetToOnboarding() {
@@ -10606,6 +10646,7 @@ function createMessenger() {
     showToast,
 
     persist,
+    persistAccountSnapshot,
     subscribePersistChange,
     registerAccount,
     loginAccount,
