@@ -976,6 +976,8 @@
       "overview": "Resumen",
       "licenses": "Licencias",
       "topContributors": "Principales colaboradores",
+      "team": "Equipo",
+      "linkedInLabel": "Anais Saraiva en LinkedIn",
       "loading": "Cargando colaboradores...",
       "contributorsError": "No se pudieron cargar los colaboradores.",
       "loadContributors": "Cargar colaboradores",

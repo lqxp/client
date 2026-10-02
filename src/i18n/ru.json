@@ -1010,6 +1010,8 @@
       "overview": "Обзор",
       "licenses": "Лицензии",
       "topContributors": "Лучшие контрибьюторы",
+      "team": "Команда",
+      "linkedInLabel": "Anais Saraiva в LinkedIn",
       "loading": "Загрузка контрибьюторов...",
       "contributorsError": "Не удалось загрузить контрибьюторов.",
       "loadContributors": "Загрузить контрибьюторов",

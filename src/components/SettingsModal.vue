@@ -1373,6 +1373,21 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="settings-group">
+          <h4>{{ t('settings.about.team') }}</h4>
+          <a class="about-spotlight" href="https://www.linkedin.com/in/anais-saraiva" target="_blank"
+            rel="noopener noreferrer" :aria-label="t('settings.about.linkedInLabel')">
+            <span class="about-spotlight__avatar" aria-hidden="true">
+              <Icon name="linkedin" viewBox="0 0 24 24" />
+            </span>
+            <span class="about-spotlight__meta">
+              <strong class="about-spotlight__name">Anais Saraiva</strong>
+              <small class="about-spotlight__network">LinkedIn</small>
+            </span>
+            <Icon name="external-link" viewBox="0 0 24 24" aria-hidden="true" class="about-spotlight__go" />
+          </a>
+        </div>
+
+        <div class="settings-group">
           <h4>{{ t('settings.about.topContributors') }}</h4>
           <!-- Skeleton while the request runs, then the real list in its place,
                so the section never jumps from a button to three rows at once. -->
@@ -1731,6 +1746,81 @@ onBeforeUnmount(() => {
 .about-badge-link img {
   height: 20px;
   display: block;
+}
+
+/* Featured team card: an accent-tinted hero row that lifts on hover, so the
+   profile reads as a highlight rather than one list row among others. */
+.about-spotlight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #0A66C2 14%, transparent), transparent 60%),
+    var(--surface-2);
+  border: 1px solid color-mix(in srgb, #0A66C2 35%, var(--line));
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.about-spotlight:hover {
+  transform: translateY(-1px);
+  border-color: #0A66C2;
+  box-shadow: 0 8px 24px rgba(10, 102, 194, 0.18);
+}
+
+.about-spotlight__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #0A66C2;
+}
+
+.about-spotlight__avatar svg {
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+  stroke: none;
+}
+
+.about-spotlight__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-spotlight__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #f4f4f5);
+}
+
+.about-spotlight__network {
+  font-size: 12.5px;
+  color: var(--muted, #8a8a90);
+}
+
+.about-spotlight__go {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--muted, #8a8a90);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke var(--dur-fast) var(--ease-out);
+}
+
+.about-spotlight:hover .about-spotlight__go {
+  stroke: #0A66C2;
 }
 
 /* One grouped list: the rows sit in the group's own box and are told apart

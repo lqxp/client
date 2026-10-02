@@ -983,6 +983,8 @@
       "overview": "Aperçu",
       "licenses": "Licences",
       "topContributors": "Principaux contributeurs",
+      "team": "Équipe",
+      "linkedInLabel": "Anais Saraiva sur LinkedIn",
       "loading": "Chargement des contributeurs...",
       "contributorsError": "Impossible de charger les contributeurs.",
       "loadContributors": "Charger les contributeurs",

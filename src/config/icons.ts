@@ -56,6 +56,7 @@ export const ICONS = {
   "user-plus": [{ tag: "path", attrs: {"d": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"} }, { tag: "circle", attrs: {"cx": "9", "cy": "7", "r": "4"} }, { tag: "path", attrs: {"d": "M19 8v6M16 11h6"} }],
   "video": [{ tag: "path", attrs: {"d": "M15 10.5 20 7v10l-5-3.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.5Z"} }],
   "volume-off": [{ tag: "polygon", attrs: {"points": "11 5 6 9 2 9 2 15 6 15 11 19 11 5"} }, { tag: "line", attrs: {"x1": "23", "y1": "9", "x2": "17", "y2": "15"} }, { tag: "line", attrs: {"x1": "17", "y1": "9", "x2": "23", "y2": "15"} }],
+  "linkedin": [{ tag: "path", attrs: {"d": "M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"} }],
 } satisfies Record<string, IconNode[]>;
 
 export type IconName = keyof typeof ICONS;

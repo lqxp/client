@@ -983,6 +983,8 @@
       "overview": "Overview",
       "licenses": "Licenses",
       "topContributors": "Top contributors",
+      "team": "Team",
+      "linkedInLabel": "Anais Saraiva on LinkedIn",
       "loading": "Loading contributors...",
       "contributorsError": "Could not load contributors.",
       "loadContributors": "Load contributors",
