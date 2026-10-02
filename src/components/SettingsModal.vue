@@ -48,7 +48,6 @@ const draftStatus = ref(props.messenger.state.profile?.customStatus || "");
 const draftLinks = ref((props.messenger.state.profile?.links || []).map((link) => ({ ...link })));
 const linksKey = (links: { label: string; url: string }[]) =>
   JSON.stringify(links.map((link) => [link.label.trim(), link.url.trim()]).filter(([, url]) => url));
-const fileInputRef = ref<HTMLInputElement | null>(null);
 const avatarInputRef = ref<HTMLInputElement | null>(null);
 const bannerInputRef = ref<HTMLInputElement | null>(null);
 const firstInputRef = ref<HTMLInputElement | null>(null);
@@ -341,7 +340,6 @@ const allSections = computed(() => [
   { id: "sync", label: t("settings.sections.sync") },
   { id: "phantom", label: t("settings.sections.phantom") },
   { id: "admin", label: t("settings.sections.admin") },
-  { id: "backups", label: t("settings.sections.backups") },
   { id: "donation", label: t("settings.sections.donation") },
   { id: "about", label: t("settings.sections.about") }
 ]);
@@ -503,18 +501,6 @@ function onCropConfirm(file: File) {
   crop.value = null;
   if (state?.src) URL.revokeObjectURL(state.src);
   if (state?.kind) props.messenger.setProfileImageFromFile(state.kind, file);
-}
-
-function onExport() { props.messenger.exportData(); }
-function onImport() { fileInputRef.value?.click(); }
-function onFilePicked(event: Event) {
-  const file = takePickedFile(event);
-  if (file) props.messenger.importData(file);
-}
-async function onClear() {
-  if (!await dialog.showConfirm(t('dialog.clearDataConfirm'), "", { danger: true, confirmLabel: t('dialog.clear') })) return;
-  props.messenger.clearAllData();
-  close();
 }
 
 async function onLogout() {
@@ -847,7 +833,6 @@ onBeforeUnmount(() => {
             <path
               d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2 2 0 0 1-2.83 2.83l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 0 1-4 0v-.1a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.05.05a2 2 0 0 1-2.83-2.83l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H3a2 2 0 0 1 0-4h.1A1.8 1.8 0 0 0 4.75 8.8a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2 2 0 0 1 7.17 3.94l.05.05a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 10.3 2.7V2.6a2 2 0 0 1 4 0v.1a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2 2 0 0 1 2.83 2.83l-.05.05a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1h.1a2 2 0 0 1 0 4h-.1A1.8 1.8 0 0 0 19.4 15Z" />
           </svg>
-          <Icon name="upload" v-else-if="section.id === 'backups'" viewBox="0 0 24 24" />
           <svg v-else-if="section.id === 'sync'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
             <path d="M21 3v5h-5" />
@@ -1269,40 +1254,6 @@ onBeforeUnmount(() => {
           <p v-if="!phantom.state.pollingEnabled" class="settings-note">{{ t("phantom.pollingNote") }}</p>
         </div>
       </section>
-      <section v-else-if="activeSection === 'backups'" class="settings-page">
-        <div class="settings-group">
-          <h4>{{ t('settings.backups.title') }}</h4>
-          <p class="settings-note">{{ t('settings.backups.note') }}</p>
-          <div class="settings-actions">
-            <button type="button" class="btn settings-btn" @click="onExport">
-              <Icon name="upload" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round" />
-              {{ t('settings.backups.export') }}
-            </button>
-            <button type="button" class="btn settings-btn" @click="onImport">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 21V9" />
-                <path d="m6 15 6 6 6-6" />
-                <path d="M5 3h14" />
-              </svg>
-              {{ t('settings.backups.import') }}
-            </button>
-            <button type="button" class="btn settings-btn settings-btn--danger" @click="onClear">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18" />
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                <path d="m5 6 1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14" />
-              </svg>
-              {{ t('settings.backups.clear') }}
-            </button>
-          </div>
-        </div>
-        <input ref="fileInputRef" type="file" accept="application/json,.json" style="display: none"
-          @change="onFilePicked" />
-      </section>
-
       <section v-else-if="activeSection === 'donation'" class="settings-page">
         <div class="settings-group">
           <div class="donation-hero">

@@ -472,10 +472,9 @@
       "advanced": "Advanced",
       "phantom": "Friends",
       "admin": "Admin",
-      "backups": "Backups",
       "donation": "Donation",
       "about": "About",
-      "sync": "Sync"
+      "sync": "Sync & Backups"
     },
     "profile": {
       "displayName": "Username",

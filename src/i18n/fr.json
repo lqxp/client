@@ -472,10 +472,9 @@
       "advanced": "Avancé",
       "phantom": "Amis",
       "admin": "Admin",
-      "backups": "Sauvegardes",
       "donation": "Dons",
       "about": "À propos",
-      "sync": "Synchro"
+      "sync": "Synchro & Sauvegardes"
     },
     "profile": {
       "displayName": "Nom d'utilisateur",

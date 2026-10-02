@@ -465,10 +465,9 @@
       "advanced": "Avanzado",
       "phantom": "Amigos",
       "admin": "Admin",
-      "backups": "Copias de seguridad",
       "donation": "Donaciones",
       "about": "Acerca de",
-      "sync": "Sincronización"
+      "sync": "Sincronización y copias"
     },
     "profile": {
       "displayName": "Nombre de usuario",

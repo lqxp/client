@@ -1,15 +1,31 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "@/composables/useI18n";
+import type { useDialog } from "@/composables/useDialog";
+import { takePickedFile } from "@/utils/pickedFile";
 import Icon from "@/components/Icon.vue";
 import { localPlatform, type CloudSync } from "@/composables/useCloudSync";
 import type { Messenger } from "@/composables/useMessenger";
 
 const i18n = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const { t } = i18n;
+const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 const cloudSync = inject<CloudSync>("cloudSync")!;
 
 const props = defineProps<{ messenger: Messenger }>();
+const backupFileInputRef = ref<HTMLInputElement | null>(null);
+
+function onExportBackup() { props.messenger.exportData(); }
+function onImportBackup() { backupFileInputRef.value?.click(); }
+function onBackupFilePicked(event: Event) {
+  const file = takePickedFile(event);
+  if (file) props.messenger.importData(file);
+}
+async function onClearBackup() {
+  if (!await dialog.showConfirm(t('dialog.clearDataConfirm'), "", { danger: true, confirmLabel: t('dialog.clear') })) return;
+  props.messenger.clearAllData();
+  props.messenger.state.settingsOpen = false;
+}
 const hasWords = computed(() => {
   const w = (props.messenger.state as unknown as Record<string, unknown>).recoveryWords;
   return Array.isArray(w) && w.length >= 12;
@@ -242,6 +258,38 @@ const platformLabel = (p: string) =>
         </div>
       </div>
     </div>
+
+    <div class="settings-group">
+      <h4>{{ t('settings.backups.title') }}</h4>
+      <p class="settings-note">{{ t('settings.backups.note') }}</p>
+      <div class="settings-actions">
+        <button type="button" class="btn settings-btn" @click="onExportBackup">
+          <Icon name="upload" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" />
+          {{ t('settings.backups.export') }}
+        </button>
+        <button type="button" class="btn settings-btn" @click="onImportBackup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21V9" />
+            <path d="m6 15 6 6 6-6" />
+            <path d="M5 3h14" />
+          </svg>
+          {{ t('settings.backups.import') }}
+        </button>
+        <button type="button" class="btn settings-btn settings-btn--danger" @click="onClearBackup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <path d="m5 6 1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14" />
+          </svg>
+          {{ t('settings.backups.clear') }}
+        </button>
+      </div>
+    </div>
+    <input ref="backupFileInputRef" type="file" accept="application/json,.json" style="display: none"
+      @change="onBackupFilePicked" />
   </section>
 </template>
 
