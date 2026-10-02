@@ -371,6 +371,9 @@
     "emojiNoResult": "Aucun emoji trouvé",
     "attachBlocked": "Vous ne pouvez rien envoyer dans ce salon.",
     "moreActions": "Autres actions",
+    "emptyTray": "Tray vide",
+    "rightClickHint": "Clic droit sur une icône du composer pour la ranger dans le tray.",
+    "moveFromTray": "Sortir {action} du tray",
     "mentionSuggestions": "Suggestions de mention"
   },
   "message": {

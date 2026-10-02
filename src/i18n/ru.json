@@ -398,6 +398,9 @@
     "emojiNoResult": "Эмодзи не найдены",
     "attachBlocked": "В этой комнате нельзя ничего отправить.",
     "moreActions": "Другие действия",
+    "emptyTray": "Трей пуст",
+    "rightClickHint": "Щёлкните правой кнопкой по значку поля ввода, чтобы убрать его в трей.",
+    "moveFromTray": "Убрать {action} из трея",
     "mentionSuggestions": "Варианты упоминаний"
   },
   "message": {

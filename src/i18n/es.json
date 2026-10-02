@@ -364,6 +364,9 @@
     "emojiNoResult": "Ningún emoji encontrado",
     "attachBlocked": "No puedes enviar nada en esta sala.",
     "moreActions": "Más acciones",
+    "emptyTray": "Bandeja vacía",
+    "rightClickHint": "Haz clic derecho en un icono del compositor para moverlo a la bandeja.",
+    "moveFromTray": "Sacar {action} de la bandeja",
     "mentionSuggestions": "Sugerencias de mención"
   },
   "message": {

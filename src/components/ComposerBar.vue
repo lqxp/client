@@ -22,6 +22,14 @@ const emojiWrapRef = ref<HTMLElement | null>(null);
 const cameraVideoRef = ref<HTMLVideoElement | null>(null);
 const cameraCanvasRef = ref<HTMLCanvasElement | null>(null);
 const pickerOpen = ref(false);
+const trayOpen = ref(false);
+const trayRef = ref<HTMLElement | null>(null);
+// Stowable composer features (titlebar-tray pattern: right-click a direct
+// button to stow it, tray rows run the action or move it back out).
+const COMPOSER_TRAY_STORAGE_KEY = "lqxp:composer-tray-items";
+const COMPOSER_TRAY_ACTIONS = ["whiteboard", "poll", "camera", "voice", "emoji"] as const;
+type ComposerTrayAction = typeof COMPOSER_TRAY_ACTIONS[number];
+const composerTrayItems = ref<ComposerTrayAction[]>([]);
 const cameraOpen = ref(false);
 const cameraBusy = ref(false);
 /** Which failure to explain, rather than the browser's own wording. */
@@ -557,7 +565,10 @@ function switchCamera() {
   startCameraStream();
 }
 
-function startHold() {
+function startHold(event?: MouseEvent | TouchEvent) {
+  // mousedown fires for every button: only the left one holds to record,
+  // a right mousedown must never start a memo (it opens the tray instead).
+  if (event && "button" in event && event.button !== 0) return;
   if (mediaDisabled.value || recording.value) return;
   props.messenger.startRecordingVoiceMemo();
 }
@@ -580,7 +591,89 @@ function startMobileRecording() {
 
 function togglePicker() {
   if (disabled.value) return;
+  trayOpen.value = false;
   pickerOpen.value = !pickerOpen.value;
+}
+
+function toggleTray() {
+  if (disabled.value) return;
+  pickerOpen.value = false;
+  trayOpen.value = !trayOpen.value;
+}
+
+const composerTrayActionItems = computed(() =>
+  COMPOSER_TRAY_ACTIONS.filter((action) => composerTrayItems.value.includes(action))
+);
+const composerTrayEmpty = computed(() => composerTrayActionItems.value.length === 0);
+
+function isInComposerTray(action: ComposerTrayAction) {
+  return composerTrayItems.value.includes(action);
+}
+
+function composerTrayActionLabel(action: ComposerTrayAction) {
+  if (action === "camera") return t("camera.title");
+  if (action === "poll") return t("poll.create");
+  if (action === "voice") return t("composer.holdToRecord");
+  if (action === "emoji") return t("composer.emoji");
+  return t("whiteboard.title");
+}
+
+function isComposerTrayActionDisabled(action: ComposerTrayAction) {
+  if (action === "camera" || action === "voice") return mediaDisabled.value;
+  if (action === "emoji") return disabled.value;
+  return false;
+}
+
+function loadComposerTrayItems() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMPOSER_TRAY_STORAGE_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item): item is ComposerTrayAction =>
+      (COMPOSER_TRAY_ACTIONS as readonly string[]).includes(item));
+  } catch {
+    return [];
+  }
+}
+
+function persistComposerTrayItems() {
+  localStorage.setItem(COMPOSER_TRAY_STORAGE_KEY, JSON.stringify(composerTrayItems.value));
+}
+
+function moveComposerActionToTray(action: ComposerTrayAction) {
+  if (isInComposerTray(action)) return;
+  // No rearranging mid-recording: the composer is replaced by the recorder.
+  if (recording.value) return;
+  if (action === "emoji") pickerOpen.value = false;
+  composerTrayItems.value = [...composerTrayItems.value, action];
+  persistComposerTrayItems();
+}
+
+function toggleComposerActionLocation(action: ComposerTrayAction) {
+  if (isInComposerTray(action)) composerTrayItems.value = composerTrayItems.value.filter((item) => item !== action);
+  else composerTrayItems.value = [...composerTrayItems.value, action];
+  persistComposerTrayItems();
+}
+
+/** Runs a stowed action from the tray, then dismisses it. */
+function runComposerTrayAction(action: ComposerTrayAction) {
+  trayOpen.value = false;
+  if (action === "camera") {
+    pickCamera();
+    return;
+  }
+  if (action === "poll") {
+    props.messenger.state.pollCreatorOpen = true;
+    return;
+  }
+  if (action === "voice") {
+    startMobileRecording();
+    return;
+  }
+  if (action === "emoji") {
+    pickerOpen.value = true;
+    return;
+  }
+  props.messenger.state.whiteboardRoom = props.messenger.state.activeRoom;
 }
 
 function toggleMobileActions() {
@@ -662,6 +755,9 @@ function onDocPointerDown(event: PointerEvent) {
   if (pickerOpen.value && emojiWrapRef.value && !emojiWrapRef.value.contains(event.target)) {
     pickerOpen.value = false;
   }
+  if (trayOpen.value && trayRef.value && !trayRef.value.contains(event.target)) {
+    trayOpen.value = false;
+  }
   if (composerRef.value && !composerRef.value.contains(event.target)) {
     mentionIndex.value = 0;
     mentionSuppressedStart.value = mentionSearch.value?.start ?? -1;
@@ -670,6 +766,7 @@ function onDocPointerDown(event: PointerEvent) {
 
 function onDocKey(event: KeyboardEvent) {
   if (pickerOpen.value && event.key === "Escape") pickerOpen.value = false;
+  if (trayOpen.value && event.key === "Escape") trayOpen.value = false;
   if (mobileActionsOpen.value && event.key === "Escape") mobileActionsOpen.value = false;
   if (cameraOpen.value && event.key === "Escape") closeCamera();
 }
@@ -732,6 +829,7 @@ async function capturePhoto() {
 
 watch(() => props.messenger.state.activeRoom, () => {
   pickerOpen.value = false;
+  trayOpen.value = false;
   mobileActionsOpen.value = false;
   mentionIndex.value = 0;
   mentionSuppressedStart.value = -1;
@@ -765,10 +863,12 @@ watch(() => props.messenger.state.replyingTo?.messageId || "", (messageId) => {
 watch(recording, (active) => {
   if (!active) return;
   pickerOpen.value = false;
+  trayOpen.value = false;
   mobileActionsOpen.value = false;
 });
 
 onMounted(() => {
+  composerTrayItems.value = loadComposerTrayItems();
   document.addEventListener("pointerdown", onDocPointerDown);
   document.addEventListener("keydown", onDocKey);
   window.addEventListener("resize", onResize);
@@ -917,24 +1017,73 @@ onBeforeUnmount(() => {
           @input="onInput" @click="onComposerClick" @focus="onComposerFocus" @keyup="onComposerKeyup"
           @keydown="onComposerKeydown"></textarea>
 
-        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('whiteboard.title')"
-          :title="t('whiteboard.title')" @click="messenger.state.whiteboardRoom = messenger.state.activeRoom">
+        <button v-if="!isInComposerTray('whiteboard')" class="icon-btn composer__desktop-action" type="button" :aria-label="t('whiteboard.title')"
+          :title="t('whiteboard.title')" @click="messenger.state.whiteboardRoom = messenger.state.activeRoom"
+          @contextmenu.prevent="moveComposerActionToTray('whiteboard')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4M7 12l3-3 2 2 4-4" /></svg>
         </button>
-        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('poll.create')"
-          :title="t('poll.create')" @click="messenger.state.pollCreatorOpen = true">
+        <button v-if="!isInComposerTray('poll')" class="icon-btn composer__desktop-action" type="button" :aria-label="t('poll.create')"
+          :title="t('poll.create')" @click="messenger.state.pollCreatorOpen = true"
+          @contextmenu.prevent="moveComposerActionToTray('poll')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7" /></svg>
         </button>
-        <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
-          :disabled="mediaDisabled" @click="pickCamera">
+        <button v-if="!isInComposerTray('camera')" class="icon-btn composer__desktop-action" type="button" :aria-label="t('camera.title')"
+          :title="t('camera.title')" :disabled="mediaDisabled" @click="pickCamera"
+          @contextmenu.prevent="moveComposerActionToTray('camera')">
           <Icon name="camera" viewBox="0 0 24 24" />
         </button>
 
-        <button v-if="!canSend" class="icon-btn composer__mic composer__desktop-action" type="button"
-          :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold"
-          @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold"
-          @touchend.prevent="endHold" @touchcancel.prevent="cancelHold">
+        <span v-if="!isMobile" ref="trayRef" class="composer__tray">
+          <button class="icon-btn composer__desktop-action" type="button" :aria-label="t('composer.moreActions')"
+            :title="t('composer.moreActions')" :aria-expanded="trayOpen" :class="{ 'is-active': trayOpen }"
+            :disabled="disabled" @click="toggleTray">
+            <Icon name="plus" viewBox="0 0 24 24" />
+          </button>
+
+          <Transition name="qx-menu">
+            <div v-if="trayOpen" class="composer__actions-pop" role="menu" :aria-label="t('composer.moreActions')">
+              <template v-if="composerTrayEmpty">
+                <div class="composer__tray-hint">{{ t('composer.rightClickHint') }}</div>
+                <div class="composer__tray-empty">{{ t('composer.emptyTray') }}</div>
+              </template>
+              <template v-else>
+                <div v-for="action in composerTrayActionItems" :key="`tray-${action}`" class="composer__tray-row">
+                  <button class="composer__tray-item" type="button" role="menuitem"
+                    :disabled="isComposerTrayActionDisabled(action)" @click="runComposerTrayAction(action)">
+                    <Icon v-if="action === 'camera'" name="camera" viewBox="0 0 24 24" />
+                    <svg v-else-if="action === 'poll'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                      aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7" /></svg>
+                    <svg v-else-if="action === 'whiteboard'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4M7 12l3-3 2 2 4-4" /></svg>
+                    <Icon v-else-if="action === 'voice'" name="microphone" viewBox="0 0 24 24" />
+                    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                      <line x1="9" y1="9" x2="9.01" y2="9" />
+                      <line x1="15" y1="9" x2="15.01" y2="9" />
+                    </svg>
+                    <span>{{ composerTrayActionLabel(action) }}</span>
+                  </button>
+                  <button class="composer__tray-move" type="button"
+                    :aria-label="t('composer.moveFromTray', { action: composerTrayActionLabel(action) })"
+                    :title="t('composer.moveFromTray', { action: composerTrayActionLabel(action) })"
+                    @click="toggleComposerActionLocation(action)">
+                    <Icon name="chevron-down" viewBox="0 0 24 24" aria-hidden="true" />
+                  </button>
+                </div>
+              </template>
+            </div>
+          </Transition>
+        </span>
+        <Teleport to="body">
+          <div v-if="trayOpen && !isMobile" class="composer__tray-backdrop" @click="trayOpen = false"></div>
+        </Teleport>
+
+        <button v-if="!canSend && !isInComposerTray('voice')" class="icon-btn composer__mic composer__desktop-action" type="button"
+          :aria-label="t('composer.holdToRecord')" :disabled="mediaDisabled" @mousedown.prevent="startHold($event)"
+          @mouseup.prevent="endHold" @mouseleave="endHold" @touchstart.prevent="startHold($event)"
+          @touchend.prevent="endHold" @touchcancel.prevent="cancelHold"
+          @contextmenu.prevent="moveComposerActionToTray('voice')">
           <Icon name="microphone" viewBox="0 0 24 24" />
         </button>
 
@@ -964,8 +1113,9 @@ onBeforeUnmount(() => {
           </div>
         </Transition>
         <span class="composer__emoji-wrap" ref="emojiWrapRef">
-          <button class="icon-btn" type="button" :aria-label="t('composer.emoji')" :aria-expanded="pickerOpen"
-            :class="{ 'is-active': pickerOpen }" :disabled="disabled" @click.prevent="togglePicker">
+          <button v-if="!isInComposerTray('emoji')" class="icon-btn" type="button" :aria-label="t('composer.emoji')" :aria-expanded="pickerOpen"
+            :class="{ 'is-active': pickerOpen }" :disabled="disabled" @click.prevent="togglePicker"
+            @contextmenu.prevent="moveComposerActionToTray('emoji')">
             <svg viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
               <path d="M8 14s1.5 2 4 2 4-2 4-2" />

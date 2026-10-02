@@ -371,6 +371,9 @@
     "emojiNoResult": "No emoji found",
     "attachBlocked": "You cannot send anything in this room.",
     "moreActions": "More message actions",
+    "emptyTray": "Empty tray",
+    "rightClickHint": "Right-click a composer icon to move it to the tray.",
+    "moveFromTray": "Move {action} out of tray",
     "mentionSuggestions": "Mention suggestions"
   },
   "message": {

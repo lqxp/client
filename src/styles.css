@@ -3217,7 +3217,16 @@ textarea {
   line-height: 1.375;
   resize: none;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  /* No visible scrollbar in the composer: the field auto-grows up to
+     max-height (see syncComposerHeight), then scrolls invisibly. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.composer__input textarea::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .composer__input--streamer-blur textarea {
@@ -3380,6 +3389,78 @@ textarea {
   stroke-linecap: round;
   stroke-linejoin: round;
   flex: none;
+}
+
+/* Desktop features tray (same pattern as the desktop titlebar tray: one
+   toggle opening a menu, dismissed via backdrop, outside click or Escape).
+   The menu itself reuses .composer__actions-pop above. */
+.composer__tray {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-self: center;
+}
+
+.composer__tray .icon-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+/* Transparent click-catcher under the tray menu (z-index 29 < popover 30):
+   no dimming, it only closes the tray and swallows stray clicks. */
+.composer__tray-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: transparent;
+}
+
+/* Stowed-action rows inside the tray menu (same pattern as the titlebar
+   tray rows: the item runs the action, the chevron moves it back out). */
+.composer__actions-pop .composer__tray-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.composer__actions-pop .composer__tray-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.composer__actions-pop .composer__tray-move {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.composer__actions-pop .composer__tray-move:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.composer__actions-pop .composer__tray-move svg {
+  width: 12px;
+  height: 12px;
+}
+
+.composer__actions-pop .composer__tray-hint {
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.composer__actions-pop .composer__tray-empty {
+  padding: 6px 10px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 /* Hide mobile-only elements on desktop */
@@ -6771,6 +6852,10 @@ textarea.settings-input {
   }
 
   .composer__desktop-action {
+    display: none;
+  }
+
+  .composer__tray {
     display: none;
   }
 
