@@ -138,6 +138,14 @@
     "other": "Autres",
     "empty": "Rien à tracer pour l'instant"
   },
+  "activity": {
+    "playing": "Joue à un jeu",
+    "listening": "Écoute",
+    "inCall": "En appel vocal",
+    "using": "Utilise une app",
+    "artwork": "Visuel de l'activité",
+    "elapsed": "écoulé"
+  },
   "app": {
     "noConversation": "Aucune conversation sélectionnée",
     "noConversationHint": "Choisissez un salon dans la liste ou touchez l’icône crayon pour en démarrer un.",
@@ -805,6 +813,13 @@
         "connected": "Connecté à Discord.",
         "disconnected": "Non connecté à Discord (ouvre Discord pour activer la présence).",
         "unavailable": "Discord Rich Presence indisponible sur cette plateforme."
+      },
+      "activity": {
+        "title": "Statut d'activité",
+        "share": "Partager ce que je fais sur mon profil",
+        "shareNote": "Affiche une activité façon Discord (jeu, app, média ou appel) sur votre carte de profil QxChat. Détection sur desktop ; les appels sont partagés partout. Masqué en invisible, en mode streamer ou verrouillé.",
+        "current": "Actuellement partagé : {name}.",
+        "none": "Rien de partagé pour l'instant."
       }
     },
     "admin": {

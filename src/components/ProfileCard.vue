@@ -9,6 +9,9 @@ import { useI18n } from "@/composables/useI18n";
 import BadgeIcon from "@/components/BadgeIcon.vue";
 import { badgeLabel as badgeLabelFor, normalizeBadgeId } from "@/config/badges";
 import { escapeHtml } from "@/utils/twemoji";
+import { formatElapsed, type UserActivity } from "@/utils/activity";
+import { proxiedActivityAssetUrl } from "@/calls/activity";
+import { apiUrl } from "@/config/runtime";
 
 const { t, locale } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const phantom = inject<Phantom | null>("phantom", null);
@@ -66,6 +69,91 @@ const memberSinceLabel = computed(() => {
   }
 });
 const descriptionHtml = computed(() => renderProfileMarkdown(profile.value.description || ""));
+// Discord-style rich activity: rendered for anyone whose profile carries one,
+// never for invisible users (privacy — same rule as the broadcaster side).
+const visibleActivity = computed<UserActivity | null>(() => {
+  if (isSystem.value) return null;
+  if (status.value === "invisible") return null;
+  return profile.value.activity || null;
+});
+const activityHeader = computed(() => {
+  switch (visibleActivity.value?.kind) {
+    case "game": return t("activity.playing");
+    case "media": return t("activity.listening");
+    case "call": return t("activity.inCall");
+    default: return t("activity.using");
+  }
+});
+// Artwork through our own proxy (never hotlinked): large + small overlay,
+// Discord-style. An <img> cannot send the Bearer header the proxy requires,
+// so the bytes are fetched here (authenticated) and shown as blob URLs —
+// same pattern as decrypted attachments. Failures fall back to the icon.
+const activityLargeArt = computed(() => proxiedActivityAssetUrl(visibleActivity.value, "large", apiUrl));
+const activitySmallArt = computed(() => proxiedActivityAssetUrl(visibleActivity.value, "small", apiUrl));
+const activityArtBlobs = ref<{ large: string | null; small: string | null }>({ large: null, small: null });
+const mintedArtBlobs = new Set<string>();
+let activityArtReqId = 0;
+function revokeArtBlobs() {
+  for (const url of mintedArtBlobs) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* already revoked */
+    }
+  }
+  mintedArtBlobs.clear();
+}
+async function fetchArtBlob(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const token = String(props.messenger.state.authToken || "").trim();
+    const res = await fetch(url, token ? { headers: { authorization: `Bearer ${token}` } } : {});
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/") || blob.size === 0) return null;
+    const objectUrl = URL.createObjectURL(blob);
+    mintedArtBlobs.add(objectUrl);
+    return objectUrl;
+  } catch {
+    return null;
+  }
+}
+async function loadActivityArtwork() {
+  const reqId = ++activityArtReqId;
+  const [large, small] = await Promise.all([fetchArtBlob(activityLargeArt.value), fetchArtBlob(activitySmallArt.value)]);
+  if (reqId !== activityArtReqId) return;
+  const prev = activityArtBlobs.value;
+  activityArtBlobs.value = { large, small };
+  // Release superseded blobs (keep the live pair).
+  for (const url of [prev.large, prev.small]) {
+    if (url && url !== large && url !== small) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* already revoked */
+      }
+      mintedArtBlobs.delete(url);
+    }
+  }
+}
+watch([activityLargeArt, activitySmallArt], () => {
+  void loadActivityArtwork();
+}, { immediate: true });
+const activityNow = ref(Date.now());
+let activityTimer: ReturnType<typeof setInterval> | null = null;
+function restartActivityClock() {
+  if (activityTimer) {
+    clearInterval(activityTimer);
+    activityTimer = null;
+  }
+  if (visibleActivity.value?.startedAt) {
+    activityNow.value = Date.now();
+    activityTimer = setInterval(() => {
+      activityNow.value = Date.now();
+    }, 30_000);
+  }
+}
+watch(() => visibleActivity.value?.startedAt, restartActivityClock, { immediate: true });
 const isMobileProfile = ref(false);
 let mobileMedia: MediaQueryList | null = null;
 
@@ -235,6 +323,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   mobileMedia?.removeEventListener?.("change", updateMobileProfile);
+  if (activityTimer) clearInterval(activityTimer);
+  activityTimer = null;
+  activityArtReqId += 1;
+  revokeArtBlobs();
 });
 
 function badgeLabel(badge: string) {
@@ -373,6 +465,28 @@ function renderProfileMarkdown(value: unknown) {
             </button>
           </div>
         </div>
+
+            <div v-if="visibleActivity" class="profile-card__activity" role="status">
+              <span v-if="activityArtBlobs.large" class="profile-card__activity-art" aria-hidden="true">
+                <img :src="activityArtBlobs.large" :alt="t('activity.artwork')" loading="lazy" />
+                <img v-if="activityArtBlobs.small" class="profile-card__activity-art-small" :src="activityArtBlobs.small" :alt="t('activity.artwork')" loading="lazy" />
+              </span>
+              <span v-else class="profile-card__activity-icon" aria-hidden="true">
+                <svg v-if="visibleActivity.kind === 'game'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11" /><line x1="8" y1="9" x2="8" y2="13" /><line x1="15" y1="12" x2="15.01" y2="12" /><line x1="18" y1="10" x2="18.01" y2="10" /><path d="M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.41.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.54-.6-6.58-.68-7.26A4 4 0 0 0 17.32 5Z" /></svg>
+                <svg v-else-if="visibleActivity.kind === 'media'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+                <svg v-else-if="visibleActivity.kind === 'call'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" /></svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+              </span>
+              <div class="profile-card__activity-body">
+                <span class="profile-card__activity-header">{{ activityHeader }}</span>
+                <strong class="profile-card__activity-name">{{ visibleActivity.name }}</strong>
+                <span v-if="visibleActivity.details" class="profile-card__activity-line">{{ visibleActivity.details }}</span>
+                <span v-if="visibleActivity.state" class="profile-card__activity-line">{{ visibleActivity.state }}</span>
+                <span v-if="formatElapsed(visibleActivity.startedAt, activityNow)" class="profile-card__activity-elapsed">
+                  {{ formatElapsed(visibleActivity.startedAt, activityNow) }} {{ t('activity.elapsed') }}
+                </span>
+              </div>
+            </div>
 
             <h4 class="profile-card__section-title">{{ t('profile.about') }}</h4>
             <div class="profile-card__section">
@@ -1647,6 +1761,94 @@ function renderProfileMarkdown(value: unknown) {
   .profile-card__badge::after {
     transition-duration: .01ms;
   }
+}
+
+.profile-card__activity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 14px 0 2px;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.profile-card__activity-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.profile-card__activity-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.profile-card__activity-art {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: visible;
+}
+
+.profile-card__activity-art img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.profile-card__activity-art-small {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 2.5px var(--surface);
+}
+
+.profile-card__activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.profile-card__activity-header {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.profile-card__activity-name {
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.profile-card__activity-line {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.profile-card__activity-elapsed {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .profile-card__thought {

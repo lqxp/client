@@ -131,6 +131,14 @@
     "other": "Otros",
     "empty": "Nada que representar todavía"
   },
+  "activity": {
+    "playing": "Jugando a un juego",
+    "listening": "Escuchando",
+    "inCall": "En llamada de voz",
+    "using": "Usando una app",
+    "artwork": "Imagen de actividad",
+    "elapsed": "transcurrido"
+  },
   "app": {
     "noConversation": "Ninguna conversación seleccionada",
     "noConversationHint": "Elige una sala de la lista o toca el icono de lápiz para crear una.",
@@ -797,7 +805,14 @@
         "showPlatformNote": "Muestra un pequeño icono de Windows, macOS o Linux detectado automáticamente junto a la actividad.",
         "connected": "Conectado a Discord.",
         "disconnected": "No conectado a Discord (abre Discord para activar la presencia).",
-        "unavailable": "Discord Rich Presence no está disponible en esta plataforma."
+        "unavailable": "Discord Rich Presence no está disponible en esta plataforma.",
+        "activity": {
+          "title": "Estado de actividad",
+          "share": "Compartir lo que hago en mi perfil",
+          "shareNote": "Muestra una actividad estilo Discord (juego, app, medio o llamada) en tu tarjeta de perfil de QxChat. Detección en escritorio; las llamadas se comparten en todas partes. Oculto en invisible, modo streamer o bloqueado.",
+          "current": "Compartiendo actualmente: {name}.",
+          "none": "Nada compartido por ahora."
+        }
       }
     },
     "admin": {

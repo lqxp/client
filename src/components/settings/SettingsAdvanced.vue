@@ -4,6 +4,7 @@ import type { Messenger } from "@/composables/useMessenger";
 import { useI18n } from "@/composables/useI18n";
 import { isTauriDesktopRuntime as isDesktopRuntime } from "@/calls/tor";
 import { getDiscordRpcStatus, setDiscordRpcEnabled, setDiscordRpcShowPlatform, type DiscordRpcSettings } from "@/calls/discordRpc";
+import type { Activity } from "@/composables/useActivity";
 import { targetChecked } from "@/utils/inputEvent";
 
 defineProps({
@@ -11,6 +12,7 @@ defineProps({
 });
 
 const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
+const activity = inject<Activity | null>("activity", null);
 
 const discordRpcEnabled = ref(true);
 const discordRpcShowPlatform = ref(true);
@@ -160,6 +162,25 @@ onMounted(() => {
       </template>
       <p v-else-if="discordRpcReady === false" class="settings-note">
         {{ t('settings.advanced.discordRpc.unavailable') }}
+      </p>
+    </div>
+
+    <div class="settings-group">
+      <h4>{{ t('settings.advanced.activity.title') }}</h4>
+      <label class="settings-check">
+        <span>{{ t('settings.advanced.activity.share') }}</span>
+        <input type="checkbox" :checked="activity?.state.sharingEnabled ?? true"
+          @change="activity?.setSharing(targetChecked($event))" />
+        <span class="toggle__track"><span class="toggle__thumb"></span></span>
+      </label>
+      <p class="settings-note">
+        {{ t('settings.advanced.activity.shareNote') }}
+      </p>
+      <p v-if="activity?.state.current" class="settings-note">
+        {{ t('settings.advanced.activity.current', { name: activity.state.current.name }) }}
+      </p>
+      <p v-else class="settings-note">
+        {{ t('settings.advanced.activity.none') }}
       </p>
     </div>
   </section>

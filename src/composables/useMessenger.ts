@@ -102,6 +102,7 @@ import { dispatchPhantomMessage, dispatchCloudSyncMessage, notifyRoomDeleted, no
 import { dedupeBadgeArtwork } from "@/config/badges";
 import { createNoticeFence } from "@/utils/noticeFence";
 import { usableImage } from "@/utils/brokenImages";
+import { normalizeActivity, sameActivity, type UserActivity } from "@/utils/activity";
 
 const STORAGE_KEY = "qxprotocol-messenger-v7";
 const PROFILE_STORAGE_KEY = "qxprotocol-profile-v1";
@@ -492,6 +493,7 @@ function normalizeProfile(profile: unknown): {
   pronouns: string;
   links: ProfileLink[];
   customStatus: string;
+  activity: UserActivity | null;
 } {
   const source =
     profile && typeof profile === "object"
@@ -511,11 +513,19 @@ function normalizeProfile(profile: unknown): {
     ),
     links: normalizeProfileLinks(source.links),
     customStatus: sanitizeProfileText(String(source.customStatus || ""), 60),
+    activity: normalizeActivity(source.activity),
   };
 }
 function mergeProfiles(base: unknown, incoming: unknown) {
   const left = normalizeProfile(base);
   const right = normalizeProfile(incoming);
+  // Activity is last-write-wins on explicit presence: an incoming profile
+  // that carries the key (even null) replaces, one that omits it keeps the
+  // known value — otherwise a clear could never propagate.
+  const incomingHasActivity =
+    !!incoming
+    && typeof incoming === "object"
+    && Object.prototype.hasOwnProperty.call(incoming, "activity");
   return normalizeProfile({
     avatar: right.avatar || left.avatar,
     banner: right.banner || left.banner,
@@ -523,6 +533,7 @@ function mergeProfiles(base: unknown, incoming: unknown) {
     pronouns: right.pronouns || left.pronouns,
     links: right.links.length ? right.links : left.links,
     customStatus: right.customStatus || left.customStatus,
+    activity: incomingHasActivity ? right.activity : left.activity,
   });
 }
 
@@ -559,6 +570,9 @@ function normalizeProfilePatch(profile: unknown) {
   if (Object.prototype.hasOwnProperty.call(source, "links")) patch.links = normalizeProfileLinks(source.links);
   if (Object.prototype.hasOwnProperty.call(source, "customStatus")) {
     patch.customStatus = sanitizeProfileText(String(source.customStatus || ""), 60);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "activity")) {
+    patch.activity = source.activity == null ? null : normalizeActivity(source.activity);
   }
   return patch;
 }
@@ -6323,6 +6337,16 @@ function createMessenger() {
     });
   }
 
+  // Rich activity broadcast ("Playing X"). Null clears it everywhere
+  // (explicit key, so merges propagate the clear). No-op when unchanged.
+  function setProfileActivity(activity: UserActivity | null) {
+    const next = normalizeActivity(activity);
+    if (sameActivity(state.profile.activity || null, next)) return;
+    state.profile = normalizeProfile({ ...state.profile, activity: next });
+    persist();
+    syncClientSettings(true, { activity: next });
+  }
+
   function setProfileText(payload: Record<string, unknown> = {}) {
     const { description, pronouns } = payload;
     state.profile = normalizeProfile({
@@ -10755,6 +10779,7 @@ function createMessenger() {
     setPresenceStatus,
     setProfileText,
     setProfileExtras,
+    setProfileActivity,
     setProfileImageFromFile,
     clearProfileImage,
     callUserVolume,

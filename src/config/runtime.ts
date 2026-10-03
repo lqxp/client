@@ -129,6 +129,11 @@ function normalizedRuntimePayload(value: unknown): RuntimeConfigPayload {
 
 function runtimeServerOrigin(runtime: RuntimeConfigPayload) {
   const runtimeOrigin = normalizeHttpUrl(runtime.serverOrigin) || normalizeHttpUrl(runtime.api?.origin);
+  // In `vite dev` the static public/runtime-config.js fallback still points
+  // at production: explicit env (client/.env.development) must win so the
+  // dev client never talks to prod. Production order is unchanged.
+  const preferEnv = import.meta.env.DEV === true;
+  if (preferEnv) return envServerOrigin || runtimeOrigin || normalizeHttpUrl(window.location.origin);
   return isEmbeddedAppOrigin()
     ? envServerOrigin || runtimeOrigin || DEFAULT_SERVER_ORIGIN
     : runtimeOrigin || envServerOrigin || normalizeHttpUrl(window.location.origin);

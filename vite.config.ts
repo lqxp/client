@@ -61,6 +61,10 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 4173,
+    // Fail loudly instead of silently shifting ports: a stale Vite holding
+    // :4173 would otherwise keep serving an outdated bundle (e.g. with prod
+    // hosts baked in) while Tauri loads it without complaint.
+    strictPort: true,
   },
 
   define: {

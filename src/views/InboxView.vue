@@ -7,6 +7,7 @@ import { useI18n } from "@/composables/useI18n";
 import { useMessenger } from "@/composables/useMessenger";
 import { useCustomTheme } from "@/composables/useCustomTheme";
 import { usePhantom } from "@/composables/usePhantom";
+import { useActivity } from "@/composables/useActivity";
 import { useCloudSync } from "@/composables/useCloudSync";
 import { setCloudSyncMessageHandler, setRoomDeletedListener, setRoomLeftListener, setRoomJoinedListener } from "@/composables/phantomBridge";
 import { useDialog } from "@/composables/useDialog";
@@ -39,7 +40,9 @@ import CapWidget from "@/components/CapWidget.vue";
 
 const messenger = useMessenger();
 const phantom = usePhantom(messenger);
+const activity = useActivity(messenger);
 const cloudSync = useCloudSync(messenger);
+provide("activity", activity);
 provide("cloudSync", cloudSync);
 // Propagation d'événements : chaque persist() (mutations internes comprises)
 // déclenche un push debouncé vers les pairs. L'application d'un snapshot

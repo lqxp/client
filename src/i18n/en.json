@@ -138,6 +138,14 @@
     "other": "Other",
     "empty": "Nothing to plot yet"
   },
+  "activity": {
+    "playing": "Playing a game",
+    "listening": "Listening to",
+    "inCall": "In a voice call",
+    "using": "Using an app",
+    "artwork": "Activity artwork",
+    "elapsed": "elapsed"
+  },
   "app": {
     "noConversation": "No conversation selected",
     "noConversationHint": "Pick a room from the list or tap the pencil icon to start one.",
@@ -805,6 +813,13 @@
         "connected": "Connected to Discord.",
         "disconnected": "Not connected to Discord (open Discord to enable presence).",
         "unavailable": "Discord Rich Presence is unavailable on this platform."
+      },
+      "activity": {
+        "title": "Activity status",
+        "share": "Share what I'm doing on my profile",
+        "shareNote": "Shows a Discord-style activity (game, app, media or call) on your QxChat profile card. Detection runs on desktop; calls are shared everywhere. Hidden while invisible, in streamer mode, or locked.",
+        "current": "Currently sharing: {name}.",
+        "none": "Nothing shared right now."
       }
     },
     "admin": {
