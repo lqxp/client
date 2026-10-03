@@ -3212,7 +3212,9 @@ function createMessenger() {
     micTestLoading: false,
     micTestLevel: 0,
 
-    recoveryNotice: null as "register" | "recover" | null,
+    // Only "register" ever births new words (server-side, once). Recovery
+    // never rotates them, so no other notice variant exists.
+    recoveryNotice: null as "register" | null,
     pollCreatorOpen: false,
     openThread: null as { roomId: string; rootId: string } | null,
     whiteboardRoom: "",
@@ -4498,6 +4500,17 @@ function createMessenger() {
       .slice(0, 16);
   }
 
+  // Pure parse of a pasted/file-imported phrase (also accepts the exported
+  // .txt header lines). Returns exactly 12 words or null — no state touched,
+  // so the caller can cryptographically verify before committing.
+  function parseRecoveryWords(raw: unknown): string[] | null {
+    const cleaned = String(raw || "")
+      .replace(/qxprotocol\s+account\s+recovery\s+words/gi, " ")
+      .replace(/username\s*:\s*\S+/gi, " ");
+    const words = normalizeRecoveryWords(cleaned).slice(0, 12);
+    return words.length === 12 ? words : null;
+  }
+
   function recoveryText() {
     return [
       "QxProtocol account recovery words",
@@ -4740,9 +4753,12 @@ function createMessenger() {
       });
       applyAuthenticatedPayload(data);
       refreshRtcCredentials().catch(() => false);
+      // Static-keys schema: a password reset via recovery words never rotates
+      // them. The exact words the user proved possession of stay in place —
+      // no re-download, no "save your new words" ceremony.
       state.recoveryWords = normalizeRecoveryWords(recoveryWords);
       persist();
-      if (downloadRecoveryWords()) state.recoveryNotice = "recover";
+      showToast(t("settings.security.passwordChanged"));
       connect();
       return true;
     } catch (error) {
@@ -10666,6 +10682,7 @@ function createMessenger() {
     recoveryFileName,
     dismissRecoveryNotice,
     setRecoveryWords,
+    parseRecoveryWords,
     enableClientLock,
     unlockClientLock,
     verifyClientLockPin,

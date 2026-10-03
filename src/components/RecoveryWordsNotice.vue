@@ -15,7 +15,6 @@ const { t } = inject<ReturnType<typeof useI18n>>("i18n") ?? useI18n();
 const open = computed(() =>
   Boolean(props.messenger.state.recoveryNotice) && props.messenger.state.recoveryWords.length > 0
 );
-const isRecovery = computed(() => props.messenger.state.recoveryNotice === "recover");
 const fileName = computed(() => props.messenger.recoveryFileName());
 const revealed = ref(false);
 const saved = ref(false);
@@ -115,7 +114,7 @@ function finish() {
                 stroke-linecap="round" stroke-linejoin="round" />
             </span>
             <h2 id="recovery-notice-title" class="recovery-notice__title">
-              {{ isRecovery ? t('recoveryNotice.titleRecover') : t('recoveryNotice.title') }}
+              {{ t('recoveryNotice.title') }}
             </h2>
             <p class="recovery-notice__lead">{{ t('recoveryNotice.lead') }}</p>
 

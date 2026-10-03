@@ -364,11 +364,12 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     return response.json().catch(() => ({}));
   }
 
-  // ── Secret maître (dérivé des mots de récupération) ─────────────────────────
-  async function deriveMasterSecret(): Promise<Uint8Array | null> {
-    const words = ctx.state?.recoveryWords;
+  // ── Master secret (derived from the recovery words) ──────────────────────
+  async function deriveMasterSecret(candidate?: unknown): Promise<Uint8Array | null> {
+    const words = candidate === undefined ? ctx.state?.recoveryWords : candidate;
     if (!Array.isArray(words) || !words.length) return null;
-    const phrase = words.join(" ");
+    const phrase = (words as unknown[]).map((w) => String(w || "").trim().toLowerCase()).filter(Boolean).join(" ");
+    if (phrase.split(" ").length < 12) return null;
     const material = await globalThis.crypto.subtle.importKey(
       "raw",
       te.encode(phrase) as BufferSource,
@@ -1034,9 +1035,9 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     else stopScheduler();
   }
 
-  // ── Roster blob (multi-device, chiffré côté client) ─────────────────────────
-  async function rosterKey(): Promise<CryptoKey | null> {
-    const master = await deriveMasterSecret();
+  // ── Roster blob (multi-device, client-side encrypted) ──────────────────────
+  async function rosterKeyFor(candidate?: unknown): Promise<CryptoKey | null> {
+    const master = await deriveMasterSecret(candidate);
     if (!master) return null;
     const bytes = await hkdfSha256(
       master,
@@ -1051,6 +1052,50 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
       false,
       ["encrypt", "decrypt"],
     );
+  }
+
+  async function rosterKey(): Promise<CryptoKey | null> {
+    return rosterKeyFor(undefined);
+  }
+
+  // Crypto proof that candidate words belong to this account: trial-decrypt
+  // the server-stored roster blob with the key they derive. The server is a
+  // blind relay (it only holds the ciphertext + a password-hash verifier for
+  // /api/auth/recover), so this local proof is the verification — any 12
+  // words must never be accepted as "signed".
+  // Returns "ok" (blob decrypts), "mismatch" (blob rejects the words) or
+  // "unverifiable" (no blob stored yet, or unreachable server).
+  async function verifyRecoveryWords(candidate: unknown): Promise<"ok" | "mismatch" | "unverifiable"> {
+    let data: Record<string, unknown>;
+    try {
+      data = await ctx.apiRequest("/api/social/blob", {});
+    } catch {
+      return "unverifiable";
+    }
+    if (!data?.blob) return "unverifiable";
+    let key: CryptoKey | null = null;
+    try {
+      key = await rosterKeyFor(candidate);
+    } catch {
+      return "mismatch";
+    }
+    if (!key) return "mismatch";
+    try {
+      const raw = b64ToBytes(String(data.blob || ""));
+      const iv = raw.slice(0, 12);
+      const ciphertext = raw.slice(12);
+      const plaintext = new Uint8Array(
+        await globalThis.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          key,
+          ciphertext as BufferSource,
+        ),
+      );
+      JSON.parse(new TextDecoder().decode(plaintext));
+      return "ok";
+    } catch {
+      return "mismatch";
+    }
   }
 
   async function syncRoster(): Promise<void> {
@@ -1240,5 +1285,6 @@ export function usePhantom(ctx: PhantomMessengerCtx) {
     setPollingEnabled,
     syncRoster,
     loadRoster,
+    verifyRecoveryWords,
   };
 }

@@ -26,6 +26,7 @@ import SettingsSync from "@/components/settings/SettingsSync.vue";
 import ImageCropModal from "@/components/ImageCropModal.vue";
 import { isAnimatedImage } from "@/utils/animatedImage";
 import { takePickedFile } from "@/utils/pickedFile";
+import { WINDOW_ZOOM_EVENT, currentWindowZoom, isWindowZoomEnabled } from "@/utils/windowZoom";
 import { binaryFingerprint, interfaceFingerprint } from "@/utils/buildFingerprint";
 import { decodeTheme, encodeTheme, setCustomTheme, setCustomThemeEnabled, useCustomTheme, type CustomTheme } from "@/composables/useCustomTheme";
 
@@ -212,6 +213,29 @@ const THEME_PRESETS: CustomTheme[] = [
 const THEME_SWATCHES = ["#2090ea", "#0ea5e9", "#14b8a6", "#10b981", "#84cc16", "#f59e0b", "#f97316", "#f43f5e", "#ec4899", "#8b5cf6", "#6366f1", "#64748b"];
 const THEME_FIELDS = ["accent", "tint"] as const;
 const themeEditing = ref<"" | "accent" | "tint">("");
+
+// Display scale presets (percent). The actual zoom lives in main.ts (CSS
+// `zoom` on <html>); this panel drives it through the __lqxpSetZoom bridge
+// and tracks WINDOW_ZOOM_EVENT so Ctrl + / - / 0 stay reflected here.
+const ZOOM_PRESETS = [75, 90, 100, 110, 125, 150];
+const zoomAvailable = isWindowZoomEnabled();
+const windowZoomPct = ref(Math.round(currentWindowZoom() * 100));
+
+function onWindowZoomEvent(event: Event) {
+  const scale = (event as CustomEvent<{ scale?: number }>).detail?.scale;
+  windowZoomPct.value = typeof scale === "number" && Number.isFinite(scale)
+    ? Math.round(scale * 100)
+    : Math.round(currentWindowZoom() * 100);
+}
+
+function setWindowZoom(pct: number) {
+  try {
+    (window as unknown as { __lqxpSetZoom?: (scale: number) => void }).__lqxpSetZoom?.(pct / 100);
+  } catch {
+    /* zoom bridge unavailable */
+  }
+  windowZoomPct.value = Math.round(currentWindowZoom() * 100);
+}
 
 function onThemeToggle(event: Event) {
   const enabled = event.target instanceof HTMLInputElement && event.target.checked;
@@ -744,12 +768,15 @@ function onSettingsTouchCancel() {
 
 onMounted(() => {
   syncMobileSettings();
+  windowZoomPct.value = Math.round(currentWindowZoom() * 100);
   window.addEventListener("resize", syncMobileSettings, { passive: true });
+  window.addEventListener(WINDOW_ZOOM_EVENT, onWindowZoomEvent);
   window.addEventListener("popstate", onSettingsPopState);
   document.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", syncMobileSettings);
+  window.removeEventListener(WINDOW_ZOOM_EVENT, onWindowZoomEvent);
   window.removeEventListener("popstate", onSettingsPopState);
   document.removeEventListener("keydown", onKey);
   releaseSettingsHistoryEntry();
@@ -1073,6 +1100,31 @@ onBeforeUnmount(() => {
             <SelectMenu :aria-label="t('settings.ui.accentColor')" :model-value="messenger.state.appAccent" :options="accentOptions"
               @update:model-value="messenger.setAppAccent(String($event))" />
           </div>
+        </div>
+
+        <div class="settings-group">
+          <h4>{{ t('settings.ui.display') }}</h4>
+          <div v-if="zoomAvailable" class="zoom-presets" role="group" :aria-label="t('settings.ui.displayScale')">
+            <button
+              v-for="pct in ZOOM_PRESETS"
+              :key="pct"
+              type="button"
+              class="zoom-preset"
+              :class="{ 'is-active': windowZoomPct === pct }"
+              :aria-pressed="windowZoomPct === pct"
+              @click="setWindowZoom(pct)"
+            >{{ pct }}%</button>
+            <button
+              v-if="!ZOOM_PRESETS.includes(windowZoomPct)"
+              type="button"
+              class="zoom-preset is-active"
+              :aria-pressed="true"
+              @click="setWindowZoom(100)"
+              :title="t('settings.ui.displayReset')"
+            >{{ windowZoomPct }}%</button>
+          </div>
+          <p v-if="zoomAvailable" class="settings-note">{{ t('settings.ui.displayScaleNote', { pct: String(windowZoomPct) }) }}</p>
+          <p v-else class="settings-note">{{ t('settings.ui.displayUnavailable') }}</p>
         </div>
 
         <div class="settings-group">
@@ -2234,6 +2286,37 @@ onBeforeUnmount(() => {
 
 .theme-preset.is-active {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.zoom-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.zoom-preset {
+  min-width: 64px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.zoom-preset:hover {
+  background: color-mix(in srgb, var(--text) 7%, var(--field-bg));
+}
+
+.zoom-preset.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--accent);
 }
 
 .theme-field {

@@ -88,15 +88,17 @@ const platformLabel = (p: string) =>
             <code>{{ shortId(p.id) }}</code>
             <small>epoch {{ p.epoch }} · {{ t("cloudsync.lastSync") }}: {{ peerSince(p.lastSeen) }}</small>
           </div>
-          <span class="sync-device__badge">{{ t("cloudsync.paired") }}</span>
-          <button
-            type="button"
-            class="btn settings-btn settings-btn--danger sync-device__unpair"
-            :title="t('cloudsync.unpair')"
-            @click="cloudSync.unpairPeer(p.id)"
-          >
-            {{ t("cloudsync.unpair") }}
-          </button>
+          <div class="sync-device__side">
+            <span class="sync-device__badge">{{ t("cloudsync.paired") }}</span>
+            <button
+              type="button"
+              class="btn settings-btn settings-btn--danger sync-device__unpair"
+              :title="t('cloudsync.unpair')"
+              @click="cloudSync.unpairPeer(p.id)"
+            >
+              {{ t("cloudsync.unpair") }}
+            </button>
+          </div>
         </div>
         <p v-if="!cloudSync.state.peers.length" class="settings-note">
           {{ cloudSync.state.phase === "hello-sent" ? t("cloudsync.waitingPeer") : t("cloudsync.unpaired") }}
@@ -336,18 +338,30 @@ const platformLabel = (p: string) =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sync-device__meta {
+  overflow-wrap: anywhere;
+}
 .sync-device__meta small {
   opacity: 0.7;
+  line-height: 1.45;
+}
+.sync-device__side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: none;
 }
 .sync-device__badge {
   font-size: 12px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid var(--border, rgba(128, 128, 128, 0.25));
   white-space: nowrap;
 }
 .sync-device__unpair {
   flex: none;
+  min-height: 36px;
 }
 .sync-subgroups {
   margin-left: 12px;
@@ -356,5 +370,54 @@ const platformLabel = (p: string) =>
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Narrow screens: the device card breathes — icon + identity on the first
+   row, status + unpair on a full-width second row instead of one squeezed
+   strip. Buttons keep a 40px+ touch target. */
+@media (max-width: 560px) {
+  .sync-devices {
+    gap: 12px;
+  }
+  .sync-device {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+  .sync-device__icon {
+    width: 42px;
+    height: 42px;
+  }
+  .sync-device__meta {
+    flex: 1 1 calc(100% - 54px);
+    gap: 4px;
+  }
+  .sync-device__meta strong {
+    font-size: 14.5px;
+  }
+  .sync-device__meta code {
+    font-size: 12.5px;
+  }
+  .sync-device__side {
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .sync-device__unpair {
+    flex: 1;
+    min-height: 42px;
+  }
+  .sync-subgroups {
+    margin-left: 4px;
+    padding-left: 10px;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-device {
+    transition: none;
+  }
 }
 </style>

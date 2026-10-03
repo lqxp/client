@@ -442,6 +442,19 @@ function setupScrollLockdown() {
   } catch {
     /* sync hook unavailable */
   }
+
+  // Display-scale bridge for Settings (UI section): preset buttons call
+  // __lqxpSetZoom(pct/100) instead of reaching into module state. No-ops on
+  // touch runtimes where applyWindowZoom() intentionally stays at 1.
+  try {
+    const w = window as unknown as { __lqxpSetZoom?: (scale: number) => void };
+    w.__lqxpSetZoom = (scale: number) => {
+      if (typeof scale !== "number" || !Number.isFinite(scale)) return;
+      applyWindowZoom(scale);
+    };
+  } catch {
+    /* zoom hook unavailable */
+  }
 }
 
 // applyWindowZoom() also syncs the zoom-compensated viewport vars, so it

@@ -20,14 +20,107 @@ const dialog = inject<ReturnType<typeof useDialog>>("dialog")!;
 const phantom = inject<Phantom | null>("phantom", null);
 
 const recoveryFileInputRef = ref<HTMLInputElement | null>(null);
-const recoveryWordsInput = ref("");
+// One box per word: easier to review than a raw textarea, and the count
+// makes a truncated paste obvious before anything is committed.
+const recoveryBoxes = ref<string[]>(Array.from({ length: 12 }, () => ""));
+// Signed clients hide the entry form entirely; replacing words is opt-in.
+const recoveryReplaceMode = ref(false);
+const recoveryVerifying = ref(false);
+const recoveryError = ref("");
+const recoveryNotice = ref("");
+const recoveryInputs = ref<Array<HTMLInputElement | null>>([]);
 const recoverySigned = computed(
   () => Array.isArray(props.messenger.state.recoveryWords) && props.messenger.state.recoveryWords.length === 12,
 );
+const recoveryFilledCount = computed(() => recoveryBoxes.value.filter((word) => word.trim()).length);
 
-function importRecoveryWords() {
-  if (!props.messenger.setRecoveryWords?.(recoveryWordsInput.value)) return;
-  recoveryWordsInput.value = "";
+function setRecoveryInputRef(element: unknown, index: number) {
+  recoveryInputs.value[index] = element instanceof HTMLInputElement ? element : null;
+}
+
+function focusRecoveryBox(index: number) {
+  const clamped = Math.max(0, Math.min(11, index));
+  recoveryInputs.value[clamped]?.focus();
+}
+
+function sanitizeRecoveryWord(value: string) {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function onRecoveryBoxInput(index: number, event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target) return;
+  const clean = sanitizeRecoveryWord(target.value);
+  // A space means the word is done: commit it and move to the next box.
+  if (/\s/.test(target.value) && clean) {
+    recoveryBoxes.value[index] = clean;
+    recoveryError.value = "";
+    focusRecoveryBox(index + 1);
+    return;
+  }
+  recoveryBoxes.value[index] = clean;
+  if (clean) recoveryError.value = "";
+}
+
+function onRecoveryBoxKeydown(index: number, event: KeyboardEvent) {
+  if (event.key === "Backspace" && !recoveryBoxes.value[index]) {
+    event.preventDefault();
+    focusRecoveryBox(index - 1);
+  }
+}
+
+function onRecoveryBoxPaste(index: number, event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text") || "";
+  if (!text.trim()) return;
+  event.preventDefault();
+  // Strip an exported .txt header, then spread the words from this box on.
+  const parsed = props.messenger.parseRecoveryWords?.(text);
+  const words = parsed ?? String(text).split(/\s+/).map(sanitizeRecoveryWord).filter(Boolean).slice(0, 12);
+  for (let i = 0; i < words.length && index + i < 12; i += 1) {
+    recoveryBoxes.value[index + i] = words[i];
+  }
+  recoveryError.value = "";
+  focusRecoveryBox(Math.min(11, index + words.length));
+}
+
+function clearRecoveryBoxes() {
+  recoveryBoxes.value = Array.from({ length: 12 }, () => "");
+  recoveryError.value = "";
+  recoveryNotice.value = "";
+  focusRecoveryBox(0);
+}
+
+async function importRecoveryWords() {
+  recoveryError.value = "";
+  recoveryNotice.value = "";
+  const parsed = props.messenger.parseRecoveryWords?.(recoveryBoxes.value.join(" "));
+  if (!parsed) {
+    recoveryError.value = t("settings.security.invalidRecoveryWords");
+    return;
+  }
+  // Crypto check before anything is stored: trial-decrypt the server-hosted
+  // roster blob with the key these words derive. Wrong words are rejected
+  // here instead of showing a bogus "signed" state that breaks later.
+  if (phantom) {
+    recoveryVerifying.value = true;
+    try {
+      const verdict = await phantom.verifyRecoveryWords(parsed);
+      if (verdict === "mismatch") {
+        recoveryError.value = t("settings.security.recoveryMismatch");
+        return;
+      }
+      if (!props.messenger.setRecoveryWords?.(parsed.join(" "))) return;
+      if (verdict === "unverifiable") {
+        recoveryNotice.value = t("settings.security.recoveryUnverified");
+      }
+    } finally {
+      recoveryVerifying.value = false;
+    }
+  } else if (!props.messenger.setRecoveryWords?.(parsed.join(" "))) {
+    return;
+  }
+  recoveryReplaceMode.value = false;
+  clearRecoveryBoxes();
   // The words decrypt the friend roster, so it is reloaded right away.
   phantom?.loadRoster?.().catch(() => {});
   phantom?.pollNow?.().catch(() => {});
@@ -41,10 +134,23 @@ async function onRecoveryFilePicked(event: Event) {
   const file = takePickedFile(event);
   if (!file) return;
   try {
-    recoveryWordsInput.value = (await file.text()).trim();
-    importRecoveryWords();
+    const text = (await file.text()).trim();
+    const parsed = props.messenger.parseRecoveryWords?.(text);
+    if (parsed) {
+      recoveryBoxes.value = [...parsed];
+      recoveryError.value = "";
+      void importRecoveryWords();
+    } else {
+      // Fill what we can so the user sees (and fixes) the problem.
+      const words = String(text).split(/\s+/).map(sanitizeRecoveryWord).filter(Boolean).slice(0, 12);
+      for (let i = 0; i < 12; i += 1) recoveryBoxes.value[i] = words[i] || "";
+      recoveryError.value = t("settings.security.invalidRecoveryWords");
+    }
   } catch {
-    // An unreadable file leaves the field as it was.
+    // An unreadable file leaves the fields as they were.
+  } finally {
+    // Same file picked twice must fire change again.
+    if (recoveryFileInputRef.value) recoveryFileInputRef.value.value = "";
   }
 }
 
@@ -160,36 +266,65 @@ const passwordModalOpen = ref(false);
 
     <div class="settings-group">
       <h4>{{ t("settings.security.recoveryTitle") }}</h4>
-      <p v-if="recoverySigned" class="settings-note recovery-signed">
-        {{ t("settings.security.recoverySigned") }}
-      </p>
-      <p v-else class="settings-note recovery-unsigned">
-        {{ t("settings.security.recoveryNotSigned") }}
-      </p>
-      <p class="settings-note">{{ t("settings.security.recoveryHint") }}</p>
-      <div class="settings-inline">
-        <textarea
-          id="security-recovery-words"
-          v-model="recoveryWordsInput"
-          class="settings-input settings-textarea"
-          rows="3"
-          :aria-label="t('settings.security.recoveryTitle')"
-          :placeholder="t('settings.security.recoveryPlaceholder')"
-          autocomplete="off"
-          spellcheck="false"
-        ></textarea>
+      <div class="recovery-status" :class="recoverySigned ? 'is-signed' : 'is-unsigned'" role="status">
+        <span class="recovery-status__dot" aria-hidden="true"></span>
+        <span>{{ recoverySigned ? t("settings.security.recoverySigned") : t("settings.security.recoveryNotSigned") }}</span>
       </div>
-      <div class="settings-actions">
+      <p class="settings-note">{{ t("settings.security.recoveryHint") }}</p>
+      <div v-if="recoverySigned && !recoveryReplaceMode" class="settings-actions">
+        <button type="button" class="btn settings-btn recovery-replace" @click="recoveryReplaceMode = true">
+          {{ t("settings.security.recoveryReplace") }}
+        </button>
+      </div>
+      <template v-if="!recoverySigned || recoveryReplaceMode">
+      <div class="recovery-grid" role="group" :aria-label="t('settings.security.recoveryTitle')">
+        <label v-for="index in 12" :key="index" class="recovery-box">
+          <span class="recovery-box__index" aria-hidden="true">{{ index }}</span>
+          <input
+            :ref="(el) => setRecoveryInputRef(el, index - 1)"
+            :value="recoveryBoxes[index - 1]"
+            class="settings-input recovery-box__input"
+            type="text"
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            :aria-label="t('settings.security.recoveryWordLabel', { n: String(index) })"
+            @input="onRecoveryBoxInput(index - 1, $event)"
+            @keydown="onRecoveryBoxKeydown(index - 1, $event)"
+            @paste="onRecoveryBoxPaste(index - 1, $event)"
+          />
+        </label>
+      </div>
+      <p class="recovery-count" :class="{ 'is-complete': recoveryFilledCount === 12 }">
+        {{ t("settings.security.recoveryWordCount", { done: String(recoveryFilledCount) }) }}
+        <span class="recovery-count__hint">{{ t("settings.security.recoveryPasteHint") }}</span>
+      </p>
+      <p v-if="recoveryError" class="recovery-feedback is-error" role="alert">
+        {{ recoveryError }}
+      </p>
+      <p v-else-if="recoveryNotice" class="recovery-feedback is-notice" role="status">
+        {{ recoveryNotice }}
+      </p>
+      <div class="settings-actions recovery-actions">
         <button
           type="button"
-          class="btn settings-btn"
-          :disabled="!recoveryWordsInput.trim()"
+          class="btn settings-btn recovery-verify"
+          :disabled="recoveryFilledCount !== 12 || recoveryVerifying"
           @click="importRecoveryWords"
         >
-          {{ t("settings.security.recoveryImport") }}
+          {{ recoveryVerifying ? t("settings.security.recoveryVerifying") : t("settings.security.recoveryVerify") }}
         </button>
-        <button type="button" class="btn settings-btn" @click="onRecoveryFilePick">
+        <button type="button" class="btn settings-btn" :disabled="recoveryVerifying" @click="onRecoveryFilePick">
           {{ t("settings.security.recoveryImportFile") }}
+        </button>
+        <button
+          type="button"
+          class="btn settings-btn settings-btn--danger"
+          :disabled="recoveryFilledCount === 0 || recoveryVerifying"
+          @click="clearRecoveryBoxes"
+        >
+          {{ t("settings.security.recoveryClear") }}
         </button>
         <input
           ref="recoveryFileInputRef"
@@ -199,6 +334,7 @@ const passwordModalOpen = ref(false);
           @change="onRecoveryFilePicked"
         />
       </div>
+      </template>
     </div>
 
     <div class="settings-group">
@@ -283,12 +419,179 @@ const passwordModalOpen = ref(false);
   transition: width var(--dur-base) var(--ease-out);
 }
 
-.recovery-signed {
-  color: var(--green) !important;
+.recovery-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: inset 0 0 0 1px var(--line);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
 }
 
-.recovery-unsigned {
-  color: var(--red) !important;
+.recovery-status__dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.recovery-status.is-signed {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 38%, transparent);
+}
+
+.recovery-status.is-signed .recovery-status__dot {
+  background: var(--green);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 18%, transparent);
+}
+
+.recovery-status.is-unsigned {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 34%, transparent);
+}
+
+.recovery-status.is-unsigned .recovery-status__dot {
+  background: var(--red);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 16%, transparent);
+  animation: recovery-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes recovery-dot-pulse {
+  50% { opacity: 0.45; }
+}
+
+.recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.recovery-box {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 6px 6px 6px 8px;
+  border-radius: 10px;
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.recovery-box:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.recovery-box__index {
+  flex: none;
+  min-width: 16px;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.recovery-box__input {
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.recovery-box__input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.recovery-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.recovery-count.is-complete {
+  color: var(--green);
+}
+
+.recovery-count__hint {
+  font-weight: 400;
+}
+
+.recovery-feedback {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.recovery-feedback.is-error {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 36%, transparent);
+}
+
+.recovery-feedback.is-notice {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Same row, same height: unlike btn--primary (full-width + top margin) this
+   keeps every action button on one baseline. */
+.recovery-actions {
+  align-items: stretch;
+}
+
+.recovery-actions .btn {
+  height: auto;
+}
+
+.recovery-verify {
+  background: var(--accent);
+  color: #fff;
+}
+
+.recovery-verify:hover {
+  background: color-mix(in srgb, var(--accent) 82%, #000 18%);
+}
+
+.recovery-verify:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recovery-replace {
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .recovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recovery-status.is-unsigned .recovery-status__dot {
+    animation: none;
+  }
 }
 </style>
