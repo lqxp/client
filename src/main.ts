@@ -130,6 +130,7 @@ function syncViewportHeight() {
   root.classList.toggle("is-keyboard-open", keyboardHeight > 4);
 }
 
+const WEB_DESKTOP_QUERY = "(min-width: 901px) and (hover: hover) and (pointer: fine)";
 function syncPlatformChromeOffset() {
   const isAndroid = /Android/i.test(navigator.userAgent);
   const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
@@ -137,9 +138,21 @@ function syncPlatformChromeOffset() {
   // The desktop title bar sits at --z-window-chrome, above every overlay, and
   // the ones teleported to `body` start at y=0: without this offset their top
   // controls end up underneath it. Same conditions InboxView uses to show it.
-  const isWebDesktop = window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
+  // Re-evaluated on resize/media change so a window enlarged after a narrow
+  // start still gets the offset (and vice versa).
+  const isWebDesktop = window.matchMedia(WEB_DESKTOP_QUERY).matches;
   const hasTitlebar = (isTauri && !isAndroid) || isWebDesktop;
   document.documentElement.style.setProperty("--app-chrome-top", hasTitlebar ? "30px" : "0px");
+}
+
+function watchPlatformChromeOffset() {
+  syncPlatformChromeOffset();
+  window.addEventListener("resize", syncPlatformChromeOffset, { passive: true });
+  try {
+    window.matchMedia(WEB_DESKTOP_QUERY).addEventListener?.("change", syncPlatformChromeOffset);
+  } catch {
+    /* MediaQueryList events unavailable */
+  }
 }
 
 function preventMobileZoom() {
@@ -434,7 +447,7 @@ function setupScrollLockdown() {
 // applyWindowZoom() also syncs the zoom-compensated viewport vars, so it
 // replaces the standalone syncViewportHeight() call here.
 applyWindowZoom(readStoredZoom());
-syncPlatformChromeOffset();
+watchPlatformChromeOffset();
 preventMobileZoom();
 setupScrollLockdown();
 window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });

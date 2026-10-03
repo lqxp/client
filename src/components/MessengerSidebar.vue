@@ -46,7 +46,12 @@ let sidebarTouchStartX = 0;
 let sidebarTouchStartY = 0;
 let sideListTouchStartX = 0;
 let sideListTouchStartY = 0;
-const isMobile = ref(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
+const MOBILE_QUERY = "(max-width: 760px)";
+const isMobile = ref(typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches);
+let mobileMedia: MediaQueryList | null = null;
+function syncIsMobile() {
+  isMobile.value = typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches;
+}
 
 function onSidebarTouchStart(event: TouchEvent) {
   sidebarTouchStartX = event.touches[0].clientX;
@@ -419,9 +424,18 @@ function onDocumentClick() {
 
 onMounted(() => {
   document.addEventListener("click", onDocumentClick);
+  syncIsMobile();
+  window.addEventListener("resize", syncIsMobile, { passive: true });
+  if (typeof window !== "undefined" && window.matchMedia) {
+    mobileMedia = window.matchMedia(MOBILE_QUERY);
+    mobileMedia.addEventListener?.("change", syncIsMobile);
+  }
 });
 onBeforeUnmount(() => {
   document.removeEventListener("click", onDocumentClick);
+  window.removeEventListener("resize", syncIsMobile);
+  mobileMedia?.removeEventListener?.("change", syncIsMobile);
+  mobileMedia = null;
 });
 </script>
 

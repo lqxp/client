@@ -107,13 +107,34 @@ const TITLEBAR_ACTIONS = ["streamer", "settings", "lock", "theme", "logout"] as 
 const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 const isAndroidRuntime = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && isTauri;
 const isMacOS = typeof navigator !== "undefined" && /Macintosh/i.test(navigator.userAgent) && !/iPhone|iPad|iPod/i.test(navigator.userAgent);
-const isWebDesktopRuntime = typeof window !== "undefined" && !isTauri && window.matchMedia("(min-width: 901px) and (hover: hover) and (pointer: fine)").matches;
+// Reactive viewport flags: evaluated once at startup they would freeze the
+// layout (e.g. MemberSidebar v-if="!isMobile" or the web titlebar would never
+// appear when starting narrow then enlarging). Synced on resize + media change.
+const MOBILE_QUERY = "(max-width: 760px)";
+const WEB_DESKTOP_QUERY = "(min-width: 901px) and (hover: hover) and (pointer: fine)";
+function evalQuery(query: string) {
+  return typeof window !== "undefined" && !!window.matchMedia?.(query).matches;
+}
+const isMobile = ref(evalQuery(MOBILE_QUERY));
+const isWebDesktopRuntime = ref(typeof window !== "undefined" && !isTauri && evalQuery(WEB_DESKTOP_QUERY));
+let mobileMedia: MediaQueryList | null = null;
+let webDesktopMedia: MediaQueryList | null = null;
+function syncIsMobile() {
+  isMobile.value = evalQuery(MOBILE_QUERY);
+}
+function syncIsWebDesktop() {
+  isWebDesktopRuntime.value = !isTauri && evalQuery(WEB_DESKTOP_QUERY);
+}
+function syncViewportFlags() {
+  syncIsMobile();
+  syncIsWebDesktop();
+}
 const showNativeTitlebar = isTauri && !isAndroidRuntime;
 const showAuthTitlebar = showNativeTitlebar;
-const showDesktopTitlebar = showNativeTitlebar || isWebDesktopRuntime;
+const showDesktopTitlebar = computed(() => showNativeTitlebar || isWebDesktopRuntime.value);
 // Full-screen overlays teleported to <body> start below the desktop title bar.
 watchEffect(() => {
-  document.documentElement.style.setProperty("--app-top-inset", showDesktopTitlebar ? "30px" : "0px");
+  document.documentElement.style.setProperty("--app-top-inset", showDesktopTitlebar.value ? "30px" : "0px");
 });
 const showWindowControls = showNativeTitlebar && !isMacOS;
 const appWindow = showNativeTitlebar ? getCurrentWindow() : null;
@@ -223,9 +244,7 @@ const desktopRoomIconIsImage = computed(() => {
   return !!icon && (icon.startsWith("data:image/") || !icon.startsWith("data:"));
 });
 
-const isMobile = computed(() =>
-  typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches
-);
+// isMobile / isWebDesktopRuntime live above (reactive refs synced on resize).
 
 // Drag & drop files over the open conversation.
 const composerBarRef = ref<{ addFiles: (files: File[]) => void } | null>(null);
@@ -584,7 +603,15 @@ watch(
 onMounted(() => {
   titlebarTrayItems.value = loadTitlebarTrayItems();
   syncTitlebarCompact();
+  syncViewportFlags();
   window.addEventListener("resize", syncTitlebarCompact);
+  window.addEventListener("resize", syncViewportFlags, { passive: true });
+  if (typeof window !== "undefined" && window.matchMedia) {
+    mobileMedia = window.matchMedia(MOBILE_QUERY);
+    mobileMedia.addEventListener?.("change", syncIsMobile);
+    webDesktopMedia = window.matchMedia(WEB_DESKTOP_QUERY);
+    webDesktopMedia.addEventListener?.("change", syncIsWebDesktop);
+  }
   if (typeof ResizeObserver !== "undefined") {
     titlebarResizeObserver = new ResizeObserver(syncTitlebarCompact);
     titlebarResizeObserver.observe(document.documentElement);
@@ -610,6 +637,11 @@ onBeforeUnmount(() => {
   if (adaptiveThemeTimer) clearInterval(adaptiveThemeTimer);
   systemThemeMedia?.removeEventListener("change", applyAppearance);
   window.removeEventListener("resize", syncTitlebarCompact);
+  window.removeEventListener("resize", syncViewportFlags);
+  mobileMedia?.removeEventListener?.("change", syncIsMobile);
+  webDesktopMedia?.removeEventListener?.("change", syncIsWebDesktop);
+  mobileMedia = null;
+  webDesktopMedia = null;
   titlebarResizeObserver?.disconnect();
   unlistenTitlebarResize?.();
   document.removeEventListener("pointerdown", onDocumentPointerDown);
