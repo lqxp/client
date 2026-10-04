@@ -626,12 +626,17 @@ function isComposerTrayActionDisabled(action: ComposerTrayAction) {
 
 function loadComposerTrayItems() {
   try {
-    const raw = JSON.parse(localStorage.getItem(COMPOSER_TRAY_STORAGE_KEY) || "[]");
-    if (!Array.isArray(raw)) return [];
+    const stored = localStorage.getItem(COMPOSER_TRAY_STORAGE_KEY);
+    // No stored choice yet: everything stowed by default (clean composer,
+    // all actions behind "+"). An explicitly stored value — including []
+    // (user unstowed everything on purpose) — is respected as-is.
+    if (stored == null) return [...COMPOSER_TRAY_ACTIONS];
+    const raw = JSON.parse(stored);
+    if (!Array.isArray(raw)) return [...COMPOSER_TRAY_ACTIONS];
     return raw.filter((item): item is ComposerTrayAction =>
       (COMPOSER_TRAY_ACTIONS as readonly string[]).includes(item));
   } catch {
-    return [];
+    return [...COMPOSER_TRAY_ACTIONS];
   }
 }
 
