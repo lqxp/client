@@ -148,9 +148,11 @@ function restartActivityClock() {
   }
   if (visibleActivity.value?.startedAt) {
     activityNow.value = Date.now();
+    // Real-time elapsed clock (1 s): display only, detection still polls
+    // at 30 s in useActivity — cheap (one timestamp ref while open).
     activityTimer = setInterval(() => {
       activityNow.value = Date.now();
-    }, 30_000);
+    }, 1_000);
   }
 }
 watch(() => visibleActivity.value?.startedAt, restartActivityClock, { immediate: true });
