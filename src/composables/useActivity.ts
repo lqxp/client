@@ -37,6 +37,16 @@ function readSharing(): boolean {
   }
 }
 
+function activityDebug(...args: unknown[]) {
+  try {
+    if (localStorage.getItem("lqxp:activity-debug") === "1") {
+      console.debug("[qxchat-activity]", ...args);
+    }
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 export function useActivity(messenger: Messenger) {
   const state = reactive({
     sharingEnabled: readSharing(),
@@ -62,9 +72,19 @@ export function useActivity(messenger: Messenger) {
     try {
       const identified = Boolean(messenger.state.identified && String(messenger.state.authToken || "").trim());
       const locked = Boolean(messenger.state.clientLockLocked);
-      if (!identified || locked) return;
+      if (!identified || locked) {
+        activityDebug("skip: not broadcastable", { identified, locked });
+        return;
+      }
       const invisible = String(messenger.state.status || "") === "invisible";
       const streamer = Boolean(messenger.state.streamerMode);
+      activityDebug("tick", {
+        sharing: state.sharingEnabled,
+        invisible,
+        streamer,
+        status: String(messenger.state.status || ""),
+        desktop,
+      });
       let next: UserActivity | null = null;
       if (state.sharingEnabled && !invisible && !streamer) {
         next = readCallActivity();
@@ -76,9 +96,14 @@ export function useActivity(messenger: Messenger) {
           }
         }
       }
+      activityDebug("detected", next);
       state.current = next;
-      if (sameActivity(lastPushed ?? null, next) && lastPushed !== undefined) return;
+      if (sameActivity(lastPushed ?? null, next) && lastPushed !== undefined) {
+        activityDebug("unchanged, skip push");
+        return;
+      }
       lastPushed = next;
+      activityDebug("push", next);
       messenger.setProfileActivity?.(next);
     } catch {
       /* detection must never break the app */
