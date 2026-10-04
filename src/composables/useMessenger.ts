@@ -2810,10 +2810,17 @@ export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: stri
   const system = Boolean(message.system) || looksSystem;
   const systemKind = String(message.systemKind || "") ||
     (looksSystem ? (messageId.includes("-call-") ? "call" : "presence") : "");
-  const voiceInfo = parseVoiceLabel(message.text || "");
+  // Re-normalization must be idempotent: reactions, deletion and
+  // storage-load re-run this over already-normalized messages whose `text`
+  // was blanked for poll/voice kinds — `rawText` (kept verbatim) is the
+  // parse source, wire messages fall back to `text`.
+  const sourceText = String(
+    (message as { rawText?: unknown }).rawText ?? message.text ?? "",
+  );
+  const voiceInfo = parseVoiceLabel(sourceText);
   const voiceDuration = voiceInfo.duration;
   const voiceWaveform = voiceInfo.waveform;
-  const poll = message.attachment ? null : parsePollLabel(message.text || "");
+  const poll = message.attachment ? null : parsePollLabel(sourceText);
   const attachment =
     message.attachment && typeof message.attachment === "object"
       ? {
@@ -2859,7 +2866,7 @@ export function normalizeMessage(message: IncomingMessage, fallbackRoomId?: stri
   } else if (voiceDuration) kind = "voice";
   else if (poll) kind = "poll";
 
-  const rawText = message.text || "";
+  const rawText = sourceText;
   const jumboEmoji =
     !attachment && !voiceDuration && !poll && !message.deleted && !system && isOnlyEmoji(rawText);
 
